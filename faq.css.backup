@@ -1,0 +1,329 @@
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #081019;
+      --panel: #101925;
+      --panel-2: #172538;
+      --line: #36506f;
+      --text: #f6f2e7;
+      --muted: #c6c4b8;
+      --accent: #e5bd54;
+      --soft: #8ea8c8;
+      --bad: #ef6d70;
+      --good: #56d095;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font: 16px/1.55 Arial, Helvetica, sans-serif;
+      letter-spacing: 0;
+    }
+
+    a {
+      color: var(--accent);
+      text-decoration: none;
+    }
+
+    a:hover {
+      text-decoration: underline;
+    }
+
+    .page {
+      min-height: 100vh;
+      background:
+        linear-gradient(180deg, rgba(229, 189, 84, 0.08), rgba(8, 16, 25, 0) 340px),
+        var(--bg);
+    }
+
+    header {
+      border-bottom: 1px solid var(--line);
+      background: rgba(8, 16, 25, 0.92);
+      position: sticky;
+      top: 0;
+      z-index: 3;
+      backdrop-filter: blur(12px);
+    }
+
+    .nav {
+      max-width: 1120px;
+      margin: 0 auto;
+      padding: 12px 18px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-width: 0;
+    }
+
+    .mark {
+      width: 24px;
+      height: 24px;
+      clip-path: polygon(50% 0, 100% 88%, 0 88%);
+      background: linear-gradient(180deg, #fff1a8, #e5bd54 56%, #56d095);
+      filter: drop-shadow(0 0 10px rgba(229, 189, 84, 0.5));
+      flex: 0 0 auto;
+    }
+
+    .brand strong {
+      font-size: 15px;
+      white-space: nowrap;
+    }
+
+    .nav-links {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      font-size: 14px;
+    }
+
+    main {
+      max-width: 1120px;
+      margin: 0 auto;
+      padding: 40px 18px 56px;
+    }
+
+    .intro {
+      display: grid;
+      grid-template-columns: minmax(0, 1.15fr) minmax(280px, 0.85fr);
+      gap: 28px;
+      align-items: end;
+      padding: 28px 0 34px;
+    }
+
+    h1 {
+      margin: 0 0 12px;
+      font-size: clamp(34px, 6vw, 72px);
+      line-height: 0.96;
+      letter-spacing: 0;
+      max-width: 760px;
+    }
+
+    .lede {
+      margin: 0;
+      max-width: 720px;
+      color: var(--muted);
+      font-size: 18px;
+    }
+
+    .status {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+      padding: 18px;
+    }
+
+    .status h2 {
+      margin: 0 0 10px;
+      font-size: 18px;
+    }
+
+    .status ul {
+      margin: 0;
+      padding: 0;
+      list-style: none;
+      display: grid;
+      gap: 9px;
+    }
+
+    .status li {
+      display: grid;
+      grid-template-columns: 14px minmax(0, 1fr);
+      gap: 8px;
+      color: var(--muted);
+    }
+
+    .dot {
+      width: 9px;
+      height: 9px;
+      margin-top: 8px;
+      border-radius: 50%;
+      background: var(--good);
+    }
+
+    .section-title {
+      margin: 10px 0 14px;
+      color: var(--soft);
+      text-transform: uppercase;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .faq {
+      display: grid;
+      grid-template-columns: minmax(220px, 0.34fr) minmax(0, 0.66fr);
+      gap: 24px;
+      align-items: start;
+    }
+
+    .toc {
+      position: sticky;
+      top: 64px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+      padding: 14px;
+    }
+
+    .toc h2 {
+      margin: 0 0 10px;
+      font-size: 14px;
+      color: var(--text);
+    }
+
+    .toc a {
+      display: block;
+      padding: 7px 0;
+      color: var(--muted);
+    }
+
+    .toc a:hover {
+      color: var(--accent);
+    }
+
+    .questions {
+      display: grid;
+      gap: 12px;
+    }
+
+    details {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+      overflow: hidden;
+    }
+
+    summary {
+      cursor: pointer;
+      padding: 15px 16px;
+      min-height: 54px;
+      color: var(--text);
+      background: var(--panel-2);
+      font-weight: 700;
+      list-style-position: inside;
+    }
+
+    details[open] summary {
+      border-bottom: 1px solid var(--line);
+    }
+
+    .answer {
+      padding: 15px 16px 17px;
+      color: var(--muted);
+    }
+
+    .answer p {
+      margin: 0 0 10px;
+    }
+
+    .answer p:last-child,
+    .answer ul:last-child {
+      margin-bottom: 0;
+    }
+
+    .answer ul {
+      margin: 0 0 10px;
+      padding-left: 20px;
+    }
+
+    code {
+      color: var(--text);
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 6px;
+      padding: 2px 5px;
+      font-family: Consolas, Monaco, monospace;
+      font-size: 0.92em;
+    }
+
+    .callout {
+      margin-top: 24px;
+      border: 1px solid rgba(229, 189, 84, 0.55);
+      border-radius: 8px;
+      background: rgba(229, 189, 84, 0.08);
+      padding: 16px;
+      color: var(--muted);
+    }
+
+    .callout strong {
+      color: var(--text);
+    }
+
+    .tier-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+      margin-top: 12px;
+    }
+
+    .tier-card {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.03);
+      padding: 14px;
+    }
+
+    .tier-card h3 {
+      margin: 0 0 8px;
+      color: var(--text);
+      font-size: 16px;
+    }
+
+    .tier-card ul {
+      margin: 0;
+      padding-left: 18px;
+    }
+
+    footer {
+      max-width: 1120px;
+      margin: 0 auto;
+      padding: 24px 18px 40px;
+      color: var(--muted);
+      border-top: 1px solid var(--line);
+      font-size: 14px;
+    }
+
+    @media (max-width: 840px) {
+      .nav {
+        align-items: flex-start;
+        flex-direction: column;
+      }
+
+      .nav-links {
+        justify-content: flex-start;
+      }
+
+      .intro,
+      .faq {
+        grid-template-columns: 1fr;
+      }
+
+      .toc {
+        position: static;
+      }
+
+      .tier-grid {
+        grid-template-columns: 1fr;
+      }
+
+      main {
+        padding-top: 26px;
+      }
+    }
+  </style>
