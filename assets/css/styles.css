@@ -1,7 +1,7 @@
 :root {
 	color-scheme: dark;
 	--bg: linear-gradient(rgba(8, 16, 25, 0.82), rgba(8, 16, 25, 0.82)),
-		url("PythagorasProject-CIS.logo.png") no-repeat center center fixed;
+		url("pp-logo.png") no-repeat center center fixed;
 	--panel: #101925;
 	--panel-2: #172538;
 	--line: #36506f;
