@@ -1,7 +1,7 @@
 :root {
 	color-scheme: dark;
 	--bg: linear-gradient(rgba(8, 16, 25, 0.82), rgba(8, 16, 25, 0.82)),
-		url("../assets/images/pp-logo.png") no-repeat center center fixed;
+		url("../images/pp-logo.png") no-repeat center center fixed;
 	--panel: #101925;
 	--panel-2: #172538;
 	--line: #36506f;
@@ -298,33 +298,6 @@ footer {
 	border-top: 1px solid var(--line);
 	font-size: 14px;
 }
-
-@media (max-width: 840px) {
-	.nav {
-		align-items: flex-start;
-		flex-direction: column;
-	}
-
-	.nav-links {
-		justify-content: flex-start;
-	}
-
-	.intro,
-	.faq {
-		grid-template-columns: 1fr;
-	}
-
-	.toc {
-		position: static;
-	}
-
-	.tier-grid {
-		grid-template-columns: 1fr;
-	}
-
-	main {
-		padding-top: 26px;
-	}
 	/* =========================
    HOMEPAGE LAYOUT FIX
 ========================= */
@@ -440,4 +413,31 @@ footer {
 		grid-template-columns: 1fr;
 	}
 }
+
+@media (max-width: 840px) {
+	.nav {
+		align-items: flex-start;
+		flex-direction: column;
+	}
+
+	.nav-links {
+		justify-content: flex-start;
+	}
+
+	.intro,
+	.faq {
+		grid-template-columns: 1fr;
+	}
+
+	.toc {
+		position: static;
+	}
+
+	.tier-grid {
+		grid-template-columns: 1fr;
+	}
+
+	main {
+		padding-top: 26px;
+	}
 }
