@@ -1,58 +1,89 @@
+/* =========================
+   SHOWCASE SECTION
+========================= */
+
 .showcase {
-	padding: 36px 0 24px;
+	padding: 48px 0 24px;
 }
 
 .showcase-header {
-	margin-bottom: 18px;
+	margin-bottom: 24px;
+	max-width: 720px;
 }
+
+.showcase-header h2 {
+	margin: 6px 0 8px;
+	font-size: 28px;
+}
+
+.showcase-header .lede {
+	margin: 0;
+	color: var(--muted);
+}
+
+
+/* =========================
+   SLIDESHOW CONTAINER
+========================= */
 
 .slideshow {
 	position: relative;
 	border: 1px solid var(--line);
-	border-radius: 10px;
-	background: rgba(16, 25, 37, 0.9);
-	overflow: hidden;
+	border-radius: 12px;
+	background: rgba(16, 25, 37, 0.88);
 	backdrop-filter: blur(8px);
+	box-shadow: 0 12px 30px rgba(0, 0, 0, 0.18);
+	overflow: hidden;
 }
+
+
+/* =========================
+   SLIDES WRAPPER
+========================= */
 
 .slides {
 	position: relative;
-	min-height: 420px;
+	width: 100%;
+	height: 420px;
 }
 
+
+/* =========================
+   SINGLE SLIDE
+========================= */
+
 .slide {
-	display: none;
-	height: 100%;
+	position: absolute;
+	inset: 0;
+	opacity: 0;
+	transition: opacity 0.45s ease;
+	display: flex;
+	align-items: center;
+	justify-content: center;
 }
 
 .slide.active {
-	display: block;
+	opacity: 1;
+	z-index: 1;
 }
+
+
+/* =========================
+   IMAGE STYLING
+========================= */
 
 .slide img {
-	display: block;
 	width: 100%;
-	height: 420px;
-	object-fit: cover;
+	height: 100%;
+	object-fit: contain;
+	border-radius: 8px;
+	background: rgba(0, 0, 0, 0.25);
 }
 
-.slide-content {
-	padding: 22px;
-	color: var(--text);
-}
 
-.slide-content p {
-	color: var(--muted);
-	margin: 10px 0 0;
-}
-
-.slide-content.testimonial {
-	display: flex;
-	flex-direction: column;
-	justify-content: center;
-	min-height: 420px;
-	padding: 32px;
-}
+/* =========================
+   NAVIGATION BUTTONS
+========================= */
 
 .slide-btn {
 	position: absolute;
@@ -60,39 +91,93 @@
 	transform: translateY(-50%);
 	width: 42px;
 	height: 42px;
+	border-radius: 10px;
 	border: 1px solid var(--line);
-	border-radius: 50%;
-	background: rgba(8, 16, 25, 0.85);
+	background: rgba(16, 25, 37, 0.85);
 	color: var(--text);
-	font-size: 26px;
+	font-size: 22px;
 	cursor: pointer;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	transition: 0.2s ease;
 	z-index: 2;
 }
 
+.slide-btn:hover {
+	background: rgba(31, 49, 73, 0.95);
+}
+
 .slide-btn.prev {
-	left: 14px;
+	left: 10px;
 }
 
 .slide-btn.next {
-	right: 14px;
+	right: 10px;
 }
+
+
+/* =========================
+   DOT INDICATORS
+========================= */
 
 .slide-dots {
 	display: flex;
 	justify-content: center;
-	gap: 10px;
-	padding: 16px;
+	gap: 8px;
+	padding: 14px 0 16px;
 }
 
 .slide-dots .dot {
 	width: 10px;
 	height: 10px;
-	border: 0;
 	border-radius: 50%;
+	border: none;
 	background: rgba(255, 255, 255, 0.25);
 	cursor: pointer;
+	transition: 0.2s ease;
 }
 
 .slide-dots .dot.active {
 	background: var(--accent);
+	box-shadow: 0 0 8px rgba(229, 189, 84, 0.6);
+}
+
+
+/* =========================
+   EMPTY STATE
+========================= */
+
+.slide-empty {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	height: 320px;
+	color: var(--muted);
+	font-size: 18px;
+	text-align: center;
+	padding: 20px;
+}
+
+
+/* =========================
+   RESPONSIVE
+========================= */
+
+@media (max-width: 980px) {
+	.slides {
+		height: 320px;
+	}
+}
+
+@media (max-width: 640px) {
+	.slides {
+		height: 260px;
+	}
+
+	.slide-btn {
+		width: 36px;
+		height: 36px;
+		font-size: 18px;
+	}
 }
