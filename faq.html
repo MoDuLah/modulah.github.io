@@ -389,193 +389,203 @@
           <a href="#support">Support</a>
         </aside>
 
-        <div class="questions">
-          <details id="install" open>
-            <summary>What is Pythagoras CIS?</summary>
-            <div class="answer">
-              <p>Pythagoras CIS is a Tampermonkey userscript for Torn company management. It adds a local company workspace for the training ledger, FIFO train planner, staff and director history, Sunday report analytics, licensing, backups, and themed reports.</p>
-            </div>
-          </details>
+<div class="questions">
 
-          <details>
-            <summary>How do I install it?</summary>
-            <div class="answer">
-              <p>Install a userscript manager such as Tampermonkey or use Torn PDA userscript support, then install the built public script file from your release link.</p>
-              <p>After installation, open Torn and use the Pythagoras CIS panel to set your API key, company ID, theme, and support options.</p>
-            </div>
-          </details>
+  <details id="install" open>
+    <summary>What is Pythagoras CIS?</summary>
+    <div class="answer">
+      <p>Pythagoras CIS is a Tampermonkey userscript designed for Torn company management. It provides a local workspace for managing the training ledger, FIFO train planner, staff and director history, daily report analytics, licensing, backups, and themed reports.</p>
+    </div>
+  </details>
 
-          <details id="api-key">
-            <summary>What API key access does it need?</summary>
-            <div class="answer">
-              <p>The script uses a Torn API key only when you press a sync button. It does not run background polling or automated request chains.</p>
-              <p>If you do not tick <code>Remember locally</code>, the key is not saved by the script when settings are stored.</p>
-            </div>
-          </details>
+  <details>
+    <summary>How do I install it?</summary>
+    <div class="answer">
+      <p>Install a userscript manager such as Tampermonkey, or use Torn PDA’s userscript support. Then install the latest public build from the release link.</p>
+      <p>After installation, open Torn and use the Pythagoras CIS panel to configure your API key, company ID, theme, and support options.</p>
+    </div>
+  </details>
 
-          <details id="data">
-            <summary>Where is my data stored?</summary>
-            <div class="answer">
-              <p>Ledger entries, staff history, analytics, settings, and license data are stored locally in Tampermonkey storage, with a browser storage fallback.</p>
-              <p>Nothing is sent to a Pythagoras Project server by the userscript. Exports are files you choose to create and share.</p>
-            </div>
-          </details>
+  <details id="api-key">
+    <summary>What API key access does it need?</summary>
+    <div class="answer">
+      <p>A <b>Minimal</b> API key is sufficient for basic functionality. A <b>Full Access</b> API key is required for advanced features.</p>
+      <p>The script only uses your Torn API key when you manually trigger a sync. It does not perform background polling or automated request chains.</p>
+      <p>If <code>Remember locally</code> is not enabled, the API key will not be stored when saving settings.</p>
+    </div>
+  </details>
 
-          <details id="training">
-            <summary>How does the Training Ledger calculate costs?</summary>
-            <div class="answer">
-              <p>The ledger starts from your price per train, then applies the configured discount rules:</p>
-              <ul>
-                <li>Manual discount</li>
-                <li>Merit discount, defaulting to 1 percent per merit up to 10</li>
-                <li>Loyalty tiers such as <code>10:5,25:7,50:10</code></li>
-                <li>Global promo discounts such as 25 percent or 50 percent</li>
-              </ul>
-              <p>Totals recalculate as you edit rows, including paid, unpaid, done, undone, used trains, and remaining trains.</p>
-            </div>
-          </details>
+  <details id="data">
+    <summary>Where is my data stored?</summary>
+    <div class="answer">
+      <p>All data — including ledger entries, staff history, analytics, settings, and license information — is stored locally in Tampermonkey storage, with a browser storage fallback.</p>
+      <p>No data is transmitted to any Pythagoras Project servers. Exports are created locally and only shared if you choose to do so.</p>
+    </div>
+  </details>
 
-          <details id="planner">
-            <summary>How does the Train Planner work?</summary>
-            <div class="answer">
-              <p>The planner uses FIFO order for paid train entries. It gives paid users up to the configured daily cap, with a maximum of 8 paid trains per day, then fills remaining capacity with sponsored rotation users.</p>
-              <p>Daily supply is based on company stars, from 1 to 10, with one extra train when the Trainer role is assigned in settings.</p>
-            </div>
-          </details>
+  <details id="training">
+    <summary>How does the Training Ledger calculate costs?</summary>
+    <div class="answer">
+      <p>The ledger starts with your base price per train and applies the configured discount rules:</p>
+      <ul>
+        <li>Manual discount</li>
+        <li>Merit discount (default: 1% per merit, up to 10%, fully configurable)</li>
+        <li>Loyalty tiers such as <code>10:5%, 25:7%, 50:10%</code> (fully customisable)</li>
+        <li>Optional global promotional discounts (e.g. 25% or 50%)</li>
+      </ul>
+      <p>All totals update dynamically as you edit entries, including paid, unpaid, completed, pending, used trains, and remaining trains.</p>
+    </div>
+  </details>
 
-          <details id="timeline">
-            <summary>What does the Timeline track?</summary>
-            <div class="answer">
-              <p>The timeline normalizes company news entries and classifies them into categories such as Hire, Application, Left, Fired, Director, Rating, Sunday report, Training, Withdraw, Deposit, Wage, Funds, and Other.</p>
-              <p>Timeline events are also used to build current and past staff/director lists where the news text gives enough detail.</p>
-            </div>
-          </details>
+  <details id="planner">
+    <summary>How does the Train Planner work?</summary>
+    <div class="answer">
+      <p>The planner follows a FIFO (First In, First Out) approach for paid training entries. Paid users are prioritised up to the configured daily cap, after which remaining capacity is allocated to sponsored rotation users.</p>
+      <p>Daily training capacity is based on company stars (1–10), with an additional train available when the Trainer role is enabled in settings.</p>
+    </div>
+  </details>
 
-          <details id="analytics">
-            <summary>How are weekly analytics calculated?</summary>
-            <div class="answer">
-              <p>When Sunday report entries include customers and income, CIS parses them into weekly rows. It shows week number, date range, customers, income, profit per customer, comparison against the previous week, and comparison against the all-time average.</p>
-              <p>If a Sunday report has unusual wording, it may need a parser update before all values are detected.</p>
-            </div>
-          </details>
+  <details id="timeline">
+    <summary>What does the Timeline track?</summary>
+    <div class="answer">
+      <p>The timeline processes company news entries and classifies them into categories such as Hire, Application, Left, Fired, Director, Rating, Daily Reports, Training, Withdraw, Deposit, Wage, Funds, and Other.</p>
+      <p>These events are also used to build structured views of current and past staff and directors, where sufficient data is available.</p>
+    </div>
+  </details>
 
-          <details>
-            <summary>What is the wage system?</summary>
-            <div class="answer">
-              <p>The wage helper estimates staff wages from MAN, INT, END, merits, addiction penalty, and inactivity penalty settings. It is a configurable calculator, not an official Torn payroll value.</p>
-              <p>Use it as a weekly planning aid and adjust the weights to match your company policy.</p>
-            </div>
-          </details>
+  <details id="analytics">
+    <summary>How are weekly analytics calculated?</summary>
+    <div class="answer">
+      <p>Daily report entries containing customer and income data are parsed into weekly summaries.</p>
+      <p>The system tracks week number, date range, customers, income, profit per customer, and comparisons against both the previous week and long-term averages.</p>
+    </div>
+  </details>
 
-          <details id="license">
-            <summary>What do Supporter, Company Boost, and Ultimate unlock?</summary>
-            <div class="answer">
-              <p>The free version covers core features. Supporter unlocks premium features such as full data backup and supporter extras. Company Boost is aimed at advanced company tools. Ultimate includes the full bundle and premium support.</p>
-              <p>Licenses can be 30-day or lifetime. Trials are 7 days per type.</p>
-            </div>
-          </details>
+  <details>
+    <summary>What is the wage system?</summary>
+    <div class="answer">
+      <p>The wage helper estimates staff wages based on MAN, INT, END, merit bonuses, addiction penalties, and inactivity penalties.</p>
+      <p>This is a configurable planning tool and does not reflect official Torn payroll values.</p>
+    </div>
+  </details>
 
-          <details id="tier-benefits">
-            <summary>What analytics benefits does each tier include?</summary>
-            <div class="answer">
-              <p>Each tier is aimed at a different management workload. Free gives the core local tools, while paid tiers add more ways to review company health, compare decisions, and move data into reports.</p>
-              <div class="tier-grid">
-                <article class="tier-card">
-                  <h3>Supporter</h3>
-                  <ul>
-                    <li>Full data export and import for ledger, staff history, analytics, settings, and license backup.</li>
-                    <li>Newsletter and report controls that make weekly summaries easier to share with staff.</li>
-                    <li>Supporter badge snippet for forum signatures and supporter visibility.</li>
-                  </ul>
-                </article>
-                <article class="tier-card">
-                  <h3>Company Boost</h3>
-                  <ul>
-                    <li>Advanced company tools for directors who monitor stock, company profile, detailed stats, and staff effectiveness.</li>
-                    <li>Better operational context for training demand, role coverage, stock warnings, and company trend checks.</li>
-                    <li>Company-bound licensing so the boost follows the intended company workspace.</li>
-                  </ul>
-                </article>
-                <article class="tier-card">
-                  <h3>Ultimate</h3>
-                  <ul>
-                    <li>Everything from Supporter and Company Boost in one bundle.</li>
-                    <li>Best fit for directors who want backups, reports, advanced company monitoring, badges, and premium support together.</li>
-                    <li>Useful when the same person manages both staff planning and longer-term company analytics.</li>
-                  </ul>
-                </article>
-              </div>
-            </div>
-          </details>
+  <details id="license">
+    <summary>What do Supporter, Company Boost, and Ultimate unlock?</summary>
+    <div class="answer">
+      <p>The free version includes all core features. Supporter unlocks premium functionality such as full data backups and additional tools. Company Boost focuses on advanced company analytics. Ultimate includes all features along with premium support.</p>
+      <p>Licences are available as 30-day or lifetime options, with a 7-day trial available for each tier.</p>
+    </div>
+  </details>
 
-          <details>
-            <summary>Why is my key rejected?</summary>
-            <div class="answer">
-              <p>Common causes are a mismatched Torn user ID, a mismatched company ID for boost keys, an expired timed key, or a damaged copied key.</p>
-              <p>Use <code>Settings -> Import license key</code>, paste the full key, then check the message shown by the script.</p>
-            </div>
-          </details>
+  <details id="tier-benefits">
+    <summary>What benefits does each tier include?</summary>
+    <div class="answer">
+      <p>Each tier is designed for different levels of company management, from basic tools to full operational insight and reporting.</p>
 
-          <details id="export">
-            <summary>What can I export?</summary>
-            <div class="answer">
-              <p>Supporter or higher can export and import full data, including ledger, staff history, analytics, settings, and license data.</p>
-              <p>Anyone can create a themed HTML report, newsletter-ready HTML, and forum-ready snippets where those features are available in the installed build.</p>
-            </div>
-          </details>
+      <div class="tier-grid">
+        <article class="tier-card">
+          <h3>Supporter</h3>
+          <ul>
+            <li>Full data export and import (ledger, staff history, analytics, settings, and licence backup)</li>
+            <li>Enhanced newsletter and reporting tools</li>
+            <li>Supporter badge for forum signatures</li>
+          </ul>
+        </article>
 
-          <details>
-            <summary>Does popup mode persist?</summary>
-            <div class="answer">
-              <p>Yes. If you switch to popup mode, CIS remembers that mode across Torn page changes. If the browser blocks automatic popup restoration, the embedded page shows a small badge so you can reopen it with one click.</p>
-            </div>
-          </details>
+        <article class="tier-card">
+          <h3>Company Boost</h3>
+          <ul>
+            <li>Advanced company analytics and monitoring tools</li>
+            <li>Improved visibility into staff performance and operational trends</li>
+            <li>Company-linked licensing</li>
+          </ul>
+        </article>
 
-          <details>
-            <summary>Can I change the colours and theme?</summary>
-            <div class="answer">
-              <p>Yes. Settings includes theme presets and colour pickers for role and contract colours. You can choose a preset such as MoDuL dark or Blue and gold, then adjust role colours with HEX fields or colour pickers.</p>
-            </div>
-          </details>
+        <article class="tier-card">
+          <h3>Ultimate</h3>
+          <ul>
+            <li>Includes all Supporter and Company Boost features</li>
+            <li>Best suited for full company management and long-term analytics</li>
+            <li>Includes premium support</li>
+          </ul>
+        </article>
+      </div>
+    </div>
+  </details>
 
-          <details id="troubleshooting">
-            <summary>The panel is not showing. What should I check?</summary>
-            <div class="answer">
-              <ul>
-                <li>Confirm the userscript is enabled in Tampermonkey or Torn PDA.</li>
-                <li>Reload Torn after installing or updating the script.</li>
-                <li>Check whether the UI is minimized into the small badge.</li>
-                <li>If popup mode is enabled, check whether your browser blocked or hid the popup window.</li>
-              </ul>
-            </div>
-          </details>
+  <details>
+    <summary>Why is my key rejected?</summary>
+    <div class="answer">
+      <p>Common causes include mismatched Torn user ID, incorrect company ID for boost licences, expired keys, or corrupted copy-paste input.</p>
+      <p>Use <code>Settings → Import licence key</code> and ensure the full key is entered correctly.</p>
+    </div>
+  </details>
 
-          <details>
-            <summary>The API sync failed. What should I check?</summary>
-            <div class="answer">
-              <ul>
-                <li>Confirm your API key is entered in Settings.</li>
-                <li>Confirm the company ID is correct for company syncs.</li>
-                <li>Wait and retry if Torn API is unavailable or rate limited.</li>
-                <li>Use one sync button at a time; CIS is designed around one user action and one request.</li>
-              </ul>
-            </div>
-          </details>
+  <details id="export">
+    <summary>What can I export?</summary>
+    <div class="answer">
+      <p>Supporter tier and above can export and import full datasets, including ledger, staff history, analytics, settings, and licence data.</p>
+      <p>The system can also generate themed HTML reports, newsletter-ready outputs, and forum-ready snippets.</p>
+    </div>
+  </details>
 
-          <details id="support">
-            <summary>How do I report a bug?</summary>
-            <div class="answer">
-              <p>Use <code>Settings -> Report bug</code> inside the userscript. CIS copies an auto-filled diagnostic block with version, page URL, user ID, company ID, ledger count, timeline count, and timestamp.</p>
-              <p>Paste that diagnostic block into your support message so the issue can be reproduced faster.</p>
-            </div>
-          </details>
+  <details>
+    <summary>Does popup mode persist?</summary>
+    <div class="answer">
+      <p>Yes. Popup mode is remembered across Torn page navigation.</p>
+      <p>If your browser blocks popups, a fallback badge will appear allowing you to reopen the panel with a single click.</p>
+    </div>
+  </details>
 
-          <details>
-            <summary>How do I contact support?</summary>
-            <div class="answer">
-              <p>Use the configured <code>Contact support</code> link in Settings. If the link is missing, ask the script maintainer for the current support page or install an updated public build with support constants included.</p>
-            </div>
-          </details>
+  <details>
+    <summary>Can I change the colours and theme?</summary>
+    <div class="answer">
+      <p>Yes. Settings include theme presets and colour controls for roles and contracts.</p>
+      <p>You can select presets such as MoDuL Dark or Blue & Gold, or use the theme builder to create a custom configuration.</p>
+    </div>
+  </details>
+
+  <details id="troubleshooting">
+    <summary>The panel is not showing. What should I check?</summary>
+    <div class="answer">
+      <ul>
+        <li>Ensure the userscript is enabled in Tampermonkey or Torn PDA</li>
+        <li>Reload Torn after installation or updates</li>
+        <li>Check if the UI is minimised into the badge</li>
+        <li>Verify popup permissions if popup mode is enabled</li>
+      </ul>
+    </div>
+  </details>
+
+  <details>
+    <summary>The API sync failed. What should I check?</summary>
+    <div class="answer">
+      <ul>
+        <li>Ensure your API key is active and has the correct permissions</li>
+        <li>Verify the API key is entered correctly in settings</li>
+        <li>Confirm the company ID is correct</li>
+        <li>Retry if the Torn API is temporarily unavailable or rate limited</li>
+        <li>Use one sync action at a time (one action = one request)</li>
+      </ul>
+    </div>
+  </details>
+
+  <details id="support">
+    <summary>How do I report a bug?</summary>
+    <div class="answer">
+      <p>Use <code>Settings → Report bug</code> within the userscript.</p>
+      <p>This copies a diagnostic block including version, page URL, user ID, company ID, ledger count, timeline count, and timestamp.</p>
+      <p>Include this information when reporting issues to help speed up troubleshooting.</p>
+    </div>
+  </details>
+
+  <details>
+    <summary>How do I contact support?</summary>
+    <div class="answer">
+      <p>Use the <code>Message me</code> link in Settings.</p>
+      <p>If it is missing, install the latest version of the script or contact the maintainer for the current support link.</p>
+    </div>
+  </details>
 
           <div class="callout">
             <strong>Need a parser fix?</strong>
