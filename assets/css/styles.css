@@ -40,9 +40,7 @@ a:hover {
 
 .page {
 	min-height: 100vh;
-	background:
-		linear-gradient(180deg, rgba(229, 189, 84, 0.08), rgba(8, 16, 25, 0) 340px),
-		var(--bg);
+	background: linear-gradient(180deg, rgba(229, 189, 84, 0.08), rgba(8, 16, 25, 0) 340px);
 }
 
 header {
