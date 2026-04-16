@@ -1,0 +1,13 @@
+@import url("../script-page-base.css");
+
+:root {
+  --bg-image: url("../../images/race-theme-changer/race-theme-changer-background.png");
+}
+
+body.script-page {
+  --bg-image: url("../../images/race-theme-changer/race-theme-changer-background.png");
+}
+
+.site-brand-mark {
+  background-image: url("../../images/race-theme-changer/race-theme-changer-logo.png");
+}

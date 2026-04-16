@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Stock-X | MoDuL Hub</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Stock-X page for the MoDuL script hub.">
+  <link rel="stylesheet" href="../assets/css/stock-x/style.css">
+  <link rel="stylesheet" href="../assets/css/slideshow.css">
+</head>
+<body class="script-page" data-script-slug="stock-x">
+  <div class="page-shell">
+    <header class="site-nav" aria-label="Main navigation">
+      <div class="site-brand">
+        <span class="site-brand-mark" aria-hidden="true"></span>
+        <div class="site-brand-text">
+          <span class="site-brand-title">Stock-X</span>
+          <span class="site-brand-subtitle">Userscript</span>
+        </div>
+      </div>
+
+      <div class="site-nav-links">
+        <a class="site-nav-link" href="../index.html">Hub</a>
+        <a class="site-nav-link" href="#screenshots">Screenshots</a>
+      </div>
+    </header>
+
+    <main>
+      <section class="hero">
+        <div class="hero-copy">
+          <p class="section-kicker">MoDuL Script Page</p>
+          <h1 class="hero-title">Stock-X</h1>
+          <p class="hero-text">A stock-focused helper for Torn that brings tools around vault management, visibility, and investment workflow support.</p>
+
+          <div class="hero-actions">
+            <a class="cta-button" href="#">View Script Page</a>
+            <a class="ghost-button" href="../index.html">Back to Hub</a>
+          </div>
+        </div>
+
+        <aside class="hero-panel" aria-label="Feature overview">
+          <h2 class="hero-panel-title">At a glance</h2>
+          <ul class="feature-list">
+            <li class="feature-item"><span class="feature-dot" aria-hidden="true"></span><span>Stock workflow helpers</span></li><li class="feature-item"><span class="feature-dot" aria-hidden="true"></span><span>Vault and ROI-focused utility</span></li><li class="feature-item"><span class="feature-dot" aria-hidden="true"></span><span>Designed around faster market checks</span></li>
+          </ul>
+        </aside>
+      </section>
+
+      <section class="content-grid" aria-label="Script details">
+        <article class="content-card">
+          <h2>Overview</h2>
+          <p>This page is now using a clean HTML structure with the styling moved into its own external stylesheet for <strong>stock-x</strong>.</p>
+        </article>
+
+        <article class="content-card">
+          <h2>Screenshots</h2>
+          <p>Screenshot lookup is handled automatically from the script slug, so this page will load any images placed in <code>assets/images/stock-x/</code> using the <code>screenshot-1.png</code>, <code>screenshot-2.png</code> pattern.</p>
+        </article>
+
+        <article class="content-card">
+          <h2>Assets</h2>
+          <ul>
+            <li>Logo path: <code>assets/images/stock-x/stock-x-logo.png</code></li>
+            <li>Background path: <code>assets/images/stock-x/stock-x-background.png</code></li>
+            <li>If the files do not exist yet, the page still remains safe to style and extend later.</li>
+          </ul>
+        </article>
+      </section>
+
+      <section class="showcase-section" id="screenshots">
+        <div class="showcase-header">
+          <p class="section-kicker">Preview</p>
+          <h2>Interface Screenshots</h2>
+          <p class="lede">This slideshow now resolves screenshots from the correct script image folder automatically.</p>
+        </div>
+
+        <div class="slideshow" data-slideshow-slug="stock-x">
+          <div class="slides" id="slides"></div>
+          <button class="slide-btn prev" type="button" aria-label="Previous slide">‹</button>
+          <button class="slide-btn next" type="button" aria-label="Next slide">›</button>
+          <div class="slide-dots" id="slide-dots"></div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="page-footer">
+      MoDuL Hub • Stock-X
+    </footer>
+  </div>
+
+  <script src="../assets/js/slideshow.js"></script>
+</body>
+</html>

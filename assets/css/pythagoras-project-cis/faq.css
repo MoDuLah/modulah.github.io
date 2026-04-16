@@ -1,0 +1,13 @@
+@import url("../script-faq-base.css");
+
+:root {
+  --bg-image: url("../../images/pythagoras-project-cis/pythagoras-project-background.png");
+}
+
+body.script-faq-page {
+  --bg-image: url("../../images/pythagoras-project-cis/pythagoras-project-background.png");
+}
+
+.site-brand-mark {
+  background-image: url("../../images/pythagoras-project-cis/pythagoras-project-logo.png");
+}
