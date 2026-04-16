@@ -1,11 +1,11 @@
 @import url("../script-page-base.css");
 
 :root {
-  --bg-image: url("../../images/custom-race-filter/custom-race-filter-background.png");
+  --bg-image: url("../../images/custom-race-filter/custom-race-filter-logo.png");
 }
 
 body.script-page {
-  --bg-image: url("../../images/custom-race-filter/custom-race-filter-background.png");
+  --bg-image: url("../../images/custom-race-filter/custom-race-filter-logo.png");
 }
 
 .site-brand-mark {
