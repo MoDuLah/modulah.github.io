@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>Race Theme Changer | MoDuL Hub</title>
+  <title>Race Theme Changer • MoDuL Hub</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="Race Theme Changer page for the MoDuL script hub.">
   <link rel="stylesheet" href="../assets/css/race-theme-changer/style.css">
@@ -19,21 +19,26 @@
         </div>
       </div>
 
-      <div class="site-nav-links">
+      <nav class="site-nav-links" aria-label="Page links">
         <a class="site-nav-link" href="../index.html">Hub</a>
+        <a class="site-nav-link" href="#overview">Overview</a>
         <a class="site-nav-link" href="#screenshots">Screenshots</a>
-      </div>
+        <a class="site-nav-link" href="#changelog">Changelog</a>
+      </nav>
     </header>
 
     <main>
       <section class="hero">
         <div class="hero-copy">
-          <p class="section-kicker">MoDuL Script Page</p>
-          <h1 class="hero-title">Race Theme Changer</h1>
-          <p class="hero-text">A visual customisation script for Torn racing pages, designed to bring cleaner presentation and MoDuL flavour styling.</p>
+          <p class="section-kicker">MoDuL's</p>
+          <h3 class="hero-title">Race Theme Changer</h3>
+          <p class="hero-text">
+            A lightweight, PDA-safe userscript that enhances Torn’s racing page by visually syncing the track,
+            banner, and race details with the selected race class theme — clean, stable, and performance-friendly.
+          </p>
 
           <div class="hero-actions">
-            <a class="cta-button" href="#">View Script Page</a>
+            <a class="cta-button" href="#">Download Script</a>
             <a class="ghost-button" href="../index.html">Back to Hub</a>
           </div>
         </div>
@@ -41,29 +46,55 @@
         <aside class="hero-panel" aria-label="Feature overview">
           <h2 class="hero-panel-title">At a glance</h2>
           <ul class="feature-list">
-            <li class="feature-item"><span class="feature-dot" aria-hidden="true"></span><span>Themed racing visuals</span></li><li class="feature-item"><span class="feature-dot" aria-hidden="true"></span><span>Customised interface presentation</span></li><li class="feature-item"><span class="feature-dot" aria-hidden="true"></span><span>Built for a cleaner racing view</span></li>
+            <li class="feature-item">
+              <span class="feature-dot" aria-hidden="true"></span>
+              <span>Theme-aware racing UI for Classes A–E</span>
+            </li>
+            <li class="feature-item">
+              <span class="feature-dot" aria-hidden="true"></span>
+              <span>Permanent race details bar under the track canvas</span>
+            </li>
+            <li class="feature-item">
+              <span class="feature-dot" aria-hidden="true"></span>
+              <span>PDA-safe, touch-friendly, and performance-conscious</span>
+            </li>
           </ul>
         </aside>
       </section>
 
-      <section class="content-grid" aria-label="Script details">
-        <article class="content-card">
-          <h2>Overview</h2>
-          <p>This page is now using a clean HTML structure with the styling moved into its own external stylesheet for <strong>race-theme-changer</strong>.</p>
-        </article>
+      <section class="content-grid" id="overview" aria-label="Script details">
+        <article class="content-card content-card-full">
+          <h2>Description</h2>
+          <p>
+            A lightweight, PDA-safe userscript that enhances Torn’s racing page by visually syncing the track,
+            banner, and race details with the selected race class theme — clean, stable, and performance-friendly.
+          </p>
 
-        <article class="content-card">
-          <h2>Screenshots</h2>
-          <p>Screenshot lookup is handled automatically from the script slug, so this page will load any images placed in <code>assets/images/race-theme-changer/</code> using the <code>screenshot-1.png</code>, <code>screenshot-2.png</code> pattern.</p>
+          <div class="section-divider"></div>
         </article>
+        <article class="content-card content-card-full">
+          <h2>What this script does</h2>
+          <div class="feature-grid">
+            <div class="feature-block">
+              <h3>🎨 Theme-aware racing UI</h3>
+              <p>Automatically applies the selected Class (A–E) theme to the racing banner, the Theme button, and the race details bar.</p>
+            </div>
 
-        <article class="content-card">
-          <h2>Assets</h2>
-          <ul>
-            <li>Logo path: <code>assets/images/race-theme-changer/race-theme-changer-logo.png</code></li>
-            <li>Background path: <code>assets/images/race-theme-changer/race-theme-changer-background.png</code></li>
-            <li>If the files do not exist yet, the page still remains safe to style and extend later.</li>
-          </ul>
+            <div class="feature-block">
+              <h3>🧾 Race details bar (permanent position)</h3>
+              <p>The race details — Name, Position, Lap, Last Lap, and Completion — are always displayed directly under the track canvas, with no overlays, no side layouts, and no wrapping issues.</p>
+            </div>
+
+            <div class="feature-block">
+              <h3>✏️ Minimal Theme popup</h3>
+              <p>One simple selector: Class. Clean, distraction-free UI.</p>
+            </div>
+
+            <div class="feature-block">
+              <h3>📱 PDA &amp; mobile friendly</h3>
+              <p>No hover dependencies, touch-safe controls, and clean scaling on smaller viewports.</p>
+            </div>
+          </div>
         </article>
       </section>
 
@@ -71,7 +102,7 @@
         <div class="showcase-header">
           <p class="section-kicker">Preview</p>
           <h2>Interface Screenshots</h2>
-          <p class="lede">This slideshow now resolves screenshots from the correct script image folder automatically.</p>
+          <p class="lede">This slideshow resolves screenshots from the race-theme-changer image folder automatically.</p>
         </div>
 
         <div class="slideshow" data-slideshow-slug="race-theme-changer">
@@ -81,10 +112,69 @@
           <div class="slide-dots" id="slide-dots"></div>
         </div>
       </section>
+
+      <section class="content-card changelog-card" id="changelog" aria-label="Changelog">
+        <p class="section-kicker">Release history</p>
+        <h2>Changelog</h2>
+        <p class="lede">Click a version to expand its notes.</p>
+
+        <div class="changelog-tree" role="tree">
+          <details class="changelog-version" role="treeitem">
+            <summary class="changelog-summary">v1.2.3</summary>
+            <div class="changelog-content">
+              <ul class="changelog-list">
+                <li>✅ Added support for the images on Stats page as well. Now they follow suit with your selection.</li>
+                <li>🧱 Finalized race details bar placement permanently under the track.</li>
+                <li>📐 Improved padding and height to match the track canvas margins.</li>
+                <li>📱 Fixed text clipping and alignment issues on PDA / mobile.</li>
+                <li>🎯 Vertically and horizontally centered race details content.</li>
+                <li>🛡️ Strengthened guards to ensure the script runs only once.</li>
+              </ul>
+            </div>
+          </details>
+
+          <details class="changelog-version" role="treeitem">
+            <summary class="changelog-summary">v1.2.2</summary>
+            <div class="changelog-content">
+              <ul class="changelog-list">
+                <li>✅ Fixed a TornPDA issue with Race Details by reducing the font size on small devices.</li>
+              </ul>
+            </div>
+          </details>
+
+          <details class="changelog-version" role="treeitem">
+            <summary class="changelog-summary">v1.2.1</summary>
+            <div class="changelog-content">
+              <ul class="changelog-list">
+                <li>✅ Race details bar is now permanently positioned under the track.</li>
+                <li>❌ Removed overlay mode.</li>
+                <li>❌ Removed left / right positioning.</li>
+                <li>❌ Removed the position selector from the popup.</li>
+                <li>🎯 Improved race details readability and spacing.</li>
+                <li>🧹 Prevented wrapping and scrollbar artifacts.</li>
+                <li>🛡️ Added stronger safeguards to prevent double execution.</li>
+                <li>🧠 Cleaner DOM handling when the race updates or the track reloads.</li>
+              </ul>
+            </div>
+          </details>
+
+          <details class="changelog-version" role="treeitem">
+            <summary class="changelog-summary">v1.2.0</summary>
+            <div class="changelog-content">
+              <ul class="changelog-list">
+                <li>Added theme-aware race details styling.</li>
+                <li>Introduced class-based theme selector.</li>
+                <li>Added Theme button popup.</li>
+                <li>First stable PDA-compatible release.</li>
+              </ul>
+            </div>
+          </details>
+        </div>
+      </section>
     </main>
 
     <footer class="page-footer">
-      Race Theme Changer • <a href="https://www.torn.com/profiles.php?XID=4022159"  target="_blank">MoDuL[402215]</a> © All rights reserved.
+      MoDuL Hub • Race Theme Changer • <a href="https://www.torn.com/profiles.php?XID=4022159"  target="_blank">MoDuL[402215]</a> © All rights reserved.
     </footer>
   </div>
 

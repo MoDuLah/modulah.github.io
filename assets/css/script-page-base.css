@@ -87,3 +87,222 @@ a:hover { text-decoration: underline; }
   .site-nav, .site-brand, .site-nav-links { flex-direction: column; align-items: stretch; }
   .hero-copy, .hero-panel, .content-card { padding: 22px; }
 }
+/* =========================
+   RACE THEME CHANGER STYLE
+   ========================= */
+
+/* ===== Hero tweaks ===== */
+.hero-panel {
+  background: linear-gradient(160deg, rgba(20, 35, 55, 0.9), rgba(10, 20, 30, 0.95));
+  border: 1px solid rgba(90, 169, 255, 0.2);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+}
+
+/* ===== Feature blocks ===== */
+.feature-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.feature-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 18px;
+}
+
+.feature-block {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  padding: 14px 16px;
+  background: rgba(20, 35, 55, 0.6);
+  border: 1px solid rgba(90, 169, 255, 0.15);
+  border-radius: 10px;
+  transition: all 0.25s ease;
+}
+
+.feature-block:hover {
+  border-color: rgba(90, 169, 255, 0.4);
+  transform: translateY(-2px);
+}
+
+.feature-block h3 {
+  margin: 0 0 6px;
+  font-size: 15px;
+  color: var(--accent-2);
+}
+
+.feature-block p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.content-card-full {
+  width: 100%;
+}
+
+.section-divider {
+  height: 1px;
+  margin: 24px 0;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+/* ===== Assets ===== */
+.asset-list {
+  padding-left: 18px;
+  margin: 0;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.asset-list li {
+  margin-bottom: 6px;
+}
+
+/* =========================
+   CHANGELOG TREE
+   ========================= */
+
+.changelog-card {
+  margin-top: 30px;
+}
+
+/* Container */
+.changelog-tree {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* Each version */
+.changelog-version {
+  background: rgba(15, 25, 35, 0.8);
+  border: 1px solid rgba(90, 169, 255, 0.15);
+  border-radius: 10px;
+  overflow: hidden;
+  transition: all 0.25s ease;
+}
+
+/* Hover glow */
+.changelog-version:hover {
+  border-color: rgba(90, 169, 255, 0.35);
+  box-shadow: 0 0 15px rgba(90, 169, 255, 0.15);
+}
+
+/* Header (clickable) */
+.changelog-summary {
+  cursor: pointer;
+  list-style: none;
+  padding: 12px 16px;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--accent);
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+/* Remove default arrow */
+.changelog-summary::-webkit-details-marker {
+  display: none;
+}
+
+/* Custom arrow */
+.changelog-summary::before {
+  content: "▶";
+  font-size: 10px;
+  margin-right: 10px;
+  transition: transform 0.2s ease;
+  color: var(--accent-2);
+}
+
+/* Rotate arrow when open */
+.changelog-version[open] .changelog-summary::before {
+  transform: rotate(90deg);
+}
+
+/* Open state highlight */
+.changelog-version[open] {
+  border-color: rgba(90, 169, 255, 0.5);
+  background: rgba(20, 35, 55, 0.9);
+}
+
+/* Content */
+.changelog-content {
+  padding: 10px 20px 16px;
+  border-top: 1px solid rgba(90, 169, 255, 0.15);
+  animation: fadeIn 0.25s ease;
+}
+
+/* List */
+.changelog-list {
+  margin: 0;
+  padding-left: 18px;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.changelog-list li {
+  margin-bottom: 6px;
+}
+
+/* ===== Animation ===== */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* =========================
+   SLIDESHOW OVERRIDE (optional polish)
+   ========================= */
+
+.slideshow {
+  border: 1px solid rgba(90, 169, 255, 0.2);
+  border-radius: 12px;
+  overflow: hidden;
+  background: rgba(10, 20, 30, 0.9);
+}
+
+.slide-btn {
+  background: rgba(10, 20, 30, 0.7);
+  border: 1px solid rgba(90, 169, 255, 0.3);
+  color: var(--accent);
+}
+
+.slide-btn:hover {
+  background: rgba(20, 35, 55, 0.9);
+}
+
+/* =========================
+   MOBILE POLISH
+   ========================= */
+
+@media (max-width: 768px) {
+  .feature-block {
+    padding: 12px;
+  }
+
+  .changelog-summary {
+    font-size: 14px;
+    padding: 10px 12px;
+  }
+
+  .changelog-content {
+    padding: 8px 14px 12px;
+  }
+
+  .changelog-list {
+    font-size: 13px;
+  }
+}
