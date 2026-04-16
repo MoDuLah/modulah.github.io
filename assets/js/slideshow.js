@@ -1,10 +1,12 @@
+
 document.addEventListener("DOMContentLoaded", function () {
   const slidesContainer = document.getElementById("slides");
   const dotsContainer = document.getElementById("slide-dots");
+  const slideshow = document.querySelector(".slideshow");
   const prevBtn = document.querySelector(".slide-btn.prev");
   const nextBtn = document.querySelector(".slide-btn.next");
 
-  if (!slidesContainer || !dotsContainer) {
+  if (!slidesContainer || !dotsContainer || !slideshow) {
     return;
   }
 
@@ -12,6 +14,34 @@ document.addEventListener("DOMContentLoaded", function () {
   let slides = [];
   let dots = [];
   let autoRotate = null;
+
+  function normalisePath(path) {
+    return path.replace(/\\/g, "/").replace(/\/$/, "");
+  }
+
+  function getBasePath() {
+    const explicitBase = slideshow.dataset.slideshowBase;
+    if (explicitBase) {
+      return normalisePath(explicitBase);
+    }
+
+    const explicitSlug = slideshow.dataset.slideshowSlug || document.body.dataset.scriptSlug;
+    if (explicitSlug) {
+      return normalisePath("../assets/images/" + explicitSlug);
+    }
+
+    const pathName = window.location.pathname || "";
+    const fileName = pathName.split("/").pop() || "";
+    const slug = fileName.replace(/\.html$/i, "");
+
+    if (slug && slug !== "index") {
+      return normalisePath("../assets/images/" + slug);
+    }
+
+    return normalisePath("assets/images");
+  }
+
+  const basePath = getBasePath();
 
   function createSlide(src, index) {
     const slide = document.createElement("div");
@@ -105,8 +135,34 @@ document.addEventListener("DOMContentLoaded", function () {
     restartAutoRotate();
   }
 
+  function finishLoad() {
+    slides = Array.from(document.querySelectorAll(".slide"));
+    dots = Array.from(document.querySelectorAll(".slide-dots .dot"));
+
+    if (!slides.length) {
+      const emptyMessage = document.createElement("div");
+      emptyMessage.className = "slide-empty";
+      emptyMessage.textContent = "No screenshots available yet.";
+      slidesContainer.appendChild(emptyMessage);
+
+      if (prevBtn) {
+        prevBtn.style.display = "none";
+      }
+
+      if (nextBtn) {
+        nextBtn.style.display = "none";
+      }
+
+      dotsContainer.style.display = "none";
+      return;
+    }
+
+    bindControls();
+    showSlide(0);
+  }
+
   function tryLoadScreenshots(index) {
-    const src = "assets/images/screenshot-" + index + ".png";
+    const src = basePath + "/screenshot-" + index + ".png";
     const testImage = new Image();
 
     testImage.onload = function () {
@@ -115,29 +171,7 @@ document.addEventListener("DOMContentLoaded", function () {
     };
 
     testImage.onerror = function () {
-      slides = Array.from(document.querySelectorAll(".slide"));
-      dots = Array.from(document.querySelectorAll(".slide-dots .dot"));
-
-      if (!slides.length) {
-        const emptyMessage = document.createElement("div");
-        emptyMessage.className = "slide-empty";
-        emptyMessage.textContent = "No screenshots available yet.";
-        slidesContainer.appendChild(emptyMessage);
-
-        if (prevBtn) {
-          prevBtn.style.display = "none";
-        }
-
-        if (nextBtn) {
-          nextBtn.style.display = "none";
-        }
-
-        dotsContainer.style.display = "none";
-        return;
-      }
-
-      bindControls();
-      showSlide(0);
+      finishLoad();
     };
 
     testImage.src = src;

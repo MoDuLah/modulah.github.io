@@ -1,0 +1,13 @@
+@import url("../script-page-base.css");
+
+:root {
+  --bg-image: url("../../images/lap-recorder/lap-recorder-background.png");
+}
+
+body.script-page {
+  --bg-image: url("../../images/lap-recorder/lap-recorder-background.png");
+}
+
+.site-brand-mark {
+  background-image: url("../../images/lap-recorder/lap-recorder-logo.png");
+}

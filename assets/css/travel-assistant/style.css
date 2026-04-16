@@ -1,0 +1,13 @@
+@import url("../script-page-base.css");
+
+:root {
+  --bg-image: url("../../images/travel-assistant/travel-assistant-background.png");
+}
+
+body.script-page {
+  --bg-image: url("../../images/travel-assistant/travel-assistant-background.png");
+}
+
+.site-brand-mark {
+  background-image: url("../../images/travel-assistant/travel-assistant-logo.png");
+}
