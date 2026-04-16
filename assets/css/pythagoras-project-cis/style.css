@@ -1,11 +1,11 @@
 @import url("../script-page-base.css");
 
 :root {
-  --bg-image: url("../../images/pythagoras-project-cis/pythagoras-project-background.png");
+  --bg-image: url("../../images/pythagoras-project-cis/pythagoras-project-logo.png");
 }
 
 body.script-page {
-  --bg-image: url("../../images/pythagoras-project-cis/pythagoras-project-background.png");
+  --bg-image: url("../../images/pythagoras-project-cis/pythagoras-project-logo.png");
 }
 
 .site-brand-mark {
