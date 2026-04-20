@@ -1,11 +1,11 @@
 @import url("../script-page-base.css");
 
 :root {
-  --bg-image: url("../../images/stock-x/stock-x-background.png");
+  --bg-image: url("../../images/stock-x/stock-x-logo.png");
 }
 
 body.script-page {
-  --bg-image: url("../../images/stock-x/stock-x-background.png");
+  --bg-image: url("../../images/stock-x/stock-x-logo.png");
 }
 
 .site-brand-mark {
