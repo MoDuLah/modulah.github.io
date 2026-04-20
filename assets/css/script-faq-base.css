@@ -40,6 +40,42 @@ a:hover { text-decoration: underline; }
   background: rgba(229,189,84,0.12) center/contain no-repeat;
   border: 1px solid rgba(229,189,84,0.25);
 }
+body.script-faq-page[data-script-slug="egg-finder-navigator"] {
+  --bg-image: url("../images/egg-finder-navigator/egg-finder-navigator-logo.png");
+}
+body.script-faq-page[data-script-slug="egg-finder-navigator"] .site-brand-mark {
+  background-image: url("../images/egg-finder-navigator/egg-finder-navigator-logo.png");
+}
+body.script-faq-page[data-script-slug="lap-recorder"] {
+  --bg-image: url("../images/lap-recorder/lap-recorder-logo.png");
+}
+body.script-faq-page[data-script-slug="lap-recorder"] .site-brand-mark {
+  background-image: url("../images/lap-recorder/lap-recorder-logo.png");
+}
+body.script-faq-page[data-script-slug="race-theme-changer"] {
+  --bg-image: url("../images/race-theme-changer/race-theme-changer-logo.png");
+}
+body.script-faq-page[data-script-slug="race-theme-changer"] .site-brand-mark {
+  background-image: url("../images/race-theme-changer/race-theme-changer-logo.png");
+}
+body.script-faq-page[data-script-slug="restore-og-names"] {
+  --bg-image: url("../images/restore-og-names/restore-og-names-logo.png");
+}
+body.script-faq-page[data-script-slug="restore-og-names"] .site-brand-mark {
+  background-image: url("../images/restore-og-names/restore-og-names-logo.png");
+}
+body.script-faq-page[data-script-slug="stock-x"] {
+  --bg-image: url("../images/stock-x/stock-x-logo.png");
+}
+body.script-faq-page[data-script-slug="stock-x"] .site-brand-mark {
+  background-image: url("../images/stock-x/stock-x-logo.png");
+}
+body.script-faq-page[data-script-slug="travel-assistant"] {
+  --bg-image: url("../../TravelAssistant.png");
+}
+body.script-faq-page[data-script-slug="travel-assistant"] .site-brand-mark {
+  background-image: url("../../TravelAssistant.png");
+}
 .site-brand-title { display:block; font-size: 1rem; font-weight: 700; }
 .site-brand-subtitle { display:block; color: var(--soft); font-size: 0.88rem; }
 .site-nav-links { display:flex; flex-wrap:wrap; gap:12px; justify-content:flex-end; }

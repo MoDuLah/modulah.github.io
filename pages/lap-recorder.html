@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <title>Lap Recorder | MoDuL Hub</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="Lap Recorder page for the MoDuL script hub.">
+  <meta name="description" content="Lap Recorder userscript for Torn racing lap capture, records, replay context, and session review.">
   <link rel="stylesheet" href="../assets/css/lap-recorder/style.css">
   <link rel="stylesheet" href="../assets/css/slideshow.css">
 </head>
@@ -21,6 +21,7 @@
 
       <div class="site-nav-links">
         <a class="site-nav-link" href="../index.html">Hub</a>
+        <a class="site-nav-link" href="lap-recorder-faq.html">FAQ</a>
         <a class="site-nav-link" href="#screenshots">Screenshots</a>
       </div>
     </header>
@@ -28,12 +29,12 @@
     <main>
       <section class="hero">
         <div class="hero-copy">
-          <p class="section-kicker">MoDuL Script Page</p>
+          <p class="section-kicker">Racing Userscript</p>
           <h1 class="hero-title">Lap Recorder</h1>
           <p class="hero-text">A racing helper focused on lap recording, record tracking, replay context, and session visibility for Torn racers.</p>
 
           <div class="hero-actions">
-            <a class="cta-button" href="#">View Script Page</a>
+            <a class="cta-button" href="lap-recorder-faq.html">Read FAQ</a>
             <a class="ghost-button" href="../index.html">Back to Hub</a>
           </div>
         </div>
@@ -47,23 +48,31 @@
       </section>
 
       <section class="content-grid" aria-label="Script details">
-        <article class="content-card">
-          <h2>Overview</h2>
-          <p>This page is now using a clean HTML structure with the styling moved into its own external stylesheet for <strong>lap-recorder</strong>.</p>
+        <article class="content-card content-card-full">
+          <h2>Description</h2>
+          <p>Lap Recorder is a Torn racing helper focused on capturing lap times, keeping track and car records visible, and giving each session enough context to review later.</p>
         </article>
 
-        <article class="content-card">
-          <h2>Screenshots</h2>
-          <p>Screenshot lookup is handled automatically from the script slug, so this page will load any images placed in <code>assets/images/lap-recorder/</code> using the <code>screenshot-1.png</code>, <code>screenshot-2.png</code> pattern.</p>
-        </article>
-
-        <article class="content-card">
-          <h2>Assets</h2>
-          <ul>
-            <li>Logo path: <code>assets/images/lap-recorder/lap-recorder-logo.png</code></li>
-            <li>Background path: <code>assets/images/lap-recorder/lap-recorder-background.png</code></li>
-            <li>If the files do not exist yet, the page still remains safe to style and extend later.</li>
-          </ul>
+        <article class="content-card content-card-full">
+          <h2>What this script does</h2>
+          <div class="feature-grid">
+            <div class="feature-block">
+              <h3>Lap capture</h3>
+              <p>Records racing laps with the context needed to compare sessions cleanly.</p>
+            </div>
+            <div class="feature-block">
+              <h3>Track and car records</h3>
+              <p>Keeps lap records tied to the car and track they belong to instead of mixing everything together.</p>
+            </div>
+            <div class="feature-block">
+              <h3>Replay context</h3>
+              <p>Helps connect recorded times with replay-aware details for easier post-race review.</p>
+            </div>
+            <div class="feature-block">
+              <h3>Session history</h3>
+              <p>Gives racers a clearer trail of recent performance without turning the race page into a spreadsheet.</p>
+            </div>
+          </div>
         </article>
       </section>
 
@@ -71,7 +80,7 @@
         <div class="showcase-header">
           <p class="section-kicker">Preview</p>
           <h2>Interface Screenshots</h2>
-          <p class="lede">This slideshow now resolves screenshots from the correct script image folder automatically.</p>
+          <p class="lede">Preview the lap recording views, saved records, and session context.</p>
         </div>
 
         <div class="slideshow" data-slideshow-slug="lap-recorder">
