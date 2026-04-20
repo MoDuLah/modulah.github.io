@@ -2,276 +2,137 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>Pythagoras Project – CIS</title>
+  <title>Lap Recorder FAQ | MoDuL Hub</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="Pythagoras Project – CIS. Company Intelligence System for Torn.">
-  <link rel="stylesheet" href="assets/css/styles.css">
-  <link rel="stylesheet" href="assets/css/slideshow.css">
+  <meta name="description" content="Frequently asked questions for Lap Recorder, a Torn racing lap capture and record tracking userscript.">
+  <link rel="stylesheet" href="../assets/css/script-faq-base.css">
 </head>
-<body>
-  <div class="page">
-    <header>
-      <nav class="nav" aria-label="FAQ navigation">
-        <div class="brand">
-          <span class="mark" aria-hidden="true"></span>
-          <strong><a href="index.html">Pythagoras Project - CIS</a></strong>
+<body class="script-faq-page" data-script-slug="lap-recorder">
+  <div class="page-shell">
+    <header class="site-nav" aria-label="FAQ navigation">
+      <div class="site-brand">
+        <span class="site-brand-mark" aria-hidden="true"></span>
+        <div class="site-brand-text">
+          <span class="site-brand-title">Lap Recorder</span>
+          <span class="site-brand-subtitle">Frequently Asked Questions</span>
         </div>
-        <div class="nav-links">
-          <a href="#install">Install</a>
-          <a href="#data">Data</a>
-          <a href="#training">Training</a>
-          <a href="#license">Licensing</a>
-          <a href="#tier-benefits">Tier benefits</a>
-          <a href="#support">Support</a>
-        </div>
-      </nav>
+      </div>
+
+      <div class="site-nav-links">
+        <a class="site-nav-link" href="../index.html">Hub</a>
+        <a class="site-nav-link" href="lap-recorder.html">Script Page</a>
+        <a class="site-nav-link" href="#start">Start Here</a>
+      </div>
     </header>
 
     <main>
-      <section class="intro" aria-labelledby="page-title">
-        <div>
-          <p class="section-title">Frequently Asked Questions</p>
-          <h1 id="page-title">Company intelligence, working for you.</h1>
-          <p class="lede">Answers for directors and staff using Pythagoras CIS to manage Torn company training, staff history, weekly reports, exports, and support keys.</p>
+      <section class="faq-hero">
+        <div class="faq-copy">
+          <p class="section-kicker">Lap Recorder FAQ</p>
+          <h1 class="faq-title">Track laps without losing the race context.</h1>
+          <p class="faq-text">Answers for Torn racers using Lap Recorder to capture lap times, compare car and track records, and review racing sessions with cleaner context.</p>
         </div>
 
-        <aside class="status" aria-label="Safety notes">
-          <h2>Operating rules</h2>
-          <ul>
-            <li><span class="dot" aria-hidden="true"></span><span>API syncs only run from button clicks.</span></li>
-            <li><span class="dot" aria-hidden="true"></span><span>Data stays in local userscript storage unless you export it.</span></li>
-            <li><span class="dot" aria-hidden="true"></span><span>Loaded Torn page data is used only from the page you are viewing.</span></li>
+        <aside class="faq-panel" aria-label="Script highlights">
+          <h2 class="faq-panel-title">At a glance</h2>
+          <ul class="feature-list">
+            <li class="feature-item"><span class="feature-dot" aria-hidden="true"></span><span>Track and car-specific lap records</span></li>
+            <li class="feature-item"><span class="feature-dot" aria-hidden="true"></span><span>Replay-aware lap capture helpers</span></li>
+            <li class="feature-item"><span class="feature-dot" aria-hidden="true"></span><span>Clean session history and timing context</span></li>
           </ul>
         </aside>
       </section>
 
-      <section class="faq" aria-label="FAQ">
-        <aside class="toc">
+      <section class="faq-layout" aria-label="FAQ content">
+        <aside class="toc-card">
           <h2>Questions</h2>
-          <a href="#install">Install and setup</a>
-          <a href="#api-key">API key</a>
-          <a href="#data">Data and privacy</a>
-          <a href="#training">Training ledger</a>
-          <a href="#planner">Train planner</a>
-          <a href="#timeline">Timeline and staff</a>
-          <a href="#analytics">Weekly analytics</a>
-          <a href="#license">Licensing</a>
-          <a href="#tier-benefits">Tier analytics benefits</a>
-          <a href="#export">Exports and reports</a>
-          <a href="#troubleshooting">Troubleshooting</a>
-          <a href="#support">Support</a>
+          <nav class="toc-links" aria-label="Table of contents">
+            <a href="#start">What it is</a>
+            <a href="#install">Install</a>
+            <a href="#records">Lap records</a>
+            <a href="#replays">Replay context</a>
+            <a href="#data">Data</a>
+            <a href="#screenshots">Screenshots</a>
+            <a href="#troubleshooting">Troubleshooting</a>
+            <a href="#support">Support</a>
+          </nav>
         </aside>
 
-<div class="questions">
+        <div class="faq-list">
+          <details id="start" open>
+            <summary>What is Lap Recorder?</summary>
+            <div class="answer">
+              <p>Lap Recorder is a Torn racing userscript focused on capturing lap times and keeping those times tied to useful session context.</p>
+              <p>It is built for racers who want track and car-specific records without turning the race page into a full spreadsheet.</p>
+            </div>
+          </details>
 
-  <details id="install" open>
-    <summary>What is Pythagoras CIS?</summary>
-    <div class="answer">
-      <p>Pythagoras CIS is a Tampermonkey userscript designed for Torn company management. It provides a local workspace for managing the training ledger, FIFO train planner, staff and director history, daily report analytics, licensing, backups, and themed reports.</p>
-    </div>
-  </details>
+          <details id="install">
+            <summary>How do I install it?</summary>
+            <div class="answer">
+              <p>Install it through a userscript manager such as Tampermonkey, or through Torn PDA if the release build supports it.</p>
+              <p>After installing or updating, reload Torn and open the racing pages where you want lap recording available.</p>
+            </div>
+          </details>
 
-  <details>
-    <summary>How do I install it?</summary>
-    <div class="answer">
-      <p>Install a userscript manager such as Tampermonkey, or use Torn PDA’s userscript support. Then install the latest public build from the release link.</p>
-      <p>After installation, open Torn and use the Pythagoras CIS panel to configure your API key, company ID, theme, and support options.</p>
-    </div>
-  </details>
+          <details id="records">
+            <summary>How are lap records organised?</summary>
+            <div class="answer">
+              <p>The page description is centred on track and car-specific records, so the useful comparison is the lap time in the context of the car and track used.</p>
+              <p>That keeps a strong lap from one setup from being mixed into a different setup where it would not mean the same thing.</p>
+            </div>
+          </details>
 
-  <details id="api-key">
-    <summary>What API key access does it need?</summary>
-    <div class="answer">
-      <p>A <b>Minimal</b> API key is sufficient for basic functionality. A <b>Full Access</b> API key is required for advanced features.</p>
-      <p>The script only uses your Torn API key when you manually trigger a sync. It does not perform background polling or automated request chains.</p>
-      <p>If <code>Remember locally</code> is not enabled, the API key will not be stored when saving settings.</p>
-    </div>
-  </details>
+          <details id="replays">
+            <summary>What does replay-aware capture mean?</summary>
+            <div class="answer">
+              <p>Replay-aware capture means the script is designed around race review as well as live racing.</p>
+              <p>The goal is to make recorded laps easier to connect back to the session or replay context that produced them.</p>
+            </div>
+          </details>
 
-  <details id="data">
-    <summary>Where is my data stored?</summary>
-    <div class="answer">
-      <p>All data — including ledger entries, staff history, analytics, settings, and license information — is stored locally in Tampermonkey storage, with a browser storage fallback.</p>
-      <p>No data is transmitted to any Pythagoras Project servers. Exports are created locally and only shared if you choose to do so.</p>
-    </div>
-  </details>
+          <details id="data">
+            <summary>Where is my lap data stored?</summary>
+            <div class="answer">
+              <p>Lap Recorder is presented as a userscript, so any saved records or preferences should be treated as local browser or userscript-manager data unless the release notes say otherwise.</p>
+              <p>Back up anything important before clearing browser storage, reinstalling userscripts, or moving devices.</p>
+            </div>
+          </details>
 
-  <details id="training">
-    <summary>How does the Training Ledger calculate costs?</summary>
-    <div class="answer">
-      <p>The ledger starts with your base price per train and applies the configured discount rules:</p>
-      <ul>
-        <li>Manual discount</li>
-        <li>Merit discount (default: 1% per merit, up to 10%, fully configurable)</li>
-        <li>Loyalty tiers such as <code>10:5%, 25:7%, 50:10%</code> (fully customisable)</li>
-        <li>Optional global promotional discounts (e.g. 25% or 50%)</li>
-      </ul>
-      <p>All totals update dynamically as you edit entries, including paid, unpaid, completed, pending, used trains, and remaining trains.</p>
-    </div>
-  </details>
+          <details id="screenshots">
+            <summary>What should I look for in the screenshots?</summary>
+            <div class="answer">
+              <p>The screenshots on the script page show the lap-recording interface and how timing context appears during review.</p>
+              <p>Use them as a quick visual check before installing or updating the script.</p>
+            </div>
+          </details>
 
-  <details id="planner">
-    <summary>How does the Train Planner work?</summary>
-    <div class="answer">
-      <p>The planner follows a FIFO (First In, First Out) approach for paid training entries. Paid users are prioritised up to the configured daily cap, after which remaining capacity is allocated to sponsored rotation users.</p>
-      <p>Daily training capacity is based on company stars (1–10), with an additional train available when the Trainer role is enabled in settings.</p>
-    </div>
-  </details>
+          <details id="troubleshooting">
+            <summary>The recorder is not showing. What should I check?</summary>
+            <div class="answer">
+              <ul>
+                <li>Make sure the userscript is enabled.</li>
+                <li>Reload the Torn racing page after installing or updating.</li>
+                <li>Check whether your userscript manager or Torn PDA has blocked the script.</li>
+                <li>Confirm you are on a racing page where lap recording is expected to appear.</li>
+              </ul>
+            </div>
+          </details>
 
-  <details id="timeline">
-    <summary>What does the Timeline track?</summary>
-    <div class="answer">
-      <p>The timeline processes company news entries and classifies them into categories such as Hire, Application, Left, Fired, Director, Rating, Daily Reports, Training, Withdraw, Deposit, Wage, Funds, and Other.</p>
-      <p>These events are also used to build structured views of current and past staff and directors, where sufficient data is available.</p>
-    </div>
-  </details>
-
-  <details id="analytics">
-    <summary>How are weekly analytics calculated?</summary>
-    <div class="answer">
-      <p>Daily report entries containing customer and income data are parsed into weekly summaries.</p>
-      <p>The system tracks week number, date range, customers, income, profit per customer, and comparisons against both the previous week and long-term averages.</p>
-    </div>
-  </details>
-
-  <details>
-    <summary>What is the wage system?</summary>
-    <div class="answer">
-      <p>The wage helper estimates staff wages based on MAN, INT, END, merit bonuses, addiction penalties, and inactivity penalties.</p>
-      <p>This is a configurable planning tool and does not reflect official Torn payroll values.</p>
-    </div>
-  </details>
-
-  <details id="license">
-    <summary>What do Supporter, Company Boost, and Ultimate unlock?</summary>
-    <div class="answer">
-      <p>The free version includes all core features. Supporter unlocks premium functionality such as full data backups and additional tools. Company Boost focuses on advanced company analytics. Ultimate includes all features along with premium support.</p>
-      <p>Licences are available as 30-day or lifetime options, with a 7-day trial available for each tier.</p>
-    </div>
-  </details>
-
-  <details id="tier-benefits">
-    <summary>What benefits does each tier include?</summary>
-    <div class="answer">
-      <p>Each tier is designed for different levels of company management, from basic tools to full operational insight and reporting.</p>
-
-      <div class="tier-grid">
-        <article class="tier-card">
-          <h3>Supporter</h3>
-          <ul>
-            <li>Full data export and import (ledger, staff history, analytics, settings, and licence backup)</li>
-            <li>Enhanced newsletter and reporting tools</li>
-            <li>Supporter badge for forum signatures</li>
-          </ul>
-        </article>
-
-        <article class="tier-card">
-          <h3>Company Boost</h3>
-          <ul>
-            <li>Advanced company analytics and monitoring tools</li>
-            <li>Improved visibility into staff performance and operational trends</li>
-            <li>Company-linked licensing</li>
-          </ul>
-        </article>
-
-        <article class="tier-card">
-          <h3>Ultimate</h3>
-          <ul>
-            <li>Includes all Supporter and Company Boost features</li>
-            <li>Best suited for full company management and long-term analytics</li>
-            <li>Includes premium support</li>
-          </ul>
-        </article>
-      </div>
-    </div>
-  </details>
-
-  <details>
-    <summary>Why is my key rejected?</summary>
-    <div class="answer">
-      <p>Common causes include mismatched Torn user ID, incorrect company ID for boost licences, expired keys, or corrupted copy-paste input.</p>
-      <p>Use <code>Settings → Import licence key</code> and ensure the full key is entered correctly.</p>
-    </div>
-  </details>
-
-  <details id="export">
-    <summary>What can I export?</summary>
-    <div class="answer">
-      <p>Supporter tier and above can export and import full datasets, including ledger, staff history, analytics, settings, and licence data.</p>
-      <p>The system can also generate themed HTML reports, newsletter-ready outputs, and forum-ready snippets.</p>
-    </div>
-  </details>
-
-  <details>
-    <summary>Does popup mode persist?</summary>
-    <div class="answer">
-      <p>Yes. Popup mode is remembered across Torn page navigation.</p>
-      <p>If your browser blocks popups, a fallback badge will appear allowing you to reopen the panel with a single click.</p>
-    </div>
-  </details>
-
-  <details>
-    <summary>Can I change the colours and theme?</summary>
-    <div class="answer">
-      <p>Yes. Settings include theme presets and colour controls for roles and contracts.</p>
-      <p>You can select presets such as MoDuL Dark or Blue & Gold, or use the theme builder to create a custom configuration.</p>
-    </div>
-  </details>
-
-  <details id="troubleshooting">
-    <summary>The panel is not showing. What should I check?</summary>
-    <div class="answer">
-      <ul>
-        <li>Ensure the userscript is enabled in Tampermonkey or Torn PDA</li>
-        <li>Reload Torn after installation or updates</li>
-        <li>Check if the UI is minimised into the badge</li>
-        <li>Verify popup permissions if popup mode is enabled</li>
-      </ul>
-    </div>
-  </details>
-
-  <details>
-    <summary>The API sync failed. What should I check?</summary>
-    <div class="answer">
-      <ul>
-        <li>Ensure your API key is active and has the correct permissions</li>
-        <li>Verify the API key is entered correctly in settings</li>
-        <li>Confirm the company ID is correct</li>
-        <li>Retry if the Torn API is temporarily unavailable or rate limited</li>
-        <li>Use one sync action at a time (one action = one request)</li>
-      </ul>
-    </div>
-  </details>
-
-  <details id="support">
-    <summary>How do I report a bug?</summary>
-    <div class="answer">
-      <p>Use <code>Settings → Report bug</code> within the userscript.</p>
-      <p>This copies a diagnostic block including version, page URL, user ID, company ID, ledger count, timeline count, and timestamp.</p>
-      <p>Include this information when reporting issues to help speed up troubleshooting.</p>
-    </div>
-  </details>
-
-  <details>
-    <summary>How do I contact support?</summary>
-    <div class="answer">
-      <p>Use the <code>Message me</code> link in Settings.</p>
-      <p>If it is missing, install the latest version of the script or contact the maintainer for the current support link.</p>
-    </div>
-  </details>
-
-          <div class="callout">
-            <strong>Need a parser fix?</strong>
-            Save the raw timeline line, the category you expected, and the category CIS selected. That is usually enough to patch the classifier cleanly.
-          </div>
+          <details id="support">
+            <summary>How do I report an issue?</summary>
+            <div class="answer">
+              <p>Include the race page you were on, what you expected to be recorded, what was actually recorded, and whether you were live racing or reviewing a replay.</p>
+              <p>That context is usually enough to reproduce lap-recording issues cleanly.</p>
+            </div>
+          </details>
         </div>
       </section>
     </main>
 
     <footer class="page-footer">
-      MoDuL Hub • Lap Recorder • <a href="https://www.torn.com/profiles.php?XID=4022159"  target="_blank">MoDuL[402215]</a> © All rights reserved.
+      MoDuL Hub &bull; Lap Recorder &bull; <a href="https://www.torn.com/profiles.php?XID=4022159" target="_blank" rel="noopener noreferrer">MoDuL[402215]</a> &copy; All rights reserved.
     </footer>
-
   </div>
 </body>
 </html>

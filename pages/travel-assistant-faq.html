@@ -2,269 +2,128 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>Pythagoras Project – CIS</title>
+  <title>Travel Assistant FAQ | MoDuL Hub</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="Pythagoras Project – CIS. Company Intelligence System for Torn.">
-  <link rel="stylesheet" href="assets/css/styles.css">
-  <link rel="stylesheet" href="assets/css/slideshow.css">
+  <meta name="description" content="Frequently asked questions for Travel Assistant, a Torn travel timing and destination planning userscript.">
+  <link rel="stylesheet" href="../assets/css/script-faq-base.css">
 </head>
-<body>
-  <div class="page">
-    <header>
-      <nav class="nav" aria-label="FAQ navigation">
-        <div class="brand">
-          <span class="mark" aria-hidden="true"></span>
-          <strong><a href="index.html">Pythagoras Project - CIS</a></strong>
+<body class="script-faq-page" data-script-slug="travel-assistant">
+  <div class="page-shell">
+    <header class="site-nav" aria-label="FAQ navigation">
+      <div class="site-brand">
+        <span class="site-brand-mark" aria-hidden="true"></span>
+        <div class="site-brand-text">
+          <span class="site-brand-title">Travel Assistant</span>
+          <span class="site-brand-subtitle">Frequently Asked Questions</span>
         </div>
-        <div class="nav-links">
-          <a href="#install">Install</a>
-          <a href="#data">Data</a>
-          <a href="#training">Training</a>
-          <a href="#license">Licensing</a>
-          <a href="#tier-benefits">Tier benefits</a>
-          <a href="#support">Support</a>
-        </div>
-      </nav>
+      </div>
+
+      <div class="site-nav-links">
+        <a class="site-nav-link" href="../index.html">Hub</a>
+        <a class="site-nav-link" href="travel-assistant.html">Script Page</a>
+        <a class="site-nav-link" href="#start">Start Here</a>
+      </div>
     </header>
 
     <main>
-      <section class="intro" aria-labelledby="page-title">
-        <div>
-          <p class="section-title">Frequently Asked Questions</p>
-          <h1 id="page-title">Company intelligence, working for you.</h1>
-          <p class="lede">Answers for directors and staff using Pythagoras CIS to manage Torn company training, staff history, weekly reports, exports, and support keys.</p>
+      <section class="faq-hero">
+        <div class="faq-copy">
+          <p class="section-kicker">Travel Assistant FAQ</p>
+          <h1 class="faq-title">Plan flights with less guesswork.</h1>
+          <p class="faq-text">Answers for Torn players using Travel Assistant to keep destination checks, travel timing, and travel-run planning easier to follow while flying.</p>
         </div>
 
-        <aside class="status" aria-label="Safety notes">
-          <h2>Operating rules</h2>
-          <ul>
-            <li><span class="dot" aria-hidden="true"></span><span>API syncs only run from button clicks.</span></li>
-            <li><span class="dot" aria-hidden="true"></span><span>Data stays in local userscript storage unless you export it.</span></li>
-            <li><span class="dot" aria-hidden="true"></span><span>Loaded Torn page data is used only from the page you are viewing.</span></li>
+        <aside class="faq-panel" aria-label="Script highlights">
+          <h2 class="faq-panel-title">At a glance</h2>
+          <ul class="feature-list">
+            <li class="feature-item"><span class="feature-dot" aria-hidden="true"></span><span>Destination-focused travel context</span></li>
+            <li class="feature-item"><span class="feature-dot" aria-hidden="true"></span><span>Timing support for flights and returns</span></li>
+            <li class="feature-item"><span class="feature-dot" aria-hidden="true"></span><span>Lightweight planning for travel runs</span></li>
           </ul>
         </aside>
       </section>
 
-      <section class="faq" aria-label="FAQ">
-        <aside class="toc">
+      <section class="faq-layout" aria-label="FAQ content">
+        <aside class="toc-card">
           <h2>Questions</h2>
-          <a href="#install">Install and setup</a>
-          <a href="#api-key">API key</a>
-          <a href="#data">Data and privacy</a>
-          <a href="#training">Training ledger</a>
-          <a href="#planner">Train planner</a>
-          <a href="#timeline">Timeline and staff</a>
-          <a href="#analytics">Weekly analytics</a>
-          <a href="#license">Licensing</a>
-          <a href="#tier-benefits">Tier analytics benefits</a>
-          <a href="#export">Exports and reports</a>
-          <a href="#troubleshooting">Troubleshooting</a>
-          <a href="#support">Support</a>
+          <nav class="toc-links" aria-label="Table of contents">
+            <a href="#start">What it is</a>
+            <a href="#install">Install</a>
+            <a href="#destinations">Destinations</a>
+            <a href="#timing">Timing</a>
+            <a href="#runs">Travel runs</a>
+            <a href="#data">Data</a>
+            <a href="#troubleshooting">Troubleshooting</a>
+            <a href="#support">Support</a>
+          </nav>
         </aside>
 
-<div class="questions">
+        <div class="faq-list">
+          <details id="start" open>
+            <summary>What is Travel Assistant?</summary>
+            <div class="answer">
+              <p>Travel Assistant is a Torn userscript for destination checks, flight timing, and lightweight travel-run planning.</p>
+              <p>It is built to make flying decisions easier to follow before, during, and after a trip.</p>
+            </div>
+          </details>
 
-  <details id="install" open>
-    <summary>What is Pythagoras CIS?</summary>
-    <div class="answer">
-      <p>Pythagoras CIS is a Tampermonkey userscript designed for Torn company management. It provides a local workspace for managing the training ledger, FIFO train planner, staff and director history, daily report analytics, licensing, backups, and themed reports.</p>
-    </div>
-  </details>
+          <details id="install">
+            <summary>How do I install it?</summary>
+            <div class="answer">
+              <p>Install it through a userscript manager such as Tampermonkey, or through Torn PDA if the release build supports it.</p>
+              <p>Reload Torn after installing or updating, then open the travel-related pages where the assistant is expected to appear.</p>
+            </div>
+          </details>
 
-  <details>
-    <summary>How do I install it?</summary>
-    <div class="answer">
-      <p>Install a userscript manager such as Tampermonkey, or use Torn PDA’s userscript support. Then install the latest public build from the release link.</p>
-      <p>After installation, open Torn and use the Pythagoras CIS panel to configure your API key, company ID, theme, and support options.</p>
-    </div>
-  </details>
+          <details id="destinations">
+            <summary>How does it help with destinations?</summary>
+            <div class="answer">
+              <p>The script description focuses on destination context, so its job is to make travel choices easier to review in the moment.</p>
+              <p>That can help keep the reason for a destination clear instead of forcing you to rely on memory while moving between pages.</p>
+            </div>
+          </details>
 
-  <details id="api-key">
-    <summary>What API key access does it need?</summary>
-    <div class="answer">
-      <p>A <b>Minimal</b> API key is sufficient for basic functionality. A <b>Full Access</b> API key is required for advanced features.</p>
-      <p>The script only uses your Torn API key when you manually trigger a sync. It does not perform background polling or automated request chains.</p>
-      <p>If <code>Remember locally</code> is not enabled, the API key will not be stored when saving settings.</p>
-    </div>
-  </details>
+          <details id="timing">
+            <summary>What timing does it support?</summary>
+            <div class="answer">
+              <p>Travel Assistant is described around flight and return timing support.</p>
+              <p>Use it to keep the next step in your route easier to follow while you are away from Torn City.</p>
+            </div>
+          </details>
 
-  <details id="data">
-    <summary>Where is my data stored?</summary>
-    <div class="answer">
-      <p>All data — including ledger entries, staff history, analytics, settings, and license information — is stored locally in Tampermonkey storage, with a browser storage fallback.</p>
-      <p>No data is transmitted to any Pythagoras Project servers. Exports are created locally and only shared if you choose to do so.</p>
-    </div>
-  </details>
+          <details id="runs">
+            <summary>What is travel-run planning?</summary>
+            <div class="answer">
+              <p>Travel-run planning means keeping the purpose of the flight visible: where you are going, why you are going there, and what you need to remember next.</p>
+              <p>The script is meant to support that workflow without becoming a heavy dashboard.</p>
+            </div>
+          </details>
 
-  <details id="training">
-    <summary>How does the Training Ledger calculate costs?</summary>
-    <div class="answer">
-      <p>The ledger starts with your base price per train and applies the configured discount rules:</p>
-      <ul>
-        <li>Manual discount</li>
-        <li>Merit discount (default: 1% per merit, up to 10%, fully configurable)</li>
-        <li>Loyalty tiers such as <code>10:5%, 25:7%, 50:10%</code> (fully customisable)</li>
-        <li>Optional global promotional discounts (e.g. 25% or 50%)</li>
-      </ul>
-      <p>All totals update dynamically as you edit entries, including paid, unpaid, completed, pending, used trains, and remaining trains.</p>
-    </div>
-  </details>
+          <details id="data">
+            <summary>Does it store travel data?</summary>
+            <div class="answer">
+              <p>As a userscript, any saved settings or travel helper data should be treated as local userscript-manager or browser data unless the release notes say otherwise.</p>
+              <p>Back up any important settings before clearing browser storage or changing devices.</p>
+            </div>
+          </details>
 
-  <details id="planner">
-    <summary>How does the Train Planner work?</summary>
-    <div class="answer">
-      <p>The planner follows a FIFO (First In, First Out) approach for paid training entries. Paid users are prioritised up to the configured daily cap, after which remaining capacity is allocated to sponsored rotation users.</p>
-      <p>Daily training capacity is based on company stars (1–10), with an additional train available when the Trainer role is enabled in settings.</p>
-    </div>
-  </details>
+          <details id="troubleshooting">
+            <summary>Travel Assistant is not showing. What should I check?</summary>
+            <div class="answer">
+              <ul>
+                <li>Make sure the userscript is enabled.</li>
+                <li>Reload the Torn travel page after installing or updating.</li>
+                <li>Confirm you are on a travel-related view supported by the script.</li>
+                <li>Check whether Torn PDA or your userscript manager has blocked the script.</li>
+              </ul>
+            </div>
+          </details>
 
-  <details id="timeline">
-    <summary>What does the Timeline track?</summary>
-    <div class="answer">
-      <p>The timeline processes company news entries and classifies them into categories such as Hire, Application, Left, Fired, Director, Rating, Daily Reports, Training, Withdraw, Deposit, Wage, Funds, and Other.</p>
-      <p>These events are also used to build structured views of current and past staff and directors, where sufficient data is available.</p>
-    </div>
-  </details>
-
-  <details id="analytics">
-    <summary>How are weekly analytics calculated?</summary>
-    <div class="answer">
-      <p>Daily report entries containing customer and income data are parsed into weekly summaries.</p>
-      <p>The system tracks week number, date range, customers, income, profit per customer, and comparisons against both the previous week and long-term averages.</p>
-    </div>
-  </details>
-
-  <details>
-    <summary>What is the wage system?</summary>
-    <div class="answer">
-      <p>The wage helper estimates staff wages based on MAN, INT, END, merit bonuses, addiction penalties, and inactivity penalties.</p>
-      <p>This is a configurable planning tool and does not reflect official Torn payroll values.</p>
-    </div>
-  </details>
-
-  <details id="license">
-    <summary>What do Supporter, Company Boost, and Ultimate unlock?</summary>
-    <div class="answer">
-      <p>The free version includes all core features. Supporter unlocks premium functionality such as full data backups and additional tools. Company Boost focuses on advanced company analytics. Ultimate includes all features along with premium support.</p>
-      <p>Licences are available as 30-day or lifetime options, with a 7-day trial available for each tier.</p>
-    </div>
-  </details>
-
-  <details id="tier-benefits">
-    <summary>What benefits does each tier include?</summary>
-    <div class="answer">
-      <p>Each tier is designed for different levels of company management, from basic tools to full operational insight and reporting.</p>
-
-      <div class="tier-grid">
-        <article class="tier-card">
-          <h3>Supporter</h3>
-          <ul>
-            <li>Full data export and import (ledger, staff history, analytics, settings, and licence backup)</li>
-            <li>Enhanced newsletter and reporting tools</li>
-            <li>Supporter badge for forum signatures</li>
-          </ul>
-        </article>
-
-        <article class="tier-card">
-          <h3>Company Boost</h3>
-          <ul>
-            <li>Advanced company analytics and monitoring tools</li>
-            <li>Improved visibility into staff performance and operational trends</li>
-            <li>Company-linked licensing</li>
-          </ul>
-        </article>
-
-        <article class="tier-card">
-          <h3>Ultimate</h3>
-          <ul>
-            <li>Includes all Supporter and Company Boost features</li>
-            <li>Best suited for full company management and long-term analytics</li>
-            <li>Includes premium support</li>
-          </ul>
-        </article>
-      </div>
-    </div>
-  </details>
-
-  <details>
-    <summary>Why is my key rejected?</summary>
-    <div class="answer">
-      <p>Common causes include mismatched Torn user ID, incorrect company ID for boost licences, expired keys, or corrupted copy-paste input.</p>
-      <p>Use <code>Settings → Import licence key</code> and ensure the full key is entered correctly.</p>
-    </div>
-  </details>
-
-  <details id="export">
-    <summary>What can I export?</summary>
-    <div class="answer">
-      <p>Supporter tier and above can export and import full datasets, including ledger, staff history, analytics, settings, and licence data.</p>
-      <p>The system can also generate themed HTML reports, newsletter-ready outputs, and forum-ready snippets.</p>
-    </div>
-  </details>
-
-  <details>
-    <summary>Does popup mode persist?</summary>
-    <div class="answer">
-      <p>Yes. Popup mode is remembered across Torn page navigation.</p>
-      <p>If your browser blocks popups, a fallback badge will appear allowing you to reopen the panel with a single click.</p>
-    </div>
-  </details>
-
-  <details>
-    <summary>Can I change the colours and theme?</summary>
-    <div class="answer">
-      <p>Yes. Settings include theme presets and colour controls for roles and contracts.</p>
-      <p>You can select presets such as MoDuL Dark or Blue & Gold, or use the theme builder to create a custom configuration.</p>
-    </div>
-  </details>
-
-  <details id="troubleshooting">
-    <summary>The panel is not showing. What should I check?</summary>
-    <div class="answer">
-      <ul>
-        <li>Ensure the userscript is enabled in Tampermonkey or Torn PDA</li>
-        <li>Reload Torn after installation or updates</li>
-        <li>Check if the UI is minimised into the badge</li>
-        <li>Verify popup permissions if popup mode is enabled</li>
-      </ul>
-    </div>
-  </details>
-
-  <details>
-    <summary>The API sync failed. What should I check?</summary>
-    <div class="answer">
-      <ul>
-        <li>Ensure your API key is active and has the correct permissions</li>
-        <li>Verify the API key is entered correctly in settings</li>
-        <li>Confirm the company ID is correct</li>
-        <li>Retry if the Torn API is temporarily unavailable or rate limited</li>
-        <li>Use one sync action at a time (one action = one request)</li>
-      </ul>
-    </div>
-  </details>
-
-  <details id="support">
-    <summary>How do I report a bug?</summary>
-    <div class="answer">
-      <p>Use <code>Settings → Report bug</code> within the userscript.</p>
-      <p>This copies a diagnostic block including version, page URL, user ID, company ID, ledger count, timeline count, and timestamp.</p>
-      <p>Include this information when reporting issues to help speed up troubleshooting.</p>
-    </div>
-  </details>
-
-  <details>
-    <summary>How do I contact support?</summary>
-    <div class="answer">
-              <p>
-                Use the 
-                  <code>
-                    Message me
-                  </code>
-                 link in Settings.
-              </p>
-              <p>
-                If it is missing, install the latest version of the script or contact the maintainer for the current support link.
-              </p>
+          <details id="support">
+            <summary>How do I report a travel issue?</summary>
+            <div class="answer">
+              <p>Include the destination, your travel state, what timing or planning detail looked wrong, and what you expected Travel Assistant to show.</p>
+              <p>That context is usually enough to reproduce travel-state issues.</p>
             </div>
           </details>
         </div>
@@ -272,9 +131,8 @@
     </main>
 
     <footer class="page-footer">
-      MoDuL Hub • Travel Assistant • <a href="https://www.torn.com/profiles.php?XID=4022159"  target="_blank">MoDuL[402215]</a> © All rights reserved.
+      MoDuL Hub &bull; Travel Assistant &bull; <a href="https://www.torn.com/profiles.php?XID=4022159" target="_blank" rel="noopener noreferrer">MoDuL[402215]</a> &copy; All rights reserved.
     </footer>
-
   </div>
 </body>
 </html>
