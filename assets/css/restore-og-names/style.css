@@ -1,11 +1,11 @@
 @import url("../script-page-base.css");
 
 :root {
-  --bg-image: url("../../images/restore-og-names/restore-og-names-background.png");
+  --bg-image: url("../../images/restore-og-names/restore-og-names-logo.png");
 }
 
 body.script-page {
-  --bg-image: url("../../images/restore-og-names/restore-og-names-background.png");
+  --bg-image: url("../../images/restore-og-names/restore-og-names-logo.png");
 }
 
 .site-brand-mark {
