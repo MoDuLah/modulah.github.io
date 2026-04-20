@@ -97,6 +97,60 @@ a:hover { text-decoration: underline; }
     0 0 44px rgba(229,189,84,0.17);
   transform: translateY(-2px);
 }
+body.script-page[data-script-slug="custom-race-filter"] .hero-panel::before {
+  background-image:
+    radial-gradient(circle at 28% 18%, rgba(255,255,255,0.26), rgba(255,255,255,0) 34%),
+    linear-gradient(145deg, rgba(229,189,84,0.13), rgba(142,168,200,0.08)),
+    url("../images/custom-race-filter/custom-race-filter-logo.png");
+}
+body.script-page[data-script-slug="egg-finder-navigator"] .hero-panel::before {
+  background-image:
+    radial-gradient(circle at 28% 18%, rgba(255,255,255,0.26), rgba(255,255,255,0) 34%),
+    linear-gradient(145deg, rgba(229,189,84,0.13), rgba(142,168,200,0.08)),
+    url("../images/egg-finder-navigator/egg-finder-navigator-logo.png");
+}
+body.script-page[data-script-slug="lap-recorder"] .hero-panel::before {
+  background-image:
+    radial-gradient(circle at 28% 18%, rgba(255,255,255,0.26), rgba(255,255,255,0) 34%),
+    linear-gradient(145deg, rgba(229,189,84,0.13), rgba(142,168,200,0.08)),
+    url("../images/lap-recorder/lap-recorder-logo.png");
+}
+body.script-page[data-script-slug="pythagoras-project-cis"] .hero-panel::before {
+  background-image:
+    radial-gradient(circle at 28% 18%, rgba(255,255,255,0.26), rgba(255,255,255,0) 34%),
+    linear-gradient(145deg, rgba(229,189,84,0.13), rgba(142,168,200,0.08)),
+    url("../images/pythagoras-project-cis/pythagoras-project-logo.png");
+}
+body.script-page[data-script-slug="race-theme-changer"] .hero-panel::before {
+  background-image:
+    radial-gradient(circle at 28% 18%, rgba(255,255,255,0.26), rgba(255,255,255,0) 34%),
+    linear-gradient(145deg, rgba(229,189,84,0.13), rgba(142,168,200,0.08)),
+    url("../images/race-theme-changer/race-theme-changer-logo.png");
+}
+body.script-page[data-script-slug="race-tracker"] .hero-panel::before {
+  background-image:
+    radial-gradient(circle at 28% 18%, rgba(255,255,255,0.26), rgba(255,255,255,0) 34%),
+    linear-gradient(145deg, rgba(229,189,84,0.13), rgba(142,168,200,0.08)),
+    url("../images/race-tracker/race-tracker-logo.png");
+}
+body.script-page[data-script-slug="restore-og-names"] .hero-panel::before {
+  background-image:
+    radial-gradient(circle at 28% 18%, rgba(255,255,255,0.26), rgba(255,255,255,0) 34%),
+    linear-gradient(145deg, rgba(229,189,84,0.13), rgba(142,168,200,0.08)),
+    url("../images/restore-og-names/restore-og-names-logo.png");
+}
+body.script-page[data-script-slug="stock-x"] .hero-panel::before {
+  background-image:
+    radial-gradient(circle at 28% 18%, rgba(255,255,255,0.26), rgba(255,255,255,0) 34%),
+    linear-gradient(145deg, rgba(229,189,84,0.13), rgba(142,168,200,0.08)),
+    url("../images/stock-x/stock-x-logo.png");
+}
+body.script-page[data-script-slug="travel-assistant"] .hero-panel::before {
+  background-image:
+    radial-gradient(circle at 28% 18%, rgba(255,255,255,0.26), rgba(255,255,255,0) 34%),
+    linear-gradient(145deg, rgba(229,189,84,0.13), rgba(142,168,200,0.08)),
+    url("../../TravelAssistant.png");
+}
 .hero-panel-title { margin:0 0 14px; font-size:1.2rem; }
 .feature-list { list-style:none; padding:0; margin:0; display:grid; gap:14px; }
 .feature-item { display:flex; gap:12px; align-items:flex-start; color: var(--muted); }
