@@ -153,11 +153,11 @@ body.script-page[data-script-slug="stock-x"] .hero-panel::before {
     linear-gradient(145deg, rgba(229,189,84,0.13), rgba(142,168,200,0.08)),
     url("../images/stock-x/stock-x-logo.png");
 }
-body.script-page[data-script-slug="travel-assistant"] .hero-panel::before {
+body.script-page[data-script-slug="smuggler"] .hero-panel::before {
   background-image:
     radial-gradient(circle at 28% 18%, rgba(255,255,255,0.26), rgba(255,255,255,0) 34%),
     linear-gradient(145deg, rgba(229,189,84,0.13), rgba(142,168,200,0.08)),
-    url("../../TravelAssistant.png");
+    url("../images/smuggler/smuggler-logo.png");
 }
 .hero-panel-title { margin:0 0 14px; font-size:1.2rem; }
 .feature-list { list-style:none; padding:0; margin:0; display:grid; gap:14px; }
