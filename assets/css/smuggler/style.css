@@ -1,13 +1,13 @@
 @import url("../script-page-base.css");
 
 :root {
-  --bg-image: url("../../../Smuggler-logo.png");
+  --bg-image: url("../../images/race-tracker/smuggler-logo.png");
 }
 
 body.script-page {
-  --bg-image: url("../../../Smuggler-logo.png");
+  --bg-image: url("../../images/race-tracker/smuggler-logo.png");
 }
 
 .site-brand-mark {
-  background-image: url("../../../Smuggler-logo.png");
+  background-image: url("../../images/race-tracker/smuggler-logo.png");
 }
