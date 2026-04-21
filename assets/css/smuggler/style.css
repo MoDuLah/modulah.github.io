@@ -1,0 +1,13 @@
+@import url("../script-page-base.css");
+
+:root {
+  --bg-image: url("../../../Smuggler-logo.png");
+}
+
+body.script-page {
+  --bg-image: url("../../../Smuggler-logo.png");
+}
+
+.site-brand-mark {
+  background-image: url("../../../Smuggler-logo.png");
+}
