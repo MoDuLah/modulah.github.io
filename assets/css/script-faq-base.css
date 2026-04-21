@@ -70,11 +70,11 @@ body.script-faq-page[data-script-slug="stock-x"] {
 body.script-faq-page[data-script-slug="stock-x"] .site-brand-mark {
   background-image: url("../images/stock-x/stock-x-logo.png");
 }
-body.script-faq-page[data-script-slug="travel-assistant"] {
-  --bg-image: url("../../TravelAssistant.png");
+body.script-faq-page[data-script-slug="smuggler"] {
+  --bg-image: url("../images/smuggler/smuggler-logo.png");
 }
-body.script-faq-page[data-script-slug="travel-assistant"] .site-brand-mark {
-  background-image: url("../../TravelAssistant.png");
+body.script-faq-page[data-script-slug="smuggler"] .site-brand-mark {
+  background-image: url("../images/smuggler/smuggler-logo.png");
 }
 .site-brand-title { display:block; font-size: 1rem; font-weight: 700; }
 .site-brand-subtitle { display:block; color: var(--soft); font-size: 0.88rem; }
@@ -164,11 +164,11 @@ body.script-faq-page[data-script-slug="stock-x"] .faq-panel::before {
     linear-gradient(145deg, rgba(229,189,84,0.13), rgba(142,168,200,0.08)),
     url("../images/stock-x/stock-x-logo.png");
 }
-body.script-faq-page[data-script-slug="travel-assistant"] .faq-panel::before {
+body.script-faq-page[data-script-slug="smuggler"] .faq-panel::before {
   background-image:
     radial-gradient(circle at 28% 18%, rgba(255,255,255,0.26), rgba(255,255,255,0) 34%),
     linear-gradient(145deg, rgba(229,189,84,0.13), rgba(142,168,200,0.08)),
-    url("../../TravelAssistant.png");
+    url("../images/smuggler/smuggler-logo.png");
 }
 .faq-panel-title { margin:0 0 14px; font-size:1.2rem; }
 .feature-list { list-style:none; padding:0; margin:0; display:grid; gap:14px; }
