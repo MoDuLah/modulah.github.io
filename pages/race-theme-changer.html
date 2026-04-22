@@ -116,19 +116,29 @@
       <section class="content-card changelog-card" id="changelog" aria-label="Changelog">
         <p class="section-kicker">Release history</p>
         <h2>Changelog</h2>
-        <p class="lede">Click a version to expand its notes.</p>
+        <p>The current public Greasy Fork release is v1.2.6, updated on April 20, 2026.</p>
 
         <div class="changelog-tree" role="tree">
+          <details class="changelog-version" role="treeitem" open>
+            <summary class="changelog-summary">v1.2.6 - April 20, 2026</summary>
+            <div class="changelog-content">
+              <ul class="changelog-list">
+                <li>Current public Greasy Fork release.</li>
+                <li>Latest live build of the PDA-safe race-class theme switcher.</li>
+                <li>Keeps the theme button flow, class selector, and race details styling in the active public release line.</li>
+              </ul>
+            </div>
+          </details>
+
           <details class="changelog-version" role="treeitem">
             <summary class="changelog-summary">v1.2.3</summary>
             <div class="changelog-content">
               <ul class="changelog-list">
-                <li>✅ Added support for the images on Stats page as well. Now they follow suit with your selection.</li>
-                <li>🧱 Finalized race details bar placement permanently under the track.</li>
-                <li>📐 Improved padding and height to match the track canvas margins.</li>
-                <li>📱 Fixed text clipping and alignment issues on PDA / mobile.</li>
-                <li>🎯 Vertically and horizontally centered race details content.</li>
-                <li>🛡️ Strengthened guards to ensure the script runs only once.</li>
+                <li>Added support for stats-page images so they follow the selected class theme too.</li>
+                <li>Finalized the race details bar placement permanently under the track.</li>
+                <li>Improved padding and height to match the track canvas margins.</li>
+                <li>Fixed text clipping and alignment issues on PDA and mobile.</li>
+                <li>Strengthened guards so the script runs only once.</li>
               </ul>
             </div>
           </details>
@@ -137,7 +147,7 @@
             <summary class="changelog-summary">v1.2.2</summary>
             <div class="changelog-content">
               <ul class="changelog-list">
-                <li>✅ Fixed a TornPDA issue with Race Details by reducing the font size on small devices.</li>
+                <li>Fixed a TornPDA issue with the race details bar by reducing font size on small devices.</li>
               </ul>
             </div>
           </details>
@@ -146,14 +156,11 @@
             <summary class="changelog-summary">v1.2.1</summary>
             <div class="changelog-content">
               <ul class="changelog-list">
-                <li>✅ Race details bar is now permanently positioned under the track.</li>
-                <li>❌ Removed overlay mode.</li>
-                <li>❌ Removed left / right positioning.</li>
-                <li>❌ Removed the position selector from the popup.</li>
-                <li>🎯 Improved race details readability and spacing.</li>
-                <li>🧹 Prevented wrapping and scrollbar artifacts.</li>
-                <li>🛡️ Added stronger safeguards to prevent double execution.</li>
-                <li>🧠 Cleaner DOM handling when the race updates or the track reloads.</li>
+                <li>Moved the race details bar permanently under the track.</li>
+                <li>Removed overlay mode and the left and right positioning options.</li>
+                <li>Removed the position selector from the popup.</li>
+                <li>Improved readability, spacing, and protection against double execution.</li>
+                <li>Cleaned up DOM handling when the race updates or the track reloads.</li>
               </ul>
             </div>
           </details>
