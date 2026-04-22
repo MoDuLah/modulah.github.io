@@ -98,6 +98,45 @@ a:hover { text-decoration: underline; }
 .script-card-title-wrap { min-width:0; }
 .script-card-title { margin:0; font-size:1.15rem; }
 .script-card-tag { margin:4px 0 0; color:var(--soft); font-size:.9rem; }
+.script-card-meta {
+  margin-top: 10px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.script-card-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 5px 9px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  font-size: .76rem;
+  font-weight: 700;
+  letter-spacing: .04em;
+  line-height: 1.1;
+  text-transform: uppercase;
+}
+.script-card-badge-version {
+  background: rgba(229,189,84,.14);
+  border-color: rgba(229,189,84,.28);
+  color: var(--accent);
+}
+.script-card-badge-updated {
+  background: rgba(142,168,200,.14);
+  border-color: rgba(142,168,200,.24);
+  color: var(--soft);
+}
+.script-card-badge-dev {
+  background: rgba(86,208,149,.14);
+  border-color: rgba(86,208,149,.26);
+  color: var(--good);
+}
+.script-card-badge-docs {
+  background: rgba(255,255,255,.08);
+  border-color: rgba(255,255,255,.12);
+  color: var(--text);
+}
 .script-card-text { margin:0 0 18px; color:var(--muted); }
 .script-feature-list { margin:0 0 20px; padding-left:18px; color:var(--muted); }
 .script-card-actions { margin-top:auto; display:flex; gap:12px; flex-wrap:wrap; }
@@ -129,6 +168,6 @@ a:hover { text-decoration: underline; }
 .script-card-logo--race-theme-changer { background-image: url("../../images/race-theme-changer/race-theme-changer-logo.png"); }
 .script-card-logo--restore-og-names { background-image: url("../../images/restore-og-names/restore-og-names-logo.png"); }
 .script-card-logo--stock-x { background-image: url("../../images/stock-x/stock-x-logo.png"); }
-.script-card-logo--travel-assistant { background-image: url("../../../TravelAssistant.png"); }
+.script-card-logo--smuggler { background-image: url("../../images/smuggler/smuggler-logo.png"); }
 .script-card-logo--custom-race-filter { background-image: url("../../images/custom-race-filter/custom-race-filter-logo.png"); }
 .script-card-logo--pythagoras-project-cis { background-image: url("../../images/pythagoras-project-cis/pythagoras-project-logo.png"); }
