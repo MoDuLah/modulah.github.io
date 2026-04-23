@@ -111,11 +111,11 @@ body.script-page[data-script-slug="custom-race-filter"] .hero-panel::before {
     linear-gradient(145deg, rgba(229,189,84,0.13), rgba(142,168,200,0.08)),
     url("../images/custom-race-filter/custom-race-filter-logo.png");
 }
-body.script-page[data-script-slug="egg-finder-navigator"] .hero-panel::before {
+body.script-page[data-script-slug="eggsterminator"] .hero-panel::before {
   background-image:
     radial-gradient(circle at 28% 18%, rgba(255,255,255,0.26), rgba(255,255,255,0) 34%),
     linear-gradient(145deg, rgba(229,189,84,0.13), rgba(142,168,200,0.08)),
-    url("../images/egg-finder-navigator/egg-finder-navigator-logo.png");
+    url("../images/eggsterminator/eggsterminator-logo.png");
 }
 body.script-page[data-script-slug="lap-recorder"] .hero-panel::before {
   background-image:

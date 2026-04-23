@@ -46,11 +46,11 @@ body.script-faq-page[data-script-slug="custom-race-filter"] {
 body.script-faq-page[data-script-slug="custom-race-filter"] .site-brand-mark {
   background-image: url("../images/custom-race-filter/custom-race-filter-logo.png");
 }
-body.script-faq-page[data-script-slug="egg-finder-navigator"] {
-  --bg-image: url("../images/egg-finder-navigator/egg-finder-navigator-logo.png");
+body.script-faq-page[data-script-slug="eggsterminator"] {
+  --bg-image: url("../images/eggsterminator/eggsterminator-logo.png");
 }
-body.script-faq-page[data-script-slug="egg-finder-navigator"] .site-brand-mark {
-  background-image: url("../images/egg-finder-navigator/egg-finder-navigator-logo.png");
+body.script-faq-page[data-script-slug="eggsterminator"] .site-brand-mark {
+  background-image: url("../images/eggsterminator/eggsterminator-logo.png");
 }
 body.script-faq-page[data-script-slug="lap-recorder"] {
   --bg-image: url("../images/lap-recorder/lap-recorder-logo.png");
@@ -140,11 +140,11 @@ body.script-faq-page[data-script-slug="smuggler"] .site-brand-mark {
     0 0 44px rgba(229,189,84,0.17);
   transform: translateY(-2px);
 }
-body.script-faq-page[data-script-slug="egg-finder-navigator"] .faq-panel::before {
+body.script-faq-page[data-script-slug="eggsterminator"] .faq-panel::before {
   background-image:
     radial-gradient(circle at 28% 18%, rgba(255,255,255,0.26), rgba(255,255,255,0) 34%),
     linear-gradient(145deg, rgba(229,189,84,0.13), rgba(142,168,200,0.08)),
-    url("../images/egg-finder-navigator/egg-finder-navigator-logo.png");
+    url("../images/eggsterminator/eggsterminator-logo.png");
 }
 body.script-faq-page[data-script-slug="custom-race-filter"] .faq-panel::before {
   background-image:
