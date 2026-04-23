@@ -1,0 +1,13 @@
+@import url("../script-page-base.css");
+
+:root {
+  --bg-image: url("../../images/eggsterminator/eggsterminator-logo.png");
+}
+
+body.script-page {
+  --bg-image: url("../../images/eggsterminator/eggsterminator-logo.png");
+}
+
+.site-brand-mark {
+  background-image: url("../../images/eggsterminator/eggsterminator-logo.png");
+}
