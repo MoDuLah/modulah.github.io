@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Future Unknown</title>
+  <link rel="stylesheet" href="assets/css/style.css" />
+</head>
+<body>
+  <div class="fu-bg-grid"></div>
+  <div class="fu-orb fu-orb-a"></div>
+  <div class="fu-orb fu-orb-b"></div>
+
+  <div class="container">
+    <header class="topbar" id="topbar"></header>
+
+    <aside class="sidebar">
+      <div class="sidebar-brand">
+        <img src="assets/images/fu-logo.svg" alt="Future Unknown logo" class="sidebar-logo" />
+        <div>
+          <div class="brand-title">Future Unknown</div>
+          <div class="brand-subtitle">Command Interface</div>
+        </div>
+      </div>
+
+      <nav class="sidebar-nav">
+        <button class="nav-item" data-page="dashboard" onclick="navigate('dashboard')">Dashboard</button>
+        <button class="nav-item" data-page="map" onclick="navigate('map')">Map</button>
+        <button class="nav-item" data-page="ship" onclick="navigate('ship')">Ship</button>
+        <button class="nav-item" data-page="missions" onclick="navigate('missions')">Missions</button>
+        <button class="nav-item" data-page="research" onclick="navigate('research')">Research</button>
+        <button class="nav-item" data-page="market" onclick="navigate('market')">Market</button>
+        <button class="nav-item" data-page="settings" onclick="navigate('settings')">Settings</button>
+      </nav>
+
+      <div id="sidebar-stats"></div>
+
+      <div class="sidebar-status">
+        <div class="sidebar-status-label">System Link</div>
+        <div class="sidebar-status-value">SOLARIS / STABLE</div>
+      </div>
+    </aside>
+
+    <main class="main" id="main"></main>
+
+    <section class="log" id="log"></section>
+  </div>
+
+  <script src="assets/js/core/state.js"></script>
+<script src="assets/js/core/utils.js"></script>
+<script src="assets/js/data/factions.js"></script>
+<script src="assets/js/data/research.js"></script>
+<script src="assets/js/systems/log.js"></script>
+<script src="assets/js/systems/player.js"></script>
+<script src="assets/js/systems/playerModifiers.js"></script>
+<script src="assets/js/systems/rules.js"></script>
+<script src="assets/js/systems/passive.js"></script>
+<script src="assets/js/systems/market.js"></script>
+<script src="assets/js/systems/events.js"></script>
+<script src="assets/js/systems/missions.js"></script>
+<script src="assets/js/systems/salvage.js"></script>
+<script src="assets/js/systems/travel.js"></script>
+<script src="assets/js/ui/render.js"></script>
+<script src="assets/js/app.js"></script>
+</body>
+</html>
