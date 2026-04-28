@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Smuggler | MoDuL's Hub</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Smuggler userscript for Torn and TornPDA travel runs, item buying, route timing, and step-by-step travel workflow.">
+  <link rel="canonical" href="https://modulah.github.io/smuggler/">
+  <link rel="stylesheet" href="../assets/css/smuggler/style.css">
+  <link rel="stylesheet" href="../assets/css/slideshow.css">
+</head>
+<body class="script-page" data-script-slug="smuggler">
+  <div class="page-shell">
+    <header class="site-nav" aria-label="Main navigation">
+      <div class="site-brand">
+        <span class="site-brand-mark" aria-hidden="true"></span>
+        <div class="site-brand-text">
+          <span class="site-brand-title">Smuggler</span>
+          <span class="site-brand-subtitle">Userscript</span>
+        </div>
+      </div>
+
+      <div class="site-nav-links">
+        <a class="site-nav-link" href="../index.html">Hub</a>
+        <a class="site-nav-link" href="faq.html">FAQ</a>
+        <a class="site-nav-link" href="#changelog">Changelog</a>
+        <a class="site-nav-link" href="#screenshots">Screenshots</a>
+      </div>
+    </header>
+
+    <main>
+      <section class="hero">
+        <div class="hero-copy">
+          <p class="section-kicker">Travel Userscript</p>
+          <h1 class="hero-title">Smuggler</h1>
+          <p class="hero-text">A Torn and TornPDA travel helper for repeat abroad runs, with destination planning, primary and fallback item flow, and a compact pill for route state, countdown, ETA, and the next natural travel step.</p>
+
+          <div class="hero-actions">
+            <a class="cta-button" href="https://greasyfork.org/en/scripts/575111-modul-s-smuggler" target="_blank" rel="noopener noreferrer">Download Script</a>
+            <a class="ghost-button" href="https://www.torn.com/forums.php#p=threads&f=67&t=16558683&b=0&a=0&start=0" target="_blank" rel="noopener noreferrer">Forum Thread</a>
+            <a class="ghost-button" href="../index.html">Back to Hub</a>
+          </div>
+        </div>
+
+        <aside class="hero-panel" aria-label="Feature overview">
+          <h2 class="hero-panel-title">At a glance</h2>
+          <ul class="feature-list">
+            <li class="feature-item"><span class="feature-dot" aria-hidden="true"></span><span>Desktop hotkey and TornPDA plane-button support</span></li>
+            <li class="feature-item"><span class="feature-dot" aria-hidden="true"></span><span>Primary and fallback item flow for abroad shopping</span></li>
+            <li class="feature-item"><span class="feature-dot" aria-hidden="true"></span><span>Countdown, ETA, and route visibility in one compact pill</span></li>
+          </ul>
+        </aside>
+      </section>
+
+      <section class="content-grid" aria-label="Script details">
+        <article class="content-card content-card-full">
+          <h2>Description</h2>
+          <p>Smuggler is a live Torn travel workflow helper built around repeated abroad runs. It helps with destination setup, item priorities, purchase flow, travel timing, and the next natural page action without hiding what Torn is asking you to confirm.</p>
+        </article>
+
+        <article class="content-card content-card-full">
+          <h2>Latest updates</h2>
+          <div class="feature-grid">
+            <div class="feature-block">
+              <h3>GreasyFork release live</h3>
+              <p>Smuggler is now publicly available on GreasyFork with a live install button from the hub page.</p>
+            </div>
+            <div class="feature-block">
+              <h3>Direct hub page route</h3>
+              <p>The script now has its own <code>/smuggler/</code> route so forum, Discord, and release copy can send traffic through the hub page first.</p>
+            </div>
+            <div class="feature-block">
+              <h3>Release assets in place</h3>
+              <p>Screenshots, FAQ coverage, changelog structure, and branding are now set up around the live script release.</p>
+            </div>
+            <div class="feature-block">
+              <h3>Support path ready</h3>
+              <p>The forum thread and Discord channel are both linked from the hub page for easier follow-up and feedback.</p>
+            </div>
+          </div>
+        </article>
+
+        <article class="content-card content-card-full">
+          <h2>What this script does</h2>
+          <div class="feature-grid">
+            <div class="feature-block">
+              <h3>Travel pill</h3>
+              <p>Adds a compact draggable pill with route context, countdown, ETA, and progress while you move around Torn.</p>
+            </div>
+            <div class="feature-block">
+              <h3>Item workflow</h3>
+              <p>Supports country selection, category ordering, and primary and fallback item choices for abroad shopping.</p>
+            </div>
+            <div class="feature-block">
+              <h3>Step-based progression</h3>
+              <p>Advances through the next natural travel or buy step one action at a time instead of blindly chaining the whole run.</p>
+            </div>
+            <div class="feature-block">
+              <h3>Travel safeguards</h3>
+              <p>Checks common blockers before travel and keeps return-home behaviour aware of whether the trip has actually produced a purchase.</p>
+            </div>
+          </div>
+        </article>
+      </section>
+
+      <section class="showcase-section" id="screenshots">
+        <div class="showcase-header">
+          <p class="section-kicker">Preview</p>
+          <h2>Interface Screenshots</h2>
+          <p class="lede">Preview the travel pill, item workflow, and travel progression layout.</p>
+        </div>
+
+        <div class="slideshow" data-slideshow-slug="smuggler">
+          <div class="slides" id="slides"></div>
+          <button class="slide-btn prev" type="button" aria-label="Previous slide">‹</button>
+          <button class="slide-btn next" type="button" aria-label="Next slide">›</button>
+          <div class="slide-dots" id="slide-dots"></div>
+        </div>
+      </section>
+
+      <section class="content-card changelog-card" id="changelog" aria-label="Changelog">
+        <p class="section-kicker">Release log</p>
+        <h2>Changelog</h2>
+        <p>Smuggler is now live, and this page tracks the public release path, hub updates, and the bigger user-facing changes worth surfacing outside the script itself.</p>
+
+        <div class="changelog-tree" role="tree">
+          <details class="changelog-version" role="treeitem" open>
+            <summary class="changelog-summary">v2.3.5 - April 28, 2026</summary>
+            <div class="changelog-content">
+              <ul class="changelog-list">
+                <li>The live GreasyFork release is now linked directly from the Smuggler hub page.</li>
+                <li>The page content has been updated from rename-status copy to live release copy and current feature coverage.</li>
+                <li>The hub now has a dedicated <code>/smuggler/</code> route so release traffic lands on the page before the install link.</li>
+              </ul>
+            </div>
+          </details>
+
+          <details class="changelog-version" role="treeitem">
+            <summary class="changelog-summary">Hub page refresh - April 28, 2026</summary>
+            <div class="changelog-content">
+              <ul class="changelog-list">
+                <li>Updated the Smuggler hub card and live snapshot to reflect the public release instead of a rename-only placeholder.</li>
+                <li>Repointed related page links so Smuggler traffic goes to the hub page first.</li>
+                <li>Kept screenshots, FAQ, and changelog structure in place for future versioned updates.</li>
+              </ul>
+            </div>
+          </details>
+
+          <details class="changelog-version" role="treeitem">
+            <summary class="changelog-summary">Rename and branding pass - April 22, 2026</summary>
+            <div class="changelog-content">
+              <ul class="changelog-list">
+                <li>The former Travel Assistant hub presence was renamed to Smuggler across the hub, page, and FAQ.</li>
+                <li>The Smuggler logo and dedicated script branding were added throughout the site.</li>
+              </ul>
+            </div>
+          </details>
+        </div>
+      </section>
+
+      <nav class="script-pager" aria-label="Script navigation">
+        <a class="script-pager-link script-pager-prev" href="../stock-x/">
+          <span class="script-pager-kicker">&larr; Previous Script</span>
+          <span class="script-pager-title">Stock-X</span>
+        </a>
+        <a class="script-pager-link script-pager-next" href="../custom-race-filter/">
+          <span class="script-pager-kicker">Next Script &rarr;</span>
+          <span class="script-pager-title">Custom Race Filter</span>
+        </a>
+      </nav>
+    </main>
+
+    <footer class="page-footer">
+      MoDuL's Hub • Smuggler • <a href="https://www.torn.com/profiles.php?XID=4022159" target="_blank" rel="noopener noreferrer">MoDuL[402215]</a> © All rights reserved.
+    </footer>
+
+  </div>
+
+  <script src="../assets/js/slideshow.js"></script>
+</body>
+</html>
+
