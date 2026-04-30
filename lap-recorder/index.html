@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <title>Lap Recorder | MoDuL's Hub</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="Lap Recorder userscript for Torn racing lap capture, records, replay context, and session review.">
+  <meta name="description" content="Lap Recorder userscript for Torn racing lap capture, replay review, focus-safe timing, exports, and local records.">
   <link rel="stylesheet" href="../assets/css/lap-recorder/style.css">
   <link rel="stylesheet" href="../assets/css/slideshow.css">
 </head>
@@ -32,18 +32,19 @@
         <div class="hero-copy">
           <p class="section-kicker">Racing Userscript</p>
           <h1 class="hero-title">Lap Recorder</h1>
-          <p class="hero-text">A racing helper focused on lap recording, record tracking, replay context, and session visibility for Torn racers.</p>
+          <p class="hero-text">A racing helper focused on lap capture, replay review, focus-safe timing, and local records for Torn racers.</p>
 
           <div class="hero-actions">
-            <a class="cta-button" href="https://greasyfork.org/en/scripts/565756-modul-s-lap-recorder" target="_blank" rel="noopener noreferrer">Download Script</a>
+            <a class="cta-button" href="https://greasyfork.org/en/scripts/565756-modul-s-lap-recorder" target="_blank" rel="noopener noreferrer">View Greasy Fork Release</a>
             <a class="ghost-button" href="../index.html">Back to Hub</a>
           </div>
+          <p class="hero-text">Public Greasy Fork release: v1.6.5. Current local build: v1.6.10 pending staff review.</p>
         </div>
 
         <aside class="hero-panel" aria-label="Feature overview">
           <h2 class="hero-panel-title">At a glance</h2>
           <ul class="feature-list">
-            <li class="feature-item"><span class="feature-dot" aria-hidden="true"></span><span>Track and car-specific lap records</span></li><li class="feature-item"><span class="feature-dot" aria-hidden="true"></span><span>Replay-aware lap capture helpers</span></li><li class="feature-item"><span class="feature-dot" aria-hidden="true"></span><span>Clean session history and timing context</span></li>
+            <li class="feature-item"><span class="feature-dot" aria-hidden="true"></span><span>Best Lap always uses the base circuit, Race Time splits only for custom layouts</span></li><li class="feature-item"><span class="feature-dot" aria-hidden="true"></span><span>Replay-aware lap capture helpers with focus-safe scraping</span></li><li class="feature-item"><span class="feature-dot" aria-hidden="true"></span><span>Recorder window now opens larger and stays on-screen</span></li>
           </ul>
         </aside>
       </section>
@@ -51,7 +52,7 @@
       <section class="content-grid" aria-label="Script details">
         <article class="content-card content-card-full">
           <h2>Description</h2>
-          <p>Lap Recorder is a Torn racing helper focused on capturing lap times, keeping track and car records visible, and giving each session enough context to review later.</p>
+          <p>Lap Recorder is a Torn racing helper focused on capturing lap times, keeping local records useful, and giving each session enough context to review later without losing the shape of the actual race.</p>
         </article>
 
         <article class="content-card content-card-full">
@@ -59,19 +60,19 @@
           <div class="feature-grid">
             <div class="feature-block">
               <h3>Lap capture</h3>
-              <p>Records racing laps with the context needed to compare sessions cleanly.</p>
+              <p>Records racing laps with visible last-lap data, calculated chrono, delta, and race context for cleaner review.</p>
             </div>
             <div class="feature-block">
               <h3>Track and car records</h3>
-              <p>Keeps lap records tied to the car and track they belong to instead of mixing everything together.</p>
+              <p>Best Lap always uses the base circuit name, while Race Time uses the base track for official layouts and only splits into <strong>Trackname - X Laps</strong> for custom races.</p>
             </div>
             <div class="feature-block">
               <h3>Replay context</h3>
-              <p>Helps connect recorded times with replay-aware details for easier post-race review.</p>
+              <p>Helps connect recorded times with replay-aware details for easier post-race review, without replay auto-clicking.</p>
             </div>
             <div class="feature-block">
-              <h3>Session history</h3>
-              <p>Gives racers a clearer trail of recent performance without turning the race page into a spreadsheet.</p>
+              <h3>Recorder window</h3>
+              <p>Opens at a larger default size, now with a taller default and minimum height, and stays inside the viewport when opened, restored, dragged, resized, or after a browser resize.</p>
             </div>
           </div>
         </article>
@@ -95,36 +96,68 @@
       <section class="content-card changelog-card" id="changelog" aria-label="Changelog">
         <p class="section-kicker">Release history</p>
         <h2>Changelog</h2>
-        <p>The current public Greasy Fork release is v1.6.2, updated on April 20, 2026.</p>
+        <p>The current public Greasy Fork release is v1.6.5, updated on April 23, 2026. The current local build is v1.6.10 and is pending staff review.</p>
 
         <div class="changelog-tree" role="tree">
           <details class="changelog-version" role="treeitem" open>
-            <summary class="changelog-summary">v1.6.2 - April 20, 2026</summary>
+            <summary class="changelog-summary">v1.6.10 - Local build pending review</summary>
             <div class="changelog-content">
               <ul class="changelog-list">
-                <li>Current public Greasy Fork release.</li>
-                <li>Keeps the live Lap Recorder build centered on recorded laps, saved records, and session review.</li>
-                <li>Represents the latest public 1.6.x release line for the racing recorder workflow.</li>
+                <li>Increased the recorder window default height to 740px.</li>
+                <li>Increased the recorder window minimum height to 500px.</li>
+                <li>Keeps the larger recorder view inside the existing viewport clamping behavior.</li>
               </ul>
             </div>
           </details>
 
           <details class="changelog-version" role="treeitem">
-            <summary class="changelog-summary">v1.6 - February 19, 2026</summary>
+            <summary class="changelog-summary">v1.6.9 - Local official layout correction</summary>
             <div class="changelog-content">
               <ul class="changelog-list">
-                <li>Started the public 1.6 release line on Greasy Fork.</li>
-                <li>Marked the jump into the current feature set used by the latest live build.</li>
+                <li>Corrected the official lap-count mapping for Two Islands, Sewage, and Convict.</li>
+                <li>Those tracks now treat their official race-time layouts as base-track records instead of custom layouts.</li>
+                <li>Best Lap still always uses just the base circuit name.</li>
               </ul>
             </div>
           </details>
 
           <details class="changelog-version" role="treeitem">
-            <summary class="changelog-summary">v1.1.13 - February 9, 2026</summary>
+            <summary class="changelog-summary">v1.6.8 - Local official layout mapping</summary>
             <div class="changelog-content">
               <ul class="changelog-list">
-                <li>Initial public Greasy Fork release line.</li>
-                <li>Established the script's focus on lap capture and racing record visibility.</li>
+                <li>Added official lap-count mapping for the supported race list.</li>
+                <li>Race Time uses the base track for official layouts and <strong>Trackname - X Laps</strong> only for custom race layouts.</li>
+              </ul>
+            </div>
+          </details>
+
+          <details class="changelog-version" role="treeitem">
+            <summary class="changelog-summary">v1.6.7 - Local window and bounds update</summary>
+            <div class="changelog-content">
+              <ul class="changelog-list">
+                <li>The recorder window now opens taller by default.</li>
+                <li>The recorder window stays inside the viewport when opened, restored, dragged, resized, or after a browser resize.</li>
+              </ul>
+            </div>
+          </details>
+
+          <details class="changelog-version" role="treeitem">
+            <summary class="changelog-summary">v1.6.5 - April 23, 2026</summary>
+            <div class="changelog-content">
+              <ul class="changelog-list">
+                <li>Latest public Greasy Fork release.</li>
+                <li>Represents the latest publicly downloadable 1.6.x line while the newer local build remains under review.</li>
+              </ul>
+            </div>
+          </details>
+
+          <details class="changelog-version" role="treeitem">
+            <summary class="changelog-summary">v1.6.6 - Local compliance line</summary>
+            <div class="changelog-content">
+              <ul class="changelog-list">
+                <li>Moved lap recording and tab-timer scraping to focus-only behavior.</li>
+                <li>Removed replay auto-clicking and kept replay driver selection manual.</li>
+                <li>Added clearer UI messaging when the race tab is not focused.</li>
               </ul>
             </div>
           </details>
