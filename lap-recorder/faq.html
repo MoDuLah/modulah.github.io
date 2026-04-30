@@ -30,7 +30,7 @@
         <div class="faq-copy">
           <p class="section-kicker">Lap Recorder FAQ</p>
           <h1 class="faq-title">Track laps without losing the race context.</h1>
-          <p class="faq-text">Answers for Torn racers using Lap Recorder to capture lap times, compare car and track records, and review racing sessions with cleaner context.</p>
+          <p class="faq-text">Answers for Torn racers using Lap Recorder to capture lap times, compare car and track records, and review racing sessions with cleaner, focus-safe context.</p>
         </div>
 
         <aside class="faq-panel" aria-label="Script highlights">
@@ -63,7 +63,7 @@
             <summary>What is Lap Recorder?</summary>
             <div class="answer">
               <p>Lap Recorder is a Torn racing userscript focused on capturing lap times and keeping those times tied to useful session context.</p>
-              <p>It is built for racers who want track and car-specific records without turning the race page into a full spreadsheet.</p>
+              <p>It is built for racers who want car-specific records, replay review, and a clearer way to compare pace without turning the race page into a full spreadsheet.</p>
             </div>
           </details>
 
@@ -71,6 +71,7 @@
             <summary>How do I install it?</summary>
             <div class="answer">
               <p>Install it through a userscript manager such as Tampermonkey, or through Torn PDA if the release build supports it.</p>
+              <p>The latest public Greasy Fork release is v1.6.5. The current local v1.6.10 build is pending staff review.</p>
               <p>After installing or updating, reload Torn and open the racing pages where you want lap recording available.</p>
             </div>
           </details>
@@ -78,8 +79,11 @@
           <details id="records">
             <summary>How are lap records organised?</summary>
             <div class="answer">
-              <p>The page description is centred on track and car-specific records, so the useful comparison is the lap time in the context of the car and track used.</p>
-              <p>That keeps a strong lap from one setup from being mixed into a different setup where it would not mean the same thing.</p>
+              <p>Best Lap and Race Time do not use exactly the same track scope anymore.</p>
+              <p>Best Lap always uses just the base circuit name.</p>
+              <p>Race Time uses just the base track name when the race matches that circuit's official lap count.</p>
+              <p>Race Time uses <strong>Trackname - X Laps</strong> when the race uses a custom lap count.</p>
+              <p>The corrected official map now includes Two Islands as 6 laps, Sewage as 11 laps, and Convict as 10 laps.</p>
             </div>
           </details>
 
@@ -88,6 +92,7 @@
             <div class="answer">
               <p>Replay-aware capture means the script is designed around race review as well as live racing.</p>
               <p>The goal is to make recorded laps easier to connect back to the session or replay context that produced them.</p>
+              <p>The replay page no longer auto-clicks your driver. If no driver is selected, the UI prompts you to choose one manually.</p>
             </div>
           </details>
 
@@ -115,6 +120,9 @@
                 <li>Reload the Torn racing page after installing or updating.</li>
                 <li>Check whether your userscript manager or Torn PDA has blocked the script.</li>
                 <li>Confirm you are on a racing page where lap recording is expected to appear.</li>
+                <li>Keep the Torn racing tab focused if you expect laps or the tab timer to update.</li>
+                <li>If the recorder window feels misplaced after a resize, reopen it or drag it once; the newer build now clamps it back into view automatically.</li>
+                <li>The current local build also uses a taller default window and a larger minimum height, so the panel should open with more room on fresh pages.</li>
               </ul>
             </div>
           </details>
