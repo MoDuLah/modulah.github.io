@@ -1,0 +1,28 @@
+Quest Mapping
+Quest #1 	| The blacksmith's daughter 	| LOD: Very Difficult, CP: 75%, Gold: 5584, Experience: 564, Minutes: 38
+Quest #21 	| The small casket 				| LOD: Difficult, CP: 50%, Gold: 8252, Experience: 234, Minutes: 29
+Quest #22 	| The old scroll 				| LOD: Very Difficult, CP: 50%, Gold: 1056, Experience: 560, Minutes: 11
+Quest #23 	| The locked chest 				| LOD: Very Difficult, CP: 50%, Gold: 8180, Experience: 362, Minutes: 37
+Quest #23 	| The locked chest 				| LOD: Difficult, CP: 50%, Gold: 6544, Experience: 230, Minutes: 24
+Quest #32 	| The old book 					| LOD: Difficult, CP: 50%, Gold: 1614, Experience: 442, Minutes: 15
+Quest #35 	| Title: The old map 			| LOD: Difficult, CP: 50%, Gold: 1840, Experience: 126, Minutes: 5
+Quest #38 	| The Pearl Necklace 			| LOD: Medium, CP: 50%, Gold: 6002, Experience: 230, Minutes: 23
+Quest #41 	| The golden goblet 			| LOD: Medium, CP: 50%, Gold: 1892, Experience: 272, Minutes: 8
+Quest #42 	| Title: The egg of the dragon 	| LOD: Very Difficult, CP: 50%, Gold: 7804, Experience: 284, Minutes: 30
+Quest #50 	| Pack Of Thieves 				| LOD: Easy, CP: 100%, Gold: 6946, Experience: 140, Minutes: 21
+Quest #61 	| Giant Spiders 				| LOD: Easy, CP: 100%, Gold: 4704, Experience: 276, Minutes: 23
+Quest #68 	| Title: The Stone Troll 		| LOD: Easy, CP: 100%, Gold: 2154, Experience: 312, Minutes: 15
+Quest #70 	| Frozen Elementals 			| LOD: Medium, CP: 100%, Gold: 3024, Experience: 460, Minutes: 24
+Quest #75 	| Blazing Elementals 			| LOD: Easy, CP: 100%, Gold: 852, Experience: 298, Minutes: 5
+Quest #75 	| Blazing Elementals 			| LOD: Medium, CP: 100%, Gold: 2884, Experience: 482, Minutes: 27
+Quest #96 	| A Bag of Coins 				| LOD: Very Difficult, CP: 50%, Gold: 7882, Experience: 338, Minutes: 33
+Quest #97 	| Important News 				| LOD: Difficult, CP: 50%, Gold: 3304, Experience: 442, Minutes: 29
+Quest #98 	| Important message 			| LOD: Easy, CP: 50%, Gold: 1760, Experience: 352, Minutes: 19
+Quest #101 	| The Old Trinket 				| LOD: Medium, CP: 50%, Gold: 6108, Experience: 146, Minutes: 18
+Quest #113 	| The Silver Goblet 			| LOD: Easy, CP: 50%, Gold: 1350, Experience: 230, Minutes: 6
+Quest #113 	| The Silver Goblet 			| LOD: Difficult, CP: 50%, Gold: 4674, Experience: 324, Minutes: 23
+Quest #124 	| Title: The Kidnapped Son 		| LOD: Medium, CP: 75%, Gold: 5334, Experience: 322, Minutes: 29
+Quest #126 	| The Kidnapped Woman 			| LOD: Very Difficult, CP: 75%, Gold: 3240, Experience: 234, Minutes: 10
+
+
+Map Node 0 = Dragon's Claw Mountains: Demon Lord
