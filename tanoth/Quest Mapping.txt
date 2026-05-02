@@ -1,28 +1,57 @@
-Quest Mapping
-Quest #1 	| The blacksmith's daughter 	| LOD: Very Difficult, CP: 75%, Gold: 5584, Experience: 564, Minutes: 38
-Quest #21 	| The small casket 				| LOD: Difficult, CP: 50%, Gold: 8252, Experience: 234, Minutes: 29
-Quest #22 	| The old scroll 				| LOD: Very Difficult, CP: 50%, Gold: 1056, Experience: 560, Minutes: 11
-Quest #23 	| The locked chest 				| LOD: Very Difficult, CP: 50%, Gold: 8180, Experience: 362, Minutes: 37
-Quest #23 	| The locked chest 				| LOD: Difficult, CP: 50%, Gold: 6544, Experience: 230, Minutes: 24
-Quest #32 	| The old book 					| LOD: Difficult, CP: 50%, Gold: 1614, Experience: 442, Minutes: 15
-Quest #35 	| Title: The old map 			| LOD: Difficult, CP: 50%, Gold: 1840, Experience: 126, Minutes: 5
-Quest #38 	| The Pearl Necklace 			| LOD: Medium, CP: 50%, Gold: 6002, Experience: 230, Minutes: 23
-Quest #41 	| The golden goblet 			| LOD: Medium, CP: 50%, Gold: 1892, Experience: 272, Minutes: 8
-Quest #42 	| Title: The egg of the dragon 	| LOD: Very Difficult, CP: 50%, Gold: 7804, Experience: 284, Minutes: 30
-Quest #50 	| Pack Of Thieves 				| LOD: Easy, CP: 100%, Gold: 6946, Experience: 140, Minutes: 21
-Quest #61 	| Giant Spiders 				| LOD: Easy, CP: 100%, Gold: 4704, Experience: 276, Minutes: 23
-Quest #68 	| Title: The Stone Troll 		| LOD: Easy, CP: 100%, Gold: 2154, Experience: 312, Minutes: 15
-Quest #70 	| Frozen Elementals 			| LOD: Medium, CP: 100%, Gold: 3024, Experience: 460, Minutes: 24
-Quest #75 	| Blazing Elementals 			| LOD: Easy, CP: 100%, Gold: 852, Experience: 298, Minutes: 5
-Quest #75 	| Blazing Elementals 			| LOD: Medium, CP: 100%, Gold: 2884, Experience: 482, Minutes: 27
-Quest #96 	| A Bag of Coins 				| LOD: Very Difficult, CP: 50%, Gold: 7882, Experience: 338, Minutes: 33
-Quest #97 	| Important News 				| LOD: Difficult, CP: 50%, Gold: 3304, Experience: 442, Minutes: 29
-Quest #98 	| Important message 			| LOD: Easy, CP: 50%, Gold: 1760, Experience: 352, Minutes: 19
-Quest #101 	| The Old Trinket 				| LOD: Medium, CP: 50%, Gold: 6108, Experience: 146, Minutes: 18
-Quest #113 	| The Silver Goblet 			| LOD: Easy, CP: 50%, Gold: 1350, Experience: 230, Minutes: 6
-Quest #113 	| The Silver Goblet 			| LOD: Difficult, CP: 50%, Gold: 4674, Experience: 324, Minutes: 23
-Quest #124 	| Title: The Kidnapped Son 		| LOD: Medium, CP: 75%, Gold: 5334, Experience: 322, Minutes: 29
-Quest #126 	| The Kidnapped Woman 			| LOD: Very Difficult, CP: 75%, Gold: 3240, Experience: 234, Minutes: 10
 
-
-Map Node 0 = Dragon's Claw Mountains: Demon Lord
+  1: 'The blacksmith\'s daughter',
+  11: 'The high priest',
+  14: 'The hooded man',
+  15: 'The priestess of Shal\'ah',
+  21: 'The small casket',
+  22: 'The old scroll',
+  23: 'The locked chest',
+  25: 'An important message',
+  26: 'The sealed envelope',
+  27: 'The silver sword',
+  32: 'The old book',
+  35: 'The old map',
+  38: 'The Pearl Necklace',
+  40: 'The rusty key',
+  41: 'The golden goblet',
+  42: 'The egg of the dragon',
+  44: 'Crow Attacks',
+  50: 'Pack Of Thieves',
+  60: 'The Highwayman',
+  61: 'Giant Spiders',
+  64: 'Demon Power',
+  67: 'Stony Wings',
+  68: 'The Stone Troll',
+  70: 'Frozen Elementals',
+  74: 'Giant Problems',
+  75: 'Blazing Elementals',
+  77: 'Undead Dwarves',
+  78: 'The Spider Demon',
+  79: 'The Dreadful Lich',
+  81: 'Call Of The Earth',
+  96: 'A Bag of Coins',
+  97: 'Important News',
+  98: 'Important message',
+  100: 'The Iron Shield',
+  101: 'The Old Trinket',
+  102: 'The Green Signet Ring',
+  103: 'Important Herb Delivery',
+  105: 'The Mysterious Rune',
+  107: 'The Old Map',
+  109: 'The Antidote',
+  110: 'The Black Cape',
+  113: 'The Silver Goblet',
+  114: 'The Dragon Egg',
+  118: 'The kidnapped daughter',
+  121: 'The Kidnapped Duke',
+  124: 'The Kidnapped Son',
+  125: 'The kidnapped eldest',
+  126: 'The Kidnapped Woman',
+  128: 'The old Graveyard',
+  129: 'The Old Cave',
+  130: 'Nameless Horror',
+  132: 'The Underground Lake',
+  135: 'The floating stone',
+  137: 'The old ruin',
+  138: 'The Cursed Well',
+  141: 'The mouldering villa',
