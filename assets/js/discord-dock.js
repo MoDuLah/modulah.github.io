@@ -1,6 +1,4 @@
 (function () {
-  var STORAGE_KEY = "moduls.discordDock.state";
-  var DESKTOP_BREAKPOINT = 1080;
   var WIDGET_SRC = "https://discord.com/widget?id=1492449197729775817&theme=dark";
 
   if (document.readyState === "loading") {
@@ -21,15 +19,7 @@
     dock.setAttribute("data-discord-dock", "true");
     dock.setAttribute("role", "complementary");
     dock.setAttribute("aria-label", "Discord community");
-
-    var savedState = readState();
-    if (savedState === "open") {
-      dock.open = true;
-    } else if (savedState === "closed") {
-      dock.open = false;
-    } else {
-      dock.open = window.innerWidth >= DESKTOP_BREAKPOINT;
-    }
+    dock.open = false;
 
     dock.innerHTML =
       '<summary class="discord-dock-toggle" aria-label="Toggle Discord community widget">' +
@@ -52,30 +42,10 @@
           "</div>" +
           '<a class="discord-dock-link" href="https://discord.gg/g4ekwrhrAf" target="_blank" rel="noopener noreferrer">Open Discord</a>' +
         "</div>" +
-        '<iframe class="discord-dock-frame" src="' + WIDGET_SRC + '" width="350" height="500" allowtransparency="true" frameborder="0" loading="lazy" sandbox="allow-popups allow-popups-to-escape-sandbox allow-same-origin allow-scripts"></iframe>' +
+        '<iframe class="discord-dock-frame" src="' + WIDGET_SRC + '" width="320" height="460" allowtransparency="true" frameborder="0" loading="lazy" sandbox="allow-popups allow-popups-to-escape-sandbox allow-same-origin allow-scripts"></iframe>' +
       "</div>";
 
-    dock.addEventListener("toggle", function () {
-      writeState(dock.open ? "open" : "closed");
-    });
-
     document.body.appendChild(dock);
-  }
-
-  function readState() {
-    try {
-      return window.localStorage.getItem(STORAGE_KEY);
-    } catch (error) {
-      return null;
-    }
-  }
-
-  function writeState(value) {
-    try {
-      window.localStorage.setItem(STORAGE_KEY, value);
-    } catch (error) {
-      // Ignore storage failures.
-    }
   }
 
   function injectStyles() {
@@ -88,11 +58,11 @@
     style.textContent =
       ".discord-dock{" +
         "position:fixed;" +
-        "right:18px;" +
-        "bottom:18px;" +
+        "right:14px;" +
+        "bottom:14px;" +
         "z-index:1200;" +
-        "width:min(350px,calc(100vw - 24px));" +
-        "font:14px/1.45 Arial,Helvetica,sans-serif;" +
+        "width:min(320px,calc(100vw - 20px));" +
+        "font:13px/1.4 Arial,Helvetica,sans-serif;" +
         "letter-spacing:0;" +
       "}" +
       ".discord-dock summary{" +
@@ -104,8 +74,8 @@
       ".discord-dock-toggle{" +
         "display:flex;" +
         "align-items:center;" +
-        "gap:12px;" +
-        "padding:12px 14px;" +
+        "gap:10px;" +
+        "padding:10px 12px;" +
         "border:1px solid rgba(79,126,49,.9);" +
         "border-radius:8px;" +
         "background:rgba(10,18,9,.94);" +
@@ -124,8 +94,8 @@
         "display:inline-flex;" +
         "align-items:center;" +
         "justify-content:center;" +
-        "width:40px;" +
-        "height:40px;" +
+        "width:36px;" +
+        "height:36px;" +
         "flex:0 0 auto;" +
         "border:1px solid rgba(88,101,242,.45);" +
         "border-radius:8px;" +
@@ -133,8 +103,8 @@
         "color:#fff;" +
       "}" +
       ".discord-dock-icon svg{" +
-        "width:22px;" +
-        "height:18px;" +
+        "width:20px;" +
+        "height:16px;" +
         "fill:currentColor;" +
       "}" +
       ".discord-dock-copy{" +
@@ -144,12 +114,12 @@
         "flex:1 1 auto;" +
       "}" +
       ".discord-dock-title{" +
-        "font-size:.96rem;" +
+        "font-size:.9rem;" +
         "font-weight:700;" +
         "color:#f3f8df;" +
       "}" +
       ".discord-dock-subtitle{" +
-        "font-size:.82rem;" +
+        "font-size:.76rem;" +
         "color:#8fd36a;" +
       "}" +
       ".discord-dock-caret{" +
@@ -166,8 +136,8 @@
       "}" +
       ".discord-dock-panel{" +
         "display:grid;" +
-        "gap:12px;" +
-        "padding:14px;" +
+        "gap:10px;" +
+        "padding:12px;" +
         "border:1px solid rgba(79,126,49,.9);" +
         "border-top:none;" +
         "border-bottom-left-radius:8px;" +
@@ -194,8 +164,8 @@
         "display:inline-flex;" +
         "align-items:center;" +
         "justify-content:center;" +
-        "min-height:40px;" +
-        "padding:10px 14px;" +
+        "min-height:36px;" +
+        "padding:9px 12px;" +
         "border:1px solid rgba(88,101,242,.45);" +
         "border-radius:8px;" +
         "background:#5865f2;" +
@@ -209,7 +179,7 @@
       ".discord-dock-frame{" +
         "display:block;" +
         "width:100%;" +
-        "height:min(500px,calc(100vh - 180px));" +
+        "height:min(460px,calc(100vh - 160px));" +
         "border:0;" +
         "border-radius:8px;" +
         "background:#111827;" +
@@ -222,20 +192,20 @@
           "width:auto;" +
         "}" +
         ".discord-dock-toggle{" +
-          "padding:11px 12px;" +
+          "padding:10px 11px;" +
         "}" +
         ".discord-dock-icon{" +
-          "width:36px;" +
-          "height:36px;" +
+          "width:34px;" +
+          "height:34px;" +
         "}" +
         ".discord-dock-subtitle{" +
           "display:none;" +
         "}" +
         ".discord-dock-panel{" +
-          "padding:12px;" +
+          "padding:11px;" +
         "}" +
         ".discord-dock-frame{" +
-          "height:min(420px,calc(100vh - 170px));" +
+          "height:min(380px,calc(100vh - 150px));" +
         "}" +
       "}";
 
