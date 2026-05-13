@@ -7,6 +7,7 @@
   --text: #f3f8df;
   --muted: #c3cfaf;
   --accent: #d9ef52;
+  --archive: #e5bd54;
   --soft: #8fd36a;
   --good: #62f08b;
   --supporter: #b9ef53;
@@ -167,6 +168,11 @@ a:hover { text-decoration: underline; }
   border-color: rgba(98, 240, 139, 0.26);
   color: var(--good);
 }
+.update-status-archive {
+  background: rgba(229, 189, 84, 0.16);
+  border-color: rgba(229, 189, 84, 0.3);
+  color: var(--archive);
+}
 .update-meta {
   margin: 8px 0 0;
   color: var(--soft);
@@ -186,6 +192,7 @@ a:hover { text-decoration: underline; }
 }
 .tier-badge.free { background: rgba(98,240,139,.14); color: var(--good); border:1px solid rgba(98,240,139,.28); }
 .tier-badge.supporter { background: rgba(217,239,82,.16); color: var(--supporter); border:1px solid rgba(217,239,82,.32); }
+.tier-badge.past { background: rgba(229,189,84,.16); color: var(--archive); border:1px solid rgba(229,189,84,.32); }
 .script-grid { display:grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap:20px; }
 .script-card { padding:22px; display:flex; flex-direction:column; min-height: 100%; }
 .script-card-head { display:flex; align-items:center; gap:14px; margin-bottom:16px; }
@@ -233,6 +240,11 @@ a:hover { text-decoration: underline; }
   background: rgba(255,255,255,.06);
   border-color: rgba(255,255,255,.1);
   color: var(--text);
+}
+.script-card-badge-archive {
+  background: rgba(229,189,84,.14);
+  border-color: rgba(229,189,84,.28);
+  color: var(--archive);
 }
 .script-card-text { margin:0 0 18px; color:var(--muted); }
 .script-feature-list { margin:0 0 20px; padding-left:18px; color:var(--muted); }
