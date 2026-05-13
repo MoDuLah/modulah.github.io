@@ -123,6 +123,12 @@ body.script-page[data-script-slug="custom-race-filter"] .hero-panel::before {
     linear-gradient(145deg, rgba(217, 239, 82, 0.16), rgba(98, 240, 139, 0.12)),
     url("../images/custom-race-filter/custom-race-filter-logo.png");
 }
+body.script-page[data-script-slug="pit-guru"] .hero-panel::before {
+  background-image:
+    radial-gradient(circle at 28% 18%, rgba(255,255,255,0.26), rgba(255,255,255,0) 34%),
+    linear-gradient(145deg, rgba(217, 239, 82, 0.16), rgba(98, 240, 139, 0.12)),
+    url("../images/pit-guru/pit-guru-logo.png");
+}
 body.script-page[data-script-slug="eggsterminator"] .hero-panel::before {
   background-image:
     radial-gradient(circle at 28% 18%, rgba(255,255,255,0.26), rgba(255,255,255,0) 34%),
