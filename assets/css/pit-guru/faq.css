@@ -1,0 +1,13 @@
+@import url("../script-faq-base.css");
+
+:root {
+  --bg-image: url("../../images/pit-guru/pit-guru-logo.png");
+}
+
+body.script-faq-page {
+  --bg-image: url("../../images/pit-guru/pit-guru-logo.png");
+}
+
+.site-brand-mark {
+  background-image: url("../../images/pit-guru/pit-guru-logo.png");
+}
