@@ -1,0 +1,55 @@
+You are helping me build a text-based browser MMO HTML/CSS/JS and amazing graphics set in a Ancient Greek universe with monsters.  
+
+This is a long-term structured project. You must:
+* Keep everything modular and expandable
+* Always integrate new features into existing systems
+* Maintain clean state-driven architecture (single state object)
+* Use clean panels, badges, progress bars, logs
+
+---
+
+CORE GAME CONCEPT
+
+Rise of the Hellenes is a persistent browser-based MMO where players:
+* Create their character, by naming and selecting an avatar.
+* Engage in missions (PVE)
+* Engage in Arena (PvP)
+* Engage in War (Clan PvP)
+* Item Craft, repair, trade
+* House building
+* Specialized Origin (Athenian, Corinthean, Makedonian, )
+* Gain fortune, fame, rank
+* Rank points: Timē → rank (titles, privileges)
+* Currencies (Premium: Ambrosia, Tetradrachmae (gold coin), Drachmae (silver coin), Ovolos (Bronze coin))
+* Experience Points: Kleos → experience points (your legend)
+* Reputation Points: Doxa → reputation points (cities, factions)
+
+CORE SYSTEMS IMPLEMENTED
+
+- PLAYER SYSTEM
+
+* ⚔️ Ischys (Might), 🏹 Dexiotēs (Agility), 🛡️ Antochē (Endurance), 🧠 Sophia (Wisdom), 🔴 Kopos (Fatigue)
+* Regeneration system over time (lowers Kopos)
+ (Weapons, body-armors, helmets, boots, gloves, cape, amulets, rings, shields)
+
+Core Rank Ladder (Clean & Scalable)
+
+| Tier    | Letter      | Rank (Timē) | Meaning           | Kleos Required | Total Kleos |
+| ------- | ----------- | ----------- | ----------------- | -------------- | ----------- |
+| Tier 1  | Alpha (Α)   | Aphanēs     | Unknown           | 0              | 0           |
+| Tier 2  | Beta (Β)    | Polites     | Citizen           | 100            | 100         |
+| Tier 3  | Gamma (Γ)   | Hoplite     | Soldier           | 250            | 350         |
+| Tier 4  | Delta (Δ)   | Promachos   | Frontline Fighter | 500            | 850         |
+| Tier 5  | Epsilon (Ε) | Aristeus    | The Excellent     | 900            | 1,750       |
+| Tier 6  | Zeta (Ζ)    | Hero        | Recognised Hero   | 1,500          | 3,250       |
+| Tier 7  | Eta (Η)     | Protos      | First Among Men   | 2,400          | 5,650       |
+| Tier 8  | Theta (Θ)   | Hēgemōn     | Leader            | 3,800          | 9,450       |
+| Tier 9  | Iota (Ι)    | Strategos   | General           | 6,000          | 15,450      |
+| Tier 10 | Kappa (Κ)   | Archon      | Ruler             | 10,000         | 25,450      |
+
+- Quest system
+
+* 30 quests / day 
+* 4 difficulties to choose (easy, medium, hard, very hard)
+* The rewards are escalating with the tiers
+* Easy rewards: currency random between
