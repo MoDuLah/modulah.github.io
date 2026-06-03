@@ -32,11 +32,11 @@
         <div class="hero-copy">
           <p class="section-kicker">Supporter Script</p>
           <h1 class="hero-title">Pythagoras Project</h1>
-          <p class="hero-text">A focused company management workspace for Torn built to help directors handle training, staff history, analytics, reporting, backups, and operational planning in one place.</p>
+          <p class="hero-text">A focused company management workspace for Torn built to help directors handle training, staff history, analytics, reporting, backups, cloud history, and operational planning in one place.</p>
 
           <div class="hero-actions">
             <span class="cta-button cta-button-disabled" aria-disabled="true">Under Development</span>
-            <a class="ghost-button" href="https://discord.gg/xebgvAJMha" target="_blank" rel="noopener noreferrer">Join Discord</a>
+            <a class="ghost-button" href="https://discord.gg/q74pJfGdE5" target="_blank" rel="noopener noreferrer">Join Discord</a>
           </div>
         </div>
 
@@ -46,7 +46,7 @@
             <li class="feature-item"><span class="feature-dot" aria-hidden="true"></span><span>Training ledger with configurable discounts and loyalty handling</span></li>
             <li class="feature-item"><span class="feature-dot" aria-hidden="true"></span><span>FIFO train planner with sponsored rotation support</span></li>
             <li class="feature-item"><span class="feature-dot" aria-hidden="true"></span><span>Staff and director history tracking with timeline views</span></li>
-            <li class="feature-item"><span class="feature-dot" aria-hidden="true"></span><span>Daily and weekly analytics summaries, exports, and themed reports</span></li>
+            <li class="feature-item"><span class="feature-dot" aria-hidden="true"></span><span>Daily and weekly analytics summaries, exports, themed reports, and cloud-backed workspace history</span></li>
           </ul>
         </aside>
       </section>
@@ -54,7 +54,7 @@
       <section class="content-grid" aria-label="Project details">
         <article class="content-card">
           <h2>What it does</h2>
-          <p>Pythagoras CIS gives you a structured workspace for company operations without relying on background scraping. Syncs are triggered manually, and data stays local unless you choose to export it.</p>
+          <p>Pythagoras CIS gives you a structured workspace for company operations without relying on background scraping. Syncs are triggered manually, data stays local by default, and the current build can also save workspace history through the Pythagoras API flow when that path is enabled.</p>
         </article>
 
         <article class="content-card">
@@ -66,7 +66,7 @@
         <article class="content-card">
           <h2>Support</h2>
           <p>For updates, support, and project discussion, use the Discord server. That is also where you can follow changes, get setup help, and handle licensing.</p>
-          <p><a href="https://discord.gg/xebgvAJMha" target="_blank" rel="noopener noreferrer">Open Discord</a></p>
+          <p><a href="https://discord.gg/q74pJfGdE5" target="_blank" rel="noopener noreferrer">Open Discord</a></p>
         </article>
 
         <article class="content-card">
@@ -108,37 +108,50 @@
       <section class="content-card changelog-card" id="changelog" aria-label="Changelog">
         <p class="section-kicker">Development log</p>
         <h2>Changelog</h2>
-        <p>Pythagoras Project - CIS is still in active buildout, so this page is tracking public-facing project updates until the release line is versioned.</p>
+        <p>Pythagoras Project - CIS is still in active buildout, but this page now tracks numbered supporter builds from the live local release line.</p>
 
         <div class="changelog-tree" role="tree">
           <details class="changelog-version" role="treeitem" open>
-            <summary class="changelog-summary">Current status - April 22, 2026</summary>
+            <summary class="changelog-summary">v2.4.5 - Free cloud storage with 7-day reload</summary>
             <div class="changelog-content">
               <ul class="changelog-list">
-                <li>The project page, screenshots, Discord link, and FAQ are all live.</li>
-                <li>The script remains marked under development while the company-management workspace continues to grow.</li>
-                <li>The public page still centers on training ledgers, staff history, analytics, reporting, and planning.</li>
+                <li>Free users can now save full workspace history to the Pythagoras API or database path using Torn API key verification.</li>
+                <li>Free reloads now return the last 7 days into the script until the user upgrades.</li>
+                <li>The data workspace now explains that the Torn API key is used only over HTTPS for user or company verification and is not stored by the backend.</li>
               </ul>
             </div>
           </details>
 
           <details class="changelog-version" role="treeitem">
-            <summary class="changelog-summary">Documentation refresh - April 22, 2026</summary>
+            <summary class="changelog-summary">v2.4.4 - Free 7-day local persistence</summary>
             <div class="changelog-content">
               <ul class="changelog-list">
-                <li>Added the changelog section to the project page.</li>
-                <li>Kept the FAQ and next and previous navigation aligned with the rest of the hub.</li>
-                <li>Left the page ready for future project release notes and milestone updates.</li>
+                <li>Free users now keep a rolling 7-day local data slice across refreshes instead of falling back to an empty bootstrap.</li>
+                <li>Current company profile, current staff or directors, settings, and recent timestamped rows are retained locally without a licence key.</li>
+                <li>Licensed users continue to use the lightweight local bootstrap plus API or database-backed cloud workspace history.</li>
               </ul>
             </div>
           </details>
 
           <details class="changelog-version" role="treeitem">
-            <summary class="changelog-summary">Release direction</summary>
+            <summary class="changelog-summary">v2.4.3 - Supporter cloud history and clearer data actions</summary>
             <div class="changelog-content">
               <ul class="changelog-list">
-                <li>This development log can be swapped for numbered releases once public builds start shipping.</li>
-                <li>The page structure is now ready for that transition.</li>
+                <li>Supporter licences can now use API or database-backed cloud workspaces and history load or save flows.</li>
+                <li>Data actions now say exactly what they export or import: selected JSON backup, selected HTML report, and selected newsletter HTML.</li>
+                <li>Locked data actions now show a licence explanation instead of failing silently.</li>
+                <li>Signed backend entitlements, stale-licence cleanup, director-profile dedupe, and older-news throttling are included from the recent hardening builds.</li>
+              </ul>
+            </div>
+          </details>
+
+          <details class="changelog-version" role="treeitem">
+            <summary class="changelog-summary">v2.1.10 - Database-authoritative premium checks</summary>
+            <div class="changelog-content">
+              <ul class="changelog-list">
+                <li>Configured licence-API builds now require API or database verification before premium features unlock.</li>
+                <li>Local signature and legacy-key fallback are disabled whenever a licence API URL is configured.</li>
+                <li>Saved licence keys are refreshed against the API before the first UI render so revoked or missing rows do not keep premium controls active from stale local cache.</li>
               </ul>
             </div>
           </details>
