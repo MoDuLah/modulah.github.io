@@ -54,7 +54,7 @@
       <section class="content-grid" aria-label="Project details">
         <article class="content-card">
           <h2>What it does</h2>
-          <p>Pythagoras CIS gives you a structured workspace for company operations without relying on background scraping. Syncs are triggered manually, data stays local by default, and the current build can also save workspace history through the Pythagoras API flow when that path is enabled.</p>
+          <p>Pythagoras CIS gives you a structured workspace for company operations without relying on background scraping. Syncs are triggered manually, the browser stores only the local profile fields, and company history is saved in the Pythagoras cloud workspace.</p>
         </article>
 
         <article class="content-card">
@@ -86,7 +86,7 @@
           <h2>Licensing</h2>
           <p>Licensing for Pythagoras Project - CIS is handled through my Discord server.</p>
           <p>First make sure you are verified in the server. Then go to <code>#bot-commands</code>, talk to <strong>The Stig</strong>, and run <code>/buylicense</code>.</p>
-          <p>That is the route for starting the licence tier you need.</p>
+          <p>Paid plans are time-limited only: 1 month, 3 months, 6 months, or 12 months. Free workspaces save data but show the last 7 days until upgraded.</p>
         </article>
       </section>
 
@@ -108,10 +108,22 @@
       <section class="content-card changelog-card" id="changelog" aria-label="Changelog">
         <p class="section-kicker">Development log</p>
         <h2>Changelog</h2>
-        <p>Pythagoras Project - CIS is still in active buildout, but this page now tracks numbered supporter builds from the live local release line.</p>
+        <p>Pythagoras Project - CIS is still in active buildout, but this page now tracks numbered supporter builds from the live cloud workspace release line.</p>
 
         <div class="changelog-tree" role="tree">
           <details class="changelog-version" role="treeitem" open>
+            <summary class="changelog-summary">v2.6.0 - Cloud workspace architecture</summary>
+            <div class="changelog-content">
+              <ul class="changelog-list">
+                <li>Persistent CIS data is moving to server-side PostgreSQL workspaces with company ID isolation and entitlement-filtered reads.</li>
+                <li>The userscript keeps only API key, user ID, username, and company ID locally.</li>
+                <li>Lifetime licences have been removed; Supporter, Company Boost, and Ultimate now use 1m, 3m, 6m, or 12m plans.</li>
+                <li>Free users can still sync and save data, but visible history is limited to the last 7 days until upgraded.</li>
+              </ul>
+            </div>
+          </details>
+
+          <details class="changelog-version" role="treeitem">
             <summary class="changelog-summary">v2.4.5 - Free cloud storage with 7-day reload</summary>
             <div class="changelog-content">
               <ul class="changelog-list">

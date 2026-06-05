@@ -1,0 +1,933 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Torn Racing Visual Upgrade Demo</title>
+<style>
+  :root {
+    --bg: #111318;
+    --panel: #1a1e27;
+    --panel-2: #232938;
+    --text: #edf1f7;
+    --muted: #aab3c2;
+    --line: #384154;
+    --accent: #f4d35e;
+    --car-paint: #2374ff;
+    --car-highlight: rgba(255,255,255,.35);
+    --carbon: #141414;
+    --carbon-line: rgba(255,255,255,.13);
+    --ride-y: 0px;
+    --wheel-scale: 1;
+    --finish-filter: saturate(1);
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    min-height: 100vh;
+    background:
+      radial-gradient(circle at 20% 10%, rgba(244,211,94,.10), transparent 30%),
+      radial-gradient(circle at 90% 30%, rgba(35,116,255,.12), transparent 34%),
+      var(--bg);
+    color: var(--text);
+    font-family: Arial, Helvetica, sans-serif;
+  }
+
+  header {
+    padding: 22px 22px 10px;
+    max-width: 1280px;
+    margin: 0 auto;
+  }
+
+  h1 {
+    margin: 0 0 8px;
+    font-size: clamp(24px, 3vw, 38px);
+    letter-spacing: .3px;
+  }
+
+  .subtitle {
+    color: var(--muted);
+    line-height: 1.45;
+    max-width: 960px;
+  }
+
+  .wrap {
+    max-width: 1280px;
+    margin: 0 auto;
+    padding: 14px 22px 28px;
+    display: grid;
+    grid-template-columns: 1fr 390px;
+    gap: 18px;
+  }
+
+  .stage, .controls, .explain {
+    background: linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.02));
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    box-shadow: 0 18px 45px rgba(0,0,0,.28);
+  }
+
+  .stage {
+    min-height: 540px;
+    padding: 16px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .garage-grid {
+    position: absolute;
+    inset: 0;
+    opacity: .16;
+    background-image:
+      linear-gradient(var(--line) 1px, transparent 1px),
+      linear-gradient(90deg, var(--line) 1px, transparent 1px);
+    background-size: 38px 38px;
+    pointer-events: none;
+  }
+
+  .stage-top {
+    position: relative;
+    z-index: 2;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+  }
+
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    border: 1px solid rgba(244,211,94,.55);
+    color: var(--accent);
+    background: rgba(244,211,94,.07);
+    padding: 8px 10px;
+    border-radius: 999px;
+    font-size: 13px;
+  }
+
+  .count {
+    color: var(--muted);
+    font-size: 13px;
+  }
+
+  .car-box {
+    position: relative;
+    z-index: 1;
+    height: 420px;
+    display: grid;
+    place-items: center;
+  }
+
+  svg {
+    width: min(100%, 900px);
+    height: auto;
+    overflow: visible;
+    filter: drop-shadow(0 26px 24px rgba(0,0,0,.45));
+  }
+
+  .car-root {
+    transform: translateY(var(--ride-y));
+    transition: transform .22s ease;
+    filter: var(--finish-filter);
+  }
+
+  .hidden { display: none !important; }
+
+  .paintable {
+    fill: var(--car-paint);
+    transition: fill .18s ease, opacity .18s ease;
+  }
+
+  .paint-highlight {
+    fill: var(--car-highlight);
+  }
+
+  .matte .paint-highlight { opacity: .08; }
+  .gloss .paint-highlight { opacity: .38; }
+  .metallic .paint-highlight { opacity: .52; }
+  .pearlescent .paint-highlight { opacity: .70; }
+
+  .carbon {
+    fill: url(#carbonPattern);
+    stroke: rgba(255,255,255,.09);
+    stroke-width: 1;
+  }
+
+  .glass {
+    fill: rgba(50, 75, 95, .82);
+    stroke: rgba(255,255,255,.28);
+    stroke-width: 2;
+  }
+
+  .tyre {
+    fill: #111;
+    stroke: #2f3440;
+    stroke-width: 8;
+    transform-box: fill-box;
+    transform-origin: center;
+    transform: scale(var(--wheel-scale));
+    transition: transform .22s ease;
+  }
+
+  .rim {
+    fill: #aeb7c7;
+    stroke: #f0f3f8;
+    stroke-width: 2;
+  }
+
+  .rim-dark { fill: #626b78; }
+  .rim-steel { fill: #c3c8cf; }
+  .rim-gold { fill: #d8b85a; }
+  .rim-sport { fill: #e7ebf2; }
+  .rim-carbon { fill: #171a20; }
+
+  .disc { fill: #d7dbe3; opacity: .85; }
+  .caliper { fill: #d64040; opacity: .92; }
+  .caliper-blue { fill: #2a8fff; }
+  .caliper-yellow { fill: #f4d35e; }
+  .brake-line { stroke: #596273; stroke-width: 3; opacity: .8; }
+  .drill { fill: #303642; }
+
+  .overlay-part {
+    stroke: rgba(255,255,255,.18);
+    stroke-width: 1.5;
+  }
+
+  .dark-part { fill: #151920; }
+  .metal-part { fill: #b4bdca; }
+  .rubber-part { fill: #101010; }
+  .accent-part { fill: var(--accent); }
+
+  .tread { stroke: #eee; stroke-width: 4; opacity: .45; }
+  .slick .tread { display: none; }
+  .rally .tread { stroke-width: 7; opacity: .55; }
+  .road .tread { stroke-width: 3; opacity: .35; }
+
+  .controls {
+    padding: 16px;
+    max-height: 780px;
+    overflow: auto;
+  }
+
+  .controls h2 {
+    margin: 0 0 14px;
+    font-size: 20px;
+  }
+
+  .control-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 11px;
+  }
+
+  label {
+    display: block;
+    color: var(--muted);
+    font-size: 13px;
+    margin-bottom: 5px;
+  }
+
+  select, input[type="color"] {
+    width: 100%;
+    background: var(--panel-2);
+    color: var(--text);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 10px 11px;
+    outline: none;
+  }
+
+  input[type="color"] {
+    height: 43px;
+    padding: 4px;
+  }
+
+  select:focus, input[type="color"]:focus {
+    border-color: var(--accent);
+  }
+
+  .two {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 11px;
+  }
+
+  button {
+    width: 100%;
+    border: 1px solid rgba(244,211,94,.6);
+    background: rgba(244,211,94,.12);
+    color: var(--accent);
+    border-radius: 12px;
+    padding: 11px 12px;
+    cursor: pointer;
+    font-weight: 700;
+  }
+
+  button:hover {
+    background: rgba(244,211,94,.18);
+  }
+
+  .explain {
+    grid-column: 1 / -1;
+    padding: 16px;
+    color: var(--muted);
+    line-height: 1.55;
+  }
+
+  .explain strong { color: var(--text); }
+
+  .mini-code {
+    margin-top: 12px;
+    padding: 12px;
+    background: rgba(0,0,0,.32);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    overflow: auto;
+    color: #dbe6ff;
+    font-family: Consolas, Menlo, monospace;
+    font-size: 13px;
+    white-space: pre-wrap;
+  }
+
+  .parts-list {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    margin-top: 10px;
+  }
+
+  .parts-list div {
+    background: rgba(255,255,255,.045);
+    border: 1px solid rgba(255,255,255,.08);
+    border-radius: 10px;
+    padding: 8px;
+    font-size: 13px;
+  }
+
+  @media (max-width: 980px) {
+    .wrap { grid-template-columns: 1fr; }
+    .controls { max-height: unset; }
+    .parts-list { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>Torn Racing Visual Upgrade Demo</h1>
+  <div class="subtitle">
+    This is a proof-of-concept showing how one base car can visually change through material swaps,
+    overlay layers, and attachment slots. It demonstrates why cosmetic combinations do not necessarily
+    require one complete car model per permutation.
+  </div>
+</header>
+
+<main class="wrap">
+  <section class="stage">
+    <div class="garage-grid"></div>
+
+    <div class="stage-top">
+      <div class="badge">Base car + selected visual layers</div>
+      <div class="count" id="assetCount">Assets used: 1 base + 0 active layers</div>
+    </div>
+
+    <div class="car-box">
+      <svg viewBox="0 0 940 420" role="img" aria-label="Customisable racing car demo">
+        <defs>
+          <linearGradient id="bodyShade" x1="0" x2="1" y1="0" y2="1">
+            <stop offset="0" stop-color="white" stop-opacity=".33"/>
+            <stop offset=".35" stop-color="white" stop-opacity=".03"/>
+            <stop offset="1" stop-color="black" stop-opacity=".24"/>
+          </linearGradient>
+
+          <pattern id="carbonPattern" width="16" height="16" patternUnits="userSpaceOnUse" patternTransform="rotate(35)">
+            <rect width="16" height="16" fill="var(--carbon)"/>
+            <rect width="8" height="16" fill="var(--carbon-line)"/>
+            <path d="M0 8 H16" stroke="rgba(255,255,255,.08)" stroke-width="2"/>
+          </pattern>
+
+          <radialGradient id="shadow" cx="50%" cy="50%" r="50%">
+            <stop offset="0" stop-color="#000" stop-opacity=".48"/>
+            <stop offset="1" stop-color="#000" stop-opacity="0"/>
+          </radialGradient>
+        </defs>
+
+        <ellipse cx="470" cy="348" rx="365" ry="34" fill="url(#shadow)"/>
+
+        <g class="car-root gloss" id="carRoot">
+          <!-- Suspension stance helper -->
+          <g id="stanceRally" class="hidden">
+            <path d="M170 316 C240 334 685 334 760 316" fill="none" stroke="#f4d35e" stroke-width="4" stroke-dasharray="8 10" opacity=".55"/>
+          </g>
+
+          <!-- Base body -->
+          <path class="paintable overlay-part" d="M118 274
+            C138 229 187 208 260 202
+            L334 142
+            C365 116 408 104 468 104
+            L604 104
+            C650 106 689 128 715 164
+            L763 228
+            C810 237 844 254 858 285
+            L858 310
+            C822 319 780 322 733 322
+            C718 286 690 267 652 267
+            C613 267 585 286 570 322
+            L365 322
+            C350 286 322 267 284 267
+            C245 267 217 286 202 322
+            C160 320 131 316 105 307
+            Z"/>
+
+          <path d="M165 270 C215 230 275 218 335 213 L390 151 C416 126 447 119 500 119 L594 119 C628 120 661 139 681 169 L723 231 C782 238 823 255 842 286"
+            fill="none" stroke="url(#bodyShade)" stroke-width="34" opacity=".65" stroke-linecap="round"/>
+
+          <!-- Base windows -->
+          <path class="glass" d="M354 197 L411 139 C431 122 457 119 500 119 L517 197 Z"/>
+          <path class="glass" d="M531 119 L593 119 C625 121 653 138 672 166 L694 197 L531 197 Z"/>
+
+          <!-- Carbon overlays -->
+          <path id="carbonBonnet" class="carbon hidden" d="M190 244 C236 219 288 211 337 210 L373 201 L347 243 C293 239 241 240 190 244 Z"/>
+          <path id="carbonRoof" class="carbon hidden" d="M386 140 C414 112 455 104 506 104 L592 104 C626 106 655 120 678 145 C605 137 492 137 386 140 Z"/>
+          <path id="carbonTrunk" class="carbon hidden" d="M705 229 C756 232 811 250 840 282 L798 284 C770 257 738 242 705 229 Z"/>
+
+          <!-- Paint highlight layer -->
+          <path class="paint-highlight" d="M148 263 C210 232 293 225 350 223 L394 165 C418 135 455 124 503 124 L596 125 C633 126 663 145 683 174 L721 232 C770 237 812 254 837 283 C757 271 679 266 601 265 C488 263 336 264 148 263 Z" opacity=".42"/>
+
+          <!-- Aerodynamic overlays -->
+          <g id="aeroFrontLip" class="hidden">
+            <path class="dark-part overlay-part" d="M98 302 L201 310 L190 326 L103 316 Z"/>
+          </g>
+          <g id="aeroRearDiffuser" class="hidden">
+            <path class="dark-part overlay-part" d="M776 307 L865 300 L856 319 L790 326 Z"/>
+            <path d="M808 307 L799 324 M832 305 L824 321" stroke="#555f70" stroke-width="3"/>
+          </g>
+          <g id="aeroFixedSpoiler" class="hidden">
+            <path class="dark-part overlay-part" d="M714 214 L813 190 L822 202 L722 228 Z"/>
+            <rect x="736" y="207" width="8" height="35" rx="3" class="dark-part"/>
+          </g>
+          <g id="aeroAdjustableSpoiler" class="hidden">
+            <path class="dark-part overlay-part" d="M706 209 L830 178 L843 191 L716 226 Z"/>
+            <rect x="735" y="198" width="8" height="45" rx="3" class="dark-part"/>
+            <rect x="795" y="184" width="8" height="51" rx="3" class="dark-part"/>
+          </g>
+          <g id="aeroGTWing" class="hidden">
+            <path class="dark-part overlay-part" d="M692 174 L855 140 L870 158 L704 195 Z"/>
+            <rect x="716" y="180" width="9" height="67" rx="3" class="dark-part"/>
+            <rect x="813" y="157" width="9" height="81" rx="3" class="dark-part"/>
+            <path d="M690 173 L680 192 M870 139 L884 154" stroke="#f4d35e" stroke-width="5"/>
+          </g>
+          <g id="aeroBonnetVents" class="hidden">
+            <path d="M284 221 L335 215 M274 234 L329 228 M265 247 L320 242" stroke="#111" stroke-width="6" stroke-linecap="round" opacity=".72"/>
+          </g>
+          <g id="aeroBrakeDucts" class="hidden">
+            <path class="dark-part overlay-part" d="M155 278 C180 265 207 263 231 271 C202 281 177 285 155 278 Z"/>
+            <path class="dark-part overlay-part" d="M735 278 C764 267 794 268 821 281 C792 286 763 285 735 278 Z"/>
+          </g>
+
+          <!-- Engine details -->
+          <g id="engineOpenFilter" class="hidden">
+            <circle cx="333" cy="190" r="18" fill="#9f2d2d" stroke="#f2f2f2" stroke-width="4"/>
+            <path d="M318 190 H348 M333 175 V205" stroke="#f2f2f2" stroke-width="3"/>
+          </g>
+          <g id="engineTurbo" class="hidden">
+            <circle cx="360" cy="188" r="20" fill="#aeb7c7" stroke="#333" stroke-width="4"/>
+            <path d="M360 168 C383 181 377 205 357 209" fill="none" stroke="#333" stroke-width="5"/>
+            <path d="M376 190 C405 184 421 175 438 160" fill="none" stroke="#aeb7c7" stroke-width="7" stroke-linecap="round"/>
+          </g>
+          <g id="engineManifold" class="hidden">
+            <path d="M315 204 C330 220 345 220 360 204 M330 204 C345 220 360 220 375 204 M345 204 C360 220 375 220 390 204" fill="none" stroke="#d99045" stroke-width="5" stroke-linecap="round"/>
+          </g>
+
+          <!-- Exhaust -->
+          <g id="exhaustSingle">
+            <rect x="837" y="291" width="44" height="14" rx="7" fill="#2a2f39" stroke="#aeb7c7" stroke-width="3"/>
+          </g>
+          <g id="exhaustTwin" class="hidden">
+            <rect x="837" y="285" width="48" height="12" rx="6" fill="#2a2f39" stroke="#aeb7c7" stroke-width="3"/>
+            <rect x="837" y="303" width="48" height="12" rx="6" fill="#2a2f39" stroke="#aeb7c7" stroke-width="3"/>
+          </g>
+          <g id="exhaustRace" class="hidden">
+            <rect x="832" y="283" width="62" height="17" rx="8" fill="#101010" stroke="#f4d35e" stroke-width="3"/>
+            <path d="M850 291 H891" stroke="#d7dbe3" stroke-width="5" stroke-linecap="round"/>
+          </g>
+
+          <!-- Fuel -->
+          <g id="fuelCap" class="hidden">
+            <circle cx="698" cy="223" r="17" fill="none" stroke="#f4d35e" stroke-width="5"/>
+            <path d="M690 223 H706" stroke="#f4d35e" stroke-width="4"/>
+          </g>
+
+          <!-- Safety/interior -->
+          <g id="rollCage" class="hidden">
+            <path d="M404 201 C407 155 431 129 475 119 M526 199 C530 151 555 125 596 120 M404 201 L526 199 M452 126 L570 198"
+              fill="none" stroke="#f4d35e" stroke-width="5" opacity=".9"/>
+          </g>
+          <g id="driverHelmet" class="hidden">
+            <circle cx="488" cy="170" r="18" fill="#f4d35e" stroke="#111" stroke-width="4"/>
+            <path d="M489 166 H506" stroke="#111" stroke-width="5" stroke-linecap="round"/>
+          </g>
+          <g id="bucketSeat" class="hidden">
+            <path d="M462 197 L492 197 L500 232 L452 232 Z" fill="#1a1e27" stroke="#f4d35e" stroke-width="3"/>
+          </g>
+          <g id="fireExtinguisher" class="hidden">
+            <rect x="566" y="214" width="40" height="12" rx="6" fill="#d64040" stroke="#fff" stroke-width="2"/>
+          </g>
+
+          <!-- Transmission -->
+          <g id="transmissionBadge" class="hidden">
+            <rect x="434" y="229" width="72" height="28" rx="8" fill="#111318" stroke="#f4d35e" stroke-width="3"/>
+            <text id="gearText" x="470" y="249" text-anchor="middle" font-family="Arial" font-size="16" font-weight="700" fill="#f4d35e">SEQ</text>
+          </g>
+
+          <!-- Wheels and brake system -->
+          <g id="frontWheel">
+            <circle class="tyre" cx="284" cy="323" r="61"/>
+            <circle id="frontDisc" class="disc hidden" cx="284" cy="323" r="37"/>
+            <g id="frontBrakePattern" class="hidden">
+              <path class="brake-line" d="M254 302 L314 344 M314 302 L254 344"/>
+              <circle class="drill" cx="284" cy="292" r="4"/><circle class="drill" cx="315" cy="323" r="4"/><circle class="drill" cx="284" cy="354" r="4"/><circle class="drill" cx="253" cy="323" r="4"/>
+            </g>
+            <path id="frontCaliper" class="caliper hidden" d="M319 299 C337 312 338 333 320 348 L304 335 C313 326 313 316 304 309 Z"/>
+            <circle class="rim rim-sport" id="frontRim" cx="284" cy="323" r="28"/>
+            <path id="frontSpokes" d="M284 295 V351 M256 323 H312 M264 303 L304 343 M304 303 L264 343" stroke="#4d5664" stroke-width="5" stroke-linecap="round"/>
+            <g class="tread road" id="frontTread">
+              <path d="M243 284 L259 300 M231 312 L251 318 M242 363 L260 344 M325 284 L309 300 M337 312 L317 318 M326 363 L308 344"/>
+            </g>
+          </g>
+
+          <g id="rearWheel">
+            <circle class="tyre" cx="652" cy="323" r="61"/>
+            <circle id="rearDisc" class="disc hidden" cx="652" cy="323" r="37"/>
+            <g id="rearBrakePattern" class="hidden">
+              <path class="brake-line" d="M622 302 L682 344 M682 302 L622 344"/>
+              <circle class="drill" cx="652" cy="292" r="4"/><circle class="drill" cx="683" cy="323" r="4"/><circle class="drill" cx="652" cy="354" r="4"/><circle class="drill" cx="621" cy="323" r="4"/>
+            </g>
+            <path id="rearCaliper" class="caliper hidden" d="M687 299 C705 312 706 333 688 348 L672 335 C681 326 681 316 672 309 Z"/>
+            <circle class="rim rim-sport" id="rearRim" cx="652" cy="323" r="28"/>
+            <path id="rearSpokes" d="M652 295 V351 M624 323 H680 M632 303 L672 343 M672 303 L632 343" stroke="#4d5664" stroke-width="5" stroke-linecap="round"/>
+            <g class="tread road" id="rearTread">
+              <path d="M611 284 L627 300 M599 312 L619 318 M610 363 L628 344 M693 284 L677 300 M705 312 L685 318 M694 363 L676 344"/>
+            </g>
+          </g>
+        </g>
+      </svg>
+    </div>
+
+    <div class="parts-list" id="partsList"></div>
+  </section>
+
+  <aside class="controls">
+    <h2>Upgrade sections</h2>
+
+    <div class="control-grid">
+      <div class="two">
+        <div>
+          <label for="paintColour">Paint colour</label>
+          <input id="paintColour" type="color" value="#2374ff" />
+        </div>
+        <div>
+          <label for="paintFinish">Paint finish</label>
+          <select id="paintFinish">
+            <option value="gloss">Gloss</option>
+            <option value="matte">Matte</option>
+            <option value="metallic">Metallic</option>
+            <option value="pearlescent">Pearlescent</option>
+          </select>
+        </div>
+      </div>
+
+      <div>
+        <label for="aerodynamics">Aerodynamics</label>
+        <select id="aerodynamics">
+          <option value="none">Stock body</option>
+          <option value="fixed">Fixed rear spoiler</option>
+          <option value="vents">Air forced engine cooling</option>
+          <option value="ducts">Air cooling ducts for brakes</option>
+          <option value="adjustable">Adjustable rear spoiler</option>
+          <option value="front">Front diffuser</option>
+          <option value="rear">Rear diffuser</option>
+          <option value="gt">GT style spoiler package</option>
+        </select>
+      </div>
+
+      <div>
+        <label for="brakes">Brakes</label>
+        <select id="brakes">
+          <option value="stock">Stock brakes</option>
+          <option value="uprated">Uprated brake discs</option>
+          <option value="grooved">Grooved brake discs</option>
+          <option value="drilled">Grooved and drilled brake discs</option>
+        </select>
+      </div>
+
+      <div>
+        <label for="engine">Engine</label>
+        <select id="engine">
+          <option value="stock">Stock engine bay</option>
+          <option value="filter">Uprated air filter element</option>
+          <option value="openFilter">Open air filter</option>
+          <option value="manifold">Stainless steel 4/1 manifold</option>
+          <option value="turbo">Forced induction kit</option>
+          <option value="customTurbo">Custom forced induction kit</option>
+        </select>
+      </div>
+
+      <div>
+        <label for="exhaust">Exhaust</label>
+        <select id="exhaust">
+          <option value="stock">Stock exhaust</option>
+          <option value="backbox">Back box</option>
+          <option value="catback">Cat-back exhaust</option>
+          <option value="full">Full exhaust system</option>
+          <option value="race">Race exhaust tip</option>
+        </select>
+      </div>
+
+      <div>
+        <label for="fuel">Fuel</label>
+        <select id="fuel">
+          <option value="stock">Stock fuel system</option>
+          <option value="uprated">Uprated fuel system</option>
+          <option value="cell">Racing fuel cell</option>
+          <option value="cap">External race filler cap</option>
+        </select>
+      </div>
+
+      <div>
+        <label for="safety">Safety</label>
+        <select id="safety">
+          <option value="none">No visible safety upgrade</option>
+          <option value="overalls">Race overalls</option>
+          <option value="helmet">Helmet</option>
+          <option value="extinguisher">Fire extinguisher</option>
+          <option value="rollcage">Roll cage</option>
+          <option value="bucket3">Bucket seat and 3 point harness</option>
+          <option value="fia">FIA approved safety upgrades</option>
+          <option value="bucket6">Bucket seat and 6 point harness</option>
+        </select>
+      </div>
+
+      <div>
+        <label for="suspension">Suspension</label>
+        <select id="suspension">
+          <option value="stock">Stock ride height</option>
+          <option value="soft">Uprated springs soft</option>
+          <option value="medium">Uprated springs medium</option>
+          <option value="hard">Uprated springs hard</option>
+          <option value="coilover">Coilover suspension</option>
+          <option value="adjustable">Adjustable coilover suspension</option>
+          <option value="rally">Group N rally suspension</option>
+        </select>
+      </div>
+
+      <div>
+        <label for="transmission">Transmission</label>
+        <select id="transmission">
+          <option value="stock">Stock transmission</option>
+          <option value="uprated">Uprated gearbox</option>
+          <option value="close">Close-ratio gearbox</option>
+          <option value="dogbox">Dog box</option>
+          <option value="sequential">Sequential racing gearbox</option>
+        </select>
+      </div>
+
+      <div>
+        <label for="weight">Weight reduction</label>
+        <select id="weight">
+          <option value="stock">Stock interior/body</option>
+          <option value="strip">Strip out</option>
+          <option value="wheel">Racing steering wheel</option>
+          <option value="dash">Lightweight flocked dash</option>
+          <option value="windows">Polycarbonate windows</option>
+          <option value="carbonRoof">Carbon fibre roof</option>
+          <option value="carbonTrunk">Carbon fibre trunk</option>
+          <option value="carbonHood">Carbon fibre hood</option>
+          <option value="carbonPack">Carbon panel package</option>
+        </select>
+      </div>
+
+      <div>
+        <label for="wheels">Wheels and tyres</label>
+        <select id="wheels">
+          <option value="stock">Stock wheels</option>
+          <option value="budget">Budget upgrade tyres</option>
+          <option value="steel">Steel rims</option>
+          <option value="road">Fast road tyres</option>
+          <option value="alloys">Lightweight alloys</option>
+          <option value="track">Track tyres / slicks</option>
+          <option value="rally">Rally tyres</option>
+          <option value="cross">Rally/cross tyres</option>
+          <option value="ultra">Ultra lightweight alloys</option>
+        </select>
+      </div>
+
+      <button id="randomise">Randomise demo car</button>
+      <button id="reset">Reset to stock</button>
+    </div>
+  </aside>
+
+  <section class="explain">
+    <strong>Developer point:</strong>
+    this demo does not create a new image/model for every possible combination.
+    It keeps one base car and changes visible layers such as paint material, wheels, spoilers, carbon panels,
+    brake details, exhaust tips, safety equipment, and ride height.
+    <div class="mini-code" id="stateCode"></div>
+  </section>
+</main>
+
+<script>
+const $ = (id) => document.getElementById(id);
+
+const sections = [
+  "paintColour", "paintFinish", "aerodynamics", "brakes", "engine", "exhaust",
+  "fuel", "safety", "suspension", "transmission", "weight", "wheels"
+];
+
+function show(id, on = true) {
+  const el = $(id);
+  if (!el) return;
+  el.classList.toggle("hidden", !on);
+}
+
+function setRimClass(className) {
+  ["frontRim", "rearRim"].forEach(id => {
+    const el = $(id);
+    el.classList.remove("rim-dark", "rim-steel", "rim-gold", "rim-sport", "rim-carbon");
+    el.classList.add(className);
+  });
+}
+
+function setTread(type) {
+  ["frontTread", "rearTread"].forEach(id => {
+    const el = $(id);
+    el.classList.remove("road", "slick", "rally");
+    el.classList.add(type);
+  });
+}
+
+function updateDemo() {
+  const root = document.documentElement;
+  const carRoot = $("carRoot");
+
+  root.style.setProperty("--car-paint", $("paintColour").value);
+
+  carRoot.classList.remove("gloss", "matte", "metallic", "pearlescent");
+  carRoot.classList.add($("paintFinish").value);
+
+  const finish = $("paintFinish").value;
+  root.style.setProperty("--finish-filter", finish === "metallic" ? "saturate(1.25) contrast(1.05)" :
+    finish === "matte" ? "saturate(.85) contrast(.95)" :
+    finish === "pearlescent" ? "saturate(1.45) hue-rotate(-8deg)" :
+    "saturate(1)");
+
+  // Reset all visual layers
+  [
+    "aeroFrontLip", "aeroRearDiffuser", "aeroFixedSpoiler", "aeroAdjustableSpoiler", "aeroGTWing",
+    "aeroBonnetVents", "aeroBrakeDucts", "frontDisc", "rearDisc", "frontBrakePattern", "rearBrakePattern",
+    "frontCaliper", "rearCaliper", "engineOpenFilter", "engineTurbo", "engineManifold", "exhaustTwin",
+    "exhaustRace", "fuelCap", "rollCage", "driverHelmet", "bucketSeat", "fireExtinguisher",
+    "transmissionBadge", "carbonBonnet", "carbonRoof", "carbonTrunk", "stanceRally"
+  ].forEach(id => show(id, false));
+  show("exhaustSingle", true);
+
+  // Aerodynamics
+  const aero = $("aerodynamics").value;
+  if (aero === "fixed") show("aeroFixedSpoiler");
+  if (aero === "vents") show("aeroBonnetVents");
+  if (aero === "ducts") show("aeroBrakeDucts");
+  if (aero === "adjustable") show("aeroAdjustableSpoiler");
+  if (aero === "front") show("aeroFrontLip");
+  if (aero === "rear") show("aeroRearDiffuser");
+  if (aero === "gt") {
+    show("aeroGTWing");
+    show("aeroFrontLip");
+    show("aeroRearDiffuser");
+    show("aeroBonnetVents");
+  }
+
+  // Brakes
+  const brakes = $("brakes").value;
+  if (brakes !== "stock") {
+    show("frontDisc"); show("rearDisc"); show("frontCaliper"); show("rearCaliper");
+  }
+  if (brakes === "grooved" || brakes === "drilled") {
+    show("frontBrakePattern"); show("rearBrakePattern");
+  }
+
+  // Engine
+  const engine = $("engine").value;
+  if (engine === "filter" || engine === "openFilter") show("engineOpenFilter");
+  if (engine === "manifold") show("engineManifold");
+  if (engine === "turbo" || engine === "customTurbo") {
+    show("engineTurbo");
+    show("aeroBonnetVents");
+  }
+  if (engine === "customTurbo") show("engineManifold");
+
+  // Exhaust
+  const exhaust = $("exhaust").value;
+  if (exhaust === "backbox" || exhaust === "catback" || exhaust === "full") {
+    show("exhaustSingle", false);
+    show("exhaustTwin", true);
+  }
+  if (exhaust === "race") {
+    show("exhaustSingle", false);
+    show("exhaustRace", true);
+  }
+
+  // Fuel
+  if ($("fuel").value !== "stock") show("fuelCap");
+
+  // Safety
+  const safety = $("safety").value;
+  if (["helmet", "fia", "bucket6"].includes(safety)) show("driverHelmet");
+  if (["extinguisher", "fia", "bucket6"].includes(safety)) show("fireExtinguisher");
+  if (["rollcage", "fia", "bucket6"].includes(safety)) show("rollCage");
+  if (["bucket3", "fia", "bucket6"].includes(safety)) show("bucketSeat");
+
+  // Suspension
+  const suspension = $("suspension").value;
+  let rideY = "0px";
+  let wheelScale = "1";
+  if (suspension === "soft") rideY = "-8px";
+  if (suspension === "hard") rideY = "8px";
+  if (suspension === "coilover") rideY = "12px";
+  if (suspension === "adjustable") rideY = "18px";
+  if (suspension === "rally") { rideY = "-20px"; wheelScale = "1.08"; show("stanceRally"); }
+  root.style.setProperty("--ride-y", rideY);
+  root.style.setProperty("--wheel-scale", wheelScale);
+
+  // Transmission
+  const transmission = $("transmission").value;
+  if (transmission !== "stock") {
+    show("transmissionBadge");
+    $("gearText").textContent =
+      transmission === "sequential" ? "SEQ" :
+      transmission === "dogbox" ? "DOG" :
+      transmission === "close" ? "C/R" : "GBX";
+  }
+
+  // Weight reduction
+  const weight = $("weight").value;
+  if (weight === "carbonRoof") show("carbonRoof");
+  if (weight === "carbonTrunk") show("carbonTrunk");
+  if (weight === "carbonHood") show("carbonBonnet");
+  if (weight === "carbonPack") {
+    show("carbonRoof"); show("carbonTrunk"); show("carbonBonnet");
+  }
+  if (["strip", "dash", "wheel"].includes(weight)) show("bucketSeat");
+  if (weight === "windows") {
+    document.querySelectorAll(".glass").forEach(g => g.style.opacity = ".58");
+  } else {
+    document.querySelectorAll(".glass").forEach(g => g.style.opacity = "");
+  }
+
+  // Wheels and tyres
+  const wheels = $("wheels").value;
+  setRimClass("rim-sport");
+  setTread("road");
+  if (wheels === "steel") setRimClass("rim-steel");
+  if (wheels === "alloys") setRimClass("rim-gold");
+  if (wheels === "track") { setRimClass("rim-dark"); setTread("slick"); }
+  if (wheels === "rally") { setRimClass("rim-steel"); setTread("rally"); root.style.setProperty("--wheel-scale", "1.08"); }
+  if (wheels === "cross") { setRimClass("rim-gold"); setTread("rally"); }
+  if (wheels === "ultra") setRimClass("rim-carbon");
+
+  updateSummary();
+}
+
+function labelOf(id) {
+  const el = $(id);
+  if (!el) return "";
+  if (el.type === "color") return el.value;
+  return el.options[el.selectedIndex].text;
+}
+
+function updateSummary() {
+  const active = [];
+  sections.forEach(id => {
+    if (id === "paintColour") {
+      active.push(["Paint colour", labelOf(id)]);
+    } else if (id === "paintFinish") {
+      active.push(["Paint finish", labelOf(id)]);
+    } else if ($(id).value !== "stock" && $(id).value !== "none") {
+      const label = document.querySelector(`label[for="${id}"]`).textContent;
+      active.push([label, labelOf(id)]);
+    }
+  });
+
+  $("partsList").innerHTML = active.map(([k,v]) => `<div><strong>${k}</strong><br>${v}</div>`).join("");
+
+  const activeLayerCount = active.filter(([k]) => !["Paint colour", "Paint finish"].includes(k)).length;
+  $("assetCount").textContent = `Assets used: 1 base + ${activeLayerCount} active layer${activeLayerCount === 1 ? "" : "s"}`;
+
+  const state = {
+    base_car: "demo_nsx_base",
+    visual_properties: {
+      paint_colour: $("paintColour").value,
+      paint_finish: $("paintFinish").value,
+      ride_height: $("suspension").value
+    },
+    attachment_slots: {
+      aerodynamics: $("aerodynamics").value,
+      brakes: $("brakes").value,
+      engine: $("engine").value,
+      exhaust: $("exhaust").value,
+      fuel: $("fuel").value,
+      safety: $("safety").value,
+      transmission: $("transmission").value,
+      weight_reduction: $("weight").value,
+      wheels_and_tyres: $("wheels").value
+    }
+  };
+
+  $("stateCode").textContent =
+`// One base car; selected layers are applied dynamically.
+car.base = "${state.base_car}";
+car.visual.paintColour = "${state.visual_properties.paint_colour}";
+car.visual.paintFinish = "${state.visual_properties.paint_finish}";
+car.visual.rideHeight = "${state.visual_properties.ride_height}";
+car.attachments = ${JSON.stringify(state.attachment_slots, null, 2)};`;
+}
+
+function randomise() {
+  sections.forEach(id => {
+    const el = $(id);
+    if (!el) return;
+    if (el.type === "color") {
+      const colours = ["#2374ff", "#d64040", "#04d133", "#f4d35e", "#ededed", "#111111", "#c46bff", "#ff7a22"];
+      el.value = colours[Math.floor(Math.random() * colours.length)];
+    } else {
+      el.selectedIndex = Math.floor(Math.random() * el.options.length);
+    }
+  });
+  updateDemo();
+}
+
+function reset() {
+  $("paintColour").value = "#2374ff";
+  sections.forEach(id => {
+    const el = $(id);
+    if (!el || el.type === "color") return;
+    el.selectedIndex = 0;
+  });
+  updateDemo();
+}
+
+sections.forEach(id => {
+  const el = $(id);
+  if (el) el.addEventListener("input", updateDemo);
+});
+
+$("randomise").addEventListener("click", randomise);
+$("reset").addEventListener("click", reset);
+
+updateDemo();
+</script>
+</body>
+</html>

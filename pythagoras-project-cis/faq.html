@@ -37,7 +37,7 @@
           <h2 class="faq-panel-title">Operating rules</h2>
           <ul class="feature-list">
             <li class="feature-item"><span class="feature-dot" aria-hidden="true"></span><span>API syncs only run from button clicks.</span></li>
-            <li class="feature-item"><span class="feature-dot" aria-hidden="true"></span><span>Data stays in local userscript storage unless you export it.</span></li>
+            <li class="feature-item"><span class="feature-dot" aria-hidden="true"></span><span>Only API key, user ID, username, and company ID are stored locally.</span></li>
             <li class="feature-item"><span class="feature-dot" aria-hidden="true"></span><span>Loaded Torn page data is used only from the page you are viewing.</span></li>
           </ul>
         </aside>
@@ -68,7 +68,7 @@
   <details id="install" open>
     <summary>What is Pythagoras CIS?</summary>
     <div class="answer">
-      <p>Pythagoras CIS is a Tampermonkey userscript designed for Torn company management. It provides a local workspace for managing the training ledger, FIFO train planner, staff and director history, daily report analytics, licensing, backups, and themed reports.</p>
+      <p>Pythagoras CIS is a Tampermonkey userscript designed for Torn company management. It provides a cloud-backed workspace for managing the training ledger, FIFO train planner, staff and director history, daily report analytics, licensing, backups, and themed reports.</p>
     </div>
   </details>
 
@@ -85,15 +85,16 @@
     <div class="answer">
       <p>A <b>Minimal</b> API key is sufficient for basic functionality. A <b>Full Access</b> API key is required for advanced features.</p>
       <p>The script only uses your Torn API key when you manually trigger a sync. It does not perform background polling or automated request chains.</p>
-      <p>If <code>Remember locally</code> is not enabled, the API key will not be stored when saving settings.</p>
+      <p>The only local profile fields are API key, user ID, username, and company ID. Company records, analytics, staff history, planner data, settings, stock history, and licence status live in the Pythagoras backend.</p>
     </div>
   </details>
 
   <details id="data">
     <summary>Where is my data stored?</summary>
     <div class="answer">
-      <p>All data — including ledger entries, staff history, analytics, settings, and license information — is stored locally in Tampermonkey storage, with a browser storage fallback.</p>
-      <p>No data is transmitted to any Pythagoras Project servers. Exports are created locally and only shared if you choose to do so.</p>
+      <p>Company data is stored in a PostgreSQL-backed cloud workspace keyed by company ID. Every company-owned row includes its company ID, and server-side access checks decide which Torn user can open that workspace.</p>
+      <p>Free users can continue syncing and saving data, but Free visibility is limited to the last 7 days. Older saved data remains in the workspace and becomes visible if the account upgrades.</p>
+      <p>The script does not store business data, licence state, analytics, planner rows, staff history, stock history, or persistent UI state in browser storage.</p>
     </div>
   </details>
 
@@ -146,8 +147,8 @@
   <details id="license">
     <summary>What do Supporter, Company Boost, and Ultimate unlock?</summary>
     <div class="answer">
-      <p>The free version includes all core features. Supporter unlocks premium functionality such as full data backups and additional tools. Company Boost focuses on advanced company analytics. Ultimate includes all features along with premium support.</p>
-      <p>Licences are available as 30-day or lifetime options, with a 7-day trial available for each tier.</p>
+      <p>The free version includes core operation and cloud saving with 7-day visibility. Supporter, Company Boost, and Ultimate increase visible history and unlock server-enforced feature flags.</p>
+      <p>Licences are time-limited only: 1 month, 3 months, 6 months, or 12 months. Lifetime licences are not available.</p>
       <p>Licensing is handled through my Discord server. First make sure you are verified there, then go to <code>#bot-commands</code>, talk to <strong>The Stig</strong>, and run <code>/buylicense</code>.</p>
       <p>That Discord flow is the route for starting or buying the licence tier you need.</p>
     </div>
@@ -162,7 +163,8 @@
         <article class="tier-card">
           <h3>Supporter</h3>
           <ul>
-            <li>Full data export and import (ledger, staff history, analytics, settings, and licence backup)</li>
+            <li>View the last 90 days of saved company history</li>
+            <li>Basic reports, exports, imports, and graph tools</li>
             <li>Enhanced newsletter and reporting tools</li>
             <li>Supporter badge for forum signatures</li>
           </ul>
@@ -171,8 +173,8 @@
         <article class="tier-card">
           <h3>Company Boost</h3>
           <ul>
-            <li>Advanced company analytics and monitoring tools</li>
-            <li>Improved visibility into staff performance and operational trends</li>
+            <li>View the last 365 days of saved company history</li>
+            <li>Archive access, advanced planner, stock, wage, role, report, and graph tools</li>
             <li>Company-linked licensing</li>
           </ul>
         </article>
@@ -180,6 +182,7 @@
         <article class="tier-card">
           <h3>Ultimate</h3>
           <ul>
+            <li>View all available saved company history</li>
             <li>Includes all Supporter and Company Boost features</li>
             <li>Best suited for full company management and long-term analytics</li>
             <li>Includes premium support</li>
@@ -192,7 +195,7 @@
   <details>
     <summary>Why is my key rejected?</summary>
     <div class="answer">
-      <p>Common causes include mismatched Torn user ID, incorrect company ID for boost licences, expired keys, or corrupted copy-paste input.</p>
+      <p>Common causes include mismatched Torn user ID, incorrect company ID for boost licences, expired keys, an inactive server-side plan, or corrupted copy-paste input.</p>
       <p>Use <code>Settings → Import licence key</code> and ensure the full key is entered correctly.</p>
     </div>
   </details>
@@ -200,7 +203,7 @@
   <details id="export">
     <summary>What can I export?</summary>
     <div class="answer">
-      <p>Supporter tier and above can export and import full datasets, including ledger, staff history, analytics, settings, and licence data.</p>
+      <p>Supporter tier and above can export and import datasets according to the active entitlement. Free users can still save data, but only the last 7 days are visible until they upgrade.</p>
       <p>The system can also generate themed HTML reports, newsletter-ready outputs, and forum-ready snippets.</p>
     </div>
   </details>
