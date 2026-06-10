@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="en" data-origin="athens">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title data-i18n="meta.authTitle">Hellenes — Login / Register</title>
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body class="auth-body">
+  <button class="language-toggle" id="languageToggle" type="button" aria-label="Change language">EL</button>
+
+  <main class="auth-shell">
+    <header class="auth-header panel">
+      <a class="back-link" href="./index.html" data-i18n="auth.back">← Back to Hellenes</a>
+      <div class="brand auth-brand">
+        <div class="brand-laurel">❦</div>
+        <div>
+          <h1>Hellenes</h1>
+          <p data-i18n="auth.accountGate">Account Gate</p>
+        </div>
+        <div class="brand-laurel">❦</div>
+      </div>
+    </header>
+
+    <section class="auth-layout">
+      <article class="auth-card panel" id="loginPanel">
+        <header class="section-title large"><span data-i18n="auth.loginTitle">Login</span></header>
+
+        <form id="loginForm" class="auth-form">
+          <label>
+            <span><span data-i18n="fields.email">Email</span> <small data-i18n="fields.loginSmall">(Login)</small></span>
+            <input name="email" type="email" autocomplete="email" maxlength="254" required />
+          </label>
+
+          <label>
+            <span><span data-i18n="fields.password">Password</span></span>
+            <input name="password" type="password" autocomplete="current-password" minlength="6" maxlength="72" required />
+          </label>
+
+          <p class="form-message" id="loginMessage" role="status"></p>
+
+          <button class="primary-action" type="submit" data-i18n="auth.loginButton">Enter Character</button>
+        </form>
+      </article>
+
+      <article class="auth-card panel" id="registerPanel">
+        <header class="section-title large"><span data-i18n="auth.registerTitle">Registration</span></header>
+
+        <form id="registrationForm" class="auth-form registration-form">
+          <div class="auth-two">
+            <label>
+              <span><span data-i18n="fields.email">Email</span> <small data-i18n="fields.loginSmall">(Login)</small></span>
+              <input name="email" type="email" autocomplete="email" maxlength="254" required />
+            </label>
+
+            <label>
+              <span><span data-i18n="fields.password">Password</span></span>
+              <input name="password" type="password" autocomplete="new-password" minlength="6" maxlength="72" required />
+            </label>
+
+            <label>
+              <span><span data-i18n="fields.characterName">Character Name</span></span>
+              <input name="characterName" maxlength="32" placeholder="Alexios" />
+            </label>
+
+            <label>
+              <span><span data-i18n="fields.lineage">Lineage</span></span>
+              <select name="genos">
+                <option value="Hellenic" data-i18n="lineage.hellenic">Hellenic</option>
+                <option value="Ionian" data-i18n="lineage.ionian">Ionian</option>
+                <option value="Dorian" data-i18n="lineage.dorian">Dorian</option>
+                <option value="Aeolian" data-i18n="lineage.aeolian">Aeolian</option>
+              </select>
+            </label>
+          </div>
+
+          <fieldset class="origin-picker">
+            <legend><span data-i18n="terms.origin">Origin</span></legend>
+            <div class="registration-origin-cards" id="registrationOriginCards">
+              <button class="registration-origin-card is-selected" type="button" data-registration-origin="athens" style="--card-primary:#0b2742; --card-glow:#4aa3ff;">
+                <span>
+                  <img class="origin-logo-img" src="./assets/images/logos/athens.png" alt="Athens logo">
+                </span>
+                <strong data-origin-label="athens">Athens</strong>
+                <small data-origin-mood="athens">Wisdom. Debate. Democracy.</small>
+              </button>
+              <button class="registration-origin-card" type="button" data-registration-origin="sparta" style="--card-primary:#4b0d0d; --card-glow:#ff3b24;">
+                <span>
+                  <img class="origin-logo-img" src="./assets/images/logos/sparta.png" alt="Sparta logo">
+                </span>
+                <strong data-origin-label="sparta">Sparta</strong>
+                <small data-origin-mood="sparta">Discipline. Courage. Honour.</small>
+              </button>
+              <button class="registration-origin-card" type="button" data-registration-origin="corinth" style="--card-primary:#301442; --card-glow:#b35cff;">
+                <span>
+                  <img class="origin-logo-img" src="./assets/images/logos/corinth.png" alt="Corinth logo">
+                </span>
+                <strong data-origin-label="corinth">Corinth</strong>
+                <small data-origin-mood="corinth">Trade. Sea Power. Wealth.</small>
+              </button>
+              <button class="registration-origin-card" type="button" data-registration-origin="macedon" style="--card-primary:#221909; --card-glow:#ffd76a;">
+                <span>
+                  <img class="origin-logo-img" src="./assets/images/logos/makedonia.png" alt="Macedon logo">
+                </span>
+                <strong data-origin-label="macedon">Macedon</strong>
+                <small data-origin-mood="macedon">Leadership. Victory. Legacy.</small>
+              </button>
+              <button class="registration-origin-card" type="button" data-registration-origin="thebes" style="--card-primary:#0f3524; --card-glow:#4fdc86;">
+                <span>
+                  <img class="origin-logo-img" src="./assets/images/logos/thebes.png" alt="Thebes logo">
+                </span>
+                <strong data-origin-label="thebes">Thebes</strong>
+                <small data-origin-mood="thebes">Strength. Brotherhood. Valor.</small>
+              </button>
+            </div>
+            <input type="hidden" name="origin" value="athens" required />
+          </fieldset>
+
+          <p class="form-message" id="registerMessage" role="status"></p>
+
+          <button class="primary-action" type="submit" data-i18n="auth.registerButton">Create Character</button>
+        </form>
+      </article>
+
+      <aside class="auth-preview panel">
+        <header class="section-title large"><span data-i18n="auth.selectedOrigin">Selected Origin</span></header>
+        <div class="origin-preview-symbol" data-bind="originSymbol">🦉</div>
+        <h2 data-bind="originName">Athens</h2>
+        <p data-bind="originMood">Wisdom. Debate. Democracy.</p>
+        <div class="origin-preview-bonus" id="originPreviewBonus"></div>
+      </aside>
+    </section>
+  </main>
+
+  <script src="./app.js"></script>
+</body>
+</html>

@@ -1,0 +1,198 @@
+<!doctype html>
+<html lang="en" data-origin="athens">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Hellenes — Character</title>
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body class="character-body">
+  <button class="language-toggle" id="languageToggle" type="button" aria-label="Change language">EL</button>
+  <div class="fit-viewport">
+    <div class="game-shell">
+    <header class="topbar panel">
+      <nav class="main-nav" aria-label="Primary navigation">
+        <button class="nav-item is-active" type="button">⚔<span data-i18n="nav.character">Prosōpon</span></button>
+        <button class="nav-item" type="button">🏛<span data-i18n="nav.inventory">Apothēkē</span></button>
+        <button class="nav-item" type="button">✶<span data-i18n="nav.skills">Technai</span></button>
+        <button class="nav-item" type="button">▣<span data-i18n="nav.journal">Hēmerologion</span></button>
+        <button class="nav-item" type="button">◎<span data-i18n="nav.map">Chartēs</span></button>
+        <button class="nav-item" type="button">☼<span data-i18n="nav.reputation">Doxa</span></button>
+      </nav>
+
+      <div class="brand">
+        <div class="brand-laurel">❦</div>
+        <div>
+          <h1>Hellenes</h1>
+          <p><span data-i18n="brand.tagline">Forged by Glory. Remembered by Time.</span></p>
+        </div>
+        <div class="brand-laurel">❦</div>
+      </div>
+
+      <div class="top-resources" aria-label="Quick resources">
+        <div class="quick-resource"><span class="resource-icon">◉</span><strong>12,450</strong><small><span data-i18n="resources.drachmae">Drachmae</span></small></div>
+        <div class="quick-resource"><span class="resource-icon">◆</span><strong>1,245</strong><small><span data-i18n="resources.iron">Iron</span></small></div>
+        <div class="quick-resource"><span class="resource-icon">☽</span><strong>24</strong><small><span data-i18n="resources.favor">Favor</span></small></div>
+        <button class="settings-button" type="button" aria-label="Settings">⚙</button>
+        <button class="logout-button" id="logoutButton" type="button"><span data-i18n="auth.logout">Exit</span></button>
+      </div>
+    </header>
+
+    <main class="character-layout">
+      <section class="profile-grid">
+        <article class="portrait-card panel">
+          <div class="portrait-art">
+            <div class="banner-symbol" data-bind="originSymbol">☉</div>
+            <div class="portrait-placeholder">
+              <span>Eikōn</span>
+              <small>Portrait / faction art</small>
+            </div>
+            <div class="shield-symbol" data-bind="originSymbol">☉</div>
+          </div>
+        </article>
+
+        <article class="identity-card panel">
+          <h2 data-bind="characterName">Alexios</h2>
+          <p class="muted">Son of Nikandros</p>
+
+          <div class="level-block">
+            <strong><span data-i18n="character.levelLabel">Level</span> 12</strong>
+            <div class="bar small"><span style="width: 62%"></span></div>
+            <small>5,450 / 8,800 XP</small>
+          </div>
+
+          <dl class="identity-list">
+            <div><dt><span data-i18n="fields.lineage">Lineage</span></dt><dd>Hellenic</dd></div>
+            <div><dt><span data-i18n="terms.origin">Origin</span></dt><dd data-bind="originName">Athens</dd></div>
+            <div><dt><span data-i18n="character.alignment">Alignment</span></dt><dd>Honorable</dd></div>
+            <div><dt><span data-i18n="character.birthday">Birthday</span></dt><dd>12 Thargelion</dd></div>
+          </dl>
+        </article>
+      </section>
+
+      <section class="center-stack">
+        <article class="rank-card panel">
+          <header class="section-title"><span data-i18n="terms.rank">Rank</span></header>
+
+          <div class="rank-content">
+            <div class="rank-medal">
+              <span data-bind="originSymbol">☉</span>
+            </div>
+
+            <div class="rank-copy">
+              <h2 data-bind="rankTitle">Polites</h2>
+              <p class="tier">Beta Tier (Β)</p>
+              <p class="role">Politēs <small>(Citizen)</small></p>
+              <p class="flavour" data-bind="rankFlavour">A voice in the city. A mind in the assembly.</p>
+            </div>
+          </div>
+
+          <div class="kleos-row">
+            <div>
+              <span class="section-title compact"><span data-i18n="terms.fame">Fame</span></span>
+              <strong class="big-number">3,250</strong>
+            </div>
+            <div>
+              <span class="section-title compact"><span data-i18n="terms.nextRank">Next Rank</span></span>
+              <strong>Hoplitēs (Γ)</strong>
+              <small>250 Kleos remaining</small>
+            </div>
+          </div>
+
+          <div class="bar ornate"><span style="width: 63%"></span></div>
+        </article>
+
+        <section class="lower-grid">
+          <article class="attributes-card panel">
+            <header class="section-title"><span data-i18n="terms.attributes">Attributes</span></header>
+            <div class="stat-list" id="attributesList"></div>
+          </article>
+
+          <article class="vitals-card panel">
+            <header class="section-title"><span data-i18n="terms.vitals">Vitals</span></header>
+            <div class="vitals-grid">
+              <div class="vital">
+                <span class="vital-icon danger">✚</span>
+                <strong>Ygia <small>(Health)</small></strong>
+                <div class="bar health"><span style="width: 100%"></span></div>
+                <small>1,240 / 1,240</small>
+              </div>
+              <div class="vital">
+                <span class="vital-icon">♞</span>
+                <strong>Antochē <small>(Stamina)</small></strong>
+                <div class="bar stamina"><span style="width: 100%"></span></div>
+                <small>160 / 160</small>
+              </div>
+              <div class="vital">
+                <span class="vital-icon danger">▥</span>
+                <strong>Kopos <small>(Fatigue)</small></strong>
+                <div class="bar fatigue"><span style="width: 38%"></span></div>
+                <small>38 / 100</small>
+              </div>
+              <div class="vital">
+                <span class="vital-icon">⌛</span>
+                <strong>Xekourasis <small>(Rest)</small></strong>
+                <p>24:15</p>
+              </div>
+            </div>
+
+            <div class="mini-metrics">
+              <div><strong>18h 24m</strong><small>Chronos</small></div>
+              <div><strong>24 / 48</strong><small>Topoi</small></div>
+              <div><strong>31</strong><small>Apostolai</small></div>
+              <div><strong>17</strong><small>Anthrōpoi</small></div>
+            </div>
+          </article>
+        </section>
+      </section>
+
+      <aside class="right-stack">
+        <article class="currency-card panel">
+          <header class="section-title"><span data-i18n="terms.currency">Currency</span></header>
+          <div class="ledger-list">
+            <div><span>◉</span><strong>12,450</strong><small><span data-i18n="resources.drachmae">Drachmae</span></small></div>
+            <div><span>◎</span><strong>234</strong><small><span data-i18n="resources.tetradrachmae">Tetradrachmae</span></small></div>
+            <div><span>◌</span><strong>127</strong><small><span data-i18n="resources.obols">Obols</span></small></div>
+          </div>
+        </article>
+
+        <article class="resources-card panel">
+          <header class="section-title"><span data-i18n="terms.resources">Resources</span></header>
+          <div class="resource-grid">
+            <div><span>◆</span><strong>1,245</strong><small><span data-i18n="resources.iron">Iron</span></small></div>
+            <div><span>▰</span><strong>892</strong><small><span data-i18n="resources.wood">Wood</span></small></div>
+            <div><span>⚱</span><strong>563</strong><small><span data-i18n="resources.oliveOil">Olive Oil</span></small></div>
+            <div><span>▤</span><strong>412</strong><small><span data-i18n="resources.linen">Linen</span></small></div>
+            <div><span>◧</span><strong>221</strong><small><span data-i18n="resources.leather">Leather</span></small></div>
+          </div>
+        </article>
+
+        <article class="resistances-card panel">
+          <header class="section-title"><span data-i18n="terms.resistances">Resistances</span></header>
+          <div class="resistance-list">
+            <div><span>🛡</span><strong>Sōmatikē</strong><small>25%</small></div>
+            <div><span>🔥</span><strong>Pyr</strong><small>15%</small></div>
+            <div><span>☣</span><strong>Dētērion</strong><small>10%</small></div>
+            <div><span>🩸</span><strong>Haima</strong><small>20%</small></div>
+            <div><span>🔷</span><strong>Stoicheion</strong><small>15%</small></div>
+          </div>
+        </article>
+      </aside>
+    </main>
+    <section class="origin-summary-section panel">
+      <header class="section-title large"><span data-i18n="terms.origin">Origin</span> <span>(Origin)</span></header>
+      <div class="origin-summary" id="originSummary">
+        <div class="origin-summary-symbol" data-bind="originSymbol">🦉</div>
+        <div>
+          <h2 data-bind="originName">Athēnai</h2>
+          <p data-bind="originMood">Sophia. Logos. Dēmokratia.</p>
+          <small><span data-i18n="character.originLocked">Chosen during registration</span></small>
+        </div>
+      </div>
+    </section>
+    </div>
+  </div>
+
+  <script src="./app.js"></script>
+</body>
+</html>

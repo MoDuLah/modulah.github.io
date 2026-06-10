@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="en" data-origin="athens">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title data-i18n="meta.homeTitle">Hellenes — Browser Strategy RPG</title>
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body class="home-body">
+  <button class="language-toggle" id="languageToggle" type="button" aria-label="Change language">EL</button>
+
+  <main class="home-shell">
+    <section class="home-hero panel">
+      <div class="home-bg-sun">☼</div>
+      <div class="home-bg-column left">▥</div>
+      <div class="home-bg-column right">▥</div>
+
+      <div class="brand home-brand">
+        <div class="brand-laurel">❦</div>
+        <div>
+          <h1>Hellenes</h1>
+          <p data-i18n="brand.tagline">Forged by Glory. Remembered by Time.</p>
+        </div>
+        <div class="brand-laurel">❦</div>
+      </div>
+
+      <div class="home-copy">
+        <p class="home-kicker" data-i18n="home.kicker">A browser strategy RPG of city-states, honour, conquest, trade, and legacy.</p>
+        <h2 data-i18n="home.headline">Choose your Origin. Rise through Rank. Become a name carved into Hellas.</h2>
+        <p data-i18n="home.description">
+          Begin as a citizen and shape your path through diplomacy, warfare, commerce, wisdom,
+          reputation, and divine favour. Your city is not just a background — it is your bloodline,
+          your bonuses, your enemies, and your future.
+        </p>
+
+        <div class="home-actions">
+          <a class="primary-action home-action" href="./auth.html?mode=register" data-i18n="home.registerCta">Forge Your Citizen</a>
+          <a class="secondary-action home-action" href="./auth.html?mode=login" data-i18n="home.loginCta">Enter the Polis</a>
+        </div>
+      </div>
+
+      <div class="home-pillars">
+        <article>
+          <span data-i18n="terms.rankShort">RANK</span>
+          <strong data-i18n="home.pillarRankTitle">Rank & Prestige</strong>
+          <small data-i18n="home.pillarRankText">Earn Fame and climb from Citizen to legendary office.</small>
+        </article>
+        <article>
+          <span data-i18n="terms.originsShort">ORIGINS</span>
+          <strong data-i18n="home.pillarOriginsTitle">Origins Matter</strong>
+          <small data-i18n="home.pillarOriginsText">Athens, Sparta, Corinth, Macedon, and Thebes shape your path.</small>
+        </article>
+        <article>
+          <span data-i18n="terms.resourcesShort">RESOURCES</span>
+          <strong data-i18n="home.pillarResourcesTitle">Resources & Power</strong>
+          <small data-i18n="home.pillarResourcesText">Build wealth, gather materials, and support your ambitions.</small>
+        </article>
+        <article>
+          <span data-i18n="terms.reputationShort">REPUTATION</span>
+          <strong data-i18n="home.pillarReputationTitle">Reputation</strong>
+          <small data-i18n="home.pillarReputationText">Your choices echo through councils, markets, and battlefields.</small>
+        </article>
+      </div>
+    </section>
+
+    <section class="home-origins panel">
+      <header class="section-title large"><span data-i18n="home.fiveOrigins">The Five Origins</span></header>
+      <div class="home-origin-strip">
+        <article class="home-origin-card is-selected" data-home-origin="athens" tabindex="0" role="button" style="--card-primary:#0b2742; --card-glow:#4aa3ff;">
+          <span>
+            <img class="origin-logo-img" src="./assets/images/logos/athens.png" alt="Athens logo">
+          </span>
+          <strong data-origin-label="athens">Athens</strong>
+          <small data-origin-mood="athens">Wisdom. Debate. Democracy.</small>
+        </article>
+        <article class="home-origin-card" data-home-origin="sparta" tabindex="0" role="button" style="--card-primary:#4b0d0d; --card-glow:#ff3b24;">
+          <span>
+            <img class="origin-logo-img" src="./assets/images/logos/sparta.png" alt="Sparta logo">
+          </span>
+          <strong data-origin-label="sparta">Sparta</strong>
+          <small data-origin-mood="sparta">Discipline. Courage. Honour.</small>
+        </article>
+        <article class="home-origin-card" data-home-origin="corinth" tabindex="0" role="button" style="--card-primary:#301442; --card-glow:#b35cff;">
+          <span>
+            <img class="origin-logo-img" src="./assets/images/logos/corinth.png" alt="Corinth logo">
+          </span>
+          <strong data-origin-label="corinth">Corinth</strong>
+          <small data-origin-mood="corinth">Trade. Sea Power. Wealth.</small>
+        </article>
+        <article class="home-origin-card" data-home-origin="macedon" tabindex="0" role="button" style="--card-primary:#221909; --card-glow:#ffd76a;">
+          <span>
+            <img class="origin-logo-img" src="./assets/images/logos/makedonia.png" alt="Macedon logo">
+          </span>
+          <strong data-origin-label="macedon">Macedon</strong>
+          <small data-origin-mood="macedon">Leadership. Victory. Legacy.</small>
+        </article>
+        <article class="home-origin-card" data-home-origin="thebes" tabindex="0" role="button" style="--card-primary:#0f3524; --card-glow:#4fdc86;">
+          <span>
+            <img class="origin-logo-img" src="./assets/images/logos/thebes.png" alt="Thebes logo">
+          </span>
+          <strong data-origin-label="thebes">Thebes</strong>
+          <small data-origin-mood="thebes">Strength. Brotherhood. Valor.</small>
+        </article>
+      </div>
+    </section>
+
+    <section class="home-origin-detail panel" id="homeOriginDetail">
+      <div class="home-origin-detail-symbol" data-bind="originSymbol">🦉</div>
+      <div class="home-origin-detail-copy">
+        <header class="section-title compact" data-i18n="home.selectedOriginTitle">Selected Origin</header>
+        <h2 data-bind="originName">Athens</h2>
+        <p class="origin-detail-mood" data-bind="originMood">Wisdom. Debate. Democracy.</p>
+        <p class="origin-detail-description" id="homeOriginDescription">Wisdom, debate, civic power.</p>
+        <div class="origin-detail-bonuses" id="homeOriginBonuses"></div>
+      </div>
+      <div class="home-origin-detail-actions">
+        <a class="primary-action home-action" href="./auth.html?mode=register" data-i18n="home.chooseThisOrigin">Choose This Origin</a>
+        <a class="secondary-action home-action" href="./auth.html?mode=login" data-i18n="home.alreadyCitizen">Already a Citizen</a>
+      </div>
+    </section>
+  </main>
+
+  <script src="./app.js"></script>
+</body>
+</html>

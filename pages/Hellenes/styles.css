@@ -1,0 +1,2884 @@
+:root {
+  --bg: #05080c;
+  --panel: #091019;
+  --panel-soft: #0e1720;
+  --border: #9a6825;
+  --border-bright: #d7a64c;
+  --gold: #d6a84f;
+  --gold-bright: #f2c76b;
+  --text: #f0dfb0;
+  --muted: #bba875;
+  --danger: #e34b36;
+
+  --origin-primary: #0b2742;
+  --origin-secondary: #d6a84f;
+  --origin-glow: #4aa3ff;
+  --origin-text: #f0dfb0;
+
+  --radius: 4px;
+  --gap: 8px;
+  --shadow: 0 0 0 1px rgba(0, 0, 0, .75), inset 0 0 28px rgba(0, 0, 0, .55);
+  --glow-shadow: 0 0 18px color-mix(in srgb, var(--origin-glow), transparent 35%);
+}
+
+html[data-origin="athens"] {
+  --origin-primary: #0b2742;
+  --origin-secondary: #d6a84f;
+  --origin-glow: #4aa3ff;
+}
+
+html[data-origin="sparta"] {
+  --origin-primary: #4b0d0d;
+  --origin-secondary: #d6a84f;
+  --origin-glow: #ff3b24;
+}
+
+html[data-origin="corinth"] {
+  --origin-primary: #301442;
+  --origin-secondary: #d6a84f;
+  --origin-glow: #b35cff;
+}
+
+html[data-origin="macedon"] {
+  --origin-primary: #221909;
+  --origin-secondary: #f2c76b;
+  --origin-glow: #ffd76a;
+}
+
+html[data-origin="thebes"] {
+  --origin-primary: #0f3524;
+  --origin-secondary: #d6a84f;
+  --origin-glow: #4fdc86;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  color: var(--text);
+  background:
+    radial-gradient(circle at 25% 0%, color-mix(in srgb, var(--origin-primary), transparent 35%), transparent 36rem),
+    linear-gradient(135deg, #020407, #090b0f 48%, #030507);
+  font-family: Georgia, "Times New Roman", serif;
+}
+
+button {
+  font: inherit;
+}
+
+.game-shell {
+  width: min(1920px, 100%);
+  min-height: 100vh;
+  margin: 0 auto;
+  padding: 8px;
+}
+
+.panel {
+  position: relative;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--origin-primary), #05070a 58%), rgba(5, 8, 12, .96)),
+    repeating-linear-gradient(45deg, rgba(255,255,255,.025), rgba(255,255,255,.025) 1px, transparent 1px, transparent 7px);
+  box-shadow: var(--shadow);
+}
+
+.panel::before,
+.panel::after {
+  content: "";
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  pointer-events: none;
+  border-color: var(--border-bright);
+  opacity: .85;
+}
+
+.panel::before {
+  top: 4px;
+  left: 4px;
+  border-top: 2px solid;
+  border-left: 2px solid;
+}
+
+.panel::after {
+  right: 4px;
+  bottom: 4px;
+  border-right: 2px solid;
+  border-bottom: 2px solid;
+}
+
+.section-title {
+  display: block;
+  margin: 0 0 10px;
+  color: var(--origin-secondary);
+  text-align: center;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  font-size: 1.05rem;
+  line-height: 1.1;
+}
+
+.section-title span,
+small,
+.muted {
+  color: var(--muted);
+}
+
+.section-title.compact {
+  text-align: left;
+  font-size: .95rem;
+  margin-bottom: 4px;
+}
+
+.section-title.large {
+  font-size: 1.3rem;
+  margin: 0 0 8px;
+}
+
+/* Top bar */
+
+.topbar {
+  display: grid;
+  grid-template-columns: minmax(420px, 1fr) auto minmax(420px, 1fr);
+  align-items: center;
+  gap: 12px;
+  min-height: 92px;
+  padding: 8px 14px;
+}
+
+.main-nav,
+.top-resources {
+  display: flex;
+  align-items: stretch;
+  gap: 6px;
+}
+
+.nav-item {
+  min-width: 78px;
+  border: 1px solid transparent;
+  color: var(--gold-bright);
+  background: transparent;
+  cursor: pointer;
+  padding: 6px 8px;
+  text-transform: uppercase;
+}
+
+.nav-item > :first-child,
+.nav-item {
+  line-height: 1;
+}
+
+.nav-item span {
+  display: block;
+  margin-top: 6px;
+  font-size: .82rem;
+}
+
+.nav-item:hover,
+.nav-item.is-active {
+  border-color: var(--border-bright);
+  background: rgba(255, 211, 106, .08);
+  box-shadow: inset 0 -2px 0 var(--origin-glow);
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.brand h1 {
+  margin: 0;
+  color: var(--gold-bright);
+  font-size: clamp(2rem, 4vw, 4.2rem);
+  line-height: .85;
+  text-transform: uppercase;
+  letter-spacing: .12em;
+  text-shadow: 0 0 12px rgba(242, 199, 107, .22);
+}
+
+.brand p {
+  margin: 8px 0 0;
+  color: var(--text);
+  font-size: .9rem;
+}
+
+.brand-laurel {
+  color: var(--gold);
+  font-size: 2.4rem;
+}
+
+.top-resources {
+  justify-content: flex-end;
+}
+
+.quick-resource {
+  display: grid;
+  grid-template-columns: auto auto;
+  column-gap: 8px;
+  align-items: center;
+  min-width: 112px;
+}
+
+.resource-icon {
+  grid-row: span 2;
+  color: var(--gold-bright);
+  font-size: 1.7rem;
+}
+
+.quick-resource strong {
+  color: var(--gold-bright);
+  font-size: 1.1rem;
+}
+
+.quick-resource small {
+  font-size: .82rem;
+}
+
+.settings-button {
+  border: 0;
+  color: var(--gold-bright);
+  background: transparent;
+  font-size: 2rem;
+  cursor: pointer;
+}
+
+/* Main layout */
+
+.character-layout {
+  display: grid;
+  grid-template-columns: 34% 1fr 28%;
+  gap: var(--gap);
+  margin-top: var(--gap);
+}
+
+.profile-grid {
+  display: grid;
+  grid-template-columns: 2fr 1.15fr;
+  gap: var(--gap);
+}
+
+.portrait-card,
+.identity-card,
+.rank-card,
+.currency-card,
+.resources-card,
+.resistances-card,
+.attributes-card,
+.vitals-card,
+.origins-section {
+  padding: 14px;
+}
+
+.portrait-card {
+  min-height: 460px;
+}
+
+.portrait-art {
+  position: relative;
+  min-height: 430px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  background:
+    linear-gradient(to bottom, rgba(255,255,255,.12), transparent 35%),
+    radial-gradient(circle at 45% 30%, color-mix(in srgb, var(--origin-glow), transparent 70%), transparent 16rem),
+    linear-gradient(160deg, var(--origin-primary), #090909);
+}
+
+.portrait-placeholder {
+  position: absolute;
+  inset: 15% 8% 8% 30%;
+  display: grid;
+  place-content: center;
+  text-align: center;
+  border: 1px dashed rgba(242, 199, 107, .28);
+  color: rgba(240, 223, 176, .72);
+}
+
+.portrait-placeholder span {
+  display: block;
+  font-size: 1.4rem;
+  color: var(--gold-bright);
+}
+
+.banner-symbol,
+.shield-symbol {
+  position: absolute;
+  display: grid;
+  place-items: center;
+  color: var(--gold-bright);
+  border: 1px solid var(--border-bright);
+  background: color-mix(in srgb, var(--origin-primary), black 24%);
+  box-shadow: var(--glow-shadow);
+}
+
+.banner-symbol {
+  left: 16px;
+  top: 16px;
+  width: 86px;
+  height: 154px;
+  font-size: 2.8rem;
+}
+
+.shield-symbol {
+  left: 24px;
+  bottom: 22px;
+  width: 130px;
+  height: 130px;
+  border-radius: 50%;
+  font-size: 4rem;
+}
+
+.identity-card h2 {
+  margin: 4px 0 0;
+  color: var(--text);
+  font-size: 2rem;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+}
+
+.identity-card p {
+  margin: 0;
+}
+
+.level-block {
+  margin: 26px 0 20px;
+}
+
+.level-block strong {
+  display: block;
+  color: var(--origin-secondary);
+  text-transform: uppercase;
+  font-size: 1.25rem;
+  margin-bottom: 8px;
+}
+
+.identity-list {
+  display: grid;
+  gap: 14px;
+  margin: 0;
+}
+
+.identity-list div {
+  display: grid;
+  grid-template-columns: 34px 1fr;
+  column-gap: 10px;
+}
+
+.identity-list div::before {
+  content: "◈";
+  color: var(--origin-secondary);
+  grid-row: span 2;
+  font-size: 1.3rem;
+}
+
+.identity-list dt {
+  color: var(--gold-bright);
+  text-transform: uppercase;
+  font-size: .85rem;
+}
+
+.identity-list dd {
+  margin: 0;
+}
+
+.center-stack,
+.right-stack {
+  display: grid;
+  gap: var(--gap);
+}
+
+.rank-card {
+  min-height: 350px;
+}
+
+.rank-content {
+  display: grid;
+  grid-template-columns: 250px 1fr;
+  align-items: center;
+  gap: 28px;
+}
+
+.rank-medal {
+  display: grid;
+  place-items: center;
+  width: 220px;
+  height: 220px;
+  margin: 0 auto;
+  border: 2px solid var(--border-bright);
+  border-radius: 50%;
+  color: var(--gold-bright);
+  background:
+    radial-gradient(circle, color-mix(in srgb, var(--origin-primary), transparent 10%), #06080d 70%);
+  box-shadow: var(--glow-shadow), inset 0 0 28px rgba(0,0,0,.65);
+}
+
+.rank-medal span {
+  font-size: 6rem;
+}
+
+.rank-copy {
+  text-align: center;
+}
+
+.rank-copy h2 {
+  margin: 0;
+  color: var(--origin-secondary);
+  text-transform: uppercase;
+  font-size: 2.2rem;
+}
+
+.rank-copy p {
+  margin: 6px 0;
+}
+
+.rank-copy .tier,
+.rank-copy .role {
+  font-size: 1.15rem;
+}
+
+.rank-copy .flavour {
+  margin-top: 22px;
+  color: var(--text);
+  line-height: 1.45;
+}
+
+.kleos-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+  margin: 16px 0;
+  padding-top: 14px;
+  border-top: 1px solid rgba(214, 168, 79, .28);
+}
+
+.kleos-row strong {
+  display: block;
+  color: var(--gold-bright);
+  font-size: 1.15rem;
+}
+
+.big-number {
+  font-size: 2.5rem !important;
+}
+
+/* Bars */
+
+.bar {
+  position: relative;
+  overflow: hidden;
+  height: 12px;
+  border: 1px solid var(--border-bright);
+  border-radius: 999px;
+  background: rgba(0,0,0,.55);
+}
+
+.bar span {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, var(--origin-glow), var(--gold-bright));
+  box-shadow: 0 0 12px var(--origin-glow);
+}
+
+.bar.small {
+  height: 10px;
+}
+
+.bar.ornate {
+  height: 18px;
+}
+
+.bar.health span,
+.bar.fatigue span {
+  background: linear-gradient(90deg, #8f1616, #e33e2e);
+}
+
+.bar.stamina span {
+  background: linear-gradient(90deg, #c58a25, #f3c565);
+}
+
+/* Lower panels */
+
+.lower-grid {
+  display: grid;
+  grid-template-columns: 42% 1fr;
+  gap: var(--gap);
+}
+
+.stat-list {
+  display: grid;
+  gap: 12px;
+}
+
+.stat-row {
+  display: grid;
+  grid-template-columns: 34px 1fr 140px 48px;
+  align-items: center;
+  gap: 10px;
+}
+
+.stat-icon {
+  color: var(--origin-secondary);
+  font-size: 1.45rem;
+}
+
+.stat-name {
+  color: var(--gold-bright);
+  text-transform: uppercase;
+}
+
+.stat-name.danger {
+  color: var(--danger);
+}
+
+.stat-desc {
+  display: block;
+  color: var(--muted);
+  font-size: .75rem;
+  line-height: 1.2;
+}
+
+.stat-value {
+  color: var(--gold-bright);
+  text-align: right;
+  font-size: 1.5rem;
+}
+
+.stat-value.danger {
+  color: #ff4b3a;
+}
+
+.vitals-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px 24px;
+}
+
+.vital {
+  display: grid;
+  grid-template-columns: 32px 1fr;
+  align-items: center;
+  gap: 6px 10px;
+}
+
+.vital .bar,
+.vital small,
+.vital p {
+  grid-column: 2;
+}
+
+.vital p {
+  margin: 0;
+}
+
+.vital-icon {
+  grid-row: span 3;
+  color: var(--origin-secondary);
+  font-size: 1.5rem;
+}
+
+.vital-icon.danger {
+  color: var(--danger);
+}
+
+.mini-metrics {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 4px;
+  margin-top: 18px;
+}
+
+.mini-metrics div {
+  border: 1px solid rgba(214, 168, 79, .5);
+  padding: 8px;
+  text-align: center;
+}
+
+.mini-metrics strong,
+.mini-metrics small {
+  display: block;
+}
+
+.ledger-list,
+.resource-grid,
+.resistance-list {
+  display: grid;
+  gap: 14px;
+}
+
+.ledger-list div,
+.resource-grid div,
+.resistance-list div {
+  display: grid;
+  grid-template-columns: 42px 1fr auto;
+  align-items: center;
+  gap: 10px;
+}
+
+.ledger-list span,
+.resource-grid span,
+.resistance-list span {
+  color: var(--gold-bright);
+  font-size: 1.55rem;
+}
+
+.ledger-list strong,
+.resource-grid strong,
+.resistance-list strong {
+  color: var(--gold-bright);
+  font-size: 1.15rem;
+}
+
+.resource-grid {
+  grid-template-columns: 1fr 1fr;
+}
+
+.resource-grid div {
+  grid-template-columns: 34px auto 1fr;
+}
+
+.resistance-list small {
+  font-size: 1rem;
+  color: var(--gold-bright);
+}
+
+/* Origins */
+
+.origins-section {
+  margin-top: var(--gap);
+}
+
+.origin-cards {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: var(--gap);
+}
+
+.origin-card {
+  --card-primary: var(--origin-primary);
+  --card-glow: var(--origin-glow);
+
+  min-height: 275px;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  border: 1px solid var(--border);
+  color: var(--text);
+  background:
+    radial-gradient(circle at 50% 0%, color-mix(in srgb, var(--card-glow), transparent 70%), transparent 10rem),
+    linear-gradient(160deg, color-mix(in srgb, var(--card-primary), black 6%), #07090e);
+  cursor: pointer;
+  padding: 14px;
+  text-align: center;
+  transition: transform .16s ease, box-shadow .16s ease, border-color .16s ease;
+}
+
+.origin-card:hover {
+  transform: translateY(-2px);
+  border-color: var(--gold-bright);
+  box-shadow: 0 0 14px color-mix(in srgb, var(--card-glow), transparent 45%);
+}
+
+.origin-card.is-selected {
+  border-color: var(--gold-bright);
+  box-shadow:
+    0 0 0 1px var(--gold-bright),
+    0 0 24px color-mix(in srgb, var(--card-glow), transparent 15%);
+}
+
+.origin-symbol {
+  display: grid;
+  place-items: center;
+  width: 78px;
+  height: 78px;
+  margin: 2px auto 8px;
+  border: 1px solid var(--gold-bright);
+  border-radius: 50%;
+  color: var(--gold-bright);
+  background: rgba(0,0,0,.35);
+  font-size: 2.5rem;
+}
+
+.origin-card h3 {
+  margin: 0;
+  color: var(--gold-bright);
+  text-transform: uppercase;
+  font-size: 1.65rem;
+}
+
+.origin-card p {
+  margin: 8px auto;
+  max-width: 230px;
+  line-height: 1.25;
+}
+
+.origin-bonus {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(214, 168, 79, .35);
+  color: var(--gold-bright);
+  font-size: .9rem;
+}
+
+.origin-card button {
+  align-self: end;
+  width: 100%;
+  border: 1px solid var(--border-bright);
+  color: var(--gold-bright);
+  background: rgba(0,0,0,.36);
+  padding: 7px;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.origin-card.is-selected button {
+  color: #130d03;
+  background: linear-gradient(90deg, var(--gold), var(--gold-bright));
+}
+
+/* Fixed no-scroll responsive dashboard
+   This replaces the previous transform-scaling approach.
+   The UI now fills the viewport naturally instead of shrinking into a tiny canvas.
+   No page scrollbars are used, and every major section remains visible.
+*/
+
+html,
+body {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+body {
+  min-height: 100dvh;
+}
+
+.fit-viewport {
+  width: 100vw;
+  height: 100dvh;
+  overflow: hidden;
+}
+
+.game-shell {
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  margin: 0;
+  padding: clamp(4px, .5vw, 8px);
+  overflow: hidden;
+  display: grid;
+  grid-template-rows: clamp(68px, 8.2vh, 92px) minmax(0, 1fr) clamp(178px, 25vh, 282px);
+  gap: clamp(4px, .5vw, 8px);
+  transform: none;
+}
+
+.panel {
+  overflow: hidden;
+}
+
+.topbar {
+  height: auto;
+  min-height: 0;
+  padding: clamp(5px, .45vw, 10px) clamp(8px, .75vw, 14px);
+  grid-template-columns: minmax(360px, 1fr) minmax(340px, auto) minmax(360px, 1fr);
+  gap: clamp(6px, .7vw, 12px);
+}
+
+.main-nav,
+.top-resources {
+  min-width: 0;
+  overflow: hidden;
+  flex-wrap: nowrap;
+}
+
+.nav-item {
+  min-width: 0;
+  flex: 1 1 0;
+  padding: clamp(4px, .35vw, 7px);
+}
+
+.nav-item span {
+  margin-top: 4px;
+  font-size: clamp(.62rem, .72vw, .82rem);
+}
+
+.brand {
+  min-width: 0;
+  gap: clamp(8px, .9vw, 18px);
+}
+
+.brand h1 {
+  font-size: clamp(2rem, 3.35vw, 4.1rem);
+}
+
+.brand p {
+  margin-top: 4px;
+  font-size: clamp(.68rem, .78vw, .9rem);
+}
+
+.brand-laurel {
+  font-size: clamp(1.5rem, 2vw, 2.4rem);
+}
+
+.quick-resource {
+  min-width: 0;
+  flex: 1 1 0;
+  grid-template-columns: auto minmax(0, 1fr);
+  column-gap: 6px;
+}
+
+.resource-icon {
+  font-size: clamp(1.15rem, 1.45vw, 1.7rem);
+}
+
+.quick-resource strong {
+  font-size: clamp(.82rem, .95vw, 1.1rem);
+}
+
+.quick-resource small {
+  font-size: clamp(.62rem, .68vw, .82rem);
+}
+
+.settings-button {
+  flex: 0 0 clamp(30px, 3vw, 48px);
+  font-size: clamp(1.35rem, 1.7vw, 2rem);
+}
+
+/* Main area */
+
+.character-layout {
+  min-height: 0;
+  height: 100%;
+  margin-top: 0;
+  overflow: hidden;
+  grid-template-columns: 35% minmax(0, 1fr) 28%;
+  gap: clamp(4px, .5vw, 8px);
+}
+
+.profile-grid,
+.center-stack,
+.right-stack,
+.lower-grid {
+  min-height: 0;
+  height: 100%;
+  overflow: hidden;
+  gap: clamp(4px, .5vw, 8px);
+}
+
+.profile-grid {
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1.12fr);
+}
+
+.center-stack {
+  grid-template-rows: minmax(0, 56%) minmax(0, 44%);
+}
+
+.right-stack {
+  grid-template-rows: minmax(0, 28%) minmax(0, 29%) minmax(0, 43%);
+}
+
+.lower-grid {
+  grid-template-columns: 43% minmax(0, 1fr);
+}
+
+.portrait-card,
+.identity-card,
+.rank-card,
+.currency-card,
+.resources-card,
+.resistances-card,
+.attributes-card,
+.vitals-card,
+.origins-section {
+  min-height: 0;
+  height: 100%;
+  padding: clamp(7px, .65vw, 14px);
+}
+
+.portrait-card {
+  min-height: 0;
+}
+
+.portrait-art {
+  min-height: 0;
+  height: 100%;
+}
+
+.portrait-placeholder {
+  inset: 16% 7% 9% 29%;
+}
+
+.banner-symbol {
+  width: clamp(50px, 5vw, 86px);
+  height: clamp(90px, 9vw, 154px);
+  font-size: clamp(1.7rem, 2.7vw, 2.8rem);
+}
+
+.shield-symbol {
+  width: clamp(82px, 8vw, 130px);
+  height: clamp(82px, 8vw, 130px);
+  font-size: clamp(2.6rem, 4vw, 4rem);
+}
+
+.identity-card h2 {
+  font-size: clamp(1.35rem, 1.65vw, 2rem);
+}
+
+.level-block {
+  margin: clamp(12px, 1.5vh, 26px) 0 clamp(10px, 1.3vh, 20px);
+}
+
+.level-block strong {
+  font-size: clamp(.95rem, 1.05vw, 1.25rem);
+  margin-bottom: 5px;
+}
+
+.identity-list {
+  gap: clamp(7px, 1vh, 14px);
+}
+
+.identity-list div {
+  grid-template-columns: clamp(23px, 2vw, 34px) minmax(0, 1fr);
+  column-gap: 7px;
+}
+
+.identity-list div::before {
+  font-size: clamp(.9rem, 1.15vw, 1.3rem);
+}
+
+.identity-list dt {
+  font-size: clamp(.66rem, .72vw, .85rem);
+}
+
+.identity-list dd {
+  font-size: clamp(.78rem, .86vw, 1rem);
+}
+
+/* Rank */
+
+.rank-card {
+  min-height: 0;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto auto;
+}
+
+.rank-content {
+  min-height: 0;
+  grid-template-columns: minmax(135px, 32%) minmax(0, 1fr);
+  gap: clamp(10px, 1.2vw, 28px);
+}
+
+.rank-medal {
+  width: clamp(118px, 11.5vw, 220px);
+  height: clamp(118px, 11.5vw, 220px);
+}
+
+.rank-medal span {
+  font-size: clamp(3.2rem, 5vw, 6rem);
+}
+
+.rank-copy h2 {
+  font-size: clamp(1.45rem, 2vw, 2.2rem);
+}
+
+.rank-copy .tier,
+.rank-copy .role {
+  font-size: clamp(.88rem, 1vw, 1.15rem);
+}
+
+.rank-copy .flavour {
+  margin-top: clamp(8px, 1.2vh, 22px);
+  line-height: 1.3;
+  font-size: clamp(.76rem, .82vw, 1rem);
+}
+
+.kleos-row {
+  margin: clamp(6px, 1vh, 16px) 0;
+  padding-top: clamp(6px, 1vh, 14px);
+}
+
+.kleos-row strong {
+  font-size: clamp(.86rem, .95vw, 1.15rem);
+}
+
+.big-number {
+  font-size: clamp(1.55rem, 2.2vw, 2.5rem) !important;
+}
+
+.section-title {
+  margin-bottom: clamp(4px, .65vh, 10px);
+  font-size: clamp(.78rem, .9vw, 1.05rem);
+}
+
+.section-title.large {
+  margin-bottom: clamp(3px, .45vh, 8px);
+  font-size: clamp(.9rem, 1.12vw, 1.3rem);
+}
+
+/* Bars fixed */
+
+.bar {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.bar span {
+  max-width: 100%;
+}
+
+.bar.ornate {
+  height: clamp(12px, 1.4vh, 18px);
+}
+
+/* Lower panels */
+
+.attributes-card,
+.vitals-card {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+}
+
+.stat-list {
+  min-height: 0;
+  min-width: 0;
+  display: grid;
+  grid-template-rows: repeat(5, minmax(0, 1fr));
+  gap: clamp(3px, .65vh, 12px);
+}
+
+.stat-row {
+  min-width: 0;
+  grid-template-columns: clamp(20px, 1.75vw, 34px) minmax(0, 1fr) minmax(62px, 32%) clamp(28px, 2.45vw, 48px);
+  gap: clamp(4px, .55vw, 10px);
+  align-items: center;
+}
+
+.stat-icon {
+  font-size: clamp(.92rem, 1.25vw, 1.45rem);
+}
+
+.stat-name {
+  display: block;
+  font-size: clamp(.68rem, .78vw, 1rem);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.stat-desc {
+  font-size: clamp(.52rem, .6vw, .75rem);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.stat-value {
+  font-size: clamp(.95rem, 1.35vw, 1.5rem);
+}
+
+.vitals-grid {
+  min-height: 0;
+  min-width: 0;
+  grid-template-columns: 1fr 1fr;
+  gap: clamp(5px, .85vh, 18px) clamp(8px, 1vw, 24px);
+}
+
+.vital {
+  min-width: 0;
+  grid-template-columns: clamp(22px, 2vw, 32px) minmax(0, 1fr);
+  gap: 3px 7px;
+}
+
+.vital strong {
+  font-size: clamp(.7rem, .76vw, 1rem);
+}
+
+.vital small,
+.vital p {
+  font-size: clamp(.64rem, .72vw, .9rem);
+}
+
+.vital-icon {
+  font-size: clamp(.95rem, 1.3vw, 1.5rem);
+}
+
+.mini-metrics {
+  gap: 3px;
+  margin-top: clamp(5px, .8vh, 18px);
+}
+
+.mini-metrics div {
+  padding: clamp(3px, .45vw, 8px);
+}
+
+.mini-metrics strong {
+  font-size: clamp(.72rem, .82vw, 1rem);
+}
+
+.mini-metrics small {
+  font-size: clamp(.52rem, .56vw, .78rem);
+}
+
+/* Right panels */
+
+.currency-card,
+.resources-card,
+.resistances-card {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+}
+
+.ledger-list,
+.resource-grid,
+.resistance-list {
+  min-height: 0;
+  min-width: 0;
+  gap: clamp(5px, .85vh, 14px);
+}
+
+.ledger-list div,
+.resource-grid div,
+.resistance-list div {
+  min-width: 0;
+  grid-template-columns: clamp(24px, 2.4vw, 42px) minmax(0, 1fr) auto;
+  gap: clamp(4px, .55vw, 10px);
+}
+
+.resource-grid {
+  grid-template-columns: 1fr 1fr;
+}
+
+.ledger-list span,
+.resource-grid span,
+.resistance-list span {
+  font-size: clamp(1rem, 1.35vw, 1.55rem);
+}
+
+.ledger-list strong,
+.resource-grid strong,
+.resistance-list strong {
+  font-size: clamp(.8rem, .9vw, 1.15rem);
+}
+
+.ledger-list small,
+.resource-grid small,
+.resistance-list small {
+  font-size: clamp(.62rem, .72vw, .9rem);
+}
+
+.resistance-list small {
+  font-size: clamp(.76rem, .82vw, 1rem);
+}
+
+/* Origins */
+
+.origins-section {
+  margin-top: 0;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+}
+
+.origin-cards {
+  height: 100%;
+  min-height: 0;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: clamp(4px, .5vw, 8px);
+}
+
+.origin-card {
+  min-height: 0;
+  height: 100%;
+  padding: clamp(6px, .62vw, 14px);
+  overflow: hidden;
+}
+
+.origin-symbol {
+  width: clamp(48px, 4.2vw, 78px);
+  height: clamp(48px, 4.2vw, 78px);
+  margin: 0 auto clamp(3px, .45vh, 8px);
+  font-size: clamp(1.55rem, 2.1vw, 2.5rem);
+}
+
+.origin-card h3 {
+  font-size: clamp(1.05rem, 1.35vw, 1.65rem);
+}
+
+.origin-card p {
+  margin: clamp(3px, .45vh, 8px) auto;
+  max-width: 230px;
+  font-size: clamp(.62rem, .73vw, 1rem);
+  line-height: 1.16;
+}
+
+.origin-bonus {
+  margin-top: clamp(3px, .45vh, 8px);
+  padding-top: clamp(3px, .45vh, 8px);
+  font-size: clamp(.58rem, .68vw, .9rem);
+  line-height: 1.15;
+}
+
+.origin-card button {
+  padding: clamp(4px, .45vh, 7px);
+  font-size: clamp(.62rem, .72vw, .9rem);
+}
+
+/* Medium/narrow screens: still no page scrollbars, but layout rebalances. */
+@media (max-width: 1280px) {
+  .topbar {
+    grid-template-columns: minmax(310px, 1fr) minmax(290px, auto) minmax(300px, 1fr);
+  }
+
+  .character-layout {
+    grid-template-columns: 36% minmax(0, 1fr) 27%;
+  }
+
+  .profile-grid {
+    grid-template-columns: 1.85fr 1.1fr;
+  }
+
+  .origin-card p {
+    line-height: 1.08;
+  }
+}
+
+@media (max-width: 980px) {
+  .game-shell {
+    grid-template-rows: clamp(62px, 8vh, 78px) minmax(0, 1fr) clamp(150px, 23vh, 220px);
+  }
+
+  .topbar {
+    grid-template-columns: 1fr;
+  }
+
+  .brand {
+    display: none;
+  }
+
+  .character-layout {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .profile-grid {
+    grid-column: 1;
+    grid-template-columns: 1fr;
+  }
+
+  .center-stack {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  .right-stack {
+    display: none;
+  }
+
+  .portrait-card {
+    display: none;
+  }
+
+  .origin-cards {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+
+  .origin-card .origin-bonus {
+    display: none;
+  }
+}
+
+@media (max-width: 720px) {
+  .game-shell {
+    grid-template-rows: clamp(56px, 8vh, 70px) minmax(0, 1fr) clamp(120px, 21vh, 175px);
+  }
+
+  .nav-item {
+    padding-inline: 2px;
+  }
+
+  .nav-item span {
+    font-size: .55rem;
+  }
+
+  .top-resources {
+    display: none;
+  }
+
+  .character-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .profile-grid {
+    display: none;
+  }
+
+  .center-stack {
+    grid-column: 1;
+  }
+
+  .lower-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .origin-cards {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+
+  .origin-card p,
+  .origin-card button {
+    display: none;
+  }
+
+  .origin-symbol {
+    width: 42px;
+    height: 42px;
+    font-size: 1.35rem;
+  }
+}
+
+
+/* Overlap + Greek-label pass
+   Target: normal browser window with toolbar visible, no page scrollbars, no panel overlap.
+*/
+
+html,
+body {
+  overflow: hidden !important;
+  max-width: 100vw;
+  max-height: 100dvh;
+}
+
+.fit-viewport {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100dvh;
+  overflow: hidden !important;
+}
+
+.game-shell {
+  max-width: 100vw;
+  max-height: 100dvh;
+  grid-template-rows: clamp(58px, 7.2vh, 82px) minmax(0, 1fr) clamp(132px, 21.5vh, 218px);
+  overflow: hidden !important;
+}
+
+.topbar {
+  grid-template-columns: minmax(420px, 1fr) minmax(320px, auto) minmax(360px, 1fr);
+}
+
+.nav-item span {
+  font-size: clamp(.56rem, .67vw, .78rem);
+}
+
+.character-layout {
+  grid-template-columns: 35% minmax(0, 36%) 29%;
+}
+
+.center-stack {
+  grid-template-rows: minmax(0, 52%) minmax(0, 48%);
+}
+
+.right-stack {
+  grid-template-rows: minmax(0, 26%) minmax(0, 27%) minmax(0, 47%);
+}
+
+.rank-card {
+  grid-template-rows: auto minmax(0, 1fr) auto auto;
+}
+
+.rank-content {
+  overflow: hidden;
+  align-items: center;
+  grid-template-columns: minmax(100px, 30%) minmax(0, 1fr);
+  gap: clamp(8px, .85vw, 18px);
+}
+
+.rank-medal {
+  width: min(9.2vw, 15.5vh, 150px);
+  height: auto;
+  aspect-ratio: 1 / 1;
+  align-self: center;
+  justify-self: center;
+}
+
+.rank-medal span {
+  font-size: min(4vw, 6.8vh, 4.4rem);
+}
+
+.rank-copy {
+  min-width: 0;
+  overflow: hidden;
+}
+
+.rank-copy h2 {
+  font-size: clamp(1.35rem, 1.8vw, 2rem);
+}
+
+.rank-copy .tier,
+.rank-copy .role {
+  font-size: clamp(.76rem, .88vw, 1rem);
+  margin: 3px 0;
+}
+
+.rank-copy .flavour {
+  max-height: 2.55em;
+  overflow: hidden;
+  margin-top: clamp(5px, .65vh, 10px);
+  font-size: clamp(.66rem, .72vw, .9rem);
+}
+
+.kleos-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  align-items: end;
+  gap: clamp(6px, .7vw, 12px);
+  margin: clamp(3px, .45vh, 7px) 0;
+  padding-top: clamp(3px, .45vh, 7px);
+}
+
+.kleos-row strong {
+  font-size: clamp(.78rem, .85vw, 1rem);
+}
+
+.big-number {
+  font-size: clamp(1.35rem, 1.9vw, 2.1rem) !important;
+  line-height: 1;
+}
+
+.bar.ornate {
+  height: clamp(10px, 1.15vh, 15px);
+}
+
+.attributes-card,
+.vitals-card,
+.currency-card,
+.resources-card,
+.resistances-card {
+  overflow: hidden;
+}
+
+.stat-list {
+  gap: clamp(2px, .35vh, 6px);
+}
+
+.stat-row {
+  grid-template-columns: clamp(19px, 1.5vw, 28px) minmax(0, 1fr) minmax(56px, 29%) clamp(26px, 2.1vw, 38px);
+}
+
+.stat-desc {
+  display: none;
+}
+
+.stat-name {
+  font-size: clamp(.62rem, .7vw, .86rem);
+}
+
+.stat-value {
+  font-size: clamp(.88rem, 1.15vw, 1.25rem);
+}
+
+.vitals-grid {
+  grid-template-rows: repeat(2, minmax(0, 1fr));
+  gap: clamp(3px, .45vh, 8px) clamp(6px, .8vw, 14px);
+}
+
+.vital {
+  overflow: hidden;
+}
+
+.vital strong {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.vital small,
+.vital p {
+  line-height: 1.1;
+}
+
+.mini-metrics {
+  margin-top: clamp(3px, .45vh, 8px);
+}
+
+.mini-metrics div {
+  padding: clamp(2px, .32vw, 5px);
+}
+
+.ledger-list,
+.resource-grid,
+.resistance-list {
+  gap: clamp(3px, .55vh, 9px);
+}
+
+.resistance-list div {
+  line-height: 1.05;
+}
+
+.origin-cards {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  align-items: stretch;
+}
+
+.origin-card {
+  display: grid;
+  grid-template-rows: auto auto auto minmax(0, 1fr) auto;
+  align-content: stretch;
+  padding: clamp(5px, .55vw, 10px);
+}
+
+.origin-symbol {
+  width: clamp(38px, 3.8vw, 58px);
+  height: clamp(38px, 3.8vw, 58px);
+  font-size: clamp(1.25rem, 1.85vw, 1.85rem);
+}
+
+.origin-card h3 {
+  font-size: clamp(.95rem, 1.22vw, 1.35rem);
+  line-height: 1;
+}
+
+.origin-card p {
+  font-size: clamp(.55rem, .66vw, .78rem);
+  line-height: 1.08;
+  margin: 3px auto;
+}
+
+.origin-card p:nth-of-type(2) {
+  display: none;
+}
+
+.origin-bonus {
+  overflow: hidden;
+  font-size: clamp(.52rem, .62vw, .72rem);
+  line-height: 1.08;
+  margin-top: 3px;
+  padding-top: 3px;
+}
+
+.origin-card button {
+  padding: clamp(3px, .4vh, 5px);
+  font-size: clamp(.55rem, .64vw, .78rem);
+}
+
+/* When browser height is tight, keep all panels visible by compacting text rather than overflowing. */
+@media (max-height: 820px) {
+  .game-shell {
+    grid-template-rows: clamp(54px, 7vh, 74px) minmax(0, 1fr) clamp(116px, 20vh, 175px);
+  }
+
+  .brand p,
+  .stat-desc,
+  .origin-bonus,
+  .origin-card button {
+    display: none;
+  }
+
+  .rank-medal {
+    width: min(8.5vw, 14vh, 132px);
+  }
+
+  .rank-copy .flavour {
+    max-height: 1.3em;
+  }
+
+  .portrait-placeholder small {
+    display: none;
+  }
+
+  .identity-list {
+    gap: 5px;
+  }
+
+  .section-title {
+    margin-bottom: 3px;
+  }
+
+  .origin-card {
+    grid-template-rows: auto auto auto;
+    place-content: center;
+  }
+}
+
+/* Narrower widths: preserve no-scroll by hiding secondary detail panels before causing overlap. */
+@media (max-width: 980px) {
+  .character-layout {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .right-stack {
+    display: none;
+  }
+
+  .origin-bonus,
+  .origin-card button {
+    display: none;
+  }
+}
+
+@media (max-width: 720px) {
+  .lower-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .origin-card p {
+    display: none;
+  }
+}
+
+
+/* Landing + registration page */
+
+body.landing-body {
+  overflow: hidden;
+}
+
+.landing-shell {
+  width: 100vw;
+  height: 100dvh;
+  overflow: hidden;
+  display: grid;
+  grid-template-rows: minmax(108px, 18vh) minmax(0, 1fr);
+  gap: clamp(6px, .7vw, 12px);
+  padding: clamp(6px, .7vw, 12px);
+}
+
+.landing-hero {
+  display: grid;
+  place-items: center;
+  text-align: center;
+  padding: clamp(10px, 1vw, 18px);
+}
+
+.landing-brand h1 {
+  font-size: clamp(2.6rem, 5vw, 5rem);
+}
+
+.landing-intro {
+  max-width: 820px;
+  margin: clamp(6px, .8vh, 12px) auto 0;
+  color: var(--text);
+  font-size: clamp(.9rem, 1vw, 1.1rem);
+}
+
+.registration-layout {
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(560px, 1fr) minmax(320px, 420px);
+  gap: clamp(6px, .7vw, 12px);
+}
+
+.registration-panel,
+.landing-preview {
+  min-height: 0;
+  overflow: hidden;
+  padding: clamp(12px, 1vw, 20px);
+}
+
+.registration-form {
+  height: calc(100% - 38px);
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-auto-rows: max-content;
+  gap: clamp(10px, 1vh, 16px) clamp(12px, 1vw, 20px);
+}
+
+.registration-form label,
+.registration-form fieldset {
+  min-width: 0;
+}
+
+.registration-form label span,
+.origin-picker legend {
+  display: block;
+  margin-bottom: 5px;
+  color: var(--gold-bright);
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  font-size: clamp(.78rem, .85vw, .95rem);
+}
+
+.registration-form input,
+.registration-form select {
+  width: 100%;
+  border: 1px solid var(--border);
+  outline: none;
+  background: rgba(0, 0, 0, .42);
+  color: var(--text);
+  padding: 10px 12px;
+  font: inherit;
+  box-shadow: inset 0 0 18px rgba(0, 0, 0, .45);
+}
+
+.registration-form input:focus,
+.registration-form select:focus {
+  border-color: var(--gold-bright);
+  box-shadow: 0 0 12px color-mix(in srgb, var(--origin-glow), transparent 35%);
+}
+
+.origin-picker {
+  grid-column: 1 / -1;
+  border: 1px solid rgba(214, 168, 79, .38);
+  padding: clamp(8px, .8vw, 14px);
+}
+
+.registration-origin-cards {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: clamp(6px, .7vw, 10px);
+}
+
+.registration-origin-card {
+  min-width: 0;
+  border: 1px solid var(--border);
+  color: var(--text);
+  background:
+    radial-gradient(circle at 50% 0%, color-mix(in srgb, var(--card-glow), transparent 65%), transparent 7rem),
+    linear-gradient(160deg, color-mix(in srgb, var(--card-primary), black 8%), #07090e);
+  padding: clamp(8px, .8vw, 14px);
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  gap: 5px;
+}
+
+.registration-origin-card span {
+  display: grid;
+  place-items: center;
+  width: clamp(44px, 4vw, 68px);
+  height: clamp(44px, 4vw, 68px);
+  border: 1px solid var(--gold-bright);
+  border-radius: 50%;
+  color: var(--gold-bright);
+  font-size: clamp(1.4rem, 2vw, 2.2rem);
+  background: rgba(0,0,0,.32);
+}
+
+.registration-origin-card strong {
+  color: var(--gold-bright);
+  text-transform: uppercase;
+  font-size: clamp(.82rem, 1vw, 1.08rem);
+}
+
+.registration-origin-card small {
+  font-size: clamp(.62rem, .72vw, .82rem);
+}
+
+.registration-origin-card.is-selected {
+  border-color: var(--gold-bright);
+  box-shadow:
+    0 0 0 1px var(--gold-bright),
+    0 0 18px color-mix(in srgb, var(--card-glow), transparent 25%);
+}
+
+.form-message {
+  margin: 0;
+  min-height: 1.2em;
+  color: var(--gold-bright);
+}
+
+.primary-action {
+  justify-self: end;
+  min-width: 220px;
+  border: 1px solid var(--gold-bright);
+  background: linear-gradient(90deg, var(--gold), var(--gold-bright));
+  color: #130d03;
+  padding: 10px 18px;
+  font: inherit;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.landing-preview {
+  display: grid;
+  place-items: center;
+  align-content: center;
+  text-align: center;
+  gap: clamp(8px, 1vh, 14px);
+}
+
+.origin-preview-symbol,
+.origin-summary-symbol {
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--gold-bright);
+  border-radius: 50%;
+  color: var(--gold-bright);
+  background: color-mix(in srgb, var(--origin-primary), black 22%);
+  box-shadow: var(--glow-shadow);
+}
+
+.origin-preview-symbol {
+  width: clamp(118px, 12vw, 180px);
+  height: clamp(118px, 12vw, 180px);
+  font-size: clamp(3rem, 5vw, 5.8rem);
+}
+
+.landing-preview h2,
+.origin-summary h2 {
+  margin: 0;
+  color: var(--gold-bright);
+  text-transform: uppercase;
+}
+
+.origin-preview-bonus {
+  display: grid;
+  gap: 4px;
+  color: var(--text);
+}
+
+.origin-summary-section {
+  margin-top: 0;
+  padding: clamp(10px, .8vw, 14px);
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+}
+
+.origin-summary {
+  min-height: 0;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  justify-content: center;
+  gap: clamp(10px, 1vw, 18px);
+  text-align: left;
+}
+
+.origin-summary-symbol {
+  width: clamp(70px, 7vw, 110px);
+  height: clamp(70px, 7vw, 110px);
+  font-size: clamp(2.2rem, 3.5vw, 3.8rem);
+}
+
+.origin-summary p {
+  margin: 4px 0;
+  color: var(--text);
+}
+
+/* Character page gets a smaller bottom summary than the old origin picker. */
+.game-shell {
+  grid-template-rows: clamp(58px, 7.2vh, 82px) minmax(0, 1fr) clamp(86px, 13vh, 135px);
+}
+
+@media (max-width: 980px) {
+  .registration-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .landing-preview {
+    display: none;
+  }
+
+  .registration-origin-cards {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+}
+
+@media (max-height: 760px) {
+  .landing-shell {
+    grid-template-rows: minmax(72px, 13vh) minmax(0, 1fr);
+  }
+
+  .landing-intro {
+    display: none;
+  }
+
+  .registration-form {
+    gap: 7px 12px;
+  }
+
+  .registration-origin-card small {
+    display: none;
+  }
+}
+
+
+/* Landing registration hotfix:
+   The blank Καταγωγή row was caused by JS stopping on the landing page before
+   registration cards could render. This CSS also makes the registration screen
+   feel less empty once the cards appear.
+*/
+
+.registration-panel {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+}
+
+.registration-form {
+  align-content: start;
+}
+
+.origin-picker {
+  min-height: clamp(132px, 19vh, 210px);
+}
+
+.registration-origin-cards {
+  min-height: clamp(88px, 12vh, 145px);
+}
+
+.form-message {
+  align-self: center;
+}
+
+.primary-action {
+  align-self: center;
+}
+
+@media (max-height: 760px) {
+  .origin-picker {
+    min-height: clamp(90px, 16vh, 130px);
+  }
+
+  .registration-origin-cards {
+    min-height: clamp(64px, 11vh, 96px);
+  }
+}
+
+
+/* ============================================================
+   Landing + Auth system v0.3
+   - index.html is now the spectacular landing page
+   - auth.html contains login and registration together
+   - character.html uses session-backed character loading
+   ============================================================ */
+
+body.home-body,
+body.auth-body {
+  overflow: hidden !important;
+  width: 100vw;
+  height: 100dvh;
+}
+
+.home-shell,
+.auth-shell {
+  width: 100vw;
+  height: 100dvh;
+  overflow: hidden;
+  padding: clamp(6px, .7vw, 12px);
+  display: grid;
+  gap: clamp(6px, .7vw, 12px);
+}
+
+.home-shell {
+  grid-template-rows: minmax(0, 1fr) clamp(130px, 18vh, 210px);
+}
+
+.home-hero {
+  min-height: 0;
+  overflow: hidden;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  place-items: center;
+  text-align: center;
+  padding: clamp(16px, 2vw, 38px);
+  background:
+    radial-gradient(circle at 50% 28%, rgba(242, 199, 107, .22), transparent 13rem),
+    radial-gradient(circle at 18% 28%, color-mix(in srgb, var(--origin-primary), transparent 42%), transparent 22rem),
+    radial-gradient(circle at 82% 72%, rgba(139, 20, 20, .22), transparent 26rem),
+    linear-gradient(135deg, #03070b, #0a1118 52%, #030506);
+}
+
+.home-bg-sun {
+  position: absolute;
+  inset: auto auto 7% 50%;
+  transform: translateX(-50%);
+  font-size: clamp(12rem, 22vw, 28rem);
+  color: rgba(242, 199, 107, .045);
+  line-height: .7;
+  pointer-events: none;
+}
+
+.home-bg-column {
+  position: absolute;
+  top: 14%;
+  bottom: 11%;
+  color: rgba(214, 168, 79, .08);
+  font-size: clamp(8rem, 15vw, 18rem);
+  pointer-events: none;
+}
+
+.home-bg-column.left {
+  left: 5%;
+}
+
+.home-bg-column.right {
+  right: 5%;
+  transform: scaleX(-1);
+}
+
+.home-brand h1 {
+  font-size: clamp(3.4rem, 7.2vw, 8rem);
+  text-shadow:
+    0 0 18px rgba(242, 199, 107, .26),
+    0 6px 20px rgba(0, 0, 0, .75);
+}
+
+.home-brand p {
+  font-size: clamp(.86rem, 1.05vw, 1.2rem);
+}
+
+.home-copy {
+  position: relative;
+  z-index: 1;
+  max-width: 1050px;
+  display: grid;
+  gap: clamp(8px, 1.2vh, 18px);
+  place-items: center;
+}
+
+.home-kicker {
+  color: var(--gold-bright);
+  text-transform: uppercase;
+  letter-spacing: .12em;
+  font-size: clamp(.72rem, .85vw, 1rem);
+}
+
+.home-copy h2 {
+  margin: 0;
+  color: var(--text);
+  font-size: clamp(2rem, 4.2vw, 5.2rem);
+  line-height: .98;
+  text-wrap: balance;
+}
+
+.home-copy p {
+  margin: 0;
+  max-width: 850px;
+  color: var(--muted);
+  font-size: clamp(.9rem, 1.05vw, 1.2rem);
+  line-height: 1.45;
+}
+
+.home-actions {
+  display: flex;
+  gap: clamp(8px, 1vw, 16px);
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.home-action,
+.secondary-action {
+  min-width: clamp(180px, 15vw, 250px);
+  text-align: center;
+  text-decoration: none;
+  padding: clamp(9px, .85vw, 14px) clamp(14px, 1.3vw, 24px);
+  text-transform: uppercase;
+  letter-spacing: .05em;
+}
+
+.secondary-action {
+  border: 1px solid var(--border-bright);
+  color: var(--gold-bright);
+  background: rgba(0, 0, 0, .34);
+}
+
+.secondary-action:hover,
+.primary-action:hover {
+  filter: brightness(1.08);
+  box-shadow: 0 0 16px color-mix(in srgb, var(--origin-glow), transparent 45%);
+}
+
+.home-pillars {
+  position: relative;
+  z-index: 1;
+  width: min(1180px, 100%);
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: clamp(6px, .7vw, 12px);
+}
+
+.home-pillars article {
+  border: 1px solid rgba(214, 168, 79, .38);
+  background: rgba(0, 0, 0, .32);
+  padding: clamp(8px, .8vw, 14px);
+  display: grid;
+  gap: 3px;
+}
+
+.home-pillars span {
+  color: var(--gold-bright);
+  letter-spacing: .13em;
+  font-size: clamp(.65rem, .75vw, .86rem);
+}
+
+.home-pillars strong {
+  color: var(--text);
+  font-size: clamp(.78rem, .9vw, 1.05rem);
+}
+
+.home-pillars small {
+  line-height: 1.25;
+}
+
+.home-origins {
+  min-height: 0;
+  padding: clamp(8px, .7vw, 14px);
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+}
+
+.home-origin-strip {
+  min-height: 0;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: clamp(5px, .7vw, 12px);
+}
+.origin-logo-img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+  pointer-events: none;
+  filter:
+    drop-shadow(0 0 8px color-mix(in srgb, var(--origin-glow), transparent 45%))
+    drop-shadow(0 2px 5px rgba(0, 0, 0, .65));
+}
+
+.home-origin-card span,
+.registration-origin-card span,
+.origin-symbol,
+.origin-preview-symbol,
+.origin-summary-symbol,
+.rank-medal,
+.banner-symbol,
+.shield-symbol {
+  overflow: hidden;
+}
+
+.home-origin-card span .origin-logo-img,
+.registration-origin-card span .origin-logo-img {
+  padding: 3px;
+}
+
+.rank-medal .origin-logo-img,
+.origin-preview-symbol .origin-logo-img,
+.origin-summary-symbol .origin-logo-img {
+  padding: 8%;
+}
+
+.banner-symbol .origin-logo-img,
+.shield-symbol .origin-logo-img {
+  padding: 6%;
+}
+.home-origin-card {
+  min-height: 0;
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  text-align: center;
+  gap: clamp(3px, .5vh, 8px);
+  border: 1px solid var(--border);
+  background:
+    radial-gradient(circle at 50% 5%, color-mix(in srgb, var(--card-glow), transparent 68%), transparent 8rem),
+    linear-gradient(160deg, color-mix(in srgb, var(--card-primary), black 4%), #05070a);
+}
+
+.home-origin-card span {
+  display: grid;
+  place-items: center;
+  width: clamp(40px, 4.3vw, 74px);
+  height: clamp(40px, 4.3vw, 74px);
+  border: 1px solid var(--gold-bright);
+  border-radius: 50%;
+  color: var(--gold-bright);
+  font-size: clamp(1.4rem, 2.2vw, 2.6rem);
+  background: rgba(0, 0, 0, .34);
+}
+
+.home-origin-card strong {
+  color: var(--gold-bright);
+  text-transform: uppercase;
+  font-size: clamp(.9rem, 1.2vw, 1.5rem);
+}
+
+.home-origin-card small {
+  font-size: clamp(.58rem, .78vw, .95rem);
+}
+
+/* Auth page */
+
+.auth-shell {
+  grid-template-rows: clamp(74px, 11vh, 124px) minmax(0, 1fr);
+}
+
+.auth-header {
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr) 220px;
+  align-items: center;
+  padding: clamp(8px, .8vw, 14px);
+}
+
+.auth-brand {
+  grid-column: 2;
+}
+
+.auth-brand h1 {
+  font-size: clamp(2.2rem, 4vw, 5rem);
+}
+
+.auth-brand p {
+  margin-top: 2px;
+}
+
+.back-link {
+  color: var(--gold-bright);
+  text-decoration: none;
+  text-transform: uppercase;
+  font-size: clamp(.72rem, .82vw, .95rem);
+}
+
+.auth-layout {
+  min-height: 0;
+  overflow: hidden;
+  display: grid;
+  grid-template-columns: minmax(300px, .72fr) minmax(620px, 1.45fr) minmax(300px, .72fr);
+  gap: clamp(6px, .7vw, 12px);
+}
+
+.auth-card,
+.auth-preview {
+  min-height: 0;
+  overflow: hidden;
+  padding: clamp(12px, 1vw, 20px);
+}
+
+.auth-card.is-emphasised {
+  box-shadow:
+    var(--shadow),
+    0 0 0 1px var(--gold-bright),
+    0 0 24px color-mix(in srgb, var(--origin-glow), transparent 40%);
+}
+
+.auth-form {
+  height: calc(100% - 36px);
+  min-height: 0;
+  display: grid;
+  grid-template-rows: repeat(2, auto) minmax(20px, auto) auto;
+  align-content: center;
+  gap: clamp(10px, 1.2vh, 18px);
+}
+
+.auth-two {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: clamp(10px, 1vw, 16px);
+}
+
+.auth-form label span,
+.origin-picker legend {
+  display: block;
+  margin-bottom: 5px;
+  color: var(--gold-bright);
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  font-size: clamp(.72rem, .82vw, .95rem);
+}
+
+.auth-form input,
+.auth-form select {
+  width: 100%;
+  border: 1px solid var(--border);
+  outline: none;
+  background: rgba(0, 0, 0, .42);
+  color: var(--text);
+  padding: clamp(8px, .75vw, 12px);
+  font: inherit;
+  box-shadow: inset 0 0 18px rgba(0, 0, 0, .45);
+}
+
+.auth-form input:focus,
+.auth-form select:focus {
+  border-color: var(--gold-bright);
+  box-shadow: 0 0 12px color-mix(in srgb, var(--origin-glow), transparent 35%);
+}
+
+.auth-form .origin-picker {
+  min-height: 0;
+  border: 1px solid rgba(214, 168, 79, .38);
+  padding: clamp(8px, .8vw, 14px);
+}
+
+.auth-form .registration-origin-cards {
+  min-height: clamp(96px, 16vh, 170px);
+}
+
+.auth-form .form-message {
+  min-height: 1.25em;
+}
+
+.auth-form .primary-action {
+  justify-self: end;
+}
+
+.auth-preview {
+  display: grid;
+  place-items: center;
+  align-content: center;
+  text-align: center;
+  gap: clamp(8px, 1vh, 14px);
+}
+
+.logout-button {
+  border: 1px solid var(--border);
+  color: var(--gold-bright);
+  background: rgba(0, 0, 0, .28);
+  cursor: pointer;
+  padding: 5px 8px;
+  text-transform: uppercase;
+  font-size: .72rem;
+}
+
+.logout-button:hover {
+  border-color: var(--gold-bright);
+}
+.origin-logo-img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+  pointer-events: none;
+  filter:
+    drop-shadow(0 0 8px color-mix(in srgb, var(--origin-glow), transparent 45%))
+    drop-shadow(0 2px 5px rgba(0, 0, 0, .65));
+}
+
+.home-origin-card span,
+.registration-origin-card span,
+.origin-symbol,
+.origin-preview-symbol,
+.origin-summary-symbol,
+.rank-medal,
+.banner-symbol,
+.shield-symbol {
+  overflow: hidden;
+}
+
+.home-origin-card span .origin-logo-img,
+.registration-origin-card span .origin-logo-img {
+  padding: 3px;
+}
+
+.rank-medal .origin-logo-img,
+.origin-preview-symbol .origin-logo-img,
+.origin-summary-symbol .origin-logo-img {
+  padding: 8%;
+}
+
+.banner-symbol .origin-logo-img,
+.shield-symbol .origin-logo-img {
+  padding: 6%;
+}
+@media (max-width: 1280px) {
+  .auth-layout {
+    grid-template-columns: .8fr 1.2fr;
+  }
+
+  .auth-preview {
+    display: none;
+  }
+
+  .home-pillars article:nth-child(4) {
+    display: none;
+  }
+
+  .home-pillars {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 980px) {
+  .home-shell {
+    grid-template-rows: minmax(0, 1fr) clamp(110px, 18vh, 160px);
+  }
+
+  .home-pillars {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .home-pillars article:nth-child(3) {
+    display: none;
+  }
+
+  .home-origin-card small {
+    display: none;
+  }
+
+  .auth-layout {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .auth-two {
+    grid-template-columns: 1fr;
+  }
+
+  .registration-origin-card small {
+    display: none;
+  }
+}
+
+@media (max-width: 760px) {
+  .home-pillars {
+    display: none;
+  }
+
+  .home-copy p:not(.home-kicker) {
+    display: none;
+  }
+
+  .auth-header {
+    grid-template-columns: 1fr;
+  }
+
+  .auth-brand {
+    display: none;
+  }
+
+  .auth-layout {
+    grid-template-columns: 1fr;
+  }
+
+  #loginPanel {
+    min-height: 34vh;
+  }
+
+  #registerPanel {
+    min-height: 58vh;
+  }
+
+  .auth-form .registration-origin-cards {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+
+  .registration-origin-card strong {
+    display: none;
+  }
+}
+
+@media (max-height: 780px) {
+  .home-copy p:not(.home-kicker) {
+    display: none;
+  }
+
+  .home-brand p {
+    display: none;
+  }
+
+  .home-pillars small {
+    display: none;
+  }
+
+  .auth-form {
+    gap: clamp(6px, .8vh, 10px);
+  }
+
+  .auth-form .registration-origin-cards {
+    min-height: clamp(70px, 13vh, 110px);
+  }
+
+  .registration-origin-card small {
+    display: none;
+  }
+}
+
+
+/* ============================================================
+   Bilingual UI system
+   ============================================================ */
+
+.language-toggle {
+  position: fixed;
+  z-index: 50;
+  top: clamp(8px, .8vw, 14px);
+  right: clamp(8px, .8vw, 14px);
+  border: 1px solid var(--gold-bright);
+  color: var(--gold-bright);
+  background: rgba(0, 0, 0, .58);
+  box-shadow: 0 0 14px rgba(0, 0, 0, .55);
+  padding: 6px 10px;
+  min-width: 44px;
+  cursor: pointer;
+  font: inherit;
+  font-size: .82rem;
+  text-transform: uppercase;
+}
+
+.language-toggle:hover {
+  background: rgba(214, 168, 79, .14);
+  box-shadow: 0 0 14px color-mix(in srgb, var(--origin-glow), transparent 40%);
+}
+
+html[data-language="el"] body {
+  letter-spacing: 0;
+}
+
+html[data-language="el"] .brand h1 {
+  letter-spacing: .08em;
+}
+
+html[data-language="el"] .nav-item span,
+html[data-language="el"] .section-title,
+html[data-language="el"] .origin-card h3,
+html[data-language="el"] .home-origin-card strong,
+html[data-language="el"] .registration-origin-card strong {
+  letter-spacing: .02em;
+}
+
+html[data-language="el"] .home-copy h2 {
+  font-size: clamp(1.8rem, 3.8vw, 4.6rem);
+}
+
+html[data-language="el"] .home-copy p {
+  max-width: 940px;
+}
+
+html[data-language="el"] .auth-layout {
+  grid-template-columns: minmax(320px, .78fr) minmax(650px, 1.5fr) minmax(320px, .72fr);
+}
+
+html[data-language="el"] .auth-form label span,
+html[data-language="el"] .origin-picker legend {
+  font-size: clamp(.66rem, .76vw, .88rem);
+}
+
+html[data-language="el"] .origin-card p,
+html[data-language="el"] .origin-bonus,
+html[data-language="el"] .home-origin-card small,
+html[data-language="el"] .registration-origin-card small {
+  line-height: 1.12;
+}
+
+html[data-language="el"] .stat-name {
+  font-size: clamp(.58rem, .66vw, .8rem);
+}
+
+html[data-language="el"] .stat-value {
+  font-size: clamp(.86rem, 1.08vw, 1.2rem);
+}
+
+@media (max-height: 780px) {
+  .language-toggle {
+    padding: 4px 8px;
+    min-width: 38px;
+    font-size: .72rem;
+  }
+}
+
+
+/* ============================================================
+   Landing scroll + origin detail pass
+   ============================================================ */
+
+body.home-body {
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  height: auto;
+  min-height: 100dvh;
+}
+
+body.home-body .home-shell {
+  width: 100%;
+  min-height: 100dvh;
+  height: auto;
+  overflow: visible;
+  grid-template-rows: minmax(620px, 82vh) auto auto;
+  align-items: stretch;
+}
+
+body.home-body .home-hero,
+body.home-body .home-origins,
+body.home-body .home-origin-detail {
+  overflow: visible;
+}
+
+body.home-body .home-origins {
+  min-height: auto;
+  padding: clamp(10px, 1vw, 18px);
+}
+
+body.home-body .home-origin-strip {
+  min-height: clamp(150px, 19vh, 235px);
+  align-items: stretch;
+}
+
+body.home-body .home-origin-card {
+  min-height: clamp(140px, 18vh, 220px);
+  padding: clamp(10px, 1vw, 18px);
+  cursor: pointer;
+  transition: transform .16s ease, box-shadow .16s ease, border-color .16s ease;
+}
+
+body.home-body .home-origin-card:hover,
+body.home-body .home-origin-card.is-selected {
+  transform: translateY(-2px);
+  border-color: var(--gold-bright);
+  box-shadow:
+    0 0 0 1px var(--gold-bright),
+    0 0 18px color-mix(in srgb, var(--card-glow), transparent 35%);
+}
+
+body.home-body .home-origin-card span {
+  width: clamp(52px, 4.8vw, 86px);
+  height: clamp(52px, 4.8vw, 86px);
+}
+
+body.home-body .home-origin-card strong,
+body.home-body .home-origin-card small {
+  display: block;
+}
+
+.home-origin-detail {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: clamp(14px, 1.5vw, 28px);
+  padding: clamp(16px, 1.5vw, 28px);
+  min-height: clamp(210px, 24vh, 320px);
+  margin-bottom: clamp(8px, .8vw, 16px);
+}
+
+.home-origin-detail-symbol {
+  display: grid;
+  place-items: center;
+  width: clamp(110px, 11vw, 190px);
+  height: clamp(110px, 11vw, 190px);
+  border: 1px solid var(--gold-bright);
+  border-radius: 50%;
+  color: var(--gold-bright);
+  background: color-mix(in srgb, var(--origin-primary), black 18%);
+  box-shadow: var(--glow-shadow), inset 0 0 28px rgba(0, 0, 0, .45);
+  font-size: clamp(3rem, 5vw, 6rem);
+}
+
+.home-origin-detail-copy {
+  min-width: 0;
+}
+
+.home-origin-detail-copy h2 {
+  margin: 0;
+  color: var(--gold-bright);
+  text-transform: uppercase;
+  font-size: clamp(2rem, 3vw, 4rem);
+}
+
+.origin-detail-mood {
+  margin: 4px 0 10px;
+  color: var(--text);
+  font-size: clamp(1rem, 1.2vw, 1.35rem);
+  font-weight: bold;
+}
+
+.origin-detail-description {
+  max-width: 760px;
+  margin: 0;
+  color: var(--muted);
+  font-size: clamp(.92rem, 1vw, 1.15rem);
+  line-height: 1.45;
+}
+
+.origin-detail-bonuses {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.origin-detail-bonuses div {
+  border: 1px solid rgba(214, 168, 79, .45);
+  background: rgba(0, 0, 0, .28);
+  color: var(--gold-bright);
+  padding: 7px 10px;
+}
+
+.home-origin-detail-actions {
+  display: grid;
+  gap: 10px;
+}
+
+@media (max-width: 980px) {
+  body.home-body .home-shell {
+    grid-template-rows: minmax(560px, auto) auto auto;
+  }
+
+  body.home-body .home-origin-strip {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .home-origin-detail {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .home-origin-detail-actions {
+    grid-column: 1 / -1;
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  body.home-body .home-origin-strip {
+    grid-template-columns: 1fr;
+  }
+
+  .home-origin-detail {
+    grid-template-columns: 1fr;
+    text-align: center;
+    place-items: center;
+  }
+
+  .home-origin-detail-actions {
+    grid-template-columns: 1fr;
+  }
+
+  .origin-detail-bonuses {
+    justify-content: center;
+  }
+}
+
+/* Keep auth/character game-HUD behaviour separate from the scrollable landing page. */
+body.auth-body,
+body.character-body {
+  overflow: hidden !important;
+}
+
+
+/* ============================================================
+   Origin-themed scrollbars
+   ============================================================ */
+
+/* Firefox */
+html {
+  scrollbar-width: thin;
+  scrollbar-color: var(--origin-secondary) color-mix(in srgb, var(--origin-primary), black 58%);
+}
+
+/* Chromium / Edge / Brave / Chrome */
+::-webkit-scrollbar {
+  width: 14px;
+  height: 14px;
+}
+
+::-webkit-scrollbar-track {
+  background:
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--origin-primary), black 72%),
+      #030507
+    );
+  border-left: 1px solid color-mix(in srgb, var(--origin-secondary), black 38%);
+  box-shadow: inset 0 0 10px rgba(0, 0, 0, .75);
+}
+
+::-webkit-scrollbar-thumb {
+  min-height: 42px;
+  border: 3px solid color-mix(in srgb, var(--origin-primary), black 72%);
+  border-radius: 999px;
+  background:
+    linear-gradient(
+      180deg,
+      var(--origin-secondary),
+      var(--gold-bright) 45%,
+      color-mix(in srgb, var(--origin-glow), var(--origin-secondary) 55%)
+    );
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 235, 170, .35),
+    0 0 12px color-mix(in srgb, var(--origin-glow), transparent 35%);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background:
+    linear-gradient(
+      180deg,
+      var(--gold-bright),
+      var(--origin-secondary) 55%,
+      var(--origin-glow)
+    );
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 245, 190, .55),
+    0 0 18px color-mix(in srgb, var(--origin-glow), transparent 15%);
+}
+
+::-webkit-scrollbar-corner {
+  background: #030507;
+}
+
+/* Landing page gets a slightly more decorative scrollbar because it is the public showcase page. */
+body.home-body::-webkit-scrollbar {
+  width: 16px;
+}
+
+body.home-body::-webkit-scrollbar-track {
+  background:
+    linear-gradient(
+      180deg,
+      #020407,
+      color-mix(in srgb, var(--origin-primary), black 52%),
+      #020407
+    );
+  border-left: 1px solid var(--border);
+}
+
+body.home-body::-webkit-scrollbar-thumb {
+  border: 4px solid color-mix(in srgb, var(--origin-primary), black 70%);
+  background:
+    radial-gradient(circle at 50% 18%, rgba(255,255,255,.38), transparent 20%),
+    linear-gradient(
+      180deg,
+      var(--gold-bright),
+      var(--origin-secondary) 48%,
+      color-mix(in srgb, var(--origin-glow), black 12%)
+    );
+}
+
+/* Any future internal scroll containers inherit the same faction theme. */
+.panel,
+.home-shell,
+.auth-shell,
+.game-shell,
+.origin-picker,
+.registration-origin-cards {
+  scrollbar-width: thin;
+  scrollbar-color: var(--origin-secondary) color-mix(in srgb, var(--origin-primary), black 58%);
+}
+
+.panel::-webkit-scrollbar,
+.home-shell::-webkit-scrollbar,
+.auth-shell::-webkit-scrollbar,
+.game-shell::-webkit-scrollbar,
+.origin-picker::-webkit-scrollbar,
+.registration-origin-cards::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+.panel::-webkit-scrollbar-track,
+.home-shell::-webkit-scrollbar-track,
+.auth-shell::-webkit-scrollbar-track,
+.game-shell::-webkit-scrollbar-track,
+.origin-picker::-webkit-scrollbar-track,
+.registration-origin-cards::-webkit-scrollbar-track {
+  background: color-mix(in srgb, var(--origin-primary), black 70%);
+  border-left: 1px solid rgba(214, 168, 79, .35);
+}
+
+.panel::-webkit-scrollbar-thumb,
+.home-shell::-webkit-scrollbar-thumb,
+.auth-shell::-webkit-scrollbar-thumb,
+.game-shell::-webkit-scrollbar-thumb,
+.origin-picker::-webkit-scrollbar-thumb,
+.registration-origin-cards::-webkit-scrollbar-thumb {
+  border: 2px solid color-mix(in srgb, var(--origin-primary), black 72%);
+  border-radius: 999px;
+  background: linear-gradient(180deg, var(--origin-secondary), var(--origin-glow));
+}
+
+/* Optional: when hovering an origin card, the root colour changes only after selection through JS.
+   The scrollbar follows the currently selected origin via the existing html[data-origin] variables. */
