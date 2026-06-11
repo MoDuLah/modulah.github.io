@@ -38,7 +38,7 @@
           <ul class="feature-list">
             <li class="feature-item"><span class="feature-dot" aria-hidden="true"></span><span>Live timing, gaps, sectors, and speed-focused analysis</span></li>
             <li class="feature-item"><span class="feature-dot" aria-hidden="true"></span><span>Current-page data only, with result preview controls</span></li>
-            <li class="feature-item"><span class="feature-dot" aria-hidden="true"></span><span>Still under development, with docs and rollout material already live</span></li>
+            <li class="feature-item"><span class="feature-dot" aria-hidden="true"></span><span>Public race player and PostgreSQL history live; userscript install still private</span></li>
           </ul>
         </aside>
       </section>
@@ -52,6 +52,7 @@
             <a href="#modes">Analysis modes</a>
             <a href="#results">Result visibility</a>
             <a href="#data">Data and safety</a>
+            <a href="#player">Public race player</a>
             <a href="#supporter">Supporter access</a>
             <a href="#release">Release status</a>
             <a href="#support">Support</a>
@@ -94,8 +95,16 @@
           <details id="data">
             <summary>What data does it use, and is it Torn-safe?</summary>
             <div class="answer">
-              <p>The project direction is to use only race data already delivered to the currently viewed Torn racing page.</p>
-              <p>It is not meant to rely on hidden scraping across other pages, external servers for race analysis, or background automation chains just to do its main job.</p>
+              <p>The race-analysis path uses racingData already delivered to the currently viewed Torn racing page.</p>
+              <p>Completed race, replay, track, driver, garage, fuel, and prediction data can be persisted by the hosted Pit Guru API. The hosted service does not decide or generate Torn race outcomes.</p>
+            </div>
+          </details>
+
+          <details id="player">
+            <summary>Can I use the public race player?</summary>
+            <div class="answer">
+              <p>Yes. The public race player is available at <a href="https://pp_api.sokin.xyz/pit-guru/" target="_blank" rel="noopener noreferrer">pp_api.sokin.xyz/pit-guru/</a>.</p>
+              <p>It can load saved races from the PostgreSQL-backed service. This is separate from the userscript install route, which is still private.</p>
             </div>
           </details>
 
@@ -110,8 +119,8 @@
           <details id="release">
             <summary>Can I install it right now?</summary>
             <div class="answer">
-              <p>Not yet. It is still under development, so no public install route is being promoted on the hub right now.</p>
-              <p>The project page, FAQ, changelog, forum post draft, and Discord announcement draft are live first so the rollout has a clean base when the release path opens.</p>
+              <p>Not yet. The v1.8.1 userscript is still under development, so no public userscript install route is being promoted on the hub right now.</p>
+              <p>The public race player and PostgreSQL-backed service are live while hosted ingestion authentication and the userscript update route are finalized.</p>
             </div>
           </details>
 
