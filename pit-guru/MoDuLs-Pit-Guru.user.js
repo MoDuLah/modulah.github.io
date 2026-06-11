@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         MoDuL's Pit Guru
 // @namespace    modul.torn.racing
-// @version      1.8.3
+// @version      1.8.4
 // @description  Live Torn race timing, gaps, sectors, speed and estimated telemetry analysis
 // @author       MoDuL
 // @license      MIT
@@ -300,7 +300,7 @@
     unsafeWindow.pgPlayerCacheRaceId = pgPlayerFetchRaceDataById_;
     unsafeWindow.pgPlayerCacheCurrentRace = openLocalPlayerForCurrentRace_;
 
-    const MPG_VERSION = "1.8.3";
+    const MPG_VERSION = "1.8.4";
     var TAG = "[MoDuL's Pit Guru v" + MPG_VERSION + "]";
 
     const PitGuruRaceEngine = (() => {
@@ -1242,6 +1242,7 @@
         return true;
     }
     function resetForRaceChange_(newRaceId) {
+        disconnectJoinRaceObserver_();
         const nextRaceId = String(newRaceId || "").trim();
         const priorMeta = raceMeta ? { ...raceMeta, replayInfo: { ...(raceMeta.replayInfo || {}) } } : null;
         let visibleTrack = "";
@@ -5611,12 +5612,30 @@ return {
         pendingRaceChangeAt = 0;
     }
 
+    function disconnectJoinRaceObserver_() {
+        clearTimeout(joinRaceClearTimer);
+        joinRaceClearTimer = 0;
+        if (!joinRaceObserver) return;
+        joinRaceObserver.disconnect();
+        joinRaceObserver = null;
+    }
+
     function installJoinRaceObserver_() {
-        if (joinRaceObserver || typeof MutationObserver === "undefined") return;
+        if (
+            joinRaceObserver ||
+            typeof MutationObserver === "undefined" ||
+            isReplayPage_() ||
+            !clearOnRaceChange ||
+            !analysis ||
+            !priorRaceFinishedForClear_()
+        ) return;
         const root = document.body || document.documentElement;
         if (!root) return;
         joinRaceObserver = new MutationObserver(() => {
-            if (!clearOnRaceChange || !analysis || !priorRaceFinishedForClear_()) return;
+            if (!clearOnRaceChange || !analysis || !priorRaceFinishedForClear_()) {
+                disconnectJoinRaceObserver_();
+                return;
+            }
             clearTimeout(joinRaceClearTimer);
             joinRaceClearTimer = setTimeout(() => {
                 if (clearOnRaceChange && analysis && priorRaceFinishedForClear_() && hasJoinRacingEventAction_()) {
@@ -11287,6 +11306,8 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
             maybeFetchRacingDataForCurrentRace_();
             if (!liveWorking || !largeFieldMode_()) maybeAutoFetchDriverIntel_();
             ensureRaceMeta_();
+            if (clearOnRaceChange && analysis && priorRaceFinishedForClear_()) installJoinRaceObserver_();
+            else disconnectJoinRaceObserver_();
             if (!liveWorking) {
                 uiDirty = true;
                 scheduleRender_();
