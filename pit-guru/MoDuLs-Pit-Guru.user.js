@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         MoDuL's Pit Guru
 // @namespace    modul.torn.racing
-// @version      1.8.2
+// @version      1.8.3
 // @description  Live Torn race timing, gaps, sectors, speed and estimated telemetry analysis
 // @author       MoDuL
 // @license      MIT
@@ -9,6 +9,7 @@
 // @downloadURL  https://modulah.github.io/pit-guru/MoDuLs-Pit-Guru.user.js
 // @match        https://www.torn.com/page.php?sid=racing*
 // @match        https://www.torn.com/loader.php?sid=racing*
+// @include      /^https:\/\/www\.torn\.com\/page\.php\?(?:[^#]*&)?sid=racing(?:Data)?(?:&|$)[^#]*$/
 // @grant        GM_addStyle
 // @grant        GM_getValue
 // @grant        GM_setValue
@@ -299,7 +300,7 @@
     unsafeWindow.pgPlayerCacheRaceId = pgPlayerFetchRaceDataById_;
     unsafeWindow.pgPlayerCacheCurrentRace = openLocalPlayerForCurrentRace_;
 
-    const MPG_VERSION = "1.8.2";
+    const MPG_VERSION = "1.8.3";
     var TAG = "[MoDuL's Pit Guru v" + MPG_VERSION + "]";
 
     const PitGuruRaceEngine = (() => {
@@ -912,6 +913,10 @@
     let liveOrderCache = { key: "", value: [] };
     let liveLoopLastAt = 0;
     let maintenanceLoopLastAt = 0;
+    let pendingRaceChangeId = "";
+    let pendingRaceChangeAt = 0;
+    let joinRaceObserver = null;
+    let joinRaceClearTimer = 0;
     let nativeResizeEl = null;
     let nativeResizeStoreKey = "";
     let nativeResizeAt = 0;
@@ -1237,6 +1242,12 @@
         return true;
     }
     function resetForRaceChange_(newRaceId) {
+        const nextRaceId = String(newRaceId || "").trim();
+        const priorMeta = raceMeta ? { ...raceMeta, replayInfo: { ...(raceMeta.replayInfo || {}) } } : null;
+        let visibleTrack = "";
+        try {
+            visibleTrack = canScanTornPage_() ? visibleRaceTrackName_() : "";
+        } catch {}
         latestRaceDataPayload = null;
         raceDataReceivedPerfMs = 0;
         raceDataCurrentTimeAtReceive = NaN;
@@ -1258,7 +1269,24 @@
         fuelSessionCache = { key: "", liters: 0, levelPct: 100 };
 
         clearRaceMeta_();
-        saveLastRaceId_(newRaceId || "");
+        if (nextRaceId && priorMeta) {
+            const detectedAtIso = nowIso_();
+            raceMeta = {
+                ...priorMeta,
+                raceId: nextRaceId,
+                track: visibleTrack || priorMeta.track || "",
+                totalTime: "",
+                endAtIso: "",
+                countdown: "",
+                detectedAtIso,
+                detectedAtLocal: formatLocalDateTime_(new Date()),
+                metaKey: makeRaceMetaKey_(visibleTrack || priorMeta.track || "UnknownTrack", "JSON", nextRaceId, detectedAtIso)
+            };
+            saveRaceMeta_(raceMeta);
+        }
+        saveLastRaceId_(nextRaceId);
+        pendingRaceChangeId = "";
+        pendingRaceChangeAt = 0;
 
         uiDirty = true;
         scheduleRender_();
@@ -3110,28 +3138,15 @@
             const lapTimes = validLapTimes.map(x => x.seconds);
             const finalTime = cumulativeTimes[cumulativeTimes.length - 1] || 0;
             const speeds = d.segmentTimes.map((t, i) => repeatedDistances[i] > 0 ? repeatedDistances[i] / t : NaN);
-            const gValues = speeds.map((v, i) => {
-                if (i <= 0 || !Number.isFinite(v) || !Number.isFinite(speeds[i - 1])) return 0;
-                const dt = (d.segmentTimes[i] + d.segmentTimes[i - 1]) / 2;
-                return calibrateLongitudinalG_(dt > 0 ? ((v - speeds[i - 1]) / dt) / 9.80665 : 0);
-            });
-            const lateralGValues = speeds.map((v, i) => {
-                if (!routeModel || !Number.isFinite(v)) return NaN;
-                const curv = routeCurvatureAtMeters_(routeModel, cumulativeDistances[i] || 0);
-                return calibrateLateralG_(Number.isFinite(curv) ? (v * v * curv) / 9.80665 : NaN);
-            });
-            const combinedGValues = gValues.map((g, i) => {
-                const lat = lateralGValues[i];
-                if (!Number.isFinite(g) && !Number.isFinite(lat)) return NaN;
-                return Math.sqrt(Math.pow(Number.isFinite(g) ? g : 0, 2) + Math.pow(Number.isFinite(lat) ? lat : 0, 2));
-            });
             const sectorTimes = [];
             for (let lap = 0; lap < getCompletedFullLaps_(d, segmentsPerLap); lap++) {
                 let start = lap * segmentsPerLap;
                 for (let s = 0; s < 3; s++) {
                     const end = lap * segmentsPerLap + sectorSplitIndexes[s];
                     if (d.segmentTimes.length >= end) {
-                        sectorTimes.push({ sector: s + 1, lap: lap + 1, seconds: d.segmentTimes.slice(start, end).reduce((a, b) => a + b, 0) });
+                        const endTime = cumulativeTimes[end - 1] || 0;
+                        const startTime = start > 0 ? (cumulativeTimes[start - 1] || 0) : 0;
+                        sectorTimes.push({ sector: s + 1, lap: lap + 1, seconds: endTime - startTime });
                     }
                     start = end;
                 }
@@ -3160,9 +3175,9 @@
                 consistencyScore: lapTimes.length > 1 ? Math.max(0, 100 - (stdDev_(lapTimes) / avgLap * 100)) : null,
                 topSpeedMps: maxFinite_(speeds),
                 slowestSpeedMps: minFinite_(speeds),
-                highestG: maxFinite_(combinedGValues.length ? combinedGValues : gValues),
-                lowestG: minFinite_(gValues),
-                highestLateralG: maxFinite_(lateralGValues.map(Math.abs)),
+                highestG: NaN,
+                lowestG: NaN,
+                highestLateralG: NaN,
                 sectorsWon: 0,
                 lapsLed: 0,
                 segmentsLed: 0,
@@ -3184,12 +3199,12 @@
             routeModel,
             sectorSplitIndexes,
             payload,
-            drivers
+            drivers,
+            leadStatsReady: false,
+            sectorWinsReady: false
         };
         liveOrderCache = { key: "", value: [] };
         applyDriverIntelToModel_();
-        computeLeadStats_(analysis);
-        computeSectorWins_(analysis);
         syncRaceMetaFromAnalysis_();
         return analysis;
     }
@@ -3201,13 +3216,25 @@
     }
 
     function maxFinite_(arr) {
-        const xs = arr.filter(Number.isFinite);
-        return xs.length ? Math.max(...xs) : NaN;
+        let found = false;
+        let max = -Infinity;
+        for (const value of arr || []) {
+            if (!Number.isFinite(value)) continue;
+            if (value > max) max = value;
+            found = true;
+        }
+        return found ? max : NaN;
     }
 
     function minFinite_(arr) {
-        const xs = arr.filter(Number.isFinite);
-        return xs.length ? Math.min(...xs) : NaN;
+        let found = false;
+        let min = Infinity;
+        for (const value of arr || []) {
+            if (!Number.isFinite(value)) continue;
+            if (value < min) min = value;
+            found = true;
+        }
+        return found ? min : NaN;
     }
 
     function syncRaceMetaFromAnalysis_() {
@@ -3559,11 +3586,19 @@
             d.leadChanges = 0;
         }
         const maxTime = Math.max(...model.drivers.map(d => d.finalTime || 0));
-        const step = model.drivers.length >= HUGE_FIELD_THRESHOLD ? 2 : (model.drivers.length >= LARGE_FIELD_THRESHOLD ? 1 : 0.25);
+        const step = model.drivers.length >= HUGE_FIELD_THRESHOLD ? 5 : (model.drivers.length >= LARGE_FIELD_THRESHOLD ? 2 : 0.5);
         let lastLeader = null;
         let stint = 0;
         for (let t = 0; t <= maxTime; t += step) {
-            const leader = model.drivers.map(d => ({ d, state: currentDistanceAtTime_(d, t) })).sort((a, b) => b.state.distance - a.state.distance)[0]?.d;
+            let leader = null;
+            let leaderDistance = -Infinity;
+            for (const d of model.drivers) {
+                const distance = currentDistanceAtTime_(d, t).distance || 0;
+                if (distance > leaderDistance) {
+                    leaderDistance = distance;
+                    leader = d;
+                }
+            }
             if (!leader) continue;
             leader.timeInLeadSeconds += step;
             if (leader !== lastLeader) {
@@ -3578,23 +3613,36 @@
 
         for (let lap = 1; lap <= model.laps; lap++) {
             const lapEndMeters = lap * (model.lapMeters || 0);
-            const lapLeader = model.drivers
-                .map(d => ({ d, time: driverReachTimeForDistance_(d, lapEndMeters) }))
-                .filter(x => Number.isFinite(x.time))
-                .sort((a, b) => a.time - b.time)[0]?.d;
+            let lapLeader = null;
+            let lapLeaderTime = Infinity;
+            for (const d of model.drivers) {
+                const time = driverReachTimeForDistance_(d, lapEndMeters);
+                if (Number.isFinite(time) && time < lapLeaderTime) {
+                    lapLeaderTime = time;
+                    lapLeader = d;
+                }
+            }
             if (lapLeader) lapLeader.lapsLed = (lapLeader.lapsLed || 0) + 1;
         }
 
         for (let seg = 1; seg <= model.segmentsPerLap * model.laps; seg++) {
-            const segmentLeader = model.drivers
-                .map(d => ({ d, time: d.cumulativeTimes?.[seg - 1] }))
-                .filter(x => Number.isFinite(x.time))
-                .sort((a, b) => a.time - b.time)[0]?.d;
+            let segmentLeader = null;
+            let segmentLeaderTime = Infinity;
+            for (const d of model.drivers) {
+                const time = d.cumulativeTimes?.[seg - 1];
+                if (Number.isFinite(time) && time < segmentLeaderTime) {
+                    segmentLeaderTime = time;
+                    segmentLeader = d;
+                }
+            }
             if (segmentLeader) segmentLeader.segmentsLed = (segmentLeader.segmentsLed || 0) + 1;
         }
+        model.leadStatsReady = true;
     }
 
     function computeSectorWins_(model) {
+        if (!model?.drivers?.length) return;
+        for (const d of model.drivers) d.sectorsWon = 0;
         const best = new Map();
         for (const d of model.drivers) {
             for (const s of d.sectorTimes || []) {
@@ -3604,11 +3652,19 @@
             }
         }
         for (const { d } of best.values()) d.sectorsWon = (d.sectorsWon || 0) + 1;
+        model.sectorWinsReady = true;
+    }
+
+    function ensureAnalysisAggregates_(options = {}) {
+        if (!analysis?.drivers?.length) return;
+        if (options.sectors && !analysis.sectorWinsReady) computeSectorWins_(analysis);
+        if (options.leads && !analysis.leadStatsReady) computeLeadStats_(analysis);
     }
 
     function updateRecordsFromAnalysis_() {
         try {
             if (!analysis || !shouldPopulateFinalAnalysisNow_()) return;
+            ensureAnalysisAggregates_({ sectors: true, leads: true });
             const raceId = String(analysis.raceId || raceMeta?.raceId || getRaceId_() || "").trim();
             const raceRecordKey = raceId || `${analysis.trackName}:${analysis.drivers.map(d => d.finalTime).join(",")}`;
             if (recordsUpdatedForAnalysisRaceId === raceRecordKey) return;
@@ -4622,6 +4678,8 @@
         if (!analysis?.drivers?.length) {
             throw new Error('No Pit Guru analysis drivers available');
         }
+        ensureAnalysisAggregates_({ sectors: true, leads: true });
+        if (!hugeFieldMode_()) ensureFullTelemetryStats_();
         const meta = raceMetaFromPayload_(analysis.payload);
         const replayInfo = raceMeta?.replayInfo || {};
 
@@ -5375,8 +5433,20 @@ return {
         try {
             const u = new URL(location.href);
             const tab = (u.searchParams.get("tab") || "").toLowerCase();
-            return tab === "log" || tab === "replay";
+            const sid = (u.searchParams.get("sid") || "").toLowerCase();
+            return tab === "log" || tab === "replay" || (sid === "racingdata" && !!urlRaceId_());
         } catch (e) {
+            return false;
+        }
+    }
+
+    function hasJoinRacingEventAction_() {
+        if (!canScanTornPage_()) return false;
+        try {
+            return !!document.querySelector(
+                'a[href*="sid=racing"][href*="section=changeRacingCar"][href*="step=getInRace"]'
+            );
+        } catch {
             return false;
         }
     }
@@ -5386,6 +5456,7 @@ return {
             const u = new URL(location.href);
             if ((u.searchParams.get("sid") || "").toLowerCase() !== "racing") return false;
             if (urlRaceId_() || isReplayPage_()) return false;
+            if (hasJoinRacingEventAction_()) return true;
             const text = String(visibleRacePageInfo_().text || "").toLowerCase();
             return !/\brace\s+(?:started|finished|replaying|starts?\s+in)\b/.test(text);
         } catch {
@@ -5499,11 +5570,13 @@ return {
         if (!isReplayPage_() && !canScanTornPage_()) return;
         const currentRaceId = getRaceId_();
         if (!currentRaceId) {
+            pendingRaceChangeId = "";
+            pendingRaceChangeAt = 0;
             if (
                 clearOnRaceChange &&
                 analysis &&
                 priorRaceFinishedForClear_() &&
-                isGenericRacingLanding_()
+                (hasJoinRacingEventAction_() || isGenericRacingLanding_())
             ) {
                 resetForRaceChange_("");
                 return;
@@ -5518,20 +5591,40 @@ return {
         }
 
         const activeRaceId = String(analysis?.raceId || raceMeta?.raceId || "").trim();
-        if (activeRaceId && activeRaceId !== currentRaceId) {
-            resetForRaceChange_(currentRaceId);
-            return;
-        }
-
         const storedRaceId = loadLastRaceId_();
         if (!storedRaceId) {
             saveLastRaceId_(currentRaceId);
             return;
         }
 
-        if (storedRaceId !== currentRaceId) {
+        if ((activeRaceId && activeRaceId !== currentRaceId) || storedRaceId !== currentRaceId) {
+            if (pendingRaceChangeId !== currentRaceId) {
+                pendingRaceChangeId = currentRaceId;
+                pendingRaceChangeAt = Date.now();
+                return;
+            }
+            if (Date.now() - pendingRaceChangeAt < 600) return;
             resetForRaceChange_(currentRaceId);
+            return;
         }
+        pendingRaceChangeId = "";
+        pendingRaceChangeAt = 0;
+    }
+
+    function installJoinRaceObserver_() {
+        if (joinRaceObserver || typeof MutationObserver === "undefined") return;
+        const root = document.body || document.documentElement;
+        if (!root) return;
+        joinRaceObserver = new MutationObserver(() => {
+            if (!clearOnRaceChange || !analysis || !priorRaceFinishedForClear_()) return;
+            clearTimeout(joinRaceClearTimer);
+            joinRaceClearTimer = setTimeout(() => {
+                if (clearOnRaceChange && analysis && priorRaceFinishedForClear_() && hasJoinRacingEventAction_()) {
+                    resetForRaceChange_("");
+                }
+            }, 120);
+        });
+        joinRaceObserver.observe(root, { childList: true, subtree: true });
     }
 
     /* ============================
@@ -6961,7 +7054,7 @@ img.carIcon{
         const rows = getLiveOrder_(Infinity, true).map((x, i) => {
             const d = x.driver;
             const stats = driverTelemetryStats_(d, Infinity, true);
-            return [i + 1, d.name, driverRsCell_(d), reportCarCell_(d), formatSpeed_(stats.topSpeedMps), formatG_(stats.highestG), formatG_(d.highestLateralG)];
+            return [i + 1, d.name, driverRsCell_(d), reportCarCell_(d), formatSpeed_(stats.topSpeedMps), formatG_(stats.highestG), formatG_(stats.highestLateralG)];
         });
         return reportTableHtml_(["Pos", "Driver", "RS", "Car", "Top Speed", "Highest Combined G", "Highest Lateral G"], rows);
     }
@@ -6980,7 +7073,8 @@ img.carIcon{
         if (!analysis?.drivers?.length) return "";
         const rows = getLiveOrder_(Infinity, true).map((x, i) => {
             const d = x.driver;
-            return [i + 1, d.name, driverRsCell_(d), reportCarCell_(d), d.crashed ? "DNF / Crashed" : "Finished", formatTimeSeconds_(d.finalTime), formatTimeSeconds_(d.bestLapSeconds), formatTimeSeconds_(d.idealLapSeconds), formatSpeed_(d.topSpeedMps), formatG_(d.highestG)];
+            const stats = driverTelemetryStats_(d, Infinity, true);
+            return [i + 1, d.name, driverRsCell_(d), reportCarCell_(d), d.crashed ? "DNF / Crashed" : "Finished", formatTimeSeconds_(d.finalTime), formatTimeSeconds_(d.bestLapSeconds), formatTimeSeconds_(d.idealLapSeconds), formatSpeed_(stats.topSpeedMps), formatG_(stats.highestG)];
         });
         const leadRows = analysis.drivers.slice().sort((a, b) => (b.timeInLeadSeconds || 0) - (a.timeInLeadSeconds || 0)).map(d => [d.name, formatLeadTime_(d.timeInLeadSeconds), d.lapsLed || 0, d.segmentsLed || 0, formatLeadTime_(d.longestLeadStintSeconds), Math.max(0, (d.leadChanges || 0) - 1)]);
         return `${reportTableHtml_(["Pos", "Driver", "RS", "Car", "Status", "Total", "Best Lap", "Ideal Lap", "Top Speed", "Highest Est. G"], rows)}<h3>Lead History</h3>${reportTableHtml_(["Driver", "Time in Lead", "Laps Led", "Segments Led", "Longest Stint", "Lead Changes"], leadRows)}`;
@@ -7029,6 +7123,7 @@ img.carIcon{
                 if (payload) buildAnalysisFromRaceData_(payload);
             }
             applyDriverIntelToModel_();
+            ensureAnalysisAggregates_({ sectors: true, leads: true });
         } catch { }
 
         const info = raceMeta?.replayInfo || {};
@@ -9229,6 +9324,10 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
         const replayAtEnd = replayMoment && maxAnalysisFinalTime_() > 0 && elapsed >= maxAnalysisFinalTime_() - 0.05;
         const canFull = analysisCanShowFullRace_() && (!replayMoment || replayAtEnd);
         const telemetryActive = canFull || telemetryCanSample_(elapsed);
+        if (canFull && analysisMode === "sectors") ensureAnalysisAggregates_({ sectors: true });
+        if (canFull && (analysisMode === "summary" || analysisMode === "driver")) {
+            ensureAnalysisAggregates_({ sectors: true, leads: true });
+        }
         if (status) {
             status.textContent = ctx === "replay"
                 ? `REPLAY · JSON analysis @ ${formatTimeSeconds_(elapsed)}`
@@ -9973,11 +10072,13 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
 
     function driverTelemetryStats_(d, elapsed, canFull) {
         if (!canFull && !telemetryCanSample_(elapsed)) {
-            return { topSpeedMps: NaN, slowestSpeedMps: NaN, highestG: NaN, lowestG: NaN };
+            return { topSpeedMps: NaN, slowestSpeedMps: NaN, highestG: NaN, lowestG: NaN, highestLateralG: NaN };
         }
+        if (canFull && d?.fullTelemetryStats) return d.fullTelemetryStats;
         const limitIndex = canFull ? d.segmentTimes.length - 1 : currentDistanceAtTime_(d, elapsed).segmentIndex;
         const speeds = [];
         const gs = [];
+        const lateralGs = [];
         const combinedGs = [];
         for (let i = 0; i <= limitIndex && i < d.segmentTimes.length; i++) {
             const sp = d.segmentTimes[i] > 0 ? (d.segmentDistancesMeters?.[i] || 0) / d.segmentTimes[i] : NaN;
@@ -9992,17 +10093,33 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
             if (analysis?.routeModel && Number.isFinite(sp)) {
                 const curv = routeCurvatureAtMeters_(analysis.routeModel, d.cumulativeDistances?.[i] || 0);
                 const latG = calibrateLateralG_(Number.isFinite(curv) ? (sp * sp * curv) / 9.80665 : NaN);
+                if (Number.isFinite(latG)) lateralGs.push(Math.abs(latG));
                 if (Number.isFinite(longG) || Number.isFinite(latG)) {
                     combinedGs.push(Math.sqrt(Math.pow(Number.isFinite(longG) ? longG : 0, 2) + Math.pow(Number.isFinite(latG) ? latG : 0, 2)));
                 }
             }
         }
-        return {
+        const stats = {
             topSpeedMps: maxFinite_(speeds),
             slowestSpeedMps: minFinite_(speeds),
             highestG: maxFinite_(combinedGs.length ? combinedGs : gs),
-            lowestG: minFinite_(gs)
+            lowestG: minFinite_(gs),
+            highestLateralG: maxFinite_(lateralGs)
         };
+        if (canFull && d) {
+            d.fullTelemetryStats = stats;
+            d.topSpeedMps = stats.topSpeedMps;
+            d.slowestSpeedMps = stats.slowestSpeedMps;
+            d.highestG = stats.highestG;
+            d.lowestG = stats.lowestG;
+            d.highestLateralG = stats.highestLateralG;
+        }
+        return stats;
+    }
+
+    function ensureFullTelemetryStats_() {
+        if (!analysis?.drivers?.length) return;
+        for (const d of analysis.drivers) driverTelemetryStats_(d, Infinity, true);
     }
 
     function renderAccelMode_(elapsed) {
@@ -10192,7 +10309,8 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
         if (!full) return `<div class="mpg-note">Post-race summary unlocks when the race finishes. Enable preview in Settings to inspect full delivered race data early.</div>`;
         const rows = getLiveOrder_(Infinity, true).map((x, i) => {
             const d = x.driver;
-            return `<tr><td>${i + 1}</td><td>${carComboCell_(d)}</td><td>${driverWithRsCell_(d)}</td><td>${d.crashed ? "DNF / Crashed" : "Finished"}</td><td class="mono">${formatTimeSeconds_(d.finalTime)}</td><td class="mono">${formatTimeSeconds_(d.bestLapSeconds)}</td><td class="mono">${formatTimeSeconds_(d.idealLapSeconds)}</td><td class="mono">${formatSpeed_(d.topSpeedMps)}</td><td class="mono">${formatG_(d.highestG)}</td></tr>`;
+            const stats = driverTelemetryStats_(d, Infinity, true);
+            return `<tr><td>${i + 1}</td><td>${carComboCell_(d)}</td><td>${driverWithRsCell_(d)}</td><td>${d.crashed ? "DNF / Crashed" : "Finished"}</td><td class="mono">${formatTimeSeconds_(d.finalTime)}</td><td class="mono">${formatTimeSeconds_(d.bestLapSeconds)}</td><td class="mono">${formatTimeSeconds_(d.idealLapSeconds)}</td><td class="mono">${formatSpeed_(stats.topSpeedMps)}</td><td class="mono">${formatG_(stats.highestG)}</td></tr>`;
         });
         const leadRows = analysis.drivers.slice().sort((a,b)=>(b.timeInLeadSeconds||0)-(a.timeInLeadSeconds||0)).map(d => `<tr><td>${driverWithRsCell_(d)}</td><td class="mono">${formatLeadTime_(d.timeInLeadSeconds)}</td><td>${d.lapsLed || 0}</td><td>${d.segmentsLed || 0}</td><td class="mono">${formatLeadTime_(d.longestLeadStintSeconds)}</td><td>${Math.max(0, (d.leadChanges || 0) - 1)}</td></tr>`);
         return `${allowPreFinishPreview && !raceIsFinished_() ? `<div class="mpg-note">Preview mode — uses full race data already delivered to page.</div>` : ""}${renderTable_(["Pos","Car image + Car name","Driver (RS)","Status","Total","Best Lap","Ideal Lap","Top Speed","Highest Est. G"], rows, "Waiting for summary data...", "Summary")}${renderTable_(["Driver (RS)","Time in Lead","Laps Led","Segments Led","Longest Stint","Lead Changes"], leadRows, "No lead history yet.", "Lead History")}`;
@@ -10275,18 +10393,19 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
             const lastSeen = h.lastRaceAtIso ? fmtWhen_(h.lastRaceAtIso) : "--";
             return `<tr><td>${carComboCell_(car, h.lastCarImg || "", "sqlite")}</td><td>${driverWithRsCell_(driver)}</td><td>${onGrid ? "Yes" : "No"}</td><td>${h.races || 0}</td><td>${h.avgFinish ? `P${h.avgFinish.toFixed(1)}` : "--"}</td><td>${h.wins || 0}</td><td>${h.podiums || 0}</td><td>${h.crashes || 0}</td><td class="mono">${h.bestLapMs ? msToTimeText_(h.bestLapMs, "lap") : "--"}</td><td class="mono">${h.bestRaceMs ? msToTimeText_(h.bestRaceMs, "race") : "--"}</td><td>${Number.isFinite(h.riskScore) ? h.riskScore.toFixed(0) : "--"}</td><td>${esc_(lastSeen)}</td></tr>`;
         });
+        const historyError = historyCache?.error ? pgErrorMessage_(historyCache.error, "Race history unavailable") : "";
         const status = historyCache?.loading && pgLocalNorm_(historyCache.track) === pgLocalNorm_(track)
-            ? " Loading SQLite history..."
-            : historyCache?.error && pgLocalNorm_(historyCache.track) === pgLocalNorm_(track)
-                ? ` SQLite history unavailable: ${historyCache.error}`
-                : " Source: SQLite local Pit Guru DB.";
+            ? " Loading race history..."
+            : historyError && pgLocalNorm_(historyCache.track) === pgLocalNorm_(track)
+                ? ` History unavailable: ${historyError}`
+                : "";
         const emptyText = historyCache?.loading && pgLocalNorm_(historyCache.track) === pgLocalNorm_(track)
-            ? "Loading SQLite Pit Guru history..."
-            : historyCache?.error && pgLocalNorm_(historyCache.track) === pgLocalNorm_(track)
-                ? `SQLite Pit Guru history unavailable: ${historyCache.error}`
-                : "No SQLite Pit Guru history for this track yet.";
+            ? "Loading Pit Guru race history..."
+            : historyError && pgLocalNorm_(historyCache.track) === pgLocalNorm_(track)
+                ? `Pit Guru race history unavailable: ${historyError}`
+                : "No Pit Guru history for this track yet.";
         const scopeText = `${scope.raceType === "custom" ? "Custom" : "Official"}${scope.laps ? `, ${scope.laps} laps` : ""}`;
-        return `<div class="mpg-note">Past races on ${esc_(track)} (${esc_(scopeText)}). This is matching SQLite history from completed races; current-grid drivers are marked in the Grid column.${esc_(status)}</div>${renderTable_(["Car image + Car name","Driver (RS)","Grid","Races Here","Avg Finish","Wins","Podiums","Crashes","Best Lap","Best Race","Risk","Last Seen"], rows, emptyText, "Past Races on Track")}`;
+        return `<div class="mpg-note">Past races on ${esc_(track)} (${esc_(scopeText)}). This is matching history from completed races; current-grid drivers are marked in the Grid column.${esc_(status)}</div>${renderTable_(["Car image + Car name","Driver (RS)","Grid","Races Here","Avg Finish","Wins","Podiums","Crashes","Best Lap","Best Race","Risk","Last Seen"], rows, emptyText, "Past Races on Track")}`;
     }
 
     function renderPredictionsMode_(providedSet = null) {
@@ -10332,7 +10451,7 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
             ? "Pre-race grid snapshot — no race result data is needed for this forecast."
             : "Forecast only — based on visible/API driver stats and local history, not the generated race result.";
         const historyTable = hugeGrid
-            ? `<div class="mpg-note">Past Races on Track is skipped for huge pre-race grids to keep Torn responsive. SQLite history still contributes to prediction scores when available.</div>`
+            ? `<div class="mpg-note">Past Races on Track is skipped for huge pre-race grids to keep Torn responsive. Saved history still contributes to prediction scores when available.</div>`
             : renderPredictionPastRacesTable_(scored.map(x => x.d), set.trackName || "");
         return `<div class="mpg-note">${sourceNote}${apiNote}${rsNote}${historyNote}</div>${renderTable_(["Predicted Pos","Car image + Car name","Driver (RS)","Win Chance","Podium Chance","Expected Position","Confidence","Intel","Starts","Wins","Priors","Avg Pos","Risk"], rows, "Waiting for prediction data...", "Predictions")}${historyTable}`;
     }
@@ -11125,6 +11244,7 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
         raceMeta = loadRaceMeta_();
 
         ensureUi_();
+        installJoinRaceObserver_();
         setupDriverHover_();
         ensurePlayer_();
         refreshSpectate_();
