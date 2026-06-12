@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         MoDuL's Pit Guru
 // @namespace    modul.torn.racing
-// @version      1.8.7
+// @version      1.8.8
 // @description  Live Torn race timing, gaps, sectors, speed and estimated telemetry analysis
 // @author       MoDuL
 // @license      MIT
@@ -9,7 +9,7 @@
 // @downloadURL  https://modulah.github.io/pit-guru/MoDuLs-Pit-Guru.user.js
 // @match        https://www.torn.com/page.php?sid=racing*
 // @match        https://www.torn.com/loader.php?sid=racing*
-// @include      /^https:\/\/www\.torn\.com\/page\.php\?(?:[^#]*&)?sid=racing(?:Data)?(?:&|$)[^#]*$/
+// @include      https://www.torn.com/page.php*sid=racing*
 // @grant        GM_addStyle
 // @grant        GM_getValue
 // @grant        GM_setValue
@@ -299,7 +299,7 @@
     unsafeWindow.pgPlayerCacheRaceId = pgPlayerFetchRaceDataById_;
     unsafeWindow.pgPlayerCacheCurrentRace = openLocalPlayerForCurrentRace_;
 
-    const MPG_VERSION = "1.8.7";
+    const MPG_VERSION = "1.8.8";
     var TAG = "[MoDuL's Pit Guru v" + MPG_VERSION + "]";
 
     const PitGuruRaceEngine = (() => {
