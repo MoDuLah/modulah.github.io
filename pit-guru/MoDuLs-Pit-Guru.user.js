@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         MoDuL's Pit Guru
 // @namespace    modul.torn.racing
-// @version      1.9.1
+// @version      1.9.2
 // @description  Live Torn race timing, gaps, sectors, speed and estimated telemetry analysis
 // @author       MoDuL
 // @copyright    2026 MoDuL. All rights reserved.
@@ -309,7 +309,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
     unsafeWindow.pgPlayerCacheRaceId = pgPlayerFetchRaceDataById_;
     unsafeWindow.pgPlayerCacheCurrentRace = openLocalPlayerForCurrentRace_;
 
-    const MPG_VERSION = "1.9.1";
+    const MPG_VERSION = "1.9.2";
     var TAG = "[MoDuL's Pit Guru v" + MPG_VERSION + "]";
 
     const PitGuruRaceEngine = (() => {
@@ -8533,6 +8533,11 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
         return id ? `https://www.torn.com/images/items/${encodeURIComponent(id)}/large.png` : "";
     }
 
+    function garageHostedCarImage_(itemId) {
+        const id = String(itemId || "").trim();
+        return id ? `${PG_LOCAL_PLAYER_BASE}/assets/cars/${encodeURIComponent(id)}.png` : "";
+    }
+
     function garageCatalogByItem_() {
         const map = new Map();
         for (const c of garageCatalog || []) {
@@ -8546,7 +8551,7 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
         const wanted = toOgCarName_(carName || "").toLowerCase();
         if (!wanted) return "";
         const row = (garageCatalog || []).find(c => toOgCarName_(c.name || c.display_name || c.torn_name || "").toLowerCase() === wanted);
-        return String(row?.image_url || row?.imageUrl || (row?.item_id ? garageTornCarImage_(row.item_id) : "") || "").trim();
+        return String(row?.hosted_image_url || row?.hostedImageUrl || (row?.item_id ? garageHostedCarImage_(row.item_id) : "") || row?.image_url || row?.imageUrl || (row?.item_id ? garageTornCarImage_(row.item_id) : "") || "").trim();
     }
 
     async function pgLocalEnsureCarCatalog_(force = false) {
@@ -8580,7 +8585,7 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
         const name = toOgCarName_(raw.car || raw.ogName || raw.og_name || raw.display_name || raw.displayName || catalog.name || tornName || (!raw.car_item_name ? raw.name : "") || "");
         const nickname = String(raw.nickname || raw.car_name || raw.carName || (raw.car_item_name ? raw.name : "") || "").trim();
         const enlistedCarId = String(raw.enlisted_car_id || raw.enlistedCarId || raw.id || raw.ID || raw.carID || raw.carId || "").trim();
-        const imageUrl = String(raw.image_url || raw.imageUrl || raw.carImg || raw.carImage || catalog.image_url || garageTornCarImage_(itemId) || "").trim();
+        const imageUrl = String(raw.hosted_image_url || raw.hostedImageUrl || catalog.hosted_image_url || catalog.hostedImageUrl || garageHostedCarImage_(itemId) || raw.image_url || raw.imageUrl || raw.carImg || raw.carImage || catalog.image_url || garageTornCarImage_(itemId) || "").trim();
         const manufacturerFuelL100 = safeNum_(raw.fuel_l100km ?? raw.fuelL100Km ?? catalog.fuel_l100km ?? FUEL_BASE_L100KM[name] ?? FUEL_BASE_L100KM[toOgCarName_(tornName)], NaN);
         const parts = parseJsonArray_(raw.upgrades_json || raw.parts || raw.upgrades);
         const val = key => safeNum_(raw[key], NaN);
@@ -8652,14 +8657,18 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
             const key = normalized.enlistedCarId || `item:${normalized.itemID}:${normalized.nickname || normalized.car}`;
             if (!key) continue;
             const prev = byId.get(key) || {};
-            byId.set(key, Object.assign({}, prev, normalized, {
+            const merged = Object.assign({}, prev, normalized, {
                 parts: normalized.parts.length ? normalized.parts : (prev.parts || []),
                 upgrades: normalized.parts.length ? normalized.parts : (prev.upgrades || []),
                 imageUrl: normalized.imageUrl || prev.imageUrl || "",
                 car: normalized.car || prev.car || "",
                 name: normalized.name || prev.name || "",
                 carClass: normalized.carClass || prev.carClass || ""
-            }));
+            });
+            for (const field of ["mileage", "computedMileageKm", "worth", "pointsSpent", "racesEntered", "racesWon"]) {
+                if (!Number.isFinite(normalized[field]) && Number.isFinite(prev[field])) merged[field] = prev[field];
+            }
+            byId.set(key, merged);
         }
         return Array.from(byId.values()).sort((a, b) => {
             const ar = a.isRemoved ? 1 : 0;
