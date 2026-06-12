@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         MoDuL's Pit Guru
 // @namespace    modul.torn.racing
-// @version      1.8.9
+// @version      1.9.0
 // @description  Live Torn race timing, gaps, sectors, speed and estimated telemetry analysis
 // @author       MoDuL
 // @copyright    2026 MoDuL. All rights reserved.
@@ -38,6 +38,10 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
 
     function pgHostedSession_() {
         return String(GM_getValue(PG_HOSTED_SESSION_KEY, "") || "").trim();
+    }
+
+    function pgClearHostedSession_() {
+        GM_setValue(PG_HOSTED_SESSION_KEY, "");
     }
 
     function pgVerifyHostedSession_() {
@@ -305,7 +309,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
     unsafeWindow.pgPlayerCacheRaceId = pgPlayerFetchRaceDataById_;
     unsafeWindow.pgPlayerCacheCurrentRace = openLocalPlayerForCurrentRace_;
 
-    const MPG_VERSION = "1.8.9";
+    const MPG_VERSION = "1.9.0";
     var TAG = "[MoDuL's Pit Guru v" + MPG_VERSION + "]";
 
     const PitGuruRaceEngine = (() => {
@@ -1880,24 +1884,25 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         pgPlayerCacheActive = true;
         pgPlayerCacheInFlightKeys.add(key);
         pgPlayerCacheStatus = "Caching race in hosted player...";
-        const session = pgHostedSession_() || await pgVerifyHostedSession_();
         const data = JSON.stringify(p);
-        return await new Promise(resolve => {
-            const done = result => {
-                pgPlayerCacheInFlightKeys.delete(key);
-                pgPlayerCacheActive = pgPlayerCacheInFlightKeys.size > 0;
-                resolve(result);
-            };
-            const ok = result => {
-                const raceId = String(result?.race?.raceId || directRaceIdFromPayload_(p) || "").trim();
-                pgPlayerCacheStatus = raceId ? `Cached Race ID ${raceId} in hosted player.` : "Cached race in hosted player.";
-                pgPlayerCachedRaceKeys.add(key);
-                done(result);
-            };
-            const fail = error => {
-                pgPlayerCacheStatus = `Hosted player cache failed: ${error?.message || error || "request failed"}`;
-                if (debugEnabled) console.warn(TAG, pgPlayerCacheStatus);
-                done(null);
+        const submit = session => new Promise((resolve, reject) => {
+            const handleResponse = (status, statusText, responseText) => {
+                try {
+                    const parsed = JSON.parse(String(responseText || "{}"));
+                    if (parsed?.pending) {
+                        resolve(parsed);
+                        return;
+                    }
+                    if (status < 200 || status >= 300 || parsed?.ok === false) {
+                        const error = new Error(parsed?.error || statusText || `HTTP ${status}`);
+                        error.status = status;
+                        reject(error);
+                        return;
+                    }
+                    resolve(parsed);
+                } catch (error) {
+                    reject(error);
+                }
             };
             if (typeof GM_xmlhttpRequest === "function") {
                 GM_xmlhttpRequest({
@@ -1906,26 +1911,9 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
                     headers: { "Content-Type": "application/json", "X-Pit-Guru-Session": session },
                     data,
                     timeout: 12000,
-                    onload: res => {
-                        try {
-                            const parsed = JSON.parse(String(res.responseText || "{}"));
-                            if (parsed?.pending) {
-                                pgPlayerCacheStatus = parsed.error || "Hosted player cache pending: replay intervals are not available yet.";
-                                done(parsed);
-                                return;
-                            }
-                            if (res.status < 200 || res.status >= 300 || parsed?.ok === false) {
-                                fail(new Error(parsed?.error || res.statusText || `HTTP ${res.status}`));
-                                return;
-                            }
-                            if (debugEnabled) console.log(TAG, "hosted player cached racingData", source, parsed?.race);
-                            ok(parsed);
-                        } catch (e) {
-                            fail(e);
-                        }
-                    },
-                    onerror: fail,
-                    ontimeout: () => fail(new Error("hosted player request timed out"))
+                    onload: res => handleResponse(res.status, res.statusText, res.responseText),
+                    onerror: () => reject(new Error("hosted player request failed")),
+                    ontimeout: () => reject(new Error("hosted player request timed out"))
                 });
                 return;
             }
@@ -1934,16 +1922,39 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
                 headers: { "Content-Type": "application/json", "X-Pit-Guru-Session": session },
                 body: data
             }).then(async r => {
-                const parsed = await r.json().catch(() => ({}));
-                if (parsed?.pending) {
-                    pgPlayerCacheStatus = parsed.error || "Hosted player cache pending: replay intervals are not available yet.";
-                    done(parsed);
-                    return;
-                }
-                if (!r.ok || parsed?.ok === false) throw new Error(parsed?.error || r.statusText || `HTTP ${r.status}`);
-                ok(parsed);
-            }).catch(fail);
+                handleResponse(r.status, r.statusText, await r.text());
+            }).catch(reject);
         });
+        try {
+            let session = pgHostedSession_() || await pgVerifyHostedSession_();
+            let result;
+            try {
+                result = await submit(session);
+            } catch (error) {
+                const authFailure = error?.status === 401
+                    || (error?.status === 403 && /verify your torn account|no verified pit guru session/i.test(String(error?.message || "")));
+                if (!authFailure) throw error;
+                pgClearHostedSession_();
+                session = await pgVerifyHostedSession_();
+                result = await submit(session);
+            }
+            if (result?.pending) {
+                pgPlayerCacheStatus = result.error || "Hosted player cache pending: replay intervals are not available yet.";
+                return result;
+            }
+            const raceId = String(result?.race?.raceId || directRaceIdFromPayload_(p) || "").trim();
+            pgPlayerCacheStatus = raceId ? `Cached Race ID ${raceId} in hosted player.` : "Cached race in hosted player.";
+            pgPlayerCachedRaceKeys.add(key);
+            if (debugEnabled) console.log(TAG, "hosted player cached racingData", source, result?.race);
+            return result;
+        } catch (error) {
+            pgPlayerCacheStatus = `Hosted player cache failed: ${error?.message || error || "request failed"}`;
+            if (debugEnabled) console.warn(TAG, pgPlayerCacheStatus);
+            return null;
+        } finally {
+            pgPlayerCacheInFlightKeys.delete(key);
+            pgPlayerCacheActive = pgPlayerCacheInFlightKeys.size > 0;
+        }
     }
 
     async function pgPlayerFetchRaceDataById_(raceId) {
