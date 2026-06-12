@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         MoDuL's Pit Guru
 // @namespace    modul.torn.racing
-// @version      1.8.4
+// @version      1.8.7
 // @description  Live Torn race timing, gaps, sectors, speed and estimated telemetry analysis
 // @author       MoDuL
 // @license      MIT
@@ -17,8 +17,7 @@
 // @grant        unsafeWindow
 // @connect      api.torn.com
 // @connect      pp_api.sokin.xyz
-// @connect      127.0.0.1
-// @connect      localhost
+
 // @icon         https://www.google.com/s2/favicons?sz=64&domain=torn.com
 // @run-at       document-start
 // ==/UserScript==
@@ -300,7 +299,7 @@
     unsafeWindow.pgPlayerCacheRaceId = pgPlayerFetchRaceDataById_;
     unsafeWindow.pgPlayerCacheCurrentRace = openLocalPlayerForCurrentRace_;
 
-    const MPG_VERSION = "1.8.4";
+    const MPG_VERSION = "1.8.7";
     var TAG = "[MoDuL's Pit Guru v" + MPG_VERSION + "]";
 
     const PitGuruRaceEngine = (() => {
@@ -650,6 +649,7 @@
     const STORE_DRIVER_INTEL_SETTLE_MS_KEY = "RT_TORN_RA_DRIVER_INTEL_SETTLE_MS";
     const STORE_PARTICIPANT_SCAN_REPEAT_KEY = "RT_TORN_RA_PARTICIPANT_SCAN_REPEAT";
     const STORE_DIRECT_FETCH_LEASE_KEY = "RT_TORN_RA_DIRECT_FETCH_LEASE_V1";
+    const STORE_ONBOARDING_COMPLETE_KEY = "RT_TORN_RA_ONBOARDING_COMPLETE_V1";
     const STORE_RECORDS_MAX = 2500;
     const WIN_DEFAULT_WIDTH = 720;
     const WIN_DEFAULT_HEIGHT = 740;
@@ -677,7 +677,7 @@
         playPause: ["#play-pause-btn"],
         speed: ["#speed-value"]
     });
-    const PIT_GURU_OWN_UI_SELECTOR = "#rtLapWin,#rtLapBtn,#rtRecordsPopup,#mpgSettingsModal,#mpgGarageModal,#mpgDriverHoverCard";
+    const PIT_GURU_OWN_UI_SELECTOR = "#rtLapWin,#rtLapBtn,#rtRecordsPopup,#mpgSettingsModal,#mpgGarageModal,#mpgDriverHoverCard,#mpgTutorial";
     const LONGITUDINAL_G_LIMIT = 2.4;
     const LATERAL_G_LIMIT = 2.8;
     const PERFORMANCE_PRESETS = Object.freeze({
@@ -818,6 +818,11 @@
     let clearOnRaceChange = false;
     let theme = "classic";
     let settingsOpen = false;
+    let onboardingRequired = false;
+    let tutorialActive = false;
+    let tutorialStep = 0;
+    let tutorialHighlightedEl = null;
+    let focusApiKeyPending = false;
     let garageOpen = false;
     let garageLoading = false;
     let garageStatus = "";
@@ -826,6 +831,8 @@
     let garageCars = [];
     let garageEvents = [];
     let garageSelectedCarId = "";
+    let garageCompareOpen = false;
+    let garageCompareCarId = "";
     let garageLogOpen = false;
     let garageShowDelisted = false;
     let garageLastFetchAt = 0;
@@ -5656,7 +5663,8 @@ return {
         const settingsModal = document.getElementById("mpgSettingsModal");
         const garageModal = document.getElementById("mpgGarageModal");
         const driverHover = document.getElementById("mpgDriverHoverCard");
-        const targets = [win, btn, recordsPopup, settingsModal, garageModal, driverHover].filter(Boolean);
+        const tutorial = document.getElementById("mpgTutorial");
+        const targets = [win, btn, recordsPopup, settingsModal, garageModal, driverHover, tutorial].filter(Boolean);
         if (!targets.length) return;
         for (const el of targets) {
             el.dataset.theme = theme;
@@ -5664,6 +5672,13 @@ return {
                 el.classList.remove(`mpg-theme-${t.key}`, `mpg-theme-${t.key}`);
             }
             el.classList.add(`mpg-theme-${theme}`, `mpg-theme-${theme}`);
+        }
+        if (tutorial && win) {
+            const computed = getComputedStyle(win);
+            [
+                "--bg", "--panel", "--border", "--text", "--muted", "--header", "--hover", "--pill", "--pillHover",
+                "--tableBg", "--thBg", "--gapNeg", "--gapPos", "--gapZero", "--accent", "--green", "--red"
+            ].forEach(name => tutorial.style.setProperty(name, computed.getPropertyValue(name)));
         }
 
         const label = document.getElementById("rtThemeLabel");
@@ -5682,7 +5697,7 @@ return {
  * UI STYLES (Pit Guru)
  * ============================ */
 
-#rtLapWin, #rtLapBtn, #rtRecordsPopup, #mpgSettingsModal, #mpgGarageModal, #mpgDriverHoverCard{
+#rtLapWin, #rtLapBtn, #rtRecordsPopup, #mpgSettingsModal, #mpgGarageModal, #mpgDriverHoverCard, #mpgTutorial{
   /* defaults (dark) */
   --bg:#161616;
   --panel:#121212;
@@ -5735,7 +5750,7 @@ img.carIcon{
 }
 
 /* ========== Force all UI text to follow vars (prevents black leaks) ========== */
-#rtLapWin, #rtLapBtn, #rtRecordsPopup, #mpgSettingsModal, #mpgGarageModal, #mpgDriverHoverCard,
+#rtLapWin, #rtLapBtn, #rtRecordsPopup, #mpgSettingsModal, #mpgGarageModal, #mpgDriverHoverCard, #mpgTutorial,
 #rtHdr, #rtBody, #rtMeta, #rtCountdown,
 #rtTrack, #rtCar, #rtDriver, #rtRaceTime{
   color: var(--text) !important;
@@ -5972,6 +5987,7 @@ img.carIcon{
 .mpg-settings-title{font-weight:900;font-size:15px}
 .mpg-settings-subtitle{font-size:12px;color:var(--muted);margin-top:2px}
 .mpg-settings-close{width:34px;height:34px;border-radius:50%;justify-content:center;padding:0}
+.mpg-settings-header-actions{display:flex;align-items:center;gap:8px}
 .mpg-settings-body{overflow:auto;padding:12px}
 .mpg-settings-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
 .mpg-settings-section{
@@ -6010,6 +6026,33 @@ img.carIcon{
 .mpg-key-status.bad{color:#ff7777}
 .mpg-status-mark{display:inline-grid;place-items:center;width:19px;height:19px;border-radius:50%;border:1px solid currentColor;font-size:11px;line-height:1}
 .mpg-settings-modal .pill[disabled]{opacity:.55;pointer-events:none}
+#mpgTutorial{
+  position:fixed;
+  inset:0;
+  z-index:2147483646;
+  display:none;
+  pointer-events:none;
+  color:var(--text);
+  font:12px system-ui;
+}
+.mpg-tutorial-card{
+  position:fixed;
+  width:min(360px,calc(100vw - 24px));
+  border:1px solid var(--gapPos);
+  border-radius:10px;
+  background:var(--panel);
+  color:var(--text);
+  padding:13px;
+  box-shadow:0 18px 55px rgba(0,0,0,.62),0 0 0 1px rgba(255,255,255,.05);
+  pointer-events:auto;
+}
+.mpg-tutorial-kicker{color:var(--gapPos);font-size:11px;font-weight:900;text-transform:uppercase}
+.mpg-tutorial-title{margin-top:4px;font-size:16px;font-weight:950}
+.mpg-tutorial-copy{margin-top:7px;color:var(--muted);font-size:12px;line-height:1.45}
+.mpg-tutorial-actions{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:12px}
+.mpg-tutorial-nav{display:flex;align-items:center;gap:7px}
+.mpg-tutorial-progress{color:var(--muted);font-size:11px;font-weight:800}
+.mpg-tutorial-target{outline:3px solid var(--gapPos) !important;outline-offset:3px;box-shadow:0 0 20px color-mix(in srgb,var(--gapPos) 55%,transparent) !important}
 .mpg-garage-modal{
   position:fixed;
   inset:0;
@@ -6035,10 +6078,12 @@ img.carIcon{
   box-shadow:0 22px 70px rgba(0,0,0,.5);
   overflow:hidden;
 }
+.mpg-garage-window.compare{width:min(1460px,calc(100vw - 36px))}
 .mpg-garage-body{overflow:hidden;padding:12px;display:grid;grid-template-rows:auto minmax(0,1fr);gap:12px;min-height:0;flex:1 1 auto}
 .mpg-garage-toolbar{display:flex;gap:8px;align-items:center;justify-content:space-between;flex-wrap:wrap}
 .mpg-garage-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 .mpg-garage-grid{display:grid;grid-template-columns:minmax(300px,425px) minmax(0,1fr);grid-template-rows:minmax(0,1fr);gap:12px;min-height:0;height:100%}
+.mpg-garage-body.compare .mpg-garage-grid{grid-template-columns:minmax(280px,360px) minmax(720px,1fr)}
 .mpg-garage-list,.mpg-garage-detail,.mpg-garage-history{
   border:1px solid var(--border);
   border-radius:10px;
@@ -6131,6 +6176,36 @@ img.carIcon{
 .mpg-garage-track{position:relative;height:14px;border-radius:999px;background:rgba(255,255,255,.10);overflow:hidden;border:1px solid var(--border);box-shadow:inset 0 1px 4px rgba(0,0,0,.45)}
 .mpg-garage-fill{display:block;height:100%;width:0;border-radius:999px;background:linear-gradient(90deg,var(--gapPos),var(--gapNeg)) !important;box-shadow:0 0 10px color-mix(in srgb,var(--gapNeg) 55%,transparent)}
 .mpg-garage-bar b{text-align:right;font-size:12px}
+.mpg-garage-compare{display:grid;gap:12px;padding:12px;min-width:720px}
+.mpg-garage-compare-head{display:grid;grid-template-columns:minmax(0,1fr) 110px minmax(0,1fr);gap:10px;align-items:center}
+.mpg-garage-compare-car{display:grid;grid-template-columns:92px minmax(0,1fr);gap:10px;align-items:center;min-width:0}
+.mpg-garage-compare-car.right{grid-template-columns:minmax(0,1fr) 92px;text-align:right}
+.mpg-garage-compare-car img{width:88px;height:52px;object-fit:contain;filter:drop-shadow(0 7px 11px rgba(0,0,0,.32))}
+.mpg-garage-compare-car.right img{order:2}
+.mpg-garage-compare-car select{width:100%;min-width:0}
+.mpg-garage-compare-vs{display:grid;justify-items:center;gap:6px;text-align:center;color:var(--gapPos);font-weight:950;font-size:15px}
+.mpg-garage-compare-stats,.mpg-garage-compare-facts{display:grid;gap:4px}
+.mpg-garage-compare-stat{display:grid;grid-template-columns:minmax(80px,1fr) 38px 150px 38px minmax(80px,1fr);gap:7px;align-items:center;min-height:25px}
+.mpg-garage-compare-track{height:14px;background:rgba(255,255,255,.09);border:1px solid var(--border);overflow:hidden}
+.mpg-garage-compare-track.left{display:flex;justify-content:flex-end}
+.mpg-garage-compare-fill{display:block;height:100%;background:var(--compare-color,var(--gapPos))}
+.mpg-garage-compare-stat.topSpeed{--compare-color:#279be8}
+.mpg-garage-compare-stat.acceleration{--compare-color:#55ba63}
+.mpg-garage-compare-stat.braking{--compare-color:#ef4d59}
+.mpg-garage-compare-stat.handling{--compare-color:#a33eb9}
+.mpg-garage-compare-stat.dirt{--compare-color:#936b58}
+.mpg-garage-compare-stat.tarmac{--compare-color:#12a79e}
+.mpg-garage-compare-stat.safety{--compare-color:#f1bd22}
+.mpg-garage-compare-stat-label{text-align:center;font-size:11px;font-weight:900;color:var(--text)}
+.mpg-garage-compare-delta{display:block;color:var(--muted);font-weight:800;white-space:nowrap}
+.mpg-garage-compare-delta.a{color:#69b9ff}.mpg-garage-compare-delta.b{color:var(--gapPos)}
+.mpg-garage-compare-value{font-size:12px;font-weight:900}
+.mpg-garage-compare-value.a{text-align:right}.mpg-garage-compare-value.b{text-align:left}
+.mpg-garage-compare-fact{display:grid;grid-template-columns:minmax(0,1fr) 160px minmax(0,1fr);gap:8px;align-items:center;min-height:27px;border-top:1px solid rgba(255,255,255,.06)}
+.mpg-garage-compare-fact:first-child{border-top:0}
+.mpg-garage-compare-fact-value{font-weight:850;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mpg-garage-compare-fact-value.left{text-align:right}.mpg-garage-compare-fact-value.right{text-align:left}
+.mpg-garage-compare-close{justify-self:center}
 .mpg-garage-history{margin:12px;display:block}
 .mpg-garage-history table{width:100%;border-collapse:separate;border-spacing:0;color:var(--text) !important;background:var(--tableBg)}
 .mpg-garage-history th,.mpg-garage-history td{padding:7px 8px;text-align:center;border-bottom:1px solid rgba(255,255,255,.08);color:var(--text) !important;background:var(--tableBg)}
@@ -6292,6 +6367,7 @@ img.carIcon{
   .mpg-garage-grid{grid-template-columns:1fr}
   .mpg-garage-selected{grid-template-columns:1fr}
   .mpg-garage-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .mpg-garage-compare{min-width:680px}
   .mpg-gyro{grid-template-columns:1fr}
 }
 
@@ -7910,6 +7986,187 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
         saveWinOpen_(false);
     }
 
+    function tutorialSteps_() {
+        return [
+            {
+                selector: "#mpgApiKey",
+                title: "Connect Driver Intel",
+                copy: "Add your public Torn API key here. It stays in your userscript storage and unlocks Racing Skill, driver profiles, garage refreshes, and hosted-player verification.",
+                prepare() {
+                    openWin_();
+                    garageOpen = false;
+                    settingsOpen = true;
+                    focusApiKeyPending = true;
+                }
+            },
+            {
+                selector: "#mpgModeBar",
+                title: "Live analysis containers",
+                copy: "Switch between the live leaderboard, lap recording, sectors, speed, pace, gyro, summaries, driver stats, and predictions. Each view follows the same live race or replay moment.",
+                prepare() {
+                    openWin_();
+                    settingsOpen = false;
+                    garageOpen = false;
+                }
+            },
+            {
+                selector: "#mpgModeBar button[data-mode=\"predictions\"]",
+                title: "Know the grid before lights out",
+                copy: "Predictions combine Driver Intel and matching track history before the race starts, so you can assess the field while the grid is still forming.",
+                prepare() {
+                    openWin_();
+                    settingsOpen = false;
+                    garageOpen = false;
+                }
+            },
+            {
+                selector: "#rtLocalPlayer",
+                title: "Open the visual race player",
+                copy: "The Player reconstructs Torn racingData into an external replay with the track map, timing tower, commentary, telemetry comparisons, and G-Live Accelerator.",
+                prepare() {
+                    openWin_();
+                    settingsOpen = false;
+                    garageOpen = false;
+                }
+            },
+            {
+                selector: "#mpgGarageBtn",
+                title: "Manage and compare your garage",
+                copy: "My Garage tracks each enlisted-car instance, upgrades, mileage, stats, fuel data, and side-by-side car comparisons.",
+                prepare() {
+                    openWin_();
+                    settingsOpen = false;
+                    garageOpen = false;
+                }
+            },
+            {
+                selector: "#rtToggleRecords",
+                title: "Keep results and export reports",
+                copy: "Records retain your best laps and race times, while HTML export creates a portable race report. Auto-clear prepares the same window for the next event.",
+                prepare() {
+                    openWin_();
+                    settingsOpen = false;
+                    garageOpen = false;
+                }
+            }
+        ];
+    }
+
+    function clearTutorialHighlight_() {
+        if (tutorialHighlightedEl) tutorialHighlightedEl.classList.remove("mpg-tutorial-target");
+        tutorialHighlightedEl = null;
+    }
+
+    function ensureTutorial_() {
+        let tutorial = document.getElementById("mpgTutorial");
+        if (tutorial) return tutorial;
+        tutorial = document.createElement("div");
+        tutorial.id = "mpgTutorial";
+        tutorial.innerHTML = `
+          <div class="mpg-tutorial-card" role="dialog" aria-modal="false" aria-labelledby="mpgTutorialTitle">
+            <div class="mpg-tutorial-kicker">Pit Guru quick tour</div>
+            <div id="mpgTutorialTitle" class="mpg-tutorial-title"></div>
+            <div id="mpgTutorialCopy" class="mpg-tutorial-copy"></div>
+            <div class="mpg-tutorial-actions">
+              <button id="mpgTutorialSkip" class="pill" type="button">Skip</button>
+              <div class="mpg-tutorial-nav">
+                <span id="mpgTutorialProgress" class="mpg-tutorial-progress"></span>
+                <button id="mpgTutorialPrev" class="pill" type="button">Back</button>
+                <button id="mpgTutorialNext" class="pill on" type="button">Next</button>
+              </div>
+            </div>
+          </div>`;
+        document.body.appendChild(tutorial);
+        tutorial.querySelector("#mpgTutorialSkip").onclick = () => finishTutorial_();
+        tutorial.querySelector("#mpgTutorialPrev").onclick = () => showTutorialStep_(tutorialStep - 1);
+        tutorial.querySelector("#mpgTutorialNext").onclick = () => {
+            const steps = tutorialSteps_();
+            if (tutorialStep >= steps.length - 1) finishTutorial_();
+            else showTutorialStep_(tutorialStep + 1);
+        };
+        window.addEventListener("resize", () => {
+            if (tutorialActive) positionTutorial_();
+        });
+        window.addEventListener("scroll", () => {
+            if (tutorialActive) positionTutorial_();
+        }, true);
+        applyTheme_();
+        return tutorial;
+    }
+
+    function positionTutorial_(scrollTarget = false) {
+        if (!tutorialActive) return;
+        const tutorial = ensureTutorial_();
+        const card = tutorial.querySelector(".mpg-tutorial-card");
+        const step = tutorialSteps_()[tutorialStep];
+        if (!card || !step) return;
+        clearTutorialHighlight_();
+        const target = document.querySelector(step.selector) || document.getElementById("rtLapWin");
+        if (!target) return;
+        tutorialHighlightedEl = target;
+        target.classList.add("mpg-tutorial-target");
+        if (scrollTarget) {
+            try { target.scrollIntoView({ block: "center", inline: "center" }); } catch { }
+        }
+        const rect = target.getBoundingClientRect();
+        const cardRect = card.getBoundingClientRect();
+        const margin = 12;
+        const below = rect.bottom + margin;
+        const top = below + cardRect.height <= window.innerHeight - margin
+            ? below
+            : Math.max(margin, rect.top - cardRect.height - margin);
+        const left = Math.max(margin, Math.min(window.innerWidth - cardRect.width - margin, rect.left + (rect.width - cardRect.width) / 2));
+        card.style.top = `${Math.round(top)}px`;
+        card.style.left = `${Math.round(left)}px`;
+    }
+
+    function focusFirstRunApiKey_() {
+        if (!focusApiKeyPending || !settingsOpen) return;
+        const input = document.getElementById("mpgApiKey");
+        if (!input) return;
+        focusApiKeyPending = false;
+        requestAnimationFrame(() => {
+            try {
+                input.focus({ preventScroll: true });
+                if (!input.readOnly && !input.value) input.select();
+            } catch { }
+        });
+    }
+
+    function showTutorialStep_(stepIndex) {
+        const steps = tutorialSteps_();
+        tutorialStep = Math.max(0, Math.min(steps.length - 1, Number(stepIndex) || 0));
+        tutorialActive = true;
+        const step = steps[tutorialStep];
+        step.prepare();
+        const tutorial = ensureTutorial_();
+        tutorial.style.display = "block";
+        tutorial.querySelector("#mpgTutorialTitle").textContent = step.title;
+        tutorial.querySelector("#mpgTutorialCopy").textContent = step.copy;
+        tutorial.querySelector("#mpgTutorialProgress").textContent = `${tutorialStep + 1} / ${steps.length}`;
+        tutorial.querySelector("#mpgTutorialPrev").disabled = tutorialStep === 0;
+        tutorial.querySelector("#mpgTutorialNext").textContent = tutorialStep === steps.length - 1 ? "Done" : "Next";
+        uiDirty = true;
+        scheduleRender_();
+        requestAnimationFrame(() => requestAnimationFrame(() => {
+            positionTutorial_(true);
+            focusFirstRunApiKey_();
+        }));
+    }
+
+    function startTutorial_() {
+        showTutorialStep_(0);
+    }
+
+    function finishTutorial_() {
+        tutorialActive = false;
+        onboardingRequired = false;
+        saveBoolSetting_(STORE_ONBOARDING_COMPLETE_KEY, true);
+        clearTutorialHighlight_();
+        const tutorial = document.getElementById("mpgTutorial");
+        if (tutorial) tutorial.style.display = "none";
+    }
+
 
     function clearView_(opts = {}) {
         const currentPayload = latestRaceDataPayload || analysis?.payload || null;
@@ -7961,7 +8218,10 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
                 <div id="mpgSettingsTitle" class="mpg-settings-title">Settings</div>
                 <div class="mpg-settings-subtitle">API, analysis, display, records, and advanced controls.</div>
               </div>
-              <button id="mpgSettingsClose" class="pill mpg-settings-close" type="button" title="Close Settings"><span>x</span></button>
+              <div class="mpg-settings-header-actions">
+                <button id="mpgSettingsTour" class="pill" type="button" title="Start the Pit Guru quick tour"><span>Quick tour</span></button>
+                <button id="mpgSettingsClose" class="pill mpg-settings-close" type="button" title="Close Settings"><span>x</span></button>
+              </div>
             </div>
             <div class="mpg-settings-body">
               <div id="mpgSettingsPanel" class="mpg-settings-grid"></div>
@@ -7980,6 +8240,7 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
             uiDirty = true;
             scheduleRender_();
         };
+        modal.querySelector("#mpgSettingsTour").onclick = startTutorial_;
         document.addEventListener("keydown", e => {
             if (e.key !== "Escape" || !settingsOpen) return;
             settingsOpen = false;
@@ -8195,6 +8456,8 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
             uiDirty = true;
             scheduleRender_();
         };
+        focusFirstRunApiKey_();
+        if (tutorialActive) requestAnimationFrame(positionTutorial_);
     }
 
     function garageTornCarImage_(itemId) {
@@ -8721,6 +8984,20 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
         return garageShowDelisted ? [...(garageCars || [])] : (garageCars || []).filter(c => !c.isRemoved);
     }
 
+    function garageCarTitle_(car) {
+        if (!car) return "--";
+        return car.nickname ? `${car.car || "--"} "${car.nickname}"` : (car.car || "--");
+    }
+
+    function comparisonGarageCar_(selected = selectedGarageCar_()) {
+        const selectedId = String(selected?.enlistedCarId || "");
+        const candidates = visibleGarageCars_().filter(c => String(c.enlistedCarId || "") !== selectedId);
+        const match = candidates.find(c => String(c.enlistedCarId || "") === String(garageCompareCarId || ""));
+        const car = match || candidates[0] || null;
+        garageCompareCarId = String(car?.enlistedCarId || "");
+        return car;
+    }
+
     function garageMoney_(value) {
         const n = Number(value);
         return Number.isFinite(n) ? `$${Math.round(n).toLocaleString()}` : "--";
@@ -8739,6 +9016,15 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
         return `${value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${suffix}`;
     }
 
+    function garageMileageKm_(car) {
+        for (const value of [car?.computedMileageKm, car?.mileage]) {
+            if (value === null || value === undefined || value === "") continue;
+            const mileage = Number(value);
+            if (Number.isFinite(mileage) && mileage >= 0) return mileage;
+        }
+        return NaN;
+    }
+
     function garageStatParts_(car, key) {
         const value = safeNum_(car?.[key], NaN);
         const base = safeNum_(car?.[`${key}Base`] ?? car?.[`base_${key}`], value);
@@ -8753,6 +9039,134 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
         const value = Number.isFinite(stat.value) ? stat.value.toFixed(0) : "--";
         const title = `${label}: ${value} (base ${Number.isFinite(stat.base) ? stat.base.toFixed(0) : "--"} + bonus ${Number.isFinite(stat.bonus) ? stat.bonus.toFixed(0) : "--"})`;
         return `<div class="mpg-garage-bar" title="${escAttr_(title)}"><span>${esc_(label)}</span><div class="mpg-garage-track"><div class="mpg-garage-fill" style="width:${pct.toFixed(1)}%;${pct > 0 ? "min-width:2px;" : ""}"></div></div><b class="mono">${esc_(value)}</b></div>`;
+    }
+
+    function garageCompareIndex_(car, surface = "overall") {
+        if (!car) return NaN;
+        const normal = (key, max) => {
+            const value = safeNum_(car[key], NaN);
+            return Number.isFinite(value) ? Math.max(0, Math.min(1.5, value / max)) : NaN;
+        };
+        const values = {
+            topSpeed: normal("topSpeed", 150),
+            acceleration: normal("acceleration", 150),
+            braking: normal("braking", 150),
+            handling: normal("handling", 150),
+            dirt: normal("dirt", 100),
+            tarmac: normal("tarmac", 100),
+            safety: normal("safety", 100)
+        };
+        const weights = surface === "tarmac"
+            ? { topSpeed: 1.1, acceleration: 1.1, braking: 1, handling: 1.2, tarmac: 2 }
+            : surface === "dirt"
+                ? { acceleration: 1.1, braking: 1, handling: 1.2, dirt: 2, safety: .4 }
+                : { topSpeed: 1, acceleration: 1, braking: 1, handling: 1, dirt: .7, tarmac: .7, safety: .35 };
+        let total = 0;
+        let weight = 0;
+        for (const [key, amount] of Object.entries(weights)) {
+            if (!Number.isFinite(values[key])) continue;
+            total += values[key] * amount;
+            weight += amount;
+        }
+        return weight ? (total / weight) * 100 : NaN;
+    }
+
+    function garageCompareDeltaHtml_(aValue, bValue, options = {}) {
+        const a = Number(aValue);
+        const b = Number(bValue);
+        if (!Number.isFinite(a) || !Number.isFinite(b)) return `<span class="mpg-garage-compare-delta">--</span>`;
+        const difference = b - a;
+        const lowerBetter = !!options.lowerBetter;
+        const decimals = Number.isFinite(options.decimals) ? options.decimals : 0;
+        const winner = Math.abs(difference) < Math.pow(10, -decimals) / 2
+            ? ""
+            : ((lowerBetter ? b < a : b > a) ? "b" : "a");
+        const arrow = winner === "b" ? "→" : winner === "a" ? "←" : "=";
+        const formatted = Math.abs(difference).toLocaleString(undefined, {
+            minimumFractionDigits: decimals,
+            maximumFractionDigits: decimals
+        });
+        return `<span class="mpg-garage-compare-delta ${winner}">${arrow} ${esc_(options.prefix || "")}${esc_(formatted)}${esc_(options.suffix || "")}</span>`;
+    }
+
+    function garageCompareStatRow_(a, b, key, label) {
+        const aStat = garageStatParts_(a, key);
+        const bStat = garageStatParts_(b, key);
+        const scaleMax = ["tarmac", "dirt", "safety"].includes(key) ? 100 : 150;
+        const pct = value => Number.isFinite(value) ? Math.max(0, Math.min(100, (value / scaleMax) * 100)) : 0;
+        const value = n => Number.isFinite(n) ? n.toFixed(0) : "--";
+        const delta = garageCompareDeltaHtml_(aStat.value, bStat.value);
+        return `<div class="mpg-garage-compare-stat ${escAttr_(key)}">
+          <div class="mpg-garage-compare-track left"><span class="mpg-garage-compare-fill" style="width:${pct(aStat.value).toFixed(1)}%"></span></div>
+          <span class="mpg-garage-compare-value a mono">${esc_(value(aStat.value))}</span>
+          <div class="mpg-garage-compare-stat-label">${esc_(label)}${delta}</div>
+          <span class="mpg-garage-compare-value b mono">${esc_(value(bStat.value))}</span>
+          <div class="mpg-garage-compare-track"><span class="mpg-garage-compare-fill" style="width:${pct(bStat.value).toFixed(1)}%"></span></div>
+        </div>`;
+    }
+
+    function garageCompareFactRow_(label, aText, bText, deltaHtml = "") {
+        return `<div class="mpg-garage-compare-fact">
+          <span class="mpg-garage-compare-fact-value left">${esc_(aText)}</span>
+          <span class="mpg-garage-compare-stat-label">${esc_(label)}${deltaHtml}</span>
+          <span class="mpg-garage-compare-fact-value right">${esc_(bText)}</span>
+        </div>`;
+    }
+
+    function renderGarageCompareHtml_(selected) {
+        const compared = comparisonGarageCar_(selected);
+        if (!compared) return `<div class="mpg-garage-empty">A second visible car is required for comparison.</div>`;
+        const options = visibleGarageCars_()
+            .filter(car => String(car.enlistedCarId || "") !== String(selected.enlistedCarId || ""))
+            .map(car => `<option value="${escAttr_(car.enlistedCarId || "")}"${String(car.enlistedCarId || "") === String(compared.enlistedCarId || "") ? " selected" : ""}>${esc_(garageCarTitle_(car))} · ${esc_(car.enlistedCarId || "--")}</option>`)
+            .join("");
+        const aStarts = safeNum_(selected.racesEntered, NaN);
+        const bStarts = safeNum_(compared.racesEntered, NaN);
+        const aWins = safeNum_(selected.racesWon, NaN);
+        const bWins = safeNum_(compared.racesWon, NaN);
+        const aRatio = Number.isFinite(aStarts) && aStarts > 0 && Number.isFinite(aWins) ? (aWins / aStarts) * 100 : NaN;
+        const bRatio = Number.isFinite(bStarts) && bStarts > 0 && Number.isFinite(bWins) ? (bWins / bStarts) * 100 : NaN;
+        const aMileage = garageMileageKm_(selected);
+        const bMileage = garageMileageKm_(compared);
+        const aFuel = safeNum_(selected.manufacturerFuelL100, NaN);
+        const bFuel = safeNum_(compared.manufacturerFuelL100, NaN);
+        const percent = n => Number.isFinite(n) ? `${n.toFixed(2)}%` : "--";
+        return `<div class="mpg-garage-compare">
+          <div class="mpg-garage-compare-head">
+            <div class="mpg-garage-compare-car">
+              ${selected.imageUrl ? `<img src="${escAttr_(selected.imageUrl)}" alt="">` : ""}
+              <div><b>${esc_(garageCarTitle_(selected))}</b><div class="mpg-garage-meta">A · ID ${esc_(selected.enlistedCarId || "--")}</div></div>
+            </div>
+            <div class="mpg-garage-compare-vs">A vs B<button id="mpgGarageCloseCompare" class="pill mpg-garage-compare-close" type="button" title="Close comparison"><span>×</span></button></div>
+            <div class="mpg-garage-compare-car right">
+              <div><select id="mpgGarageCompareCar">${options}</select><div class="mpg-garage-meta">B · ID ${esc_(compared.enlistedCarId || "--")}</div></div>
+              ${compared.imageUrl ? `<img src="${escAttr_(compared.imageUrl)}" alt="">` : ""}
+            </div>
+          </div>
+          <div class="mpg-garage-compare-stats">
+            ${garageCompareStatRow_(selected, compared, "topSpeed", "Top-speed")}
+            ${garageCompareStatRow_(selected, compared, "acceleration", "Acceleration")}
+            ${garageCompareStatRow_(selected, compared, "braking", "Braking")}
+            ${garageCompareStatRow_(selected, compared, "handling", "Handling")}
+            ${garageCompareStatRow_(selected, compared, "dirt", "Dirt")}
+            ${garageCompareStatRow_(selected, compared, "tarmac", "Tarmac")}
+            ${garageCompareStatRow_(selected, compared, "safety", "Safety")}
+          </div>
+          <div class="mpg-garage-compare-facts">
+            ${garageCompareFactRow_("Class", selected.carClass || "--", compared.carClass || "--")}
+            ${garageCompareFactRow_("Pit Guru Index", percent(garageCompareIndex_(selected)), percent(garageCompareIndex_(compared)), garageCompareDeltaHtml_(garageCompareIndex_(selected), garageCompareIndex_(compared), { decimals: 2, suffix: "%" }))}
+            ${garageCompareFactRow_("Tarmac Index", percent(garageCompareIndex_(selected, "tarmac")), percent(garageCompareIndex_(compared, "tarmac")), garageCompareDeltaHtml_(garageCompareIndex_(selected, "tarmac"), garageCompareIndex_(compared, "tarmac"), { decimals: 2, suffix: "%" }))}
+            ${garageCompareFactRow_("Dirt Index", percent(garageCompareIndex_(selected, "dirt")), percent(garageCompareIndex_(compared, "dirt")), garageCompareDeltaHtml_(garageCompareIndex_(selected, "dirt"), garageCompareIndex_(compared, "dirt"), { decimals: 2, suffix: "%" }))}
+            ${garageCompareFactRow_("Races won", garageNumber_(aWins), garageNumber_(bWins), garageCompareDeltaHtml_(aWins, bWins))}
+            ${garageCompareFactRow_("Races entered", garageNumber_(aStarts), garageNumber_(bStarts), garageCompareDeltaHtml_(aStarts, bStarts))}
+            ${garageCompareFactRow_("Win ratio", percent(aRatio), percent(bRatio), garageCompareDeltaHtml_(aRatio, bRatio, { decimals: 2, suffix: "%" }))}
+            ${garageCompareFactRow_("Mileage", garageDistance_(aMileage), garageDistance_(bMileage), garageCompareDeltaHtml_(speedUnit === "mph" ? aMileage * 0.621371192237334 : aMileage, speedUnit === "mph" ? bMileage * 0.621371192237334 : bMileage, { decimals: 2, suffix: speedUnit === "mph" ? " mi" : " km" }))}
+            ${garageCompareFactRow_("Worth", garageMoney_(selected.worth), garageMoney_(compared.worth), garageCompareDeltaHtml_(selected.worth, compared.worth, { prefix: "$" }))}
+            ${garageCompareFactRow_("Upgrades", garageNumber_(selected.parts?.length || 0), garageNumber_(compared.parts?.length || 0), garageCompareDeltaHtml_(selected.parts?.length || 0, compared.parts?.length || 0))}
+            ${garageCompareFactRow_("Points spent", garageNumber_(selected.pointsSpent), garageNumber_(compared.pointsSpent), garageCompareDeltaHtml_(selected.pointsSpent, compared.pointsSpent))}
+            ${garageCompareFactRow_("Manufacturer fuel", Number.isFinite(aFuel) ? formatFuelEconomy_(aFuel) : "--", Number.isFinite(bFuel) ? formatFuelEconomy_(bFuel) : "--", garageCompareDeltaHtml_(aFuel, bFuel, { decimals: 2, lowerBetter: true }))}
+          </div>
+        </div>`;
     }
 
     function garageEventsForCar_(car) {
@@ -8946,6 +9360,7 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
     }
 
     function renderGarageDetailHtml_(selected) {
+        if (selected && garageCompareOpen) return renderGarageCompareHtml_(selected);
         return selected ? `
           <div class="mpg-garage-selected">
             <div class="mpg-garage-hero">
@@ -8959,7 +9374,7 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
                 <div class="mpg-garage-kpi"><span>Points</span><b>${esc_(garageNumber_(selected.pointsSpent))}</b></div>
                 <div class="mpg-garage-kpi"><span>Starts</span><b>${esc_(garageNumber_(selected.racesEntered))}</b></div>
                 <div class="mpg-garage-kpi"><span>Wins</span><b>${esc_(garageNumber_(selected.racesWon))}</b></div>
-                <div class="mpg-garage-kpi"><span>Mileage</span><b>${esc_(garageDistance_(selected.computedMileageKm || selected.mileage))}</b></div>
+                <div class="mpg-garage-kpi"><span>Mileage</span><b>${esc_(garageDistance_(garageMileageKm_(selected)))}</b></div>
                 <div class="mpg-garage-kpi"><span>Fuel</span><b>${Number.isFinite(selected.manufacturerFuelL100) ? esc_(formatFuelEconomy_(selected.manufacturerFuelL100)) : "--"}</b></div>
               </div>
               <div class="mpg-garage-bars">
@@ -8991,22 +9406,47 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
                 updateGarageSelectionInModal_();
             };
         }
+        const compareSelect = body?.querySelector?.("#mpgGarageCompareCar");
+        if (compareSelect) {
+            compareSelect.onchange = () => {
+                garageCompareCarId = String(compareSelect.value || "");
+                updateGarageSelectionInModal_();
+            };
+        }
+        const closeCompare = body?.querySelector?.("#mpgGarageCloseCompare");
+        if (closeCompare) {
+            closeCompare.onclick = () => {
+                garageCompareOpen = false;
+                updateGarageSelectionInModal_();
+            };
+        }
         setupAnalysisTableSort_(body);
     }
 
     function updateGarageSelectionInModal_() {
         const body = document.getElementById("mpgGarageBody");
         if (!body) return;
+        body.classList.toggle("compare", garageCompareOpen);
+        body.closest(".mpg-garage-window")?.classList.toggle("compare", garageCompareOpen);
         const selected = selectedGarageCar_();
         const selectedId = String(selected?.enlistedCarId || "");
         body.querySelectorAll(".mpg-garage-row").forEach(row => {
             row.classList.toggle("active", String(row.getAttribute("data-car-id") || "") === selectedId);
         });
         const selectedLabel = body.querySelector("#mpgGarageSelectedTorn");
-        if (selectedLabel) selectedLabel.textContent = selected?.carClass ? `Class ${selected.carClass}` : "";
+        if (selectedLabel) selectedLabel.textContent = garageCompareOpen ? "A vs B" : (selected?.carClass ? `Class ${selected.carClass}` : "");
+        const detailTitle = body.querySelector("#mpgGarageDetailTitle");
+        if (detailTitle) detailTitle.textContent = garageCompareOpen ? "Car Comparison" : "Selected Car";
         const detailSlot = body.querySelector("#mpgGarageDetailSlot");
         if (detailSlot) detailSlot.innerHTML = renderGarageDetailHtml_(selected);
         wireGarageDetailActions_(body);
+        const compareButton = body.querySelector("#mpgGarageCompare");
+        if (compareButton) {
+            compareButton.classList.toggle("on", garageCompareOpen);
+            const label = compareButton.querySelector("span:last-child");
+            if (label) label.textContent = garageCompareOpen ? "Close Compare" : "Compare";
+            compareButton.disabled = visibleGarageCars_().length < 2;
+        }
         ["mpgGarageEnlist", "mpgGarageUpgrade", "mpgGarageDelist"].forEach(id => {
             const btn = body.querySelector(`#${id}`);
             if (btn) btn.disabled = !selected;
@@ -9019,12 +9459,18 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
         if (!modal || !body) return;
         modal.style.display = garageOpen ? "flex" : "none";
         if (!garageOpen) return;
+        body.classList.toggle("compare", garageCompareOpen);
+        modal.querySelector(".mpg-garage-window")?.classList.toggle("compare", garageCompareOpen);
         const selected = selectedGarageCar_();
         if (selected && !garageSelectedCarId) garageSelectedCarId = selected.enlistedCarId || "";
         const visibleCars = visibleGarageCars_();
         const key = JSON.stringify({
             theme, loading: garageLoading, status: garageStatus, garageSortKey, garageSortDir, garageLogOpen, garageShowDelisted,
-            cars: garageCars.map(c => [c.enlistedCarId, c.itemID, c.name, c.nickname, c.pointsSpent, c.parts?.length, c.isRemoved]).slice(0, 120),
+            cars: garageCars.map(c => [
+                c.enlistedCarId, c.itemID, c.name, c.nickname, c.carClass, c.pointsSpent, c.parts?.length, c.isRemoved,
+                c.racesEntered, c.racesWon, c.worth, c.computedMileageKm, c.mileage, c.manufacturerFuelL100,
+                c.topSpeed, c.acceleration, c.braking, c.handling, c.dirt, c.tarmac, c.safety
+            ]).slice(0, 120),
             events: garageEvents.length,
             upgrades: garageUpgrades.length
         });
@@ -9071,6 +9517,7 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
               <button id="mpgGarageEnlist" class="pill" type="button"${selected ? "" : " disabled"}><span>🏁</span><span>Enlist</span></button>
               <button id="mpgGarageUpgrade" class="pill" type="button"${selected ? "" : " disabled"}><span>🛠️</span><span>Upgrade</span></button>
               <button id="mpgGarageDelist" class="pill" type="button"${selected ? "" : " disabled"}><span>⛔</span><span>Delist</span></button>
+              <button id="mpgGarageCompare" class="pill${garageCompareOpen ? " on" : ""}" type="button"${visibleCars.length > 1 ? "" : " disabled"}><span>⇄</span><span>${garageCompareOpen ? "Close Compare" : "Compare"}</span></button>
               <button id="mpgGarageShowDelisted" class="pill${garageShowDelisted ? " on" : ""}" type="button"><span>${garageShowDelisted ? "👁️" : "🚫"}</span><span>${garageShowDelisted ? "Hide Delisted" : "Show Delisted"}</span></button>
             </div>
             <div class="muted">${esc_(garageStatus || "Garage data is loaded from Torn API and cached in SQLite.")}</div>
@@ -9081,7 +9528,7 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
               <div class="mpg-garage-cars">${carsHtml}</div>
             </section>
             <section class="mpg-garage-detail">
-              <div class="mpg-garage-panel-head"><span>Selected Car</span><span id="mpgGarageSelectedTorn" class="muted">${selected?.carClass ? esc_(`Class ${selected.carClass}`) : ""}</span></div>
+              <div class="mpg-garage-panel-head"><span id="mpgGarageDetailTitle">${garageCompareOpen ? "Car Comparison" : "Selected Car"}</span><span id="mpgGarageSelectedTorn" class="muted">${garageCompareOpen ? "A vs B" : (selected?.carClass ? esc_(`Class ${selected.carClass}`) : "")}</span></div>
               <div id="mpgGarageDetailSlot" class="mpg-garage-detail-scroll">${renderGarageDetailHtml_(selected)}</div>
             </section>
           </div>
@@ -9093,6 +9540,11 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
         body.querySelector("#mpgGarageEnlist").onclick = () => openGarageAction_("enlist");
         body.querySelector("#mpgGarageUpgrade").onclick = () => openGarageAction_("upgrade");
         body.querySelector("#mpgGarageDelist").onclick = () => openGarageAction_("delist");
+        body.querySelector("#mpgGarageCompare").onclick = () => {
+            garageCompareOpen = !garageCompareOpen;
+            if (garageCompareOpen) comparisonGarageCar_(selectedGarageCar_());
+            updateGarageSelectionInModal_();
+        };
         body.querySelector("#mpgGarageShowDelisted").onclick = () => {
             garageShowDelisted = !garageShowDelisted;
             saveBoolSetting_(STORE_GARAGE_SHOW_DELISTED_KEY, garageShowDelisted);
@@ -10673,6 +11125,7 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
 
             document.getElementById("mpgSettingsBtn").onclick = () => {
                 settingsOpen = !settingsOpen;
+                if (settingsOpen && onboardingRequired) focusApiKeyPending = true;
                 uiDirty = true;
                 scheduleRender_();
             };
@@ -11254,6 +11707,7 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
         liveCommentaryEnabled = loadBoolSetting_(STORE_COMMENTARY_ENABLED_KEY, true);
         pitCrewEnabled = loadBoolSetting_(STORE_PIT_CREW_ENABLED_KEY, true);
         experimentalGyroTrace = loadBoolSetting_(STORE_EXPERIMENTAL_GYRO_TRACE_KEY, true);
+        onboardingRequired = !loadBoolSetting_(STORE_ONBOARDING_COMPLETE_KEY, false);
         loadPerformanceTuning_();
         hookRaceDataObservers_();
         pgLocalEnsureTracks_().catch(() => { });
@@ -11263,6 +11717,14 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
         raceMeta = loadRaceMeta_();
 
         ensureUi_();
+        if (onboardingRequired) {
+            openWin_();
+            settingsOpen = true;
+            focusApiKeyPending = true;
+            uiDirty = true;
+            scheduleRender_();
+            setTimeout(startTutorial_, 450);
+        }
         installJoinRaceObserver_();
         setupDriverHover_();
         ensurePlayer_();
