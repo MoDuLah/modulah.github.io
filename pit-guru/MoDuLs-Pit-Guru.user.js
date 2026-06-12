@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         MoDuL's Pit Guru
 // @namespace    modul.torn.racing
-// @version      1.9.0
+// @version      1.9.1
 // @description  Live Torn race timing, gaps, sectors, speed and estimated telemetry analysis
 // @author       MoDuL
 // @copyright    2026 MoDuL. All rights reserved.
@@ -309,7 +309,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
     unsafeWindow.pgPlayerCacheRaceId = pgPlayerFetchRaceDataById_;
     unsafeWindow.pgPlayerCacheCurrentRace = openLocalPlayerForCurrentRace_;
 
-    const MPG_VERSION = "1.9.0";
+    const MPG_VERSION = "1.9.1";
     var TAG = "[MoDuL's Pit Guru v" + MPG_VERSION + "]";
 
     const PitGuruRaceEngine = (() => {
@@ -6245,10 +6245,11 @@ img.carIcon{
 .mpg-garage-bar b{text-align:right;font-size:12px}
 .mpg-garage-compare{display:grid;gap:12px;padding:12px;min-width:720px}
 .mpg-garage-compare-head{display:grid;grid-template-columns:minmax(0,1fr) 110px minmax(0,1fr);gap:10px;align-items:center}
-.mpg-garage-compare-car{display:grid;grid-template-columns:92px minmax(0,1fr);gap:10px;align-items:center;min-width:0}
-.mpg-garage-compare-car.right{grid-template-columns:minmax(0,1fr) 92px;text-align:right}
+.mpg-garage-compare-car{display:grid;gap:10px;align-items:center;min-width:0}
+.mpg-garage-compare-car.a{grid-template-columns:minmax(0,1fr) 92px;text-align:right}
+.mpg-garage-compare-car.b{grid-template-columns:92px minmax(0,1fr);text-align:left}
 .mpg-garage-compare-car img{width:88px;height:52px;object-fit:contain;filter:drop-shadow(0 7px 11px rgba(0,0,0,.32))}
-.mpg-garage-compare-car.right img{order:2}
+.mpg-garage-compare-car.a img{order:2}
 .mpg-garage-compare-car select{width:100%;min-width:0}
 .mpg-garage-compare-vs{display:grid;justify-items:center;gap:6px;text-align:center;color:var(--gapPos);font-weight:950;font-size:15px}
 .mpg-garage-compare-stats,.mpg-garage-compare-facts{display:grid;gap:4px}
@@ -9028,7 +9029,7 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
                 garageCars = mergeGarageCars_(localCars, []);
                 garageStatus = "Garage loaded from SQLite. Add an API key to refresh enlisted cars.";
             }
-            if (!garageSelectedCarId && garageCars.length) garageSelectedCarId = garageCars[0].enlistedCarId || "";
+            if (!garageSelectedCarId && garageCars.length) garageSelectedCarId = sortedGarageCars_()[0]?.enlistedCarId || "";
             garageLastFetchAt = Date.now();
             if (!garageStatus || /Fetching|Loading/i.test(garageStatus)) {
                 garageStatus = `Garage loaded: ${garageCars.length} car${garageCars.length === 1 ? "" : "s"}.`;
@@ -9043,8 +9044,8 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
     }
 
     function selectedGarageCar_() {
-        const visible = visibleGarageCars_();
-        return visible.find(c => String(c.enlistedCarId || "") === String(garageSelectedCarId || "")) || visible[0] || garageCars[0] || null;
+        const sorted = sortedGarageCars_();
+        return sorted.find(c => String(c.enlistedCarId || "") === String(garageSelectedCarId || "")) || sorted[0] || garageCars[0] || null;
     }
 
     function visibleGarageCars_() {
@@ -9058,7 +9059,7 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
 
     function comparisonGarageCar_(selected = selectedGarageCar_()) {
         const selectedId = String(selected?.enlistedCarId || "");
-        const candidates = visibleGarageCars_().filter(c => String(c.enlistedCarId || "") !== selectedId);
+        const candidates = sortedGarageCars_().filter(c => String(c.enlistedCarId || "") !== selectedId);
         const match = candidates.find(c => String(c.enlistedCarId || "") === String(garageCompareCarId || ""));
         const car = match || candidates[0] || null;
         garageCompareCarId = String(car?.enlistedCarId || "");
@@ -9183,7 +9184,7 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
     function renderGarageCompareHtml_(selected) {
         const compared = comparisonGarageCar_(selected);
         if (!compared) return `<div class="mpg-garage-empty">A second visible car is required for comparison.</div>`;
-        const options = visibleGarageCars_()
+        const options = sortedGarageCars_()
             .filter(car => String(car.enlistedCarId || "") !== String(selected.enlistedCarId || ""))
             .map(car => `<option value="${escAttr_(car.enlistedCarId || "")}"${String(car.enlistedCarId || "") === String(compared.enlistedCarId || "") ? " selected" : ""}>${esc_(garageCarTitle_(car))} · ${esc_(car.enlistedCarId || "--")}</option>`)
             .join("");
@@ -9200,14 +9201,14 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
         const percent = n => Number.isFinite(n) ? `${n.toFixed(2)}%` : "--";
         return `<div class="mpg-garage-compare">
           <div class="mpg-garage-compare-head">
-            <div class="mpg-garage-compare-car">
-              ${selected.imageUrl ? `<img src="${escAttr_(selected.imageUrl)}" alt="">` : ""}
+            <div class="mpg-garage-compare-car a">
               <div><b>${esc_(garageCarTitle_(selected))}</b><div class="mpg-garage-meta">A · ID ${esc_(selected.enlistedCarId || "--")}</div></div>
+              ${selected.imageUrl ? `<img src="${escAttr_(selected.imageUrl)}" alt="">` : ""}
             </div>
             <div class="mpg-garage-compare-vs">A vs B<button id="mpgGarageCloseCompare" class="pill mpg-garage-compare-close" type="button" title="Close comparison"><span>×</span></button></div>
-            <div class="mpg-garage-compare-car right">
-              <div><select id="mpgGarageCompareCar">${options}</select><div class="mpg-garage-meta">B · ID ${esc_(compared.enlistedCarId || "--")}</div></div>
+            <div class="mpg-garage-compare-car b">
               ${compared.imageUrl ? `<img src="${escAttr_(compared.imageUrl)}" alt="">` : ""}
+              <div><select id="mpgGarageCompareCar">${options}</select><div class="mpg-garage-meta">B · ID ${esc_(compared.enlistedCarId || "--")}</div></div>
             </div>
           </div>
           <div class="mpg-garage-compare-stats">
