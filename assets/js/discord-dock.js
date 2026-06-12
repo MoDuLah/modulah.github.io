@@ -1,5 +1,14 @@
 (function () {
-  var WIDGET_SRC = "https://discord.com/widget?id=1492449197729775817&theme=dark";
+  var PROJECT_DISCORDS = [
+    { slug: "smuggler", name: "Smuggler", invite: "https://discord.gg/ARwm2FzY9c" },
+    { slug: "eggsterminator", name: "Eggsterminator", invite: "https://discord.gg/7RDWMU82Wd" },
+    { slug: "race-tracker", name: "Race Tracker", invite: "https://discord.gg/DFTm7hpRSB" },
+    { slug: "custom-race-filter", name: "Custom Race Filter", invite: "https://discord.gg/cR8ZTU6V58" },
+    { slug: "restore-og-names", name: "Restore OG Names", invite: "https://discord.gg/m3QJykpjUP" },
+    { slug: "race-theme-changer", name: "Race Theme Changer", invite: "https://discord.gg/aRHPQ2aqs2" },
+    { slug: "pit-guru", name: "Pit Guru", invite: "https://discord.gg/JP8FQBATMV" }
+  ];
+  var DEFAULT_DISCORD = { slug: "pit-guru", name: "Pit Guru", invite: "https://discord.gg/JP8FQBATMV" };
 
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", init, { once: true });
@@ -13,10 +22,13 @@
     }
 
     injectStyles();
+    var projectDiscord = resolveProjectDiscord(window.location.pathname);
+    updatePageDiscordLinks(projectDiscord);
 
     var dock = document.createElement("details");
     dock.className = "discord-dock";
     dock.setAttribute("data-discord-dock", "true");
+    dock.setAttribute("data-discord-project", projectDiscord.slug);
     dock.setAttribute("role", "complementary");
     dock.setAttribute("aria-label", "Discord community");
     dock.open = false;
@@ -29,7 +41,7 @@
           "</svg>" +
         "</span>" +
         '<span class="discord-dock-copy">' +
-          '<span class="discord-dock-title">Discord Community</span>' +
+          '<span class="discord-dock-title">' + projectDiscord.name + ' Discord</span>' +
           '<span class="discord-dock-subtitle">Support, licensing, and updates</span>' +
         "</span>" +
         '<span class="discord-dock-caret" aria-hidden="true"></span>' +
@@ -37,15 +49,46 @@
       '<div class="discord-dock-panel">' +
         '<div class="discord-dock-panel-head">' +
           '<div class="discord-dock-panel-copy">' +
-            "<strong>Stay in the loop</strong>" +
-            "<p>Join the server for releases, support, and license help.</p>" +
+            "<strong>" + projectDiscord.name + " community</strong>" +
+            "<p>Join for releases, support, and project updates.</p>" +
           "</div>" +
-          '<a class="discord-dock-link" href="https://discord.gg/g4ekwrhrAf" target="_blank" rel="noopener noreferrer">Open Discord</a>' +
+          '<a class="discord-dock-link" href="' + projectDiscord.invite + '" target="_blank" rel="noopener noreferrer">Join ' + projectDiscord.name + " Discord</a>" +
         "</div>" +
-        '<iframe class="discord-dock-frame" src="' + WIDGET_SRC + '" width="320" height="460" allowtransparency="true" frameborder="0" loading="lazy" sandbox="allow-popups allow-popups-to-escape-sandbox allow-same-origin allow-scripts"></iframe>' +
       "</div>";
 
     document.body.appendChild(dock);
+  }
+
+  function resolveProjectDiscord(pathname) {
+    var normalizedPath = "/" + String(pathname || "")
+      .toLowerCase()
+      .replace(/^\/+|\/+$/g, "") + "/";
+
+    return PROJECT_DISCORDS.find(function (entry) {
+      return normalizedPath.indexOf("/" + entry.slug + "/") !== -1;
+    }) || DEFAULT_DISCORD;
+  }
+
+  function updatePageDiscordLinks(projectDiscord) {
+    document.querySelectorAll("a[href]").forEach(function (link) {
+      if (!isDiscordInvite(link.getAttribute("href"))) {
+        return;
+      }
+
+      link.href = projectDiscord.invite;
+      link.setAttribute("data-discord-project", projectDiscord.slug);
+      link.title = "Join the " + projectDiscord.name + " Discord";
+    });
+  }
+
+  function isDiscordInvite(href) {
+    try {
+      var url = new URL(href, window.location.href);
+      return url.hostname === "discord.gg" ||
+        (url.hostname === "discord.com" && url.pathname.indexOf("/invite/") === 0);
+    } catch (error) {
+      return false;
+    }
   }
 
   function injectStyles() {
@@ -174,15 +217,8 @@
         "text-decoration:none;" +
       "}" +
       ".discord-dock-link:hover{" +
+        "filter:brightness(1.08);" +
         "text-decoration:none;" +
-      "}" +
-      ".discord-dock-frame{" +
-        "display:block;" +
-        "width:100%;" +
-        "height:min(460px,calc(100vh - 160px));" +
-        "border:0;" +
-        "border-radius:8px;" +
-        "background:#111827;" +
       "}" +
       "@media (max-width:720px){" +
         ".discord-dock{" +
@@ -203,9 +239,6 @@
         "}" +
         ".discord-dock-panel{" +
           "padding:11px;" +
-        "}" +
-        ".discord-dock-frame{" +
-          "height:min(380px,calc(100vh - 150px));" +
         "}" +
       "}";
 
