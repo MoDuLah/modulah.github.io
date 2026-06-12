@@ -1,10 +1,11 @@
 // ==UserScript==
 // @name         MoDuL's Pit Guru
 // @namespace    modul.torn.racing
-// @version      1.8.8
+// @version      1.8.9
 // @description  Live Torn race timing, gaps, sectors, speed and estimated telemetry analysis
 // @author       MoDuL
-// @license      MIT
+// @copyright    2026 MoDuL. All rights reserved.
+// @license      All Rights Reserved
 // @updateURL    https://modulah.github.io/pit-guru/MoDuLs-Pit-Guru.user.js
 // @downloadURL  https://modulah.github.io/pit-guru/MoDuLs-Pit-Guru.user.js
 // @match        https://www.torn.com/page.php?sid=racing*
@@ -21,6 +22,11 @@
 // @icon         https://www.google.com/s2/favicons?sz=64&domain=torn.com
 // @run-at       document-start
 // ==/UserScript==
+
+/*
+Copyright (c) 2026 MoDuL. All rights reserved.
+Unauthorized copying, modification, redistribution, or commercial use is prohibited without written permission.
+*/
 
 (function () {
     "use strict";
@@ -299,7 +305,7 @@
     unsafeWindow.pgPlayerCacheRaceId = pgPlayerFetchRaceDataById_;
     unsafeWindow.pgPlayerCacheCurrentRace = openLocalPlayerForCurrentRace_;
 
-    const MPG_VERSION = "1.8.8";
+    const MPG_VERSION = "1.8.9";
     var TAG = "[MoDuL's Pit Guru v" + MPG_VERSION + "]";
 
     const PitGuruRaceEngine = (() => {
@@ -872,6 +878,9 @@
     let pgPlayerCacheStatus = "";
     let pgPlayerCacheInFlightKeys = new Set();
     let pgPlayerCachedRaceKeys = new Set();
+    let pgPlayerAvailabilityArmed = true;
+    let pgPlayerReadyHighlightUntil = 0;
+    let pgPlayerReadyHighlightTimer = 0;
     let pgLocalTrackRouteSavedKeys = new Set();
     let preRaceParticipants = [];
     let directRacingDataParticipants = [];
@@ -1250,6 +1259,7 @@
     }
     function resetForRaceChange_(newRaceId) {
         disconnectJoinRaceObserver_();
+        prepareNewRaceUi_();
         const nextRaceId = String(newRaceId || "").trim();
         const priorMeta = raceMeta ? { ...raceMeta, replayInfo: { ...(raceMeta.replayInfo || {}) } } : null;
         let visibleTrack = "";
@@ -1822,6 +1832,32 @@
         return false;
     }
 
+    function playerRaceDataAvailable_() {
+        const payload = latestRaceDataPayload || analysis?.payload || null;
+        return !!payload && pgPlayerPayloadHasDecodableIntervals_(payload);
+    }
+
+    function prepareNewRaceUi_() {
+        analysisMode = "predictions";
+        pgPlayerAvailabilityArmed = true;
+        pgPlayerReadyHighlightUntil = 0;
+        clearTimeout(pgPlayerReadyHighlightTimer);
+        pgPlayerReadyHighlightTimer = 0;
+    }
+
+    function markPlayerRaceDataAvailable_() {
+        if (!pgPlayerAvailabilityArmed || !playerRaceDataAvailable_()) return;
+        pgPlayerAvailabilityArmed = false;
+        pgPlayerReadyHighlightUntil = Date.now() + 10000;
+        clearTimeout(pgPlayerReadyHighlightTimer);
+        pgPlayerReadyHighlightTimer = setTimeout(() => {
+            pgPlayerReadyHighlightTimer = 0;
+            pgPlayerReadyHighlightUntil = 0;
+            uiDirty = true;
+            scheduleRender_();
+        }, 10050);
+    }
+
     async function pgPlayerCacheRaceData_(payload, source = "torn-racingData", opts = {}) {
         const p = getRacePayload_(payload) || payload || {};
         if (!p || !p.cars) return Promise.resolve(null);
@@ -1934,6 +1970,10 @@
     }
 
     async function openLocalPlayerForCurrentRace_() {
+        if (!playerRaceDataAvailable_()) {
+            toast_("Player unlocks when Torn delivers replay-ready racingData for this race.");
+            return;
+        }
         const payload = latestRaceDataPayload || analysis?.payload || null;
         const rid = String(directRaceIdFromPayload_(payload) || directCurrentRaceId || urlRaceId_() || visibleRaceId_() || raceMeta?.raceId || "").trim();
         const target = rid ? `${PG_LOCAL_PLAYER_BASE}/?raceID=${encodeURIComponent(rid)}` : PG_LOCAL_PLAYER_BASE;
@@ -2652,6 +2692,7 @@
             raceDataCurrentTimeAtReceive = Number(payload?.timeData?.currentTime);
             clearedRaceDataKey = "";
             buildAnalysisFromRaceData_(payload);
+            markPlayerRaceDataAvailable_();
             if (debugEnabled) console.log(TAG, "raceData captured", source || "", analysis);
             pgPlayerCacheRaceData_(payload, source || "captured-racingData").catch(() => {});
             const notifyKey = analysis?.raceId || raceDataPayloadKey_(analysis?.payload || payload);
@@ -5601,7 +5642,10 @@ return {
         const activeRaceId = String(analysis?.raceId || raceMeta?.raceId || "").trim();
         const storedRaceId = loadLastRaceId_();
         if (!storedRaceId) {
+            prepareNewRaceUi_();
             saveLastRaceId_(currentRaceId);
+            uiDirty = true;
+            scheduleRender_();
             return;
         }
 
@@ -5909,6 +5953,18 @@ img.carIcon{
 }
 .pill:hover{background:var(--pillHover)}
 .pill.on{box-shadow: inset 0 0 0 2px var(--gapPos);}
+.pill:disabled{opacity:.46;cursor:not-allowed;filter:saturate(.35)}
+#rtLocalPlayer.mpg-player-ready-highlight{
+  border-color:#f2e605;
+  outline:2px solid #f2e605;
+  outline-offset:2px;
+  box-shadow:0 0 0 1px rgba(242,230,5,.55),0 0 14px rgba(242,230,5,.72);
+  animation:mpg-player-ready-pulse 1s ease-in-out infinite alternate;
+}
+@keyframes mpg-player-ready-pulse{
+  from{box-shadow:0 0 0 1px rgba(242,230,5,.42),0 0 8px rgba(242,230,5,.38)}
+  to{box-shadow:0 0 0 2px rgba(242,230,5,.72),0 0 18px rgba(242,230,5,.88)}
+}
 #rtHdr .right .pill[draggable="true"]{cursor:grab}
 #rtHdr .right .pill.mpg-dragging{opacity:.45}
 .mpg-intel-fetch{display:inline-flex;margin:auto;padding:4px 9px;font-size:11px;line-height:1.1}
@@ -11368,6 +11424,7 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
         const autoClearBtn = document.getElementById("rtAutoClear");
         const recordsBtn = document.getElementById("rtToggleRecords");
         const autoClearText = document.getElementById("rtAutoClearText");
+        const playerBtn = document.getElementById("rtLocalPlayer");
 
         const trackEl = document.getElementById("rtTrack");
         const lapsEl = document.getElementById("mpgLaps");
@@ -11407,6 +11464,15 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
         if (autoClearText) autoClearText.textContent = clearOnRaceChange ? "Auto-clear ID: ON" : "Auto-clear ID: OFF";
         if (recDot) recDot.className = hasJson ? "" : "off";
         if (recText) recText.textContent = "JSON";
+        markPlayerRaceDataAvailable_();
+        if (playerBtn) {
+            const playerReady = playerRaceDataAvailable_();
+            playerBtn.disabled = !playerReady;
+            playerBtn.classList.toggle("mpg-player-ready-highlight", playerReady && Date.now() < pgPlayerReadyHighlightUntil);
+            playerBtn.title = playerReady
+                ? "Open this race in the hosted Player"
+                : "Player unlocks when replay-ready racingData is available";
+        }
         updateHeaderCompact_(document.getElementById("rtLapWin"));
         const headerTrackName = raceMeta?.track || analysis?.trackName || "";
         if (trackEl) trackEl.textContent = headerTrackName || "—";
