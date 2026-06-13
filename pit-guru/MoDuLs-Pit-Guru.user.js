@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         MoDuL's Pit Guru
 // @namespace    modul.torn.racing
-// @version      1.9.4
+// @version      1.9.5
 // @description  Live Torn race timing, gaps, sectors, speed and estimated telemetry analysis
 // @author       MoDuL
 // @copyright    2026 MoDuL. All rights reserved.
@@ -309,7 +309,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
     unsafeWindow.pgPlayerCacheRaceId = pgPlayerFetchRaceDataById_;
     unsafeWindow.pgPlayerCacheCurrentRace = openLocalPlayerForCurrentRace_;
 
-    const MPG_VERSION = "1.9.4";
+    const MPG_VERSION = "1.9.5";
     var TAG = "[MoDuL's Pit Guru v" + MPG_VERSION + "]";
 
     const PitGuruRaceEngine = (() => {
@@ -941,6 +941,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
     let nativeResizeStoreKey = "";
     let nativeResizeAt = 0;
     const gyroTraceByDriver = new Map();
+    let slideEventsCache = new WeakMap();
     const LARGE_FIELD_THRESHOLD = 30;
     const HUGE_FIELD_THRESHOLD = 45;
     const LARGE_LOBBY_CANDIDATE_LIMIT = 220;
@@ -6352,7 +6353,7 @@ img.carIcon{
 }
 .mpg-analysis th.sort-asc::after{content:" ▲";color:var(--accent);font-weight:900}
 .mpg-analysis th.sort-desc::after{content:" ▼";color:var(--accent);font-weight:900}
-.mpg-analysis tbody td:not(.gap-neg):not(.gap-pos):not(.gap-zero):not(.mpg-purple):not(.mpg-pace-fl):not(.mpg-pace-pb):not(.mpg-pace-slow){
+.mpg-analysis tbody td:not(.gap-neg):not(.gap-pos):not(.gap-zero):not(.mpg-purple):not(.mpg-pace-fl):not(.mpg-pace-pb):not(.mpg-pace-slow):not(.mpg-current-live):not(.mpg-current-over):not(.mpg-current-slow){
   color:var(--text) !important;
 }
 .mpg-analysis tr:hover td{background:var(--hover)}
@@ -6364,6 +6365,11 @@ img.carIcon{
 .mpg-table-help:hover,.mpg-table-help:focus-visible{background:var(--pillHover);outline:1px solid var(--accent);outline-offset:1px}
 .mpg-table-help:hover::after,.mpg-table-help:focus-visible::after{content:attr(data-help);position:absolute;right:0;top:calc(100% + 7px);z-index:20;width:min(340px,calc(100vw - 48px));padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text);box-shadow:0 10px 28px rgba(0,0,0,.5);font:12px/1.35 system-ui;font-weight:500;text-align:left;white-space:normal}
 .mpg-table-scroll{overflow:auto;border:1px solid var(--border);border-radius:10px;background:rgba(0,0,0,.12)}
+.mpg-table-block.mpg-table-compact{width:max-content;max-width:100%}
+.mpg-table-compact .mpg-table-scroll{width:max-content;max-width:100%}
+.mpg-table-compact table{width:auto;min-width:0}
+.mpg-table-has-summary .mpg-table-scroll{border-radius:10px 10px 0 0}
+.mpg-table-summary{padding:8px 10px;border:1px solid var(--border);border-top:0;border-radius:0 0 10px 10px;background:var(--panel);color:var(--text);font-size:12px;font-weight:800}
 .mpg-timecell{padding-left:5px !important;padding-right:5px !important}
 .mpg-car-combo{display:grid;grid-template-columns:56px minmax(70px,1fr);align-items:center;gap:2px;min-width:130px}
 .mpg-car-combo .mpg-car-img{display:grid;place-items:center;min-width:54px}
@@ -6374,7 +6380,10 @@ img.carIcon{
 .mpg-purple,.mpg-analysis td.mpg-purple,.mpg-analysis .mono.mpg-purple{color:#d049b3 !important;font-weight:900;text-shadow:0 0 8px rgba(208,73,179,.35)}
 .mpg-pace-fl,.mpg-analysis .mpg-pace-fl,.mpg-analysis .mono.mpg-pace-fl{color:#d049b3 !important;font-weight:900;text-shadow:0 0 8px rgba(208,73,179,.35)}
 .mpg-pace-pb,.mpg-analysis .mpg-pace-pb,.mpg-analysis .mono.mpg-pace-pb{color:#e6fe62 !important;font-weight:900}
-.mpg-pace-slow,.mpg-analysis .mpg-pace-slow,.mpg-analysis .mono.mpg-pace-slow{color:#f4f1df !important;font-weight:900}
+.mpg-pace-slow,.mpg-analysis .mpg-pace-slow,.mpg-analysis .mono.mpg-pace-slow{color:var(--time) !important;font-weight:900}
+.mpg-current-live,.mpg-analysis .mpg-current-live,.mpg-analysis .mono.mpg-current-live{color:var(--time) !important;font-weight:900}
+.mpg-current-over,.mpg-analysis .mpg-current-over,.mpg-analysis .mono.mpg-current-over{color:#f2e605 !important;font-weight:900}
+.mpg-current-slow,.mpg-analysis .mpg-current-slow,.mpg-analysis .mono.mpg-current-slow{color:#ff5a5f !important;font-weight:900}
 .mpg-race-stage{display:grid;gap:8px;margin:8px 0 10px}
 .mpg-stage-status{font-weight:900;color:var(--text);padding:8px 10px;border:1px solid var(--border);border-radius:10px;background:var(--panel)}
 .mpg-stage-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
@@ -6406,8 +6415,10 @@ img.carIcon{
 .mpg-gyro-axis-label.left{left:9px;top:50%;transform:translateY(-50%)}.mpg-gyro-axis-label.right{right:9px;top:50%;transform:translateY(-50%)}.mpg-gyro-axis-label.top{top:29px;left:50%;transform:translateX(-50%)}.mpg-gyro-axis-label.bottom{bottom:9px;left:50%;transform:translateX(-50%)}
 .mpg-gyro-trace{position:absolute;width:8px;height:8px;border-radius:50%;transform:translate(-50%,-50%);opacity:.35;filter:blur(.1px)}
 .mpg-gyro-dot{position:absolute;width:16px;height:16px;border-radius:50%;background:var(--gyroColor,var(--gapPos));box-shadow:0 0 18px var(--gyroColor,var(--gapPos));transform:translate(-50%,-50%);z-index:3}
+.mpg-gyro-dynamic{display:contents}
 .mpg-gyro-panel{min-width:0}
 .mpg-gyro-title{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:0 0 8px;font-weight:900;color:var(--text)}
+.mpg-gyro-title-tools{display:flex;align-items:center;gap:6px}
 .mpg-gyro-readout{display:grid;grid-template-columns:repeat(2,minmax(110px,1fr));gap:8px;margin:8px 0}
 .mpg-gyro-readout div{border:1px solid var(--border);border-radius:8px;background:var(--pill);padding:8px 10px;color:var(--text)}
 .mpg-gyro-readout span{display:block;font-size:11px;color:var(--muted);margin-bottom:2px}
@@ -8258,6 +8269,7 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
         raceOvertakesFloorCache = { key: "", value: 0 };
         fuelSessionCache = { key: "", liters: 0, levelPct: 100 };
         gyroTraceByDriver.clear();
+        slideEventsCache = new WeakMap();
         if (!opts.keepMeta) clearRaceMeta_();
         const body = document.getElementById("mpgAnalysisBody");
         if (body) {
@@ -9821,6 +9833,11 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
     function updateAnalysisStageStatus_(body, elapsed, canFull) {
         const status = body?.querySelector?.(".mpg-stage-status");
         if (status) status.textContent = analysisStatusLine_(elapsed, canFull);
+        const ordered = analysis ? getLiveOrder_(elapsed, canFull) : [];
+        const tv = body?.querySelector?.('[data-stage-text="tv"]');
+        if (tv) tv.textContent = lastCommentaryText || (analysis ? "Timing screens are live." : "Commentary will begin when race data is available.");
+        const radio = body?.querySelector?.('[data-stage-text="radio"]');
+        if (radio) radio.textContent = updateTeamRadio_(ordered, elapsed, canFull) || "Radio check pending.";
     }
 
     function analysisStageHtml_(elapsed, canFull) {
@@ -9828,11 +9845,11 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
         const boxes = [];
         if (liveCommentaryEnabled) {
             const tv = lastCommentaryText || (analysis ? "Timing screens are live." : "Commentary will begin when race data is available.");
-            boxes.push(`<div class="mpg-stage-box"><div class="mpg-stage-title">TV</div><div class="mpg-stage-text">${esc_(tv)}</div></div>`);
+            boxes.push(`<div class="mpg-stage-box"><div class="mpg-stage-title">TV</div><div class="mpg-stage-text" data-stage-text="tv">${esc_(tv)}</div></div>`);
         }
         if (pitCrewEnabled) {
             const radio = updateTeamRadio_(ordered, elapsed, canFull);
-            boxes.push(`<div class="mpg-stage-box"><div class="mpg-stage-title">Team Radio</div><div class="mpg-stage-text">${esc_(radio || "Radio check pending.")}</div></div>`);
+            boxes.push(`<div class="mpg-stage-box"><div class="mpg-stage-title">Team Radio</div><div class="mpg-stage-text" data-stage-text="radio">${esc_(radio || "Radio check pending.")}</div></div>`);
         }
         const stageGrid = boxes.length ? `<div class="mpg-stage-grid ${boxes.length === 1 ? "single" : ""}">${boxes.join("")}</div>` : "";
         return `<div class="mpg-race-stage">
@@ -9840,6 +9857,27 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
           ${stageGrid}
           <div class="mpg-separator"></div>
         </div>`;
+    }
+
+    function sectorStructureKey_(elapsed, canFull) {
+        if (canFull) return "full";
+        const order = getLiveOrder_(elapsed, false).map(x => x.driver.driverId || normalizeDriverName_(x.driver.name || "")).join(",");
+        const completed = (analysis?.drivers || []).map(d => {
+            const count = (d.sectorTimes || []).filter(s => {
+                const endIndex = (s.lap - 1) * analysis.segmentsPerLap + analysis.sectorSplitIndexes[s.sector - 1] - 1;
+                return (d.cumulativeTimes?.[endIndex] || Infinity) <= elapsed;
+            }).length;
+            return `${d.driverId || normalizeDriverName_(d.name || "")}:${count}`;
+        }).join(",");
+        return `${order}|${completed}`;
+    }
+
+    function analysisRenderBucket_(elapsed, canFull) {
+        if (canFull) return "full";
+        if (analysisMode === "gyro") return gyroStructureKey_(elapsed, canFull);
+        if (analysisMode === "sectors") return sectorStructureKey_(elapsed, canFull);
+        if (analysisMode === "predictions") return "static";
+        return Math.floor(elapsed * liveRenderFps_());
     }
 
     function renderAnalysis_() {
@@ -9853,6 +9891,7 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
         if (payload && !analysis) buildAnalysisFromRaceData_(payload);
         if (!analysis) {
             body.style.display = "block";
+            if (status) status.style.display = "";
             updateCommentary_(0, false);
             if (analysisMode === "predictions") {
                 const set = predictionDriverSet_();
@@ -9886,17 +9925,20 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
             ensureAnalysisAggregates_({ sectors: true, leads: true });
         }
         if (status) {
-            status.textContent = ctx === "replay"
-                ? `REPLAY · JSON analysis @ ${formatTimeSeconds_(elapsed)}`
-                : raceIsFinished_()
-                    ? "FINISHED · Final analysis ready"
+            const hideDuplicateFinishedStatus = ctx !== "replay" && canFull;
+            status.style.display = hideDuplicateFinishedStatus ? "none" : "";
+            status.textContent = hideDuplicateFinishedStatus
+                ? ""
+                : ctx === "replay"
+                    ? `REPLAY · JSON analysis @ ${formatTimeSeconds_(elapsed)}`
                     : allowPreFinishPreview
                         ? "LIVE · Preview enabled"
                         : !visualRaceHasStarted_()
                             ? "READY · Race data captured, waiting for visible start"
                             : "LIVE · Final results hidden until finish";
         }
-        const renderBucket = canFull ? "full" : Math.floor(elapsed * liveRenderFps_());
+        updateCommentary_(elapsed, canFull);
+        const renderBucket = analysisRenderBucket_(elapsed, canFull);
         const renderKey = [
             analysis.raceId || analysis.trackName || "race",
             analysisMode,
@@ -9919,9 +9961,9 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
         ].join("|");
         if (body.dataset.renderKey === renderKey) {
             updateAnalysisStageStatus_(body, elapsed, canFull);
+            if (analysisMode === "gyro") updateGyroLive_(body, elapsed);
             return true;
         }
-        updateCommentary_(elapsed, canFull);
         const html = ({
             laprec: renderLapRecordingMode_,
             gaps: renderGapsMode_,
@@ -9938,6 +9980,7 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
         body.dataset.renderKey = renderKey;
         body.innerHTML = analysisStageHtml_(elapsed, canFull) + html;
         bindAnalysisBodyActions_(body);
+        if (analysisMode === "gyro") updateGyroLive_(body, elapsed);
         return true;
     }
 
@@ -10261,14 +10304,18 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
     }
 
     function renderTable_(headers, rows, empty = "No analysis rows yet.", label = "", options = {}) {
-        const head = headers.map(h => `<th scope="col" data-sortable="1">${esc_(h)}</th>`).join("");
+        const displayHeader = h => String(h || "") === "Car image + Car name" ? "Car" : h;
+        const head = headers.map(h => `<th scope="col" data-sortable="1">${esc_(displayHeader(h))}</th>`).join("");
         const body = rows.length ? rows.join("") : `<tr><td colspan="${headers.length}" class="muted">${esc_(empty)}</td></tr>`;
         const helpText = String(options?.helpText || "").trim();
         const help = helpText
             ? `<button type="button" class="mpg-table-help" aria-label="${escAttr_(helpText)}" data-help="${escAttr_(helpText)}">?</button>`
             : "";
         const title = label ? `<div class="mpg-table-label"><span class="mpg-table-label-text">${esc_(label)}</span>${help}</div>` : "";
-        return `<div class="mpg-table-block">${title}<div class="mpg-table-scroll"><table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table></div></div>`;
+        const summaryText = String(options?.summaryText || "").trim();
+        const classes = `mpg-table-block${options?.compact ? " mpg-table-compact" : ""}${summaryText ? " mpg-table-has-summary" : ""}`;
+        const summary = summaryText ? `<div class="mpg-table-summary">${esc_(summaryText)}</div>` : "";
+        return `<div class="${classes}">${title}<div class="mpg-table-scroll"><table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table></div>${summary}</div>`;
     }
 
     function renderGapsMode_(elapsed, canFull) {
@@ -10372,7 +10419,7 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
     }
 
     function renderLapRecordingMode_(elapsed, canFull) {
-        if (!analysis?.drivers?.length) return renderTable_(["Pos", "Car image + Car name", "Driver", "RS", "Current Lap Time"], [], "Waiting for decoded lap data...", "Lap Recording");
+        if (!analysis?.drivers?.length) return renderTable_(["Pos", "Car image + Car name", "Driver", "RS", "Current"], [], "Waiting for decoded lap data...", "Lap Recording");
         const lapCount = Math.max(analysis.laps || 0, ...analysis.drivers.map(d => d.validLapTimes?.length || 0));
         const fastestRaceLap = minFinite_(analysis.drivers.flatMap(d => (d.validLapTimes || []).map(l => l.seconds)));
         const lapCellClass = (d, v) => {
@@ -10381,7 +10428,7 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
             if (Number.isFinite(d.bestLapSeconds) && Math.abs(v - d.bestLapSeconds) < 0.0005) return "mono mpg-timecell mpg-pace-pb";
             return "mono mpg-timecell mpg-pace-slow";
         };
-        const headers = ["Pos", "Car image + Car name", "Driver", "RS", "Current Lap Time"].concat(Array.from({ length: lapCount }, (_, i) => `Lap ${i + 1}`));
+        const headers = ["Pos", "Car image + Car name", "Driver", "RS", "Current"].concat(Array.from({ length: lapCount }, (_, i) => `Lap ${i + 1}`));
         const rows = getLiveOrder_(canFull ? Infinity : elapsed, canFull).map((x, i) => {
             const d = x.driver;
             const live = currentDistanceAtTime_(d, canFull ? d.finalTime : elapsed);
@@ -10389,9 +10436,9 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
             const currentLapSeconds = live.finished || canFull ? NaN : Math.max(0, elapsed - lapStartTime);
             let currentCls = "mono mpg-timecell";
             if (Number.isFinite(currentLapSeconds)) {
-                if (Number.isFinite(fastestRaceLap) && currentLapSeconds < fastestRaceLap) currentCls += " mpg-pace-fl";
-                else if (Number.isFinite(d.bestLapSeconds) && currentLapSeconds < d.bestLapSeconds) currentCls += " mpg-pace-pb";
-                else currentCls += " mpg-pace-slow";
+                if (Number.isFinite(d.bestLapSeconds) && currentLapSeconds > d.bestLapSeconds * 1.07) currentCls += " mpg-current-slow";
+                else if (Number.isFinite(d.bestLapSeconds) && currentLapSeconds > d.bestLapSeconds) currentCls += " mpg-current-over";
+                else currentCls += " mpg-current-live";
             }
             const currentLapText = live.finished || canFull
                 ? (d.crashed ? "DNF" : "Finished")
@@ -10629,7 +10676,8 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
         const rows = getLiveOrder_(elapsed).map((x, i) => {
             const { g } = currentSpeedAndG_(x.driver, elapsed);
             const state = !active || !Number.isFinite(g) ? "--" : g > 0.03 ? "Accel" : g < -0.03 ? "Brake" : "Coast";
-            return `<tr><td>${i + 1}</td><td>${carComboCell_(x.driver)}</td><td>${driverWithRsCell_(x.driver)}</td><td class="mono">${formatG_(g)}</td><td>${state}</td></tr>`;
+            const key = String(x.driver.driverId || normalizeDriverName_(x.driver.name || ""));
+            return `<tr data-mpg-accel-driver="${escAttr_(key)}"><td data-accel-field="pos">${i + 1}</td><td>${carComboCell_(x.driver)}</td><td>${driverWithRsCell_(x.driver)}</td><td class="mono" data-accel-field="g">${formatG_(g)}</td><td data-accel-field="state">${state}</td></tr>`;
         });
         return renderTable_(["Pos", "Car image + Car name", "Driver (RS)", "Current Accel/Brake", "State"], rows, "Waiting for acceleration data...", "Accel/Brake");
     }
@@ -10702,6 +10750,8 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
         if (!d?.segmentTimes?.length || !analysis?.routeModel) return [];
         const full = analysisCanShowFullRace_() && !shouldRenderReplayMoment_();
         const limitIndex = full ? d.segmentTimes.length - 1 : currentDistanceAtTime_(d, elapsed).segmentIndex;
+        const cached = slideEventsCache.get(d);
+        if (cached && cached.full === full && cached.limitIndex === limitIndex && cached.routeModel === analysis.routeModel && cached.smoothing === telemetrySmoothing) return cached.events;
         const events = [];
         for (let i = 1; i <= limitIndex && i < d.segmentTimes.length; i++) {
             const prevSpeed = d.segmentTimes[i - 1] > 0 ? (d.segmentDistancesMeters?.[i - 1] || 0) / d.segmentTimes[i - 1] : NaN;
@@ -10719,7 +10769,9 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
                 events.push({ lap, sector, dropKmh, lateral, lost });
             }
         }
-        return events.slice(-5);
+        const result = events.slice(-5);
+        slideEventsCache.set(d, { full, limitIndex, routeModel: analysis.routeModel, smoothing: telemetrySmoothing, events: result });
+        return result;
     }
 
     function renderSlideEventsTable_(d, elapsed) {
@@ -10739,7 +10791,7 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
             const avgSpeed = avgTime > 0 ? (avgState.distance || 0) / avgTime : NaN;
             return `<tr><td>${i + 1}</td><td>${carComboCell_(d)}</td><td>${driverWithRsCell_(d)}</td><td class="mono">${formatSpeed_(speed)}</td><td class="mono">${formatSpeed_(stats.topSpeedMps)}</td><td class="mono">${formatSpeed_(avgSpeed)}</td></tr>`;
         });
-        return `${renderTable_(["Pos", "Car image + Car name", "Driver (RS)", "Current Speed", "Top Speed", "Avg Speed"], rows, "Waiting for speed data...", "Speed")}<div class="mpg-note">Estimated telemetry from sector timing + official track distance.</div>`;
+        return renderTable_(["Pos", "Car image + Car name", "Driver (RS)", "Current Speed", "Top Speed", "Avg Speed"], rows, "Waiting for speed data...", "Speed");
     }
 
     function renderSectorsMode_(elapsed, canFull) {
@@ -10775,23 +10827,31 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
             const hue = 58 - ratio * 54;
             return `color:hsl(${hue.toFixed(1)} 96% 58%) !important;text-shadow:0 0 7px hsla(${hue.toFixed(1)} 96% 48% / .30)`;
         };
-        const perDriver = perDriverModels.map(row => {
-            const { d, raw, theoretical, diff } = row;
-            const cells = raw.map((v, idx) => {
-                const cls = Number.isFinite(v) && Math.abs(v - bestBySector[idx + 1]) < 0.0005 ? "mono mpg-purple" : "mono";
-                return `<td class="${cls}">${Number.isFinite(v) ? formatTimeSeconds_(v) : "--"}</td>`;
-            }).join("");
-            const theoreticalCls = Number.isFinite(theoretical) && Math.abs(theoretical - bestTheoretical) < 0.0005 ? "mono mpg-purple" : "mono";
-            return `<tr><td>${carComboCell_(d)}</td><td>${driverWithRsCell_(d)}</td>${cells}<td class="${theoreticalCls}">${Number.isFinite(theoretical) ? formatTimeSeconds_(theoretical) : "--"}</td><td class="mono" style="${escAttr_(diffStyle(diff))}">${Number.isFinite(diff) ? formatGapChangeSeconds_(diff) : "--"}</td></tr>`;
-        });
         const ideal = [1, 2, 3].map(sec => bestBySector[sec]).filter(Number.isFinite);
         const idealLap = ideal.length === 3 ? ideal.reduce((a, b) => a + b, 0) : NaN;
         const fastestRaceLap = minFinite_(analysis.drivers.map(d => d.bestLapSeconds));
         const delta = Number.isFinite(idealLap) && Number.isFinite(fastestRaceLap) ? idealLap - fastestRaceLap : NaN;
-        return `${renderTable_(["Sector", "Car image + Car name", "Driver (RS)", "Best Time", "Lap"], best, "Waiting for sector data...", "Best Sectors")}
-          <div class="mpg-note">Ideal Lap: ${Number.isFinite(idealLap) ? formatTimeSeconds_(idealLap) : "--"}${Number.isFinite(delta) ? ` (${formatGapChangeSeconds_(delta)} vs fastest race lap)` : ""}</div>
-          ${renderTable_(["Car image + Car name", "Driver", "S1", "S2", "S3", "Theoretical Lap", "Difference to PB"], perDriver, "Waiting for per-driver sectors...", "Per-driver Best Sectors")}
-          <div class="mpg-note">Estimated from sector timing + official track distance.</div>`;
+        const driverHeaders = ["Metric"].concat(perDriverModels.map(({ d }) => {
+            const rs = formatDriverRs_(d.racingSkill).replace(/^RS:\s*/i, "");
+            return `${d.name || "--"} (${rs})`;
+        }));
+        const metricRow = (label, cells) => `<tr><td><b>${esc_(label)}</b></td>${cells.join("")}</tr>`;
+        const perDriver = [
+            metricRow("Car", perDriverModels.map(({ d }) => `<td>${carComboCell_(d)}</td>`)),
+            ...[0, 1, 2].map(idx => metricRow(`S${idx + 1}`, perDriverModels.map(({ raw }) => {
+                const v = raw[idx];
+                const cls = Number.isFinite(v) && Math.abs(v - bestBySector[idx + 1]) < 0.0005 ? "mono mpg-purple" : "mono";
+                return `<td class="${cls}">${Number.isFinite(v) ? formatTimeSeconds_(v) : "--"}</td>`;
+            }))),
+            metricRow("Theoretical Lap", perDriverModels.map(({ theoretical }) => {
+                const cls = Number.isFinite(theoretical) && Math.abs(theoretical - bestTheoretical) < 0.0005 ? "mono mpg-purple" : "mono";
+                return `<td class="${cls}">${Number.isFinite(theoretical) ? formatTimeSeconds_(theoretical) : "--"}</td>`;
+            })),
+            metricRow("Difference to PB", perDriverModels.map(({ diff }) => `<td class="mono" style="${escAttr_(diffStyle(diff))}">${Number.isFinite(diff) ? formatGapChangeSeconds_(diff) : "--"}</td>`))
+        ];
+        const idealSummary = `Ideal Lap: ${Number.isFinite(idealLap) ? formatTimeSeconds_(idealLap) : "--"}${Number.isFinite(delta) ? ` (${formatGapChangeSeconds_(delta)} vs fastest race lap)` : ""}`;
+        return `${renderTable_(["Sector", "Car image + Car name", "Driver (RS)", "Best Time", "Lap"], best, "Waiting for sector data...", "Best Sectors", { compact: true, summaryText: idealSummary })}
+          ${renderTable_(driverHeaders, perDriver, "Waiting for per-driver sectors...", "Per-driver Best Sectors")}`;
     }
 
     function renderPaceMode_(elapsed, canFull) {
@@ -10821,18 +10881,61 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
         return renderTable_(["Pos", "Car image + Car name", "Driver (RS)", "Current Lap Time", "PB", "Average Lap Time"], rows, "Waiting for lap pace data...", "Lap Pace");
     }
 
+    function selectedGyroDriver_() {
+        const selected = document.getElementById("mpgAnalysisBody")?.dataset?.gyroDriver || analysis?.drivers?.[0]?.name || "";
+        return analysis?.drivers?.find(x => x.name === selected) || analysis?.drivers?.[0] || null;
+    }
+
+    function gyroStructureKey_(elapsed, canFull) {
+        const d = selectedGyroDriver_();
+        if (!d) return "waiting";
+        const order = getLiveOrder_(elapsed, canFull).map(x => x.driver.driverId || normalizeDriverName_(x.driver.name || "")).join(",");
+        const events = driverSlideEvents_(d, elapsed).map(e => `${e.lap}:${e.sector}:${e.dropKmh.toFixed(2)}:${Number.isFinite(e.lost) ? e.lost.toFixed(3) : ""}`).join(",");
+        return `${d.driverId || normalizeDriverName_(d.name || "")}|${order}|${events}|${analysis?.routeModel ? 1 : 0}|${debugEnabled ? 1 : 0}`;
+    }
+
+    function updateGyroLive_(body, elapsed) {
+        const d = selectedGyroDriver_();
+        if (!body || !d) return;
+        const gyro = gyroPointHtml_(d, elapsed, true);
+        const dynamic = body.querySelector(".mpg-gyro-dynamic");
+        if (dynamic) dynamic.innerHTML = gyro.html;
+        const values = {
+            speed: formatSpeed_(gyro.speed),
+            longitudinal: formatG_(gyro.g),
+            lateral: gyro.routeAvailable ? formatG_(-gyro.lateralG) : "--",
+            combined: gyro.routeAvailable ? formatG_(gyro.combinedG) : "--"
+        };
+        body.querySelectorAll("[data-gyro-field]").forEach(el => {
+            const key = el.getAttribute("data-gyro-field") || "";
+            if (Object.prototype.hasOwnProperty.call(values, key)) el.textContent = values[key];
+        });
+        const active = telemetryCanSample_(elapsed);
+        const ordered = getLiveOrder_(elapsed);
+        const positions = new Map(ordered.map((x, i) => [String(x.driver.driverId || normalizeDriverName_(x.driver.name || "")), i + 1]));
+        body.querySelectorAll("[data-mpg-accel-driver]").forEach(row => {
+            const key = row.getAttribute("data-mpg-accel-driver") || "";
+            const driver = analysis?.drivers?.find(x => String(x.driverId || normalizeDriverName_(x.name || "")) === key);
+            if (!driver) return;
+            const { g } = currentSpeedAndG_(driver, elapsed);
+            const state = !active || !Number.isFinite(g) ? "--" : g > 0.03 ? "Accel" : g < -0.03 ? "Brake" : "Coast";
+            const pos = row.querySelector('[data-accel-field="pos"]');
+            const gCell = row.querySelector('[data-accel-field="g"]');
+            const stateCell = row.querySelector('[data-accel-field="state"]');
+            if (pos) pos.textContent = String(positions.get(key) || "--");
+            if (gCell) gCell.textContent = formatG_(g);
+            if (stateCell) stateCell.textContent = state;
+        });
+    }
+
     function renderGyroMode_(elapsed) {
-        const selected = document.getElementById("mpgAnalysisBody")?.dataset?.gyroDriver || analysis.drivers[0]?.name || "";
-        const d = analysis.drivers.find(x => x.name === selected) || analysis.drivers[0];
+        const d = selectedGyroDriver_();
         if (!d) return `<div class="mpg-note">Gyro data is waiting for race participants.</div>`;
         const gyro = gyroPointHtml_(d, elapsed, true);
         const { speed, g, lateralG, combinedG, routeAvailable } = gyro;
-        const routeSource = analysis?.routeModel?.source === "race-json"
-            ? "race JSON"
-            : (analysis?.routeModel?.source ? "SQLite tracks table" : "");
-        const routeNote = routeAvailable
-            ? `Route path loaded from ${routeSource || "route data"} — lateral G is estimated from SVG curvature and segment speed. Dot direction is cockpit G-force: right turns pull left, acceleration pulls down.`
-            : (debugEnabled ? "Route path unavailable — lateral G hidden. Longitudinal G and speed are estimated from segment timing." : "");
+        const routeHelp = routeAvailable
+            ? "Lateral G is estimated from SVG route curvature and segment speed. Longitudinal G and speed are estimated from segment timing. Dot direction is cockpit G-force: right turns pull left, acceleration pulls down."
+            : `Longitudinal G and speed are estimated from segment timing. Lateral G requires a usable SVG route path.${debugEnabled ? " Route path is currently unavailable." : ""}`;
         const buttons = analysis.drivers.map(driver => {
             const active = driver.name === d.name;
             const rs = formatDriverRs_(driver.racingSkill).replace(/^RS:\s*/i, "RS ");
@@ -10846,9 +10949,10 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
           <span class="mpg-gyro-ring r15"><span class="mpg-gyro-ring-label">1.5g</span></span>
           <span class="mpg-gyro-axis-label left">L</span><span class="mpg-gyro-axis-label right">R</span>
           <span class="mpg-gyro-axis-label top">Brake</span><span class="mpg-gyro-axis-label bottom">Accel</span>
-          ${gyro.html}
+          <span class="mpg-gyro-dynamic">${gyro.html}</span>
         </div>`;
-        return `<div class="mpg-gyro">${pad}<div class="mpg-gyro-panel"><div class="mpg-gyro-title"><span>${driverNameCell_(d)}</span><span class="mpg-badge">${esc_(formatDriverRs_(d.racingSkill))}</span></div><div class="mpg-gyro-readout"><div><span>Speed</span><b class="mono">${formatSpeed_(speed)}</b></div><div><span>Longitudinal</span><b class="mono">${formatG_(g)}</b></div><div><span>Lateral</span><b class="mono">${routeAvailable ? formatG_(-lateralG) : "--"}</b></div><div><span>Combined</span><b class="mono">${routeAvailable ? formatG_(combinedG) : "--"}</b></div></div>${routeNote ? `<p class="mpg-note">${esc_(routeNote)}</p>` : ""}<div class="mpg-gyro-drivers">${buttons}</div></div></div>${renderSlideEventsTable_(d, elapsed)}${renderAccelTable_(elapsed)}`;
+        const help = `<button type="button" class="mpg-table-help" aria-label="${escAttr_(routeHelp)}" data-help="${escAttr_(routeHelp)}">?</button>`;
+        return `<div class="mpg-gyro">${pad}<div class="mpg-gyro-panel"><div class="mpg-gyro-title"><span>${driverNameCell_(d)}</span><span class="mpg-gyro-title-tools">${help}<span class="mpg-badge">${esc_(formatDriverRs_(d.racingSkill))}</span></span></div><div class="mpg-gyro-readout"><div><span>Speed</span><b class="mono" data-gyro-field="speed">${formatSpeed_(speed)}</b></div><div><span>Longitudinal</span><b class="mono" data-gyro-field="longitudinal">${formatG_(g)}</b></div><div><span>Lateral</span><b class="mono" data-gyro-field="lateral">${routeAvailable ? formatG_(-lateralG) : "--"}</b></div><div><span>Combined</span><b class="mono" data-gyro-field="combined">${routeAvailable ? formatG_(combinedG) : "--"}</b></div></div><div class="mpg-gyro-drivers">${buttons}</div></div></div>${renderSlideEventsTable_(d, elapsed)}${renderAccelTable_(elapsed)}`;
     }
 
     function renderSummaryMode_(elapsed = getVisualElapsed_(), canFull = null) {
