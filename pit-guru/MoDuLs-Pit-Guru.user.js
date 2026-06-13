@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         MoDuL's Pit Guru
 // @namespace    modul.torn.racing
-// @version      1.9.3
+// @version      1.9.4
 // @description  Live Torn race timing, gaps, sectors, speed and estimated telemetry analysis
 // @author       MoDuL
 // @copyright    2026 MoDuL. All rights reserved.
@@ -173,7 +173,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         return await pgLocalApiRequest('/api/pit-guru/v1/tracks/route/upsert', route);
     }
 
-    async function pgLocalFetchRecords(mode, track, limit = 10, options = {}) {
+    async function pgLocalFetchRecords(mode, track, limit = 100, options = {}) {
         if (!track) {
             throw new Error('Missing track for Pit Guru local records lookup');
         }
@@ -309,7 +309,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
     unsafeWindow.pgPlayerCacheRaceId = pgPlayerFetchRaceDataById_;
     unsafeWindow.pgPlayerCacheCurrentRace = openLocalPlayerForCurrentRace_;
 
-    const MPG_VERSION = "1.9.3";
+    const MPG_VERSION = "1.9.4";
     var TAG = "[MoDuL's Pit Guru v" + MPG_VERSION + "]";
 
     const PitGuruRaceEngine = (() => {
@@ -4406,7 +4406,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         }
         pgLocalRecordsCache = { key, rows: pgLocalRecordsCache.key === key ? pgLocalRecordsCache.rows : [], fetchedAt: pgLocalRecordsCache.fetchedAt || 0, loading: true, error: "" };
         try {
-            const result = await pgLocalFetchRecords(recMode, recTrack, 10, options);
+            const result = await pgLocalFetchRecords(recMode, recTrack, 100, options);
             if (!result?.ok) throw new Error(result?.error || "Local records request failed");
             pgLocalRecordsCache = {
                 key,
@@ -10265,7 +10265,7 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
         const body = rows.length ? rows.join("") : `<tr><td colspan="${headers.length}" class="muted">${esc_(empty)}</td></tr>`;
         const helpText = String(options?.helpText || "").trim();
         const help = helpText
-            ? `<button type="button" class="mpg-table-help" aria-label="${escAttr_(helpText)}" title="${escAttr_(helpText)}" data-help="${escAttr_(helpText)}">?</button>`
+            ? `<button type="button" class="mpg-table-help" aria-label="${escAttr_(helpText)}" data-help="${escAttr_(helpText)}">?</button>`
             : "";
         const title = label ? `<div class="mpg-table-label"><span class="mpg-table-label-text">${esc_(label)}</span>${help}</div>` : "";
         return `<div class="mpg-table-block">${title}<div class="mpg-table-scroll"><table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table></div></div>`;
@@ -11020,7 +11020,8 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
         const historyTable = hugeGrid
             ? `<div class="mpg-note">Past Races on Track is skipped for huge pre-race grids to keep Torn responsive. Saved history still contributes to prediction scores when available.</div>`
             : renderPredictionPastRacesTable_(scored.map(x => x.d), set.trackName || "");
-        return `<div class="mpg-note">${sourceNote}${apiNote}${rsNote}${historyNote}</div>${renderTable_(["Predicted Pos","Car image + Car name","Driver (RS)","Win Chance","Podium Chance","Expected Position","Confidence","Intel","Starts","Wins","Priors","Avg Pos","Risk"], rows, "Waiting for prediction data...", "Predictions")}${historyTable}`;
+        const predictionHelpText = `${sourceNote}${apiNote}${rsNote}${historyNote}`.trim();
+        return `${renderTable_(["Predicted Pos","Car image + Car name","Driver (RS)","Win Chance","Podium Chance","Expected Position","Confidence","Intel","Starts","Wins","Priors","Avg Pos","Risk"], rows, "Waiting for prediction data...", "Predictions", { helpText: predictionHelpText })}${historyTable}`;
     }
 
     function ensureUi_() {
@@ -11154,7 +11155,7 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
                 </select>
                 <label class="recScopeToggle" title="Switch between global records and only your own records"><input id="rtRecMineOnly" type="checkbox"><span>Mine only</span></label>
               </div>
-              <div class="recordsRight muted"><button id="rtDetachRecords" class="pill" type="button" title="Move Records to its own window">Pop out</button> Top 10 • unique cars</div>
+              <div class="recordsRight muted"><button id="rtDetachRecords" class="pill" type="button" title="Move Records to its own window">Pop out</button> All unique cars</div>
             </div>
             <div class="recordsTable" id="rtRecScroll">
               <table id="rtRecTable">
@@ -11345,7 +11346,7 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
                 </select>
                 <label class="recScopeToggle" title="Switch between global records and only your own records"><input id="rtRecPopMineOnly" type="checkbox"><span>Mine only</span></label>
               </div>
-              <div class="recordsRight muted">Top 10 • unique cars</div>
+              <div class="recordsRight muted">All unique cars</div>
             </div>
             <div class="recordsTable" id="rtRecPopScroll">
               <table id="rtRecPopTable">
@@ -11607,8 +11608,7 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
             if (localReady) {
                 top = (pgLocalRecordsCache.rows || [])
                     .slice()
-                    .sort((a, b) => (a.ms || 0) - (b.ms || 0))
-                    .slice(0, 10);
+                    .sort((a, b) => (a.ms || 0) - (b.ms || 0));
             } else {
                 const rows = records
                 .filter(r => r && r.mode === mode && getRecordTrackScopeFromRow_(r, mode) === track)
@@ -11626,8 +11626,7 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
                 }
 
                 top = Array.from(bestByCar.values())
-                .sort((a, b) => (a.ms || 0) - (b.ms || 0))
-                .slice(0, 10);
+                    .sort((a, b) => (a.ms || 0) - (b.ms || 0));
             }
             if (!top.length) {
                 const msg = pgLocalRecordsCache.loading && pgLocalRecordsMatch_(mode, track)
