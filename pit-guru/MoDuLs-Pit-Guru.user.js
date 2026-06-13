@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         MoDuL's Pit Guru
 // @namespace    modul.torn.racing
-// @version      1.9.2
+// @version      1.9.3
 // @description  Live Torn race timing, gaps, sectors, speed and estimated telemetry analysis
 // @author       MoDuL
 // @copyright    2026 MoDuL. All rights reserved.
@@ -309,7 +309,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
     unsafeWindow.pgPlayerCacheRaceId = pgPlayerFetchRaceDataById_;
     unsafeWindow.pgPlayerCacheCurrentRace = openLocalPlayerForCurrentRace_;
 
-    const MPG_VERSION = "1.9.2";
+    const MPG_VERSION = "1.9.3";
     var TAG = "[MoDuL's Pit Guru v" + MPG_VERSION + "]";
 
     const PitGuruRaceEngine = (() => {
@@ -5806,7 +5806,7 @@ img.carIcon{
 
 /* ========== Force all UI text to follow vars (prevents black leaks) ========== */
 #rtLapWin, #rtLapBtn, #rtRecordsPopup, #mpgSettingsModal, #mpgGarageModal, #mpgDriverHoverCard, #mpgTutorial,
-#rtHdr, #rtBody, #rtMeta, #rtCountdown,
+#rtHdr, #rtBody, #rtMeta,
 #rtTrack, #rtCar, #rtDriver, #rtRaceTime{
   color: var(--text) !important;
 }
@@ -6359,6 +6359,10 @@ img.carIcon{
 .mpg-analysis .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;color:var(--text) !important}
 .mpg-table-block{margin:8px 0 12px;min-width:0}
 .mpg-table-label{font-weight:900;color:var(--text);font-size:13px;margin:8px 10px 6px;display:flex;align-items:center;gap:6px}
+.mpg-table-label-text{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mpg-table-help{position:relative;margin-left:auto;flex:0 0 auto;width:22px;height:22px;padding:0;border:1px solid var(--border);border-radius:50%;background:var(--pill);color:var(--accent);font:900 12px/20px system-ui;text-align:center;cursor:help}
+.mpg-table-help:hover,.mpg-table-help:focus-visible{background:var(--pillHover);outline:1px solid var(--accent);outline-offset:1px}
+.mpg-table-help:hover::after,.mpg-table-help:focus-visible::after{content:attr(data-help);position:absolute;right:0;top:calc(100% + 7px);z-index:20;width:min(340px,calc(100vw - 48px));padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text);box-shadow:0 10px 28px rgba(0,0,0,.5);font:12px/1.35 system-ui;font-weight:500;text-align:left;white-space:normal}
 .mpg-table-scroll{overflow:auto;border:1px solid var(--border);border-radius:10px;background:rgba(0,0,0,.12)}
 .mpg-timecell{padding-left:5px !important;padding-right:5px !important}
 .mpg-car-combo{display:grid;grid-template-columns:56px minmax(70px,1fr);align-items:center;gap:2px;min-width:130px}
@@ -6491,12 +6495,6 @@ img.carIcon{
 #rtMeta .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace}
 #rtMetaTable .rtMetaCar{display:inline-flex;align-items:center;justify-content:center;gap:5px;min-width:0;max-width:100%}
 #rtMetaTable .rtMetaCar .carName{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-#rtCountdown{
-  color:var(--muted) !important;
-  font:12px system-ui;
-  margin-top:-6px;
-  padding-left:2px;
-}
 #rtCarWrap{display:inline-flex;align-items:center;gap:8px;}
 @media (max-width: 920px){
   #rtMetaTable .rtMetaCar .carName{display:none}
@@ -9807,13 +9805,22 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
     }
 
     function analysisStatusLine_(elapsed, canFull) {
-        if (!analysis) return "Waiting for racingData";
+        const countdownSeconds = parseCountdownToSeconds_(raceMeta?.countdown || "");
+        const countdownText = Number.isFinite(countdownSeconds) && countdownSeconds > 0
+            ? `Race starts in: ${formatShortCountdown_(countdownSeconds)}`
+            : "";
+        if (!analysis) return countdownText || "Waiting for racingData";
         if (canFull || raceIsFinished_()) {
             const finalText = liveTimerText_(elapsed, true);
             return `FINISHED - Final analysis ready${finalText ? ` (${finalText})` : ""}`;
         }
-        if (!visualRaceHasStarted_()) return "READY - Waiting for race start";
+        if (!visualRaceHasStarted_()) return countdownText || "READY - Waiting for race start";
         return `LIVE - Timer: ${formatTimeSeconds_(elapsed)}`;
+    }
+
+    function updateAnalysisStageStatus_(body, elapsed, canFull) {
+        const status = body?.querySelector?.(".mpg-stage-status");
+        if (status) status.textContent = analysisStatusLine_(elapsed, canFull);
     }
 
     function analysisStageHtml_(elapsed, canFull) {
@@ -9856,6 +9863,7 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
                     body.innerHTML = analysisStageHtml_(0, false) + renderPredictionsMode_(set);
                     bindAnalysisBodyActions_(body);
                 }
+                updateAnalysisStageStatus_(body, 0, false);
                 return true;
             }
             if (status) status.textContent = "WAITING · racingData JSON not captured";
@@ -9864,6 +9872,7 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
                 body.dataset.renderKey = waitingKey;
                 body.innerHTML = analysisStageHtml_(0, false) + `<div class="mpg-card"><div class="mpg-empty-title">Waiting for racingData</div><p class="mpg-note">Pit Guru now reads Torn's delivered racingData JSON only. Page leaderboard and lap UI scraping are disabled.</p><p class="mpg-note">Open the race before it starts, or load a replay/log that provides racingData, and this panel will fill automatically.</p></div>`;
             }
+            updateAnalysisStageStatus_(body, 0, false);
             return true;
         }
         const elapsed = getVisualElapsed_();
@@ -9908,7 +9917,10 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
             analysis?.routeModel ? "route" : "noroute",
             body.dataset.gyroDriver || ""
         ].join("|");
-        if (body.dataset.renderKey === renderKey) return true;
+        if (body.dataset.renderKey === renderKey) {
+            updateAnalysisStageStatus_(body, elapsed, canFull);
+            return true;
+        }
         updateCommentary_(elapsed, canFull);
         const html = ({
             laprec: renderLapRecordingMode_,
@@ -10248,10 +10260,14 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
         document.addEventListener("mouseleave", hide, true);
     }
 
-    function renderTable_(headers, rows, empty = "No analysis rows yet.", label = "") {
+    function renderTable_(headers, rows, empty = "No analysis rows yet.", label = "", options = {}) {
         const head = headers.map(h => `<th scope="col" data-sortable="1">${esc_(h)}</th>`).join("");
         const body = rows.length ? rows.join("") : `<tr><td colspan="${headers.length}" class="muted">${esc_(empty)}</td></tr>`;
-        const title = label ? `<div class="mpg-table-label">${esc_(label)}</div>` : "";
+        const helpText = String(options?.helpText || "").trim();
+        const help = helpText
+            ? `<button type="button" class="mpg-table-help" aria-label="${escAttr_(helpText)}" title="${escAttr_(helpText)}" data-help="${escAttr_(helpText)}">?</button>`
+            : "";
+        const title = label ? `<div class="mpg-table-label"><span class="mpg-table-label-text">${esc_(label)}</span>${help}</div>` : "";
         return `<div class="mpg-table-block">${title}<div class="mpg-table-scroll"><table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table></div></div>`;
     }
 
@@ -10953,7 +10969,10 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
                 ? `Pit Guru race history unavailable: ${historyError}`
                 : "No Pit Guru history for this track yet.";
         const scopeText = `${scope.raceType === "custom" ? "Custom" : "Official"}${scope.laps ? `, ${scope.laps} laps` : ""}`;
-        return `<div class="mpg-note">Past races on ${esc_(track)} (${esc_(scopeText)}). This is matching history from completed races; current-grid drivers are marked in the Grid column.${esc_(status)}</div>${renderTable_(["Car image + Car name","Driver (RS)","Grid","Races Here","Avg Finish","Wins","Podiums","Crashes","Best Lap","Best Race","Risk","Last Seen"], rows, emptyText, "Past Races on Track")}`;
+        const label = `Past Races on ${track} (${scopeText})`;
+        const helpText = "This is matching history from completed races; current-grid drivers are marked in the Grid column.";
+        const statusNote = status ? `<div class="mpg-note">${esc_(status.trim())}</div>` : "";
+        return `${statusNote}${renderTable_(["Car image + Car name","Driver (RS)","Grid","Races Here","Avg Finish","Wins","Podiums","Crashes","Best Lap","Best Race","Risk","Last Seen"], rows, emptyText, label, { helpText })}`;
     }
 
     function renderPredictionsMode_(providedSet = null) {
@@ -11107,7 +11126,6 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
               </tbody>
             </table>
           </div>
-          <div id="rtCountdown" style="display:none"></div>
           <div id="mpgModeBar" class="mpg-modebar"></div>
           <div id="mpgStatusBadge" class="mpg-status muted"></div>
           <div id="mpgCommentaryTicker" class="mpg-commentary" style="display:none"></div>
@@ -11473,7 +11491,6 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
         const raceOvertakesEl = document.getElementById("rtRaceOvertakes");
         const raceIdEl = document.getElementById("rtRaceId");
         const raceIdWrap = document.getElementById("rtRaceIdWrap");
-        const cdEl = document.getElementById("rtCountdown");
 
         const participantCount = analysis?.drivers?.length || preRaceParticipants.length || raceMetaFromPayload_(latestRaceDataPayload || analysis?.payload || null).currentDrivers || 0;
         const hasJson = !!(latestRaceDataPayload || analysis);
@@ -11540,18 +11557,6 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
 
         if (raceTimeEl) raceTimeEl.textContent = raceMeta?.startAtIso ? reportDateText_(raceMeta.startAtIso) : (raceMeta?.detectedAtLocal || "—");
         if (raceOvertakesEl) raceOvertakesEl.textContent = String(raceOvertakesCount_(getVisualElapsed_(), analysisCanShowFullRace_()));
-
-        if (cdEl) {
-            const show = !raceDataStarted_() && !!(raceMeta?.countdown || "");
-            if (!show) {
-                cdEl.textContent = "";
-                cdEl.style.display = "none";
-            } else {
-                const secs = parseCountdownToSeconds_(raceMeta.countdown);
-                cdEl.textContent = `Race starts in: ${formatShortCountdown_(secs)}`;
-                cdEl.style.display = "block";
-            }
-        }
 
         // Records panel/window (per track)
         if (recWrap) recWrap.style.display = recordsOpen && !recordsDetached ? "" : "none";
