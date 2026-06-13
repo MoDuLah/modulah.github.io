@@ -30,7 +30,7 @@
         <div class="hero-copy">
           <p class="section-kicker">Supporter Racing Analysis Tool</p>
           <h1 class="hero-title">MoDuL's Pit Guru</h1>
-          <p class="hero-text">A next-generation Torn racing analysis workspace built from Lap Recorder's lessons, with a public race player, PostgreSQL-backed history, and the live v1.8.9 userscript focused on live and post-race insight.</p>
+          <p class="hero-text">A next-generation Torn racing analysis workspace built from Lap Recorder's lessons, with a public race player, PostgreSQL-backed history, and the live v1.9.6 userscript focused on live and post-race insight.</p>
 
           <div class="hero-actions">
             <a class="cta-button" href="https://pp_api.sokin.xyz/pit-guru/" target="_blank" rel="noopener noreferrer">Open Public Race Player</a>
@@ -81,7 +81,7 @@
 
         <article class="content-card content-card-full">
           <h2>Supporter Access</h2>
-          <p><a href="MoDuLs-Pit-Guru.user.js">Install Pit Guru v1.9.5</a>, then follow the first-run guided setup to verify your Torn account using a public Torn API key. The key is used only for verification and is never saved in the Pit Guru database.</p>
+          <p><a href="MoDuLs-Pit-Guru.user.js">Install Pit Guru v1.9.6</a>, then follow the first-run guided setup to verify your Torn account using a public Torn API key. The key is used only for verification and is never saved in the Pit Guru database.</p>
           <p>Every verified account can analyse one race as a demo. For supporter licensing, <a href="https://discord.gg/JP8FQBATMV" target="_blank" rel="noopener noreferrer">join the Pit Guru Discord</a> and run <code>/buylicense</code> in any server channel.</p>
           <p>Access plans are 7 days for 7,000,000 Torn dollars or 31 days for 20,000,000 Torn dollars.</p>
         </article>
@@ -113,14 +113,15 @@
 
         <div class="changelog-tree" role="tree">
           <details class="changelog-version" role="treeitem" open>
-            <summary class="changelog-summary">Current status - June 12, 2026</summary>
+            <summary class="changelog-summary">Current status - June 13, 2026</summary>
             <div class="changelog-content">
               <ul class="changelog-list">
                 <li>The public race player is now live at <a href="https://pp_api.sokin.xyz/pit-guru/" target="_blank" rel="noopener noreferrer">pp_api.sokin.xyz/pit-guru/</a>.</li>
                 <li>The hosted API and player now persist Pit Guru data in PostgreSQL, with pooled connections and backend-aware health checks.</li>
                 <li>The pre-race countdown now occupies the racingData status line, while Past Races uses a scoped title and compact help button.</li>
                 <li>The public proxy now accepts full racingData analysis payloads, and destructive Records deletion requires an admin token.</li>
-                <li>The v1.8.9 userscript is publicly installable, verifies users without storing their API key, and includes first-run setup plus a replayable guided tour.</li>
+                <li>The v1.9.6 userscript is publicly installable, verifies users without storing their API key, and includes first-run setup plus a replayable guided tour.</li>
+                <li>Compact replay uploads pack driver timing data and reuse canonical track segment definitions stored once per track.</li>
               </ul>
             </div>
           </details>
