@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         MoDuL's Pit Guru
 // @namespace    modul.torn.racing
-// @version      1.9.5
+// @version      1.9.6
 // @description  Live Torn race timing, gaps, sectors, speed and estimated telemetry analysis
 // @author       MoDuL
 // @copyright    2026 MoDuL. All rights reserved.
@@ -309,7 +309,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
     unsafeWindow.pgPlayerCacheRaceId = pgPlayerFetchRaceDataById_;
     unsafeWindow.pgPlayerCacheCurrentRace = openLocalPlayerForCurrentRace_;
 
-    const MPG_VERSION = "1.9.5";
+    const MPG_VERSION = "1.9.6";
     var TAG = "[MoDuL's Pit Guru v" + MPG_VERSION + "]";
 
     const PitGuruRaceEngine = (() => {
@@ -660,6 +660,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
     const STORE_PARTICIPANT_SCAN_REPEAT_KEY = "RT_TORN_RA_PARTICIPANT_SCAN_REPEAT";
     const STORE_DIRECT_FETCH_LEASE_KEY = "RT_TORN_RA_DIRECT_FETCH_LEASE_V1";
     const STORE_ONBOARDING_COMPLETE_KEY = "RT_TORN_RA_ONBOARDING_COMPLETE_V1";
+    const STORE_HOSTED_TRACK_INTERVALS_KEY = "RT_TORN_MPG_HOSTED_TRACK_INTERVALS_V1";
     const STORE_RECORDS_MAX = 2500;
     const WIN_DEFAULT_WIDTH = 720;
     const WIN_DEFAULT_HEIGHT = 740;
@@ -1837,6 +1838,98 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         return false;
     }
 
+    function pgPlayerBytesToBase64_(bytes) {
+        let binary = "";
+        const chunkSize = 0x8000;
+        for (let offset = 0; offset < bytes.length; offset += chunkSize) {
+            binary += String.fromCharCode(...bytes.subarray(offset, offset + chunkSize));
+        }
+        return btoa(binary);
+    }
+
+    function pgPlayerPackIntervals_(values, width) {
+        const bytes = new Uint8Array(values.length * width);
+        const view = new DataView(bytes.buffer);
+        for (let index = 0; index < values.length; index++) {
+            const millis = Math.max(1, Math.round(Number(values[index]) * 1000));
+            if (width === 2) view.setUint16(index * width, millis, true);
+            else view.setUint32(index * width, millis, true);
+        }
+        return pgPlayerBytesToBase64_(bytes);
+    }
+
+    function pgPlayerTrackTransportKey_(payload) {
+        const p = getRacePayload_(payload) || payload || {};
+        const intervals = Array.isArray(p?.trackData?.intervals) ? p.trackData.intervals : [];
+        const sum = intervals.reduce((total, value) => total + (Number(value) || 0), 0);
+        const track = String(extractTrackNameFromPayloadOrMeta_(p) || p?.title || "unknown").trim().toLowerCase();
+        const pictureId = String(p?.imageID || p?.imageId || "");
+        return `${track}|${pictureId}|${intervals.length}|${sum.toFixed(6)}`;
+    }
+
+    function pgPlayerHostedTrackKnown_(key) {
+        const known = loadJson_(STORE_HOSTED_TRACK_INTERVALS_KEY, {});
+        return !!known?.[key];
+    }
+
+    function pgPlayerRememberHostedTrack_(key) {
+        if (!key) return;
+        const known = loadJson_(STORE_HOSTED_TRACK_INTERVALS_KEY, {});
+        known[key] = Date.now();
+        const entries = Object.entries(known).sort((a, b) => Number(b[1]) - Number(a[1])).slice(0, 40);
+        saveJson_(STORE_HOSTED_TRACK_INTERVALS_KEY, Object.fromEntries(entries));
+    }
+
+    function pgPlayerCompactTransport_(payload, includeTrackIntervals = false) {
+        const p = getRacePayload_(payload) || payload || {};
+        const decodedCars = {};
+        let maxMillis = 0;
+        for (const [name, encoded] of Object.entries(p?.cars || {})) {
+            const values = pgPlayerDecodedIntervalsPreview_(encoded);
+            if (!values.length) continue;
+            decodedCars[name] = values;
+            for (const value of values) maxMillis = Math.max(maxMillis, Math.round(value * 1000));
+        }
+        const width = maxMillis <= 65535 ? 2 : 4;
+        const cars = {};
+        for (const [name, values] of Object.entries(decodedCars)) {
+            cars[name] = pgPlayerPackIntervals_(values, width);
+        }
+        const carInfo = {};
+        for (const [name, raw] of Object.entries(p?.carInfo || {})) {
+            const info = raw && typeof raw === "object" ? raw : {};
+            const compact = {};
+            for (const key of ["userID", "userId", "id", "playername", "playerName", "name", "itemID", "itemId", "imteID", "color", "carColor"]) {
+                if (info[key] != null) compact[key] = info[key];
+            }
+            carInfo[name] = compact;
+        }
+        const trackData = {
+            laps: p?.trackData?.laps ?? p?.laps
+        };
+        if (p?.trackData?.name != null) trackData.name = p.trackData.name;
+        if (includeTrackIntervals) trackData.intervals = Array.isArray(p?.trackData?.intervals) ? p.trackData.intervals : [];
+        const logData = extractRaceLogData_(p);
+        const compact = {
+            _pitGuruTransport: "compact-replay-v2",
+            raceID: directRaceIdFromPayload_(p),
+            trackID: p?.trackID,
+            laps: p?.laps ?? p?.trackData?.laps,
+            carsEncoding: width === 2 ? "u16ms-b64-le-v1" : "u32ms-b64-le-v1",
+            trackData,
+            cars,
+            carInfo,
+            logData: {}
+        };
+        for (const key of ["ID", "raceID", "raceId", "trackTitle"]) {
+            if (logData?.[key] != null) compact.logData[key] = logData[key];
+        }
+        for (const key of ["imageID", "imageId", "title", "trackName", "track"]) {
+            if (p?.[key] != null) compact[key] = p[key];
+        }
+        return compact;
+    }
+
     function playerRaceDataAvailable_() {
         const payload = latestRaceDataPayload || analysis?.payload || null;
         return !!payload && pgPlayerPayloadHasDecodableIntervals_(payload);
@@ -1885,8 +1978,10 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         pgPlayerCacheActive = true;
         pgPlayerCacheInFlightKeys.add(key);
         pgPlayerCacheStatus = "Caching race in hosted player...";
-        const data = JSON.stringify(p);
-        const submit = session => new Promise((resolve, reject) => {
+        const trackTransportKey = pgPlayerTrackTransportKey_(p);
+        let includeTrackIntervals = !pgPlayerHostedTrackKnown_(trackTransportKey);
+        const submit = (session, requestPayload) => new Promise((resolve, reject) => {
+            const data = JSON.stringify(requestPayload);
             const handleResponse = (status, statusText, responseText) => {
                 try {
                     const parsed = JSON.parse(String(responseText || "{}"));
@@ -1897,6 +1992,8 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
                     if (status < 200 || status >= 300 || parsed?.ok === false) {
                         const error = new Error(parsed?.error || statusText || `HTTP ${status}`);
                         error.status = status;
+                        error.payload = parsed;
+                        error.missingTrackIntervals = !!parsed?.missingTrackIntervals;
                         reject(error);
                         return;
                     }
@@ -1911,7 +2008,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
                     url: `${PG_LOCAL_PLAYER_BASE}/api/analyze`,
                     headers: { "Content-Type": "application/json", "X-Pit-Guru-Session": session },
                     data,
-                    timeout: 12000,
+                    timeout: 30000,
                     onload: res => handleResponse(res.status, res.statusText, res.responseText),
                     onerror: () => reject(new Error("hosted player request failed")),
                     ontimeout: () => reject(new Error("hosted player request timed out"))
@@ -1930,14 +2027,19 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
             let session = pgHostedSession_() || await pgVerifyHostedSession_();
             let result;
             try {
-                result = await submit(session);
+                result = await submit(session, pgPlayerCompactTransport_(p, includeTrackIntervals));
             } catch (error) {
-                const authFailure = error?.status === 401
-                    || (error?.status === 403 && /verify your torn account|no verified pit guru session/i.test(String(error?.message || "")));
-                if (!authFailure) throw error;
-                pgClearHostedSession_();
-                session = await pgVerifyHostedSession_();
-                result = await submit(session);
+                if (error?.missingTrackIntervals && !includeTrackIntervals) {
+                    includeTrackIntervals = true;
+                    result = await submit(session, pgPlayerCompactTransport_(p, true));
+                } else {
+                    const authFailure = error?.status === 401
+                        || (error?.status === 403 && /verify your torn account|no verified pit guru session/i.test(String(error?.message || "")));
+                    if (!authFailure) throw error;
+                    pgClearHostedSession_();
+                    session = await pgVerifyHostedSession_();
+                    result = await submit(session, pgPlayerCompactTransport_(p, includeTrackIntervals));
+                }
             }
             if (result?.pending) {
                 pgPlayerCacheStatus = result.error || "Hosted player cache pending: replay intervals are not available yet.";
@@ -1946,6 +2048,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
             const raceId = String(result?.race?.raceId || directRaceIdFromPayload_(p) || "").trim();
             pgPlayerCacheStatus = raceId ? `Cached Race ID ${raceId} in hosted player.` : "Cached race in hosted player.";
             pgPlayerCachedRaceKeys.add(key);
+            if (result?.transport?.trackIntervalsStored) pgPlayerRememberHostedTrack_(trackTransportKey);
             if (debugEnabled) console.log(TAG, "hosted player cached racingData", source, result?.race);
             return result;
         } catch (error) {
