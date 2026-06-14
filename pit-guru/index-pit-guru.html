@@ -5,7 +5,6 @@
   <title>Pit Guru | MoDuL's Hub</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="MoDuL's Pit Guru supporter racing analysis project for Torn, focused on live timing, gaps, sectors, speed, and post-race insight.">
-  <link rel="canonical" href="https://modulah.github.io/pit-guru/">
   <link rel="stylesheet" href="../assets/css/pit-guru/style.css">
   <link rel="stylesheet" href="../assets/css/slideshow.css">
 </head>
@@ -22,9 +21,9 @@
 
       <div class="site-nav-links">
         <a class="site-nav-link" href="../index.html">Hub</a>
+        <a class="site-nav-link" href="#screenshots">Screenshots</a>
         <a class="site-nav-link" href="faq.html">FAQ</a>
         <a class="site-nav-link" href="#changelog">Changelog</a>
-        <a class="site-nav-link" href="#screenshots">Screenshots</a>
       </div>
     </header>
 
@@ -37,9 +36,9 @@
 
           <div class="hero-actions">
             <a class="cta-button" href="https://pp_api.sokin.xyz/pit-guru/" target="_blank" rel="noopener noreferrer">Open Public Race Player</a>
-            <a class="cta-button" href="MoDuLs-Pit-Guru.user.js">Install v1.9.6</a>
-            <a class="ghost-button" href="https://discord.gg/JP8FQBATMV" target="_blank" rel="noopener noreferrer">Join Pit Guru Discord</a>
+            <a class="cta-button" href="MoDuLs-Pit-Guru.user.js">Install v1.8.9</a>
             <a class="ghost-button" href="../index.html#supporter-scripts">Back to Supporter Scripts</a>
+            <a class="ghost-button" href="https://discord.gg/JP8FQBATMV" target="_blank" rel="noopener noreferrer">Join Pit Guru Discord</a>
           </div>
         </div>
 
@@ -53,35 +52,29 @@
         </aside>
       </section>
 
-      <section class="content-grid" aria-label="Script details">
+      <section class="content-grid" aria-label="Project details">
         <article class="content-card content-card-full">
           <h2>Description</h2>
           <p>MoDuL's Pit Guru is the next racing project in the hub's supporter line. Its direction is to understand the race while it is happening, not only store what happened after the fact.</p>
           <p>The userscript, public race player, and PostgreSQL-backed persistence layer are now live. The build centers on live timing, driver gaps, track-aware sectors, speed and G estimates, safer preview controls, and post-race records grounded in Torn racingData.</p>
         </article>
+      </section>
+      
+      <section class="showcase-section" id="screenshots">
+        <div class="showcase-header">
+          <p class="section-kicker">Preview</p>
+          <h2>Interface Screenshots</h2>
+        </div>
 
-        <article class="content-card content-card-full">
-          <h2>Latest updates</h2>
-          <div class="feature-grid">
-            <div class="feature-block">
-              <h3>Public race player</h3>
-              <p>The public race player is live and can load saved races and replay analysis from the hosted Pit Guru service.</p>
-            </div>
-            <div class="feature-block">
-              <h3>Hosted persistence</h3>
-              <p>The hosted API and player now persist Pit Guru data in PostgreSQL, with pooled connections and backend-aware health checks.</p>
-            </div>
-            <div class="feature-block">
-              <h3>Guided setup</h3>
-              <p>The v1.9.6 userscript verifies users without storing their public Torn API key and includes first-run setup plus a replayable guided tour.</p>
-            </div>
-            <div class="feature-block">
-              <h3>Replay upload improvements</h3>
-              <p>Compact replay uploads pack driver timing data and reuse canonical track segment definitions stored once per track.</p>
-            </div>
-          </div>
-        </article>
+        <div class="slideshow" data-slideshow-slug="pit-guru">
+          <div class="slides" id="slides"></div>
+          <button class="slide-btn prev" type="button" aria-label="Previous slide">‹</button>
+          <button class="slide-btn next" type="button" aria-label="Next slide">›</button>
+          <div class="slide-dots" id="slide-dots"></div>
+        </div>
+      </section>
 
+      <section class="content-grid" aria-label="Project details">
         <article class="content-card content-card-full">
           <h2>What this project is aiming for</h2>
           <div class="feature-grid">
@@ -129,21 +122,6 @@
             <li class="feature-item"><span class="feature-dot" aria-hidden="true"></span><span><a href="exports/Uptown/26-05-31.1355.Uptown.Lexus_LFA_P3.html">Uptown export example</a></span></li>
           </ul>
         </article>
-      </section>
-
-      <section class="showcase-section" id="screenshots">
-        <div class="showcase-header">
-          <p class="section-kicker">Preview</p>
-          <h2>Interface Screenshots</h2>
-          <p class="lede">Preview the race player, live timing workspace, and post-race analysis layout.</p>
-        </div>
-
-        <div class="slideshow" data-slideshow-slug="pit-guru">
-          <div class="slides" id="slides"></div>
-          <button class="slide-btn prev" type="button" aria-label="Previous slide">‹</button>
-          <button class="slide-btn next" type="button" aria-label="Next slide">›</button>
-          <div class="slide-dots" id="slide-dots"></div>
-        </div>
       </section>
 
       <section class="content-card changelog-card" id="changelog" aria-label="Changelog">
