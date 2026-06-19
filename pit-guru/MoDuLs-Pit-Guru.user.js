@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         MoDuL's Pit Guru
 // @namespace    modul.torn.racing
-// @version      1.9.7
+// @version      1.9.8
 // @description  Live Torn race timing, gaps, sectors, speed and estimated telemetry analysis
 // @author       MoDuL
 // @copyright    2026 MoDuL. All rights reserved.
@@ -309,7 +309,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
     unsafeWindow.pgPlayerCacheRaceId = pgPlayerFetchRaceDataById_;
     unsafeWindow.pgPlayerCacheCurrentRace = openLocalPlayerForCurrentRace_;
 
-    const MPG_VERSION = "1.9.7";
+    const MPG_VERSION = "1.9.8";
     var TAG = "[MoDuL's Pit Guru v" + MPG_VERSION + "]";
 
     const PitGuruRaceEngine = (() => {
@@ -667,7 +667,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
     const WIN_MIN_WIDTH = 550;
     const WIN_MIN_HEIGHT = 500;
     const WIN_VIEWPORT_MARGIN = 12;
-    const SCRIPT_FORUM_POST_URL = "https://www.torn.com/forums.php#/p=threads&f=21&t=16574141";
+    const SCRIPT_FORUM_POST_URL = "https://www.torn.com/forums.php#/p=threads&f=67&t=16538065";
     const VISUAL_PROGRESS_SELECTORS = Object.freeze({
         lap: [
             "#racingdetails .pd-val.pd-lap",
@@ -932,6 +932,9 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
     let fuelSessionCache = { key: "", liters: 0, levelPct: 100 };
     let fuelLifetimeCache = { key: "", fetchedAt: 0, data: null, loading: false, error: "" };
     let liveOrderCache = { key: "", value: [] };
+    let analysisFocusMode = "auto";
+    let analysisFocusDriverId = "";
+    let analysisFocusDriverName = "";
     let liveLoopLastAt = 0;
     let maintenanceLoopLastAt = 0;
     let pendingRaceChangeId = "";
@@ -945,6 +948,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
     let slideEventsCache = new WeakMap();
     const LARGE_FIELD_THRESHOLD = 30;
     const HUGE_FIELD_THRESHOLD = 45;
+    const FOCUSED_ROW_WINDOW_EACH_SIDE = 10;
     const LARGE_LOBBY_CANDIDATE_LIMIT = 220;
     const HUGE_LOBBY_CANDIDATE_LIMIT = 160;
 
@@ -1276,6 +1280,9 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         raceDataReceivedPerfMs = 0;
         raceDataCurrentTimeAtReceive = NaN;
         analysis = null;
+        analysisFocusMode = "auto";
+        analysisFocusDriverId = "";
+        analysisFocusDriverName = "";
         directCurrentRaceId = "";
         preRaceParticipants = [];
         directRacingDataParticipants = [];
@@ -1666,7 +1673,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         };
     }
 
-    function getCachedDriverIntel_(driverId, maxAgeHours = 24) {
+    function getCachedDriverIntel_(driverId, maxAgeHours = 24 * 7) {
         const id = String(driverId || "").trim();
         if (!id) return null;
         const cached = driverIntelCache?.[id];
@@ -1689,7 +1696,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         if (nameKey) driverIntelCache[nameKey] = intel;
     }
 
-    function getCachedDriverIntelByName_(name, maxAgeHours = 24) {
+    function getCachedDriverIntelByName_(name, maxAgeHours = 24 * 7) {
         const key = driverIntelNameKey_(name);
         if (key) {
             const direct = getCachedDriverIntel_(key, maxAgeHours);
@@ -1704,7 +1711,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         return null;
     }
 
-    function getDriverIntelForDriver_(d, maxAgeHours = 24) {
+    function getDriverIntelForDriver_(d, maxAgeHours = 24 * 7) {
         if (!d) return null;
         return getCachedDriverIntel_(d.driverId, maxAgeHours)
             || (isUserDriver_(d) ? getCachedDriverIntel_("self", maxAgeHours) : null)
@@ -1712,11 +1719,15 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
     }
 
     function driverIntelNeedsProfileRefresh_(driverId, name) {
-        const cached = getCachedDriverIntel_(driverId) || getCachedDriverIntelByName_(name);
+        const cached = getCachedDriverIntel_(driverId, 24 * 7) || getCachedDriverIntelByName_(name, 24 * 7);
         if (!cached) return true;
-        if (String(cached.avatar || "").trim()) return false;
-        const checkedAt = Number(cached.avatarCheckedAt || 0);
-        return !checkedAt || (Date.now() - checkedAt) > 24 * 3600 * 1000;
+        const fetchedAt = Number(cached.fetchedAt || 0);
+        return !fetchedAt || (Date.now() - fetchedAt) > 7 * 24 * 3600 * 1000;
+    }
+
+    function driverIntelIsFresh_(intel) {
+        const fetchedAt = Number(intel?.fetchedAt || 0);
+        return !!intel && !!fetchedAt && (Date.now() - fetchedAt) <= 7 * 24 * 3600 * 1000;
     }
 
     function applyDriverIntelToModel_() {
@@ -1794,6 +1805,38 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
             profiles.push(profile);
         }
         if (profiles.length) pgLocalUpsertDriverIntel_(profiles).catch(() => {});
+    }
+
+    function msFromIsoLike_(value) {
+        const t = Date.parse(String(value || ""));
+        return Number.isFinite(t) ? t : 0;
+    }
+
+    function pgLocalDriverIntelFromProfile_(entry, fallback = {}) {
+        const profile = entry?.profile || entry || {};
+        const driverId = String(
+            profile.driver_id || profile.driverId || profile.id || entry?.driverId || fallback.driverId || ""
+        ).trim();
+        if (!driverId) return null;
+        const fetchedAt = msFromIsoLike_(
+            profile.last_profile_fetch_at || profile.updated_at || profile.created_at || entry?.updatedAt || entry?.fetchedAtIso
+        ) || Date.now();
+        return {
+            driverId,
+            name: String(profile.display_name || profile.last_seen_name || entry?.name || fallback.name || ""),
+            level: safeNum_(profile.level, NaN),
+            rank: String(profile.rank || ""),
+            title: String(profile.title || ""),
+            avatar: String(profile.avatar_url || profile.avatarUrl || profile.avatar || ""),
+            avatarCheckedAt: fetchedAt,
+            status: null,
+            racingSkill: statNumber_(profile.racing_skill, profile.racingSkill),
+            racingPointsEarned: statNumber_(profile.racing_points_earned, profile.racingPointsEarned),
+            racesEntered: statNumber_(profile.races_entered, profile.racesEntered),
+            racesWon: statNumber_(profile.races_won, profile.racesWon),
+            winRate: statNumber_(profile.win_rate, profile.winRate),
+            fetchedAt
+        };
     }
 
     function extractRaceIdFromPayloadOrUrl_(payload) {
@@ -2710,12 +2753,15 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         let hasProgress = false;
 
         if (ctx === "replay") {
-            if (Number.isFinite(replayRatio) && maxFinal > 0) {
+            // Torn's replay progress bar can report the loaded replay extent before
+            // playback has visually reached that point. The visible timer is the
+            // safer authority for pause/review moments.
+            if (Number.isFinite(timer)) {
+                elapsed = maxFinal > 0 ? clamp_(timer, 0, maxFinal) : Math.max(0, timer);
+                hasProgress = true;
+            } else if (Number.isFinite(replayRatio) && maxFinal > 0) {
                 pct = replayRatio * 100;
                 elapsed = replayRatio * maxFinal;
-                hasProgress = true;
-            } else if (Number.isFinite(timer)) {
-                elapsed = maxFinal > 0 ? clamp_(timer, 0, maxFinal) : Math.max(0, timer);
                 hasProgress = true;
             }
         } else {
@@ -2748,7 +2794,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
             hasProgress,
             started,
             finished: hasProgress && (finishedByProgress || finishedByPct || finishedByLap),
-            source: ctx === "replay" ? (Number.isFinite(replayRatio) ? "replay-progress" : (Number.isFinite(timer) ? "timer" : "")) : (Number.isFinite(comp.pct) ? "completion" : (Number.isFinite(lap.cur) ? "lap" : ""))
+            source: ctx === "replay" ? (Number.isFinite(timer) ? "timer" : (Number.isFinite(replayRatio) ? "replay-progress" : "")) : (Number.isFinite(comp.pct) ? "completion" : (Number.isFinite(lap.cur) ? "lap" : ""))
         };
     }
 
@@ -3536,7 +3582,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
 
     function replayElapsedFromUi_() {
         const visual = visualRaceProgressState_();
-        return visual.hasProgress ? visual.elapsed : maxAnalysisFinalTime_();
+        return visual.hasProgress ? visual.elapsed : 0;
     }
 
     function shouldRenderReplayMoment_() {
@@ -4590,6 +4636,19 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
             laps: intel.laps ?? scope.laps,
             fetchedAt: Date.now()
         };
+
+        let syncedProfiles = 0;
+        for (const entry of Object.values(pgLocalRaceIntelCache.drivers || {})) {
+            const localIntel = pgLocalDriverIntelFromProfile_(entry);
+            if (!localIntel) continue;
+            cacheDriverIntel_(localIntel.driverId, localIntel);
+            if (localIntel.name) cacheDriverIntel_(driverIntelNameKey_(localIntel.name), localIntel);
+            syncedProfiles++;
+        }
+        if (syncedProfiles) {
+            saveDriverIntelCache_();
+            applyDriverIntelToModel_();
+        }
 
         console.log("[Pit Guru Local DB intel cache]", pgLocalRaceIntelCache);
 
@@ -6460,6 +6519,8 @@ img.carIcon{
   color:var(--text) !important;
 }
 .mpg-analysis tr:hover td{background:var(--hover)}
+.mpg-analysis tr[data-focus-driver-id],.mpg-analysis tr[data-focus-driver-name]{cursor:pointer}
+.mpg-analysis tr[data-focus-driver-id]:hover td,.mpg-analysis tr[data-focus-driver-name]:hover td{box-shadow:inset 0 0 0 1px rgba(217,239,82,.18)}
 .mpg-analysis .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;color:var(--text) !important}
 .mpg-table-block{margin:8px 0 12px;min-width:0}
 .mpg-table-label{font-weight:900;color:var(--text);font-size:13px;margin:8px 10px 6px;display:flex;align-items:center;gap:6px}
@@ -6473,6 +6534,8 @@ img.carIcon{
 .mpg-table-compact table{width:auto;min-width:0}
 .mpg-table-has-summary .mpg-table-scroll{border-radius:10px 10px 0 0}
 .mpg-table-summary{padding:8px 10px;border:1px solid var(--border);border-top:0;border-radius:0 0 10px 10px;background:var(--panel);color:var(--text);font-size:12px;font-weight:800}
+.mpg-focus-note{display:flex;align-items:center;justify-content:space-between;gap:10px;border:1px solid var(--border);border-radius:10px;background:var(--panel);padding:8px 10px;color:var(--text)}
+.mpg-focus-note .pill.mini{min-height:24px;padding:3px 8px;font-size:11px;white-space:nowrap}
 .mpg-timecell{padding-left:5px !important;padding-right:5px !important}
 .mpg-car-combo{display:grid;grid-template-columns:56px minmax(70px,1fr);align-items:center;gap:2px;min-width:130px}
 .mpg-car-combo .mpg-car-img{display:grid;place-items:center;min-width:54px}
@@ -7339,7 +7402,7 @@ img.carIcon{
         const rows = getLiveOrder_(Infinity, true).map((x, i) => {
             const d = x.driver;
             const fuel = fuelSnapshot_(d, Math.max(0, d.finalTime || 0));
-            return [i + 1, d.name, driverRsCell_(d), reportCarCell_(d), formatFuelEconomy_(fuel.avgL100), formatFuelVolume_(fuel.liters), `${fuel.base.toFixed(1)} L/100km`];
+            return [i + 1, d.name, driverRsCell_(d), reportCarCell_(d), formatFuelEconomy_(fuel.avgL100), formatFuelVolume_(fuel.liters), formatFuelEconomy_(fuel.base)];
         });
         return reportTableHtml_(["Pos", "Driver", "RS", "Car", "Average Fuel", "Fuel Burned", "Manufacturer Value"], rows);
     }
@@ -8353,6 +8416,9 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
         if (!opts.keepAnalysis && currentPayload) clearedRaceDataKey = raceDataPayloadKey_(currentPayload);
         latestRaceDataPayload = null;
         analysis = null;
+        analysisFocusMode = "auto";
+        analysisFocusDriverId = "";
+        analysisFocusDriverName = "";
         liveOrderCache = { key: "", value: [] };
         raceDataReceivedPerfMs = 0;
         raceDataCurrentTimeAtReceive = NaN;
@@ -9980,6 +10046,13 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
         if (analysisMode === "gyro") return gyroStructureKey_(elapsed, canFull);
         if (analysisMode === "sectors") return sectorStructureKey_(elapsed, canFull);
         if (analysisMode === "predictions") return "static";
+        if (analysisMode === "laprec" && largeFieldMode_()) {
+            const refDriver = replayMomentDriver_() || analysis?.drivers?.[0] || null;
+            const state = refDriver ? currentDistanceAtTime_(refDriver, elapsed) : null;
+            const lap = clamp_((state?.lapIndex || 0) + 1, 1, Math.max(1, analysis?.laps || 1));
+            const tickSeconds = hugeFieldMode_() ? 10 : 5;
+            return `laprec:${lap}:t${Math.floor((Number(elapsed) || 0) / tickSeconds)}`;
+        }
         return Math.floor(elapsed * liveRenderFps_());
     }
 
@@ -9999,7 +10072,7 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
             if (analysisMode === "predictions") {
                 const set = predictionDriverSet_();
                 if (status) status.textContent = set.drivers.length ? "PREDICTIONS · Pre-race grid" : "PREDICTIONS · Waiting for driver list";
-                const predKey = `pre-race-predictions|${theme}|${liveCommentaryEnabled ? 1 : 0}|${pitCrewEnabled ? 1 : 0}|${useApiPredictions ? 1 : 0}|${useHistoryPredictions ? 1 : 0}|${driverIntelStatus}|${preRaceParticipantsKey}|${pgLocalTrackHistoryRenderKey_(set.trackName)}`;
+                const predKey = `pre-race-predictions|${theme}|${liveCommentaryEnabled ? 1 : 0}|${pitCrewEnabled ? 1 : 0}|${useApiPredictions ? 1 : 0}|${useHistoryPredictions ? 1 : 0}|${driverIntelStatus}|${preRaceParticipantsKey}|${pgLocalTrackHistoryRenderKey_(set.trackName)}|focus:${analysisFocusMode}:${analysisFocusDriverId}:${analysisFocusDriverName}`;
                 if (body.dataset.renderKey !== predKey) {
                     body.dataset.renderKey = predKey;
                     body.innerHTML = analysisStageHtml_(0, false) + renderPredictionsMode_(set);
@@ -10060,7 +10133,8 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
             analysisMode === "predictions" ? driverIntelStatus : "",
             (analysisMode === "predictions" || analysisMode === "driver") ? pgLocalTrackHistoryRenderKey_(analysis?.trackName || raceMeta?.track || "") : "",
             analysis?.routeModel ? "route" : "noroute",
-            body.dataset.gyroDriver || ""
+            body.dataset.gyroDriver || "",
+            `focus:${analysisFocusMode}:${analysisFocusDriverId}:${analysisFocusDriverName}`
         ].join("|");
         if (body.dataset.renderKey === renderKey) {
             updateAnalysisStageStatus_(body, elapsed, canFull);
@@ -10090,6 +10164,7 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
     function bindAnalysisBodyActions_(body) {
         if (!body) return;
         setupAnalysisTableSort_(body);
+        setupAnalysisFocusActions_(body);
         body.querySelectorAll(".mpg-gyro-driver").forEach(btn => {
             btn.onclick = e => {
                 const name = e.currentTarget?.dataset?.driver || "";
@@ -10101,6 +10176,25 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
         });
         body.querySelectorAll(".mpg-intel-fetch").forEach(btn => {
             btn.onclick = () => handleManualDriverIntelFetch_(btn);
+        });
+    }
+
+    function setupAnalysisFocusActions_(body) {
+        if (!body || body.dataset.focusHooked === "1") return;
+        body.dataset.focusHooked = "1";
+        body.addEventListener("click", e => {
+            const action = e.target?.closest?.("[data-analysis-focus-action]");
+            if (action && body.contains(action)) {
+                clearManualAnalysisFocus_();
+                return;
+            }
+            if (e.target?.closest?.("button,a,input,select,textarea,label")) return;
+            const row = e.target?.closest?.("tr[data-focus-driver-id],tr[data-focus-driver-name]");
+            if (!row || !body.contains(row)) return;
+            const id = row.getAttribute("data-focus-driver-id") || "";
+            const name = row.getAttribute("data-focus-driver-name") || "";
+            if (!id && !name) return;
+            setManualAnalysisFocus_(id, name);
         });
     }
 
@@ -10198,6 +10292,129 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
         return !!myName && normalizeDriverName_(d?.name || "") === myName;
     }
 
+    function driverFromOrderedItem_(item) {
+        return item?.driver || item?.d || item || null;
+    }
+
+    function driverIdentityMatches_(d, id, name) {
+        if (!d) return false;
+        const wantedId = String(id || "").trim();
+        const wantedName = normalizeDriverName_(name || "");
+        const driverId = String(d.driverId || "").trim();
+        const driverName = normalizeDriverName_(d.name || d.driverIntel?.name || "");
+        return !!((wantedId && driverId && wantedId === driverId) || (wantedName && driverName && wantedName === driverName));
+    }
+
+    function findDriverIndexByIdentity_(list, id, name) {
+        const wantedId = String(id || "").trim();
+        const wantedName = normalizeDriverName_(name || "");
+        if (!wantedId && !wantedName) return -1;
+        return list.findIndex(item => driverIdentityMatches_(driverFromOrderedItem_(item), wantedId, wantedName));
+    }
+
+    function actualUserDriverIndex_(list) {
+        return findDriverIndexByIdentity_(list, playerId, playerName);
+    }
+
+    function spectatedDriverIndex_(list) {
+        return findDriverIndexByIdentity_(list, spectateDriverId_, spectateName);
+    }
+
+    function raceMetaDriverIndex_(list) {
+        return findDriverIndexByIdentity_(list, raceMeta?.driverId, raceMeta?.driver);
+    }
+
+    function focusedDriverResolution_(list) {
+        const total = Array.isArray(list) ? list.length : 0;
+        if (!total) return { index: -1, source: "none", driver: null };
+        if (analysisFocusMode === "manual") {
+            const manualIndex = findDriverIndexByIdentity_(list, analysisFocusDriverId, analysisFocusDriverName);
+            if (manualIndex >= 0) return { index: manualIndex, source: "manual", driver: driverFromOrderedItem_(list[manualIndex]) };
+        }
+        const userIndex = actualUserDriverIndex_(list);
+        if (userIndex >= 0) return { index: userIndex, source: "user", driver: driverFromOrderedItem_(list[userIndex]) };
+        const spectatedIndex = spectatedDriverIndex_(list);
+        if (spectatedIndex >= 0) return { index: spectatedIndex, source: "spectated", driver: driverFromOrderedItem_(list[spectatedIndex]) };
+        const metaIndex = raceMetaDriverIndex_(list);
+        if (metaIndex >= 0) return { index: metaIndex, source: "meta", driver: driverFromOrderedItem_(list[metaIndex]) };
+        return { index: 0, source: "leader", driver: driverFromOrderedItem_(list[0]) };
+    }
+
+    function focusRowDataAttrs_(d) {
+        const id = String(d?.driverId || "").trim();
+        const name = String(d?.name || d?.driverIntel?.name || "").trim();
+        return ` data-focus-driver-id="${escAttr_(id)}" data-focus-driver-name="${escAttr_(name)}"`;
+    }
+
+    function setManualAnalysisFocus_(id, name) {
+        analysisFocusMode = "manual";
+        analysisFocusDriverId = String(id || "").trim();
+        analysisFocusDriverName = String(name || "").trim();
+        uiDirty = true;
+        scheduleRender_();
+    }
+
+    function clearManualAnalysisFocus_() {
+        analysisFocusMode = "auto";
+        analysisFocusDriverId = "";
+        analysisFocusDriverName = "";
+        uiDirty = true;
+        scheduleRender_();
+    }
+
+    function focusedOrderWindow_(ordered, options = {}) {
+        const list = Array.isArray(ordered) ? ordered : [];
+        const total = list.length;
+        const eachSide = Math.max(1, Number(options.eachSide) || FOCUSED_ROW_WINDOW_EACH_SIDE);
+        const maxRows = Math.max(3, eachSide * 2 + 1);
+        const force = options.force === true;
+        const focus = focusedDriverResolution_(list);
+        if (!total || total <= maxRows || (!force && !largeFieldMode_())) {
+            return {
+                windowed: false,
+                total,
+                start: 0,
+                end: total,
+                focusIndex: focus.index,
+                focusSource: focus.source,
+                focusDriver: focus.driver,
+                items: list.map((row, index) => ({ row, index, pos: index + 1 }))
+            };
+        }
+
+        let focusIndex = focus.index;
+        if (focusIndex < 0) focusIndex = 0;
+
+        let start = Math.max(0, focusIndex - eachSide);
+        let end = Math.min(total, focusIndex + eachSide + 1);
+        if (end - start < maxRows) {
+            if (start === 0) end = Math.min(total, maxRows);
+            else if (end === total) start = Math.max(0, total - maxRows);
+        }
+
+        return {
+            windowed: true,
+            total,
+            start,
+            end,
+            focusIndex,
+            focusSource: focus.source,
+            focusDriver: driverFromOrderedItem_(list[focusIndex]),
+            items: list.slice(start, end).map((row, offset) => ({ row, index: start + offset, pos: start + offset + 1 }))
+        };
+    }
+
+    function focusedWindowNote_(win, label = "table") {
+        if (!win?.windowed) return "";
+        const d = win.focusDriver || {};
+        const focusName = d.name ? `following ${esc_(d.name)} at P${win.focusIndex + 1}/${win.total}` : "no focused driver found, showing leader window";
+        const source = win.focusSource === "manual" ? "manual pin" : win.focusSource === "user" ? "your driver" : win.focusSource === "spectated" ? "spectated driver" : win.focusSource === "meta" ? "race driver" : "leader";
+        const action = analysisFocusMode === "manual"
+            ? `<button type="button" class="pill mini" data-analysis-focus-action="clear">Clear Focus</button>`
+            : `<button type="button" class="pill mini" data-analysis-focus-action="auto">Auto Follow</button>`;
+        return `<div class="mpg-note mpg-focus-note"><span>Large field view: ${focusName}, rendering positions ${win.start + 1}-${win.end}. Source: ${esc_(source)}. Sorting is disabled for this windowed table.</span>${action}</div>`;
+    }
+
     function lookupDriver_(driverId, driverName) {
         const id = String(driverId || "").trim();
         const nn = normalizeDriverName_(driverName || "");
@@ -10214,6 +10431,32 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
         const cached = getCachedDriverIntel_(id) || getCachedDriverIntelByName_(driverName);
         if (!force && cached && String(cached.avatar || "").trim()) return cached;
         if (!force && cached && !driverIntelNeedsProfileRefresh_(id, driverName)) return cached;
+        if (!force) {
+            try {
+                const model = lookupDriver_(id, driverName) || findPredictionDriver_(id, driverName) || {};
+                let localEntry = pgLocalGetCachedIntelForDriver_({ driverId: id, name: driverName, car: model.car || "" }, analysis?.trackName || raceMeta?.track || "");
+                if (!localEntry) {
+                    const track = analysis?.trackName || raceMeta?.track || visibleRaceTrackName_() || "";
+                    if (track) {
+                        const scope = currentRaceHistoryScope_(track);
+                        const local = await pgLocalFetchRaceIntel(track, [{
+                            driverId: id,
+                            name: driverName || model.name || "",
+                            car: toOgCarName_(model.car || "")
+                        }], scope);
+                        localEntry = local?.drivers?.[id] || null;
+                    }
+                }
+                const localIntel = pgLocalDriverIntelFromProfile_(localEntry, { driverId: id, name: driverName });
+                if (localIntel && driverIntelIsFresh_(localIntel)) {
+                    cacheDriverIntel_(localIntel.driverId, localIntel);
+                    if (localIntel.name) cacheDriverIntel_(driverIntelNameKey_(localIntel.name), localIntel);
+                    saveDriverIntelCache_();
+                    applyDriverIntelToModel_();
+                    return localIntel;
+                }
+            } catch {}
+        }
         try {
             const json = await fetchDriverIntelJson_(id);
             if (json?.error) return null;
@@ -10408,7 +10651,8 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
 
     function renderTable_(headers, rows, empty = "No analysis rows yet.", label = "", options = {}) {
         const displayHeader = h => String(h || "") === "Car image + Car name" ? "Car" : h;
-        const head = headers.map(h => `<th scope="col" data-sortable="1">${esc_(displayHeader(h))}</th>`).join("");
+        const sortable = options?.sortable !== false && !options?.windowed;
+        const head = headers.map(h => `<th scope="col"${sortable ? ` data-sortable="1"` : ""}>${esc_(displayHeader(h))}</th>`).join("");
         const body = rows.length ? rows.join("") : `<tr><td colspan="${headers.length}" class="muted">${esc_(empty)}</td></tr>`;
         const helpText = String(options?.helpText || "").trim();
         const help = helpText
@@ -10416,13 +10660,14 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
             : "";
         const title = label ? `<div class="mpg-table-label"><span class="mpg-table-label-text">${esc_(label)}</span>${help}</div>` : "";
         const summaryText = String(options?.summaryText || "").trim();
-        const classes = `mpg-table-block${options?.compact ? " mpg-table-compact" : ""}${summaryText ? " mpg-table-has-summary" : ""}`;
+        const classes = `mpg-table-block${options?.compact ? " mpg-table-compact" : ""}${summaryText ? " mpg-table-has-summary" : ""}${options?.windowed ? " mpg-table-windowed" : ""}`;
         const summary = summaryText ? `<div class="mpg-table-summary">${esc_(summaryText)}</div>` : "";
         return `<div class="${classes}">${title}<div class="mpg-table-scroll"><table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table></div>${summary}</div>`;
     }
 
     function renderGapsMode_(elapsed, canFull) {
         const ordered = getLiveOrder_(elapsed, canFull);
+        const win = focusedOrderWindow_(ordered);
         const leaderDist = ordered[0]?.state?.distance || 0;
         const leaderTime = ordered[0]?.driver?.finalTime || 0;
         const totalMeters = (analysis?.lapMeters || 0) * (analysis?.laps || 0);
@@ -10432,9 +10677,8 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
             if (live.finished && !d.crashed) return d.finalTime;
             return totalMeters > 0 ? driverReachTimeForDistance_(d, totalMeters) : NaN;
         };
-        const rows = ordered.map((x, i) => {
+        const rows = win.items.map(({ row: x, index: i, pos }) => {
             const ahead = ordered[i - 1];
-            const pos = i + 1;
             if (canFull) {
                 const finishText = x.driver.crashed ? "DNF" : formatTimeSeconds_(x.driver.finalTime);
                 const currentGap = i === 0 ? 0 : (x.driver.crashed ? NaN : (x.driver.finalTime || 0) - leaderTime);
@@ -10443,7 +10687,7 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
                 const leaderGap = i === 0 ? "" : (x.driver.crashed ? "DNF" : `${formatRaceGapSeconds_(currentGap)} (${prev.text})`);
                 const aheadPrevRaw = ahead ? previousLapGapSeconds_(x.driver, x.state) - previousLapGapSeconds_(ahead.driver, ahead.state) : NaN;
                 const aheadGap = i <= 1 ? "" : (x.driver.crashed || ahead?.driver?.crashed ? "DNF" : `${formatRaceGapSeconds_(aheadGapSec)}${Number.isFinite(aheadPrevRaw) ? ` (${formatRaceGapSeconds_(aheadPrevRaw)})` : ""}`);
-                return `<tr><td data-sort="${pos}">${raceEndPositionIcon_(pos, true)}</td><td>${carComboCell_(x.driver)}</td><td>${driverWithRsCell_(x.driver)}</td><td class="mono">${leaderGap}</td><td class="mono">${aheadGap}</td><td class="mono mpg-timecell">${finishText}</td></tr>`;
+                return `<tr${focusRowDataAttrs_(x.driver)}><td data-sort="${pos}">${raceEndPositionIcon_(pos, true)}</td><td>${carComboCell_(x.driver)}</td><td>${driverWithRsCell_(x.driver)}</td><td class="mono">${leaderGap}</td><td class="mono">${aheadGap}</td><td class="mono mpg-timecell">${finishText}</td></tr>`;
             }
             const live = currentDistanceAtTime_(x.driver, elapsed);
             const leaderLive = ordered[0]?.state || null;
@@ -10465,18 +10709,72 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
             const leaderGapText = i === 0 ? "" : `${formatRaceGapSeconds_(leaderGap)} (${prev.text})`;
             const aheadGapText = i <= 1 ? "" : `${formatRaceGapSeconds_(aheadGap)}${Number.isFinite(aheadPrevRaw) ? ` (${formatRaceGapSeconds_(aheadPrevRaw)})` : ""}`;
             const finishText = live.finished ? (x.driver.crashed ? "DNF" : formatTimeSeconds_(x.driver.finalTime)) : "--";
-            return `<tr><td data-sort="${pos}">${pos}</td><td>${carComboCell_(x.driver)}</td><td>${driverWithRsCell_(x.driver)}</td><td class="mono">${leaderGapText}</td><td class="mono">${aheadGapText}</td><td class="mono mpg-timecell">${finishText}</td></tr>`;
+            return `<tr${focusRowDataAttrs_(x.driver)}><td data-sort="${pos}">${pos}</td><td>${carComboCell_(x.driver)}</td><td>${driverWithRsCell_(x.driver)}</td><td class="mono">${leaderGapText}</td><td class="mono">${aheadGapText}</td><td class="mono mpg-timecell">${finishText}</td></tr>`;
         });
-        return renderTable_(["Pos", "Car image + Car name", "Driver (RS)", "Gap (Prev lap gap)", "Gap Ahead (Prev lap gap)", "Finish Time"], rows, "Waiting for leaderboard data...", "Leaderboard");
+        return `${focusedWindowNote_(win, "Leaderboard")}${renderTable_(["Pos", "Car image + Car name", "Driver (RS)", "Gap (Prev lap gap)", "Gap Ahead (Prev lap gap)", "Finish Time"], rows, "Waiting for leaderboard data...", "Leaderboard", { windowed: win.windowed })}`;
     }
 
     function missingLapText_() {
         return "--.--.---";
     }
 
+    function driverLapTimeMap_(driver) {
+        const laps = driver?.validLapTimes || [];
+        const key = `${laps.length}|${driver?.bestLapSeconds || ""}|${driver?.finalTime || ""}`;
+        if (driver && driver._mpgLapTimeMapKey === key && driver._mpgLapTimeMap instanceof Map) {
+            return driver._mpgLapTimeMap;
+        }
+        const map = new Map();
+        for (const item of laps) {
+            const lap = Number(item?.lap);
+            const seconds = Number(item?.seconds);
+            if (Number.isFinite(lap) && Number.isFinite(seconds)) map.set(lap, seconds);
+        }
+        if (driver) {
+            driver._mpgLapTimeMapKey = key;
+            driver._mpgLapTimeMap = map;
+        }
+        return map;
+    }
+
     function driverLapTimeByNumber_(driver, lapNumber) {
-        const item = (driver?.validLapTimes || []).find(x => Number(x.lap) === Number(lapNumber));
-        return item && Number.isFinite(item.seconds) ? item.seconds : NaN;
+        const seconds = driverLapTimeMap_(driver).get(Number(lapNumber));
+        return Number.isFinite(seconds) ? seconds : NaN;
+    }
+
+    function fastestRaceLapSeconds_() {
+        if (!analysis?.drivers?.length) return NaN;
+        if (Object.prototype.hasOwnProperty.call(analysis, "_mpgFastestRaceLapSeconds")) {
+            return analysis._mpgFastestRaceLapSeconds;
+        }
+        let best = Infinity;
+        for (const d of analysis.drivers) {
+            for (const item of d.validLapTimes || []) {
+                const seconds = Number(item?.seconds);
+                if (Number.isFinite(seconds) && seconds < best) best = seconds;
+            }
+        }
+        analysis._mpgFastestRaceLapSeconds = best < Infinity ? best : NaN;
+        return analysis._mpgFastestRaceLapSeconds;
+    }
+
+    function lapRecordingVisibleLapNumbers_(lapCount, elapsed, canFull) {
+        lapCount = Math.max(0, Number(lapCount) || 0);
+        if (!lapCount) return [];
+        const driverCount = analysis?.drivers?.length || 0;
+        const totalLapCells = driverCount * lapCount;
+        const maxCells = hugeFieldMode_() ? 900 : (largeFieldMode_() ? 1800 : 3000);
+        if (totalLapCells <= maxCells) return Array.from({ length: lapCount }, (_, i) => i + 1);
+
+        const windowSize = Math.max(3, Math.min(lapCount, Math.floor(maxCells / Math.max(1, driverCount))));
+        const refDriver = replayMomentDriver_() || analysis?.drivers?.[0] || null;
+        let centerLap = canFull ? lapCount : 1;
+        if (!canFull && refDriver) {
+            const state = currentDistanceAtTime_(refDriver, elapsed);
+            centerLap = clamp_((state?.lapIndex || 0) + 1, 1, lapCount);
+        }
+        const startLap = Math.floor(clamp_(centerLap - Math.floor(windowSize / 2), 1, Math.max(1, lapCount - windowSize + 1)));
+        return Array.from({ length: windowSize }, (_, i) => startLap + i);
     }
 
     function visibleDriverLapTime_(driver, lapNumber, elapsed, canFull) {
@@ -10524,18 +10822,23 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
     function renderLapRecordingMode_(elapsed, canFull) {
         if (!analysis?.drivers?.length) return renderTable_(["Pos", "Car image + Car name", "Driver", "RS", "Current"], [], "Waiting for decoded lap data...", "Lap Recording");
         const lapCount = Math.max(analysis.laps || 0, ...analysis.drivers.map(d => d.validLapTimes?.length || 0));
-        const fastestRaceLap = minFinite_(analysis.drivers.flatMap(d => (d.validLapTimes || []).map(l => l.seconds)));
+        const visibleLapNumbers = lapRecordingVisibleLapNumbers_(lapCount, elapsed, canFull);
+        const isWindowedLaps = visibleLapNumbers.length < lapCount;
+        const ordered = getLiveOrder_(canFull ? Infinity : elapsed, canFull);
+        const rowWin = focusedOrderWindow_(ordered);
+        const fastestRaceLap = fastestRaceLapSeconds_();
         const lapCellClass = (d, v) => {
             if (!Number.isFinite(v)) return "mono mpg-timecell";
             if (Number.isFinite(fastestRaceLap) && Math.abs(v - fastestRaceLap) < 0.0005) return "mono mpg-timecell mpg-pace-fl";
             if (Number.isFinite(d.bestLapSeconds) && Math.abs(v - d.bestLapSeconds) < 0.0005) return "mono mpg-timecell mpg-pace-pb";
             return "mono mpg-timecell mpg-pace-slow";
         };
-        const headers = ["Pos", "Car image + Car name", "Driver", "RS", "Current"].concat(Array.from({ length: lapCount }, (_, i) => `Lap ${i + 1}`));
-        const rows = getLiveOrder_(canFull ? Infinity : elapsed, canFull).map((x, i) => {
+        const headers = ["Pos", "Car image + Car name", "Driver", "RS", "Current"].concat(visibleLapNumbers.map(n => `Lap ${n}`));
+        const rows = rowWin.items.map(({ row: x, pos }) => {
             const d = x.driver;
             const live = currentDistanceAtTime_(d, canFull ? d.finalTime : elapsed);
-            const lapStartTime = live.segmentIndex > 0 ? (d.cumulativeTimes[Math.floor(live.segmentIndex / analysis.segmentsPerLap) * analysis.segmentsPerLap - 1] || 0) : 0;
+            const lapStartIndex = Math.floor(live.segmentIndex / Math.max(1, analysis.segmentsPerLap)) * Math.max(1, analysis.segmentsPerLap) - 1;
+            const lapStartTime = live.segmentIndex > 0 ? (d.cumulativeTimes?.[lapStartIndex] || 0) : 0;
             const currentLapSeconds = live.finished || canFull ? NaN : Math.max(0, elapsed - lapStartTime);
             let currentCls = "mono mpg-timecell";
             if (Number.isFinite(currentLapSeconds)) {
@@ -10546,13 +10849,16 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
             const currentLapText = live.finished || canFull
                 ? (d.crashed ? "DNF" : "Finished")
                 : (visualRaceHasStarted_() ? formatTimeSeconds_(currentLapSeconds) : missingLapText_());
-            const lapCells = Array.from({ length: lapCount }, (_, idx) => {
-                const v = visibleDriverLapTime_(d, idx + 1, elapsed, canFull);
+            const lapCells = visibleLapNumbers.map(lapNumber => {
+                const v = visibleDriverLapTime_(d, lapNumber, elapsed, canFull);
                 return `<td class="${lapCellClass(d, v)}">${Number.isFinite(v) ? formatTimeSeconds_(v) : missingLapText_()}</td>`;
             }).join("");
-            return `<tr><td data-sort="${i + 1}">${i + 1}</td><td>${carComboCell_(d)}</td><td>${driverNameCell_(d)}</td><td class="mono">${driverRsCell_(d)}</td><td class="${currentCls}">${currentLapText}</td>${lapCells}</tr>`;
+            return `<tr${focusRowDataAttrs_(d)}><td data-sort="${pos}">${pos}</td><td>${carComboCell_(d)}</td><td>${driverNameCell_(d)}</td><td class="mono">${driverRsCell_(d)}</td><td class="${currentCls}">${currentLapText}</td>${lapCells}</tr>`;
         });
-        return renderTable_(headers, rows, "Waiting for decoded lap data...", "Lap Recording");
+        const lapNote = isWindowedLaps
+            ? `<div class="mpg-note">Large race protection: showing ${visibleLapNumbers.length}/${lapCount} lap columns (${visibleLapNumbers[0]}-${visibleLapNumbers[visibleLapNumbers.length - 1]}). Full lap data is still kept internally/exportable.</div>`
+            : "";
+        return `${focusedWindowNote_(rowWin, "Lap Recording")}${lapNote}${renderTable_(headers, rows, "Waiting for decoded lap data...", "Lap Recording", { windowed: rowWin.windowed })}`;
     }
 
     function currentSpeedAndG_(d, elapsed) {
@@ -10736,8 +11042,11 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
     function formatFuelVolume_(liters) {
         if (!Number.isFinite(liters) || liters < 0) return "--";
         if (fuelDisplayStyle === "mpg_us") return `${(liters / 3.785411784).toFixed(2)} gal US`;
-        if (fuelDisplayStyle === "mpg_uk") return `${(liters / 4.54609).toFixed(2)} gal UK`;
         return `${liters.toFixed(2)} L`;
+    }
+
+    function fuelVolumeUnitLabel_() {
+        return fuelDisplayStyle === "mpg_us" ? "gal US" : "L";
     }
 
     function renderFuelPanel_(d, elapsed) {
@@ -10750,7 +11059,7 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
           <div class="mpg-fuel-stat"><span>Fuel now</span><b>${esc_(formatFuelEconomy_(fuel.currentL100))}</b></div>
           <div class="mpg-fuel-stat"><span>Average</span><b>${esc_(formatFuelEconomy_(fuel.avgL100))}</b></div>
           <div class="mpg-fuel-stat"><span>Fuel level</span><b>${fuel.levelPct.toFixed(1)}%</b></div>
-          <div class="mpg-fuel-stat"><span>Baseline</span><b>${fuel.base.toFixed(1)} L/100km</b></div>
+          <div class="mpg-fuel-stat"><span>Baseline</span><b>${esc_(formatFuelEconomy_(fuel.base))}</b></div>
         </div>`;
     }
 
@@ -10766,23 +11075,25 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
             <div class="mpg-fuel-stat"><span>Average Fuel consumption</span><b>${esc_(formatFuelEconomy_(fuel.avgL100))}</b></div>
             <div class="mpg-fuel-stat"><span>Current fuel level</span><b>${fuel.levelPct.toFixed(1)}%</b></div>
           </div>
-          <div class="mpg-table-label">Life-time fuel data (${esc_(fuelDisplayStyle === "l100km" ? "L" : fuelDisplayStyle === "mpg_us" ? "gal US" : "gal UK")})</div>
+          <div class="mpg-table-label">Life-time fuel data (${esc_(fuelVolumeUnitLabel_())})</div>
           <div class="mpg-fuel-panel">
             <div class="mpg-fuel-stat"><span>Fuel Consumption</span><b>${esc_(formatFuelVolume_(lifetime.liters))}</b></div>
             <div class="mpg-fuel-stat"><span>Average Fuel Consumption</span><b>${esc_(formatFuelEconomy_(lifetime.avgL100))}</b></div>
-            <div class="mpg-fuel-stat"><span>Manufacturer's values</span><b>${Number.isFinite(lifetime.manufacturerL100) ? lifetime.manufacturerL100.toFixed(1) : fuel.base.toFixed(1)} L/100km</b></div>
+            <div class="mpg-fuel-stat"><span>Manufacturer's values</span><b>${esc_(formatFuelEconomy_(Number.isFinite(lifetime.manufacturerL100) ? lifetime.manufacturerL100 : fuel.base))}</b></div>
           </div>`;
     }
 
     function renderAccelTable_(elapsed) {
         const active = telemetryCanSample_(elapsed);
-        const rows = getLiveOrder_(elapsed).map((x, i) => {
+        const ordered = getLiveOrder_(elapsed);
+        const win = focusedOrderWindow_(ordered);
+        const rows = win.items.map(({ row: x, pos }) => {
             const { g } = currentSpeedAndG_(x.driver, elapsed);
             const state = !active || !Number.isFinite(g) ? "--" : g > 0.03 ? "Accel" : g < -0.03 ? "Brake" : "Coast";
             const key = String(x.driver.driverId || normalizeDriverName_(x.driver.name || ""));
-            return `<tr data-mpg-accel-driver="${escAttr_(key)}"><td data-accel-field="pos">${i + 1}</td><td>${carComboCell_(x.driver)}</td><td>${driverWithRsCell_(x.driver)}</td><td class="mono" data-accel-field="g">${formatG_(g)}</td><td data-accel-field="state">${state}</td></tr>`;
+            return `<tr data-mpg-accel-driver="${escAttr_(key)}"${focusRowDataAttrs_(x.driver)}><td data-accel-field="pos">${pos}</td><td>${carComboCell_(x.driver)}</td><td>${driverWithRsCell_(x.driver)}</td><td class="mono" data-accel-field="g">${formatG_(g)}</td><td data-accel-field="state">${state}</td></tr>`;
         });
-        return renderTable_(["Pos", "Car image + Car name", "Driver (RS)", "Current Accel/Brake", "State"], rows, "Waiting for acceleration data...", "Accel/Brake");
+        return `${focusedWindowNote_(win, "Accel/Brake")}${renderTable_(["Pos", "Car image + Car name", "Driver (RS)", "Current Accel/Brake", "State"], rows, "Waiting for acceleration data...", "Accel/Brake", { windowed: win.windowed })}`;
     }
 
     function driverTelemetryStats_(d, elapsed, canFull) {
@@ -10885,16 +11196,18 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
 
     function renderSpeedMode_(elapsed, canFull) {
         if (!analysis.lapMeters) return `<div class="mpg-note">Track distance unknown — speed unavailable.</div>`;
-        const rows = getLiveOrder_(elapsed).map((x, i) => {
+        const ordered = getLiveOrder_(elapsed);
+        const win = focusedOrderWindow_(ordered);
+        const rows = win.items.map(({ row: x, pos }) => {
             const d = x.driver;
             const { speed } = currentSpeedAndG_(d, elapsed);
             const stats = driverTelemetryStats_(d, elapsed, canFull);
             const avgState = currentDistanceAtTime_(d, canFull ? d.finalTime : elapsed);
             const avgTime = canFull ? d.finalTime : Math.max(0.001, elapsed);
             const avgSpeed = avgTime > 0 ? (avgState.distance || 0) / avgTime : NaN;
-            return `<tr><td>${i + 1}</td><td>${carComboCell_(d)}</td><td>${driverWithRsCell_(d)}</td><td class="mono">${formatSpeed_(speed)}</td><td class="mono">${formatSpeed_(stats.topSpeedMps)}</td><td class="mono">${formatSpeed_(avgSpeed)}</td></tr>`;
+            return `<tr${focusRowDataAttrs_(d)}><td>${pos}</td><td>${carComboCell_(d)}</td><td>${driverWithRsCell_(d)}</td><td class="mono">${formatSpeed_(speed)}</td><td class="mono">${formatSpeed_(stats.topSpeedMps)}</td><td class="mono">${formatSpeed_(avgSpeed)}</td></tr>`;
         });
-        return renderTable_(["Pos", "Car image + Car name", "Driver (RS)", "Current Speed", "Top Speed", "Avg Speed"], rows, "Waiting for speed data...", "Speed");
+        return `${focusedWindowNote_(win, "Speed")}${renderTable_(["Pos", "Car image + Car name", "Driver (RS)", "Current Speed", "Top Speed", "Avg Speed"], rows, "Waiting for speed data...", "Speed", { windowed: win.windowed })}`;
     }
 
     function renderSectorsMode_(elapsed, canFull) {
@@ -10909,10 +11222,12 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
             const all = analysis.drivers.flatMap(d => (d.sectorTimes || []).filter(s => s.sector === sector && sectorVisible(d, s)).map(s => ({ d, s }))).sort((a, b) => a.s.seconds - b.s.seconds);
             if (all[0]) {
                 bestBySector[sector] = all[0].s.seconds;
-                best.push(`<tr><td>S${sector}</td><td>${carComboCell_(all[0].d)}</td><td>${driverWithRsCell_(all[0].d)}</td><td class="mono mpg-purple">${formatTimeSeconds_(all[0].s.seconds)}</td><td>${all[0].s.lap}</td></tr>`);
+                best.push(`<tr${focusRowDataAttrs_(all[0].d)}><td>S${sector}</td><td>${carComboCell_(all[0].d)}</td><td>${driverWithRsCell_(all[0].d)}</td><td class="mono mpg-purple">${formatTimeSeconds_(all[0].s.seconds)}</td><td>${all[0].s.lap}</td></tr>`);
             }
         }
-        const perDriverModels = getLiveOrder_(canFull ? Infinity : elapsed, canFull).map(x => {
+        const ordered = getLiveOrder_(canFull ? Infinity : elapsed, canFull);
+        const win = focusedOrderWindow_(ordered);
+        const perDriverModels = win.items.map(({ row: x }) => {
             const d = x.driver;
             const raw = [1, 2, 3].map(sec => {
                 const vals = (d.sectorTimes || []).filter(s => s.sector === sec && sectorVisible(d, s)).map(s => s.seconds);
@@ -10954,16 +11269,19 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
         ];
         const idealSummary = `Ideal Lap: ${Number.isFinite(idealLap) ? formatTimeSeconds_(idealLap) : "--"}${Number.isFinite(delta) ? ` (${formatGapChangeSeconds_(delta)} vs fastest race lap)` : ""}`;
         return `${renderTable_(["Sector", "Car image + Car name", "Driver (RS)", "Best Time", "Lap"], best, "Waiting for sector data...", "Best Sectors", { compact: true, summaryText: idealSummary })}
-          ${renderTable_(driverHeaders, perDriver, "Waiting for per-driver sectors...", "Per-driver Best Sectors")}`;
+          ${focusedWindowNote_(win, "Per-driver sectors")}${renderTable_(driverHeaders, perDriver, "Waiting for per-driver sectors...", "Per-driver Best Sectors", { sortable: false, windowed: win.windowed })}`;
     }
 
     function renderPaceMode_(elapsed, canFull) {
         const fastestRaceLap = minFinite_(analysis.drivers.map(d => d.bestLapSeconds));
-        const rows = getLiveOrder_(elapsed).map((x, i) => {
+        const ordered = getLiveOrder_(elapsed);
+        const win = focusedOrderWindow_(ordered);
+        const rows = win.items.map(({ row: x, pos }) => {
             const d = x.driver;
             const effectiveElapsed = canFull ? d.finalTime : elapsed;
             const live = currentDistanceAtTime_(d, effectiveElapsed);
-            const lapStartTime = live.segmentIndex > 0 ? (d.cumulativeTimes[Math.floor(live.segmentIndex / analysis.segmentsPerLap) * analysis.segmentsPerLap - 1] || 0) : 0;
+            const lapStartIndex = Math.floor(live.segmentIndex / Math.max(1, analysis.segmentsPerLap)) * Math.max(1, analysis.segmentsPerLap) - 1;
+            const lapStartTime = live.segmentIndex > 0 ? (d.cumulativeTimes?.[lapStartIndex] || 0) : 0;
             const visibleLapTimes = canFull ? d.lapTimes : (d.validLapTimes || []).filter(l => {
                 const endIndex = l.lap * analysis.segmentsPerLap - 1;
                 return (d.cumulativeTimes?.[endIndex] || Infinity) <= elapsed;
@@ -10979,9 +11297,9 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
                 else cls += " mpg-pace-slow";
             }
             const currentLap = live.finished || (canFull && !d.crashed) ? "Finished" : (visualRaceHasStarted_() ? formatTimeSeconds_(currentLapSeconds) : "--");
-            return `<tr><td>${i + 1}</td><td>${carComboCell_(d)}</td><td>${driverWithRsCell_(d)}</td><td class="${cls}">${currentLap}</td><td class="mono">${Number.isFinite(pb) ? formatTimeSeconds_(pb) : "--"}</td><td class="mono">${avg}</td></tr>`;
+            return `<tr${focusRowDataAttrs_(d)}><td>${pos}</td><td>${carComboCell_(d)}</td><td>${driverWithRsCell_(d)}</td><td class="${cls}">${currentLap}</td><td class="mono">${Number.isFinite(pb) ? formatTimeSeconds_(pb) : "--"}</td><td class="mono">${avg}</td></tr>`;
         });
-        return renderTable_(["Pos", "Car image + Car name", "Driver (RS)", "Current Lap Time", "PB", "Average Lap Time"], rows, "Waiting for lap pace data...", "Lap Pace");
+        return `${focusedWindowNote_(win, "Lap Pace")}${renderTable_(["Pos", "Car image + Car name", "Driver (RS)", "Current Lap Time", "PB", "Average Lap Time"], rows, "Waiting for lap pace data...", "Lap Pace", { windowed: win.windowed })}`;
     }
 
     function selectedGyroDriver_() {
@@ -11062,49 +11380,56 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
         const full = canFull == null ? (analysisCanShowFullRace_() && !shouldRenderReplayMoment_()) : !!canFull;
         if (!full && shouldRenderReplayMoment_()) {
             const ordered = getLiveOrder_(elapsed, false);
+            const win = focusedOrderWindow_(ordered);
             const leaderDist = ordered[0]?.state?.distance || 0;
             const totalMeters = (analysis.lapMeters || 0) * (analysis.laps || 0);
-            const rows = ordered.map((x, i) => {
+            const rows = win.items.map(({ row: x, pos }) => {
                 const d = x.driver;
                 const state = x.state || currentDistanceAtTime_(d, elapsed);
                 const lap = elapsed <= 0.05 ? 0 : (state.finished && !d.crashed ? analysis.laps : clamp_((state.lapIndex || 0) + 1, 1, analysis.laps || 1));
                 const pct = totalMeters > 0 ? `${(clamp_(state.distance / totalMeters, 0, 1) * 100).toFixed(1)}%` : "--";
-                const leaderGap = i === 0 ? "0.000" : formatGapSeconds_(Math.max(0, driverReachTimeForDistance_(d, leaderDist) - elapsed));
+                const leaderGap = pos === 1 ? "0.000" : formatGapSeconds_(Math.max(0, driverReachTimeForDistance_(d, leaderDist) - elapsed));
                 const { speed } = currentSpeedAndG_(d, elapsed);
                 const status = state.finished ? (d.crashed ? "DNF" : "Finished") : `Lap ${lap}/${analysis.laps || "?"}`;
-                return `<tr><td>${i + 1}</td><td>${carComboCell_(d)}</td><td>${driverWithRsCell_(d)}</td><td>${esc_(status)}</td><td>${esc_(pct)}</td><td class="mono">${leaderGap}</td><td class="mono">${formatSpeed_(speed)}</td></tr>`;
+                return `<tr${focusRowDataAttrs_(d)}><td>${pos}</td><td>${carComboCell_(d)}</td><td>${driverWithRsCell_(d)}</td><td>${esc_(status)}</td><td>${esc_(pct)}</td><td class="mono">${leaderGap}</td><td class="mono">${formatSpeed_(speed)}</td></tr>`;
             });
             const label = getRaceContext_() === "replay" ? "Replay" : "Live race";
-            return `<div class="mpg-note">${label} snapshot at ${esc_(formatTimeSeconds_(elapsed))}. Final totals appear when the visual race reaches the end.</div>${renderTable_(["Pos","Car image + Car name","Driver (RS)","Status","Completion","Gap Leader","Current Speed"], rows, "Waiting for summary data...", "Race Snapshot")}`;
+            return `<div class="mpg-note">${label} snapshot at ${esc_(formatTimeSeconds_(elapsed))}. Final totals appear when the visual race reaches the end.</div>${focusedWindowNote_(win, "Race Snapshot")}${renderTable_(["Pos","Car image + Car name","Driver (RS)","Status","Completion","Gap Leader","Current Speed"], rows, "Waiting for summary data...", "Race Snapshot", { windowed: win.windowed })}`;
         }
         if (!full) return `<div class="mpg-note">Post-race summary unlocks when the race finishes. Enable preview in Settings to inspect full delivered race data early.</div>`;
-        const rows = getLiveOrder_(Infinity, true).map((x, i) => {
+        const ordered = getLiveOrder_(Infinity, true);
+        const win = focusedOrderWindow_(ordered);
+        const rows = win.items.map(({ row: x, pos }) => {
             const d = x.driver;
             const stats = driverTelemetryStats_(d, Infinity, true);
-            return `<tr><td>${i + 1}</td><td>${carComboCell_(d)}</td><td>${driverWithRsCell_(d)}</td><td>${d.crashed ? "DNF / Crashed" : "Finished"}</td><td class="mono">${formatTimeSeconds_(d.finalTime)}</td><td class="mono">${formatTimeSeconds_(d.bestLapSeconds)}</td><td class="mono">${formatTimeSeconds_(d.idealLapSeconds)}</td><td class="mono">${formatSpeed_(stats.topSpeedMps)}</td><td class="mono">${formatG_(stats.highestG)}</td></tr>`;
+            return `<tr${focusRowDataAttrs_(d)}><td>${pos}</td><td>${carComboCell_(d)}</td><td>${driverWithRsCell_(d)}</td><td>${d.crashed ? "DNF / Crashed" : "Finished"}</td><td class="mono">${formatTimeSeconds_(d.finalTime)}</td><td class="mono">${formatTimeSeconds_(d.bestLapSeconds)}</td><td class="mono">${formatTimeSeconds_(d.idealLapSeconds)}</td><td class="mono">${formatSpeed_(stats.topSpeedMps)}</td><td class="mono">${formatG_(stats.highestG)}</td></tr>`;
         });
-        const leadRows = analysis.drivers.slice().sort((a,b)=>(b.timeInLeadSeconds||0)-(a.timeInLeadSeconds||0)).map(d => `<tr><td>${driverWithRsCell_(d)}</td><td class="mono">${formatLeadTime_(d.timeInLeadSeconds)}</td><td>${d.lapsLed || 0}</td><td>${d.segmentsLed || 0}</td><td class="mono">${formatLeadTime_(d.longestLeadStintSeconds)}</td><td>${Math.max(0, (d.leadChanges || 0) - 1)}</td></tr>`);
-        return `${allowPreFinishPreview && !raceIsFinished_() ? `<div class="mpg-note">Preview mode — uses full race data already delivered to page.</div>` : ""}${renderTable_(["Pos","Car image + Car name","Driver (RS)","Status","Total","Best Lap","Ideal Lap","Top Speed","Highest Est. G"], rows, "Waiting for summary data...", "Summary")}${renderTable_(["Driver (RS)","Time in Lead","Laps Led","Segments Led","Longest Stint","Lead Changes"], leadRows, "No lead history yet.", "Lead History")}`;
+        const leadWin = focusedOrderWindow_(analysis.drivers.slice().sort((a,b)=>(b.timeInLeadSeconds||0)-(a.timeInLeadSeconds||0)));
+        const leadRows = leadWin.items.map(({ row: d }) => `<tr${focusRowDataAttrs_(d)}><td>${driverWithRsCell_(d)}</td><td class="mono">${formatLeadTime_(d.timeInLeadSeconds)}</td><td>${d.lapsLed || 0}</td><td>${d.segmentsLed || 0}</td><td class="mono">${formatLeadTime_(d.longestLeadStintSeconds)}</td><td>${Math.max(0, (d.leadChanges || 0) - 1)}</td></tr>`);
+        return `${allowPreFinishPreview && !raceIsFinished_() ? `<div class="mpg-note">Preview mode — uses full race data already delivered to page.</div>` : ""}${focusedWindowNote_(win, "Summary")}${renderTable_(["Pos","Car image + Car name","Driver (RS)","Status","Total","Best Lap","Ideal Lap","Top Speed","Highest Est. G"], rows, "Waiting for summary data...", "Summary", { windowed: win.windowed })}${leadWin.windowed ? focusedWindowNote_(leadWin, "Lead History") : ""}${renderTable_(["Driver (RS)","Time in Lead","Laps Led","Segments Led","Longest Stint","Lead Changes"], leadRows, "No lead history yet.", "Lead History", { windowed: leadWin.windowed })}`;
     }
 
     function renderDriverStatsMode_(elapsed = getVisualElapsed_(), canFull = null) {
         canFull = canFull == null ? (analysisCanShowFullRace_() && !shouldRenderReplayMoment_()) : !!canFull;
         pgLocalEnsureTrackHistory_(analysis?.trackName || raceMeta?.track || "").catch(() => {});
-        const rows = getLiveOrder_(canFull ? Infinity : elapsed, canFull).map((x, i) => {
+        const ordered = getLiveOrder_(canFull ? Infinity : elapsed, canFull);
+        const win = focusedOrderWindow_(ordered);
+        const visibleDrivers = win.items.map(({ row }) => row.driver);
+        const rows = win.items.map(({ row: x, pos }) => {
             const d = x.driver;
             const stats = driverTelemetryStats_(d, elapsed, canFull);
-            return `<tr><td>${i + 1}</td><td>${carComboCell_(d)}</td><td>${driverWithRsCell_(d)}</td><td>${esc_(d.driverId || "--")}</td><td class="mono">${canFull ? formatTimeSeconds_(d.bestLapSeconds) : "--"}</td><td class="mono">${canFull ? formatTimeSeconds_(d.averageLapSeconds) : "--"}</td><td class="mono">${canFull ? formatTimeSeconds_(d.idealLapSeconds) : "--"}</td><td>${canFull && d.consistencyScore != null ? d.consistencyScore.toFixed(1) : "--"}</td><td>${canFull ? (d.sectorsWon || 0) : "--"}</td><td>${canFull ? (d.lapsLed || 0) : "--"}</td><td class="mono">${canFull ? formatLeadTime_(d.timeInLeadSeconds) : "--"}</td><td class="mono">${formatSpeed_(stats.topSpeedMps)}</td><td class="mono">${formatG_(stats.highestG)}</td></tr>`;
+            return `<tr${focusRowDataAttrs_(d)}><td>${pos}</td><td>${carComboCell_(d)}</td><td>${driverWithRsCell_(d)}</td><td>${esc_(d.driverId || "--")}</td><td class="mono">${canFull ? formatTimeSeconds_(d.bestLapSeconds) : "--"}</td><td class="mono">${canFull ? formatTimeSeconds_(d.averageLapSeconds) : "--"}</td><td class="mono">${canFull ? formatTimeSeconds_(d.idealLapSeconds) : "--"}</td><td>${canFull && d.consistencyScore != null ? d.consistencyScore.toFixed(1) : "--"}</td><td>${canFull ? (d.sectorsWon || 0) : "--"}</td><td>${canFull ? (d.lapsLed || 0) : "--"}</td><td class="mono">${canFull ? formatLeadTime_(d.timeInLeadSeconds) : "--"}</td><td class="mono">${formatSpeed_(stats.topSpeedMps)}</td><td class="mono">${formatG_(stats.highestG)}</td></tr>`;
         });
         const note = canFull
             ? `<div class="mpg-note">Consistency is a 0–100 stability score based on completed lap variation: 100 − (lap-time standard deviation ÷ average lap × 100). Higher means more even lap times; lower means the driver's laps varied more.</div>`
             : shouldRenderReplayMoment_()
                 ? `<div class="mpg-note">${getRaceContext_() === "replay" ? "Replay" : "Live race"} snapshot at ${esc_(formatTimeSeconds_(elapsed))}. Final lap-based stats appear when the visual race reaches the end.</div>`
                 : `<div class="mpg-note">Live mode: final driver statistics stay hidden until finish. Consistency is calculated after completed laps are available.</div>`;
-        const historyRows = analysis.drivers.map(d => {
+        const historyRows = visibleDrivers.map(d => {
             const h = getDriverTrackHistory_(d.driverId, d.name, analysis.trackName || raceMeta?.track || "");
-            return `<tr><td>${carComboCell_(d)}</td><td>${driverWithRsCell_(d)}</td><td>${h?.races || 0}</td><td>${h?.avgFinish ? `P${h.avgFinish.toFixed(1)}` : "--"}</td><td>${h?.wins || 0}</td><td>${h?.podiums || 0}</td><td>${h?.crashes || 0}</td><td class="mono">${h?.bestLapMs ? msToTimeText_(h.bestLapMs, "lap") : "--"}</td><td>${Number.isFinite(h?.riskScore) ? h.riskScore.toFixed(0) : "--"}</td></tr>`;
+            return `<tr${focusRowDataAttrs_(d)}><td>${carComboCell_(d)}</td><td>${driverWithRsCell_(d)}</td><td>${h?.races || 0}</td><td>${h?.avgFinish ? `P${h.avgFinish.toFixed(1)}` : "--"}</td><td>${h?.wins || 0}</td><td>${h?.podiums || 0}</td><td>${h?.crashes || 0}</td><td class="mono">${h?.bestLapMs ? msToTimeText_(h.bestLapMs, "lap") : "--"}</td><td>${Number.isFinite(h?.riskScore) ? h.riskScore.toFixed(0) : "--"}</td></tr>`;
         });
-        return `${note}${renderTable_(["Pos","Car image + Car name","Driver (RS)","Driver ID","Best Lap","Average Lap","Ideal Lap","Consistency","Sectors Won","Laps Led","Time in Lead","Top Speed","Highest Est. G"], rows, "Waiting for driver stats...", "Driver Stats")}<div class="mpg-note">Driver History on ${esc_(analysis.trackName || raceMeta?.track || "this track")} — saved locally after completed races and used by Predictions when enabled.</div>${renderTable_(["Car image + Car name","Driver (RS)","Races Here","Avg Finish","Wins","Podiums","Crashes","Best Lap Here","Risk"], historyRows, "No local track history yet.", "Driver History")}`;
+        return `${note}${focusedWindowNote_(win, "Driver Stats")}${renderTable_(["Pos","Car image + Car name","Driver (RS)","Driver ID","Best Lap","Average Lap","Ideal Lap","Consistency","Sectors Won","Laps Led","Time in Lead","Top Speed","Highest Est. G"], rows, "Waiting for driver stats...", "Driver Stats", { windowed: win.windowed })}<div class="mpg-note">Driver History on ${esc_(analysis.trackName || raceMeta?.track || "this track")} — saved locally after completed races and used by Predictions when enabled.</div>${renderTable_(["Car image + Car name","Driver (RS)","Races Here","Avg Finish","Wins","Podiums","Crashes","Best Lap Here","Risk"], historyRows, "No local track history yet.", "Driver History", { windowed: win.windowed })}`;
     }
 
     function trackWideDriverHistoryRows_(trackName, currentDrivers = []) {
@@ -11196,7 +11521,8 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
             return Object.assign({}, x, { intel, skill, history, displayScore: Math.max(0.01, x.score) });
         });
         const total = scored.reduce((s, x) => s + x.displayScore, 0) || 1;
-        const rows = scored.map((x, i) => {
+        const predWin = focusedOrderWindow_(scored, { force: largeFieldMode_() });
+        const rows = predWin.items.map(({ row: x, index: i }) => {
             const win = x.displayScore / total * 100;
             const podium = clamp_(win * 2.5, 0, 95);
             const risk = Number(x.history?.riskScore);
@@ -11205,7 +11531,7 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
             const wins = Number.isFinite(x.intel?.racesWon) ? x.intel.racesWon : "--";
             const priors = x.history?.races || 0;
             const avgPos = x.history?.avgFinish ? `P${x.history.avgFinish.toFixed(1)}` : "--";
-            return `<tr><td>${i + 1}</td><td>${carComboCell_(x.d)}</td><td>${driverWithRsCell_(x.d)}</td><td>${win.toFixed(1)}%</td><td>${podium.toFixed(1)}%</td><td>${(i + 1).toFixed(1)}</td><td>${conf}</td><td>${predictionIntelActionCell_(x.d, x.intel)}</td><td>${starts}</td><td>${wins}</td><td>${priors}</td><td>${avgPos}</td><td>${Number.isFinite(risk) ? risk.toFixed(0) : "--"}</td></tr>`;
+            return `<tr${focusRowDataAttrs_(x.d)}><td>${i + 1}</td><td>${carComboCell_(x.d)}</td><td>${driverWithRsCell_(x.d)}</td><td>${win.toFixed(1)}%</td><td>${podium.toFixed(1)}%</td><td>${(i + 1).toFixed(1)}</td><td>${conf}</td><td>${predictionIntelActionCell_(x.d, x.intel)}</td><td>${starts}</td><td>${wins}</td><td>${priors}</td><td>${avgPos}</td><td>${Number.isFinite(risk) ? risk.toFixed(0) : "--"}</td></tr>`;
         });
         const missingRs = scored.filter(x => !Number.isFinite(x.skill)).length;
         const pool = getDriverIntelPool_(set.drivers);
@@ -11228,7 +11554,7 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
             ? `<div class="mpg-note">Past Races on Track is skipped for huge pre-race grids to keep Torn responsive. Saved history still contributes to prediction scores when available.</div>`
             : renderPredictionPastRacesTable_(scored.map(x => x.d), set.trackName || "");
         const predictionHelpText = `${sourceNote}${apiNote}${rsNote}${historyNote}`.trim();
-        return `${renderTable_(["Predicted Pos","Car image + Car name","Driver (RS)","Win Chance","Podium Chance","Expected Position","Confidence","Intel","Starts","Wins","Priors","Avg Pos","Risk"], rows, "Waiting for prediction data...", "Predictions", { helpText: predictionHelpText })}${historyTable}`;
+        return `${focusedWindowNote_(predWin, "Predictions")}${renderTable_(["Predicted Pos","Car image + Car name","Driver (RS)","Win Chance","Podium Chance","Expected Position","Confidence","Intel","Starts","Wins","Priors","Avg Pos","Risk"], rows, "Waiting for prediction data...", "Predictions", { helpText: predictionHelpText, windowed: predWin.windowed })}${historyTable}`;
     }
 
     function ensureUi_() {
