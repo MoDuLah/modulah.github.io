@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         MoDuL's Pit Guru
 // @namespace    modul.torn.racing
-// @version      2.0.0
+// @version      2.0.1
 // @description  Live Torn race timing, gaps, sectors, speed and estimated telemetry analysis
 // @author       MoDuL
 // @copyright    2026 MoDuL. All rights reserved.
@@ -309,7 +309,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
     unsafeWindow.pgPlayerCacheRaceId = pgPlayerFetchRaceDataById_;
     unsafeWindow.pgPlayerCacheCurrentRace = openLocalPlayerForCurrentRace_;
 
-    const MPG_VERSION = "2.0.0";
+    const MPG_VERSION = "2.0.1";
     var TAG = "[MoDuL's Pit Guru v" + MPG_VERSION + "]";
 
     const PitGuruRaceEngine = (() => {
@@ -658,6 +658,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
     const STORE_DRIVER_ID_LOOKUP_MS_KEY = "RT_TORN_RA_DRIVER_ID_LOOKUP_MS";
     const STORE_DRIVER_INTEL_SETTLE_MS_KEY = "RT_TORN_RA_DRIVER_INTEL_SETTLE_MS";
     const STORE_PARTICIPANT_SCAN_REPEAT_KEY = "RT_TORN_RA_PARTICIPANT_SCAN_REPEAT";
+    const STORE_FOCUSED_ROW_WINDOW_EACH_SIDE_KEY = "RT_TORN_RA_FOCUS_WINDOW_EACH_SIDE";
     const STORE_DIRECT_FETCH_LEASE_KEY = "RT_TORN_RA_DIRECT_FETCH_LEASE_V1";
     const STORE_ONBOARDING_COMPLETE_KEY = "RT_TORN_RA_ONBOARDING_COMPLETE_V1";
     const STORE_HOSTED_TRACK_INTERVALS_KEY = "RT_TORN_MPG_HOSTED_TRACK_INTERVALS_V1";
@@ -868,6 +869,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
     let driverHistory = {};
     let driverIntelFetchActive = false;
     let driverIntelStatus = "";
+    let driverIntelNotificationKey = "";
     let driverIntelAutoRaceKey = "";
     let driverIntelPoolStableKey = "";
     let driverIntelPoolStableAt = 0;
@@ -883,6 +885,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
     let pgPlayerCacheStatus = "";
     let pgPlayerCacheInFlightKeys = new Set();
     let pgPlayerCachedRaceKeys = new Set();
+    let pgPlayerCacheNotificationKeys = new Set();
     let pgPlayerAvailabilityArmed = true;
     let pgPlayerReadyHighlightUntil = 0;
     let pgPlayerReadyHighlightTimer = 0;
@@ -921,6 +924,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
     let driverIdLookupMs = PERFORMANCE_PRESETS.balanced.driverIdLookupMs;
     let driverIntelSettleMs = PERFORMANCE_PRESETS.balanced.driverIntelSettleMs;
     let participantScanRepeat = PERFORMANCE_PRESETS.balanced.participantScanRepeat;
+    let focusedRowWindowEachSide = 5;
     let lastCommentaryAtMs = 0;
     let lastCommentaryText = "";
     let lastCommentaryKey = "";
@@ -948,7 +952,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
     let slideEventsCache = new WeakMap();
     const LARGE_FIELD_THRESHOLD = 30;
     const HUGE_FIELD_THRESHOLD = 45;
-    const FOCUSED_ROW_WINDOW_EACH_SIDE = 5;
+    const DEFAULT_FOCUSED_ROW_WINDOW_EACH_SIDE = 5;
     const LARGE_LOBBY_CANDIDATE_LIMIT = 220;
     const HUGE_LOBBY_CANDIDATE_LIMIT = 160;
 
@@ -1140,6 +1144,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         driverIdLookupMs = loadIntSetting_(STORE_DRIVER_ID_LOOKUP_MS_KEY, preset.driverIdLookupMs, 1000, 120000);
         driverIntelSettleMs = loadIntSetting_(STORE_DRIVER_INTEL_SETTLE_MS_KEY, preset.driverIntelSettleMs, 500, 30000);
         participantScanRepeat = loadParticipantScanRepeat_();
+        focusedRowWindowEachSide = loadIntSetting_(STORE_FOCUSED_ROW_WINDOW_EACH_SIDE_KEY, DEFAULT_FOCUSED_ROW_WINDOW_EACH_SIDE, 1, 25);
         if (performancePreset !== "custom") applyPerformancePreset_(performancePreset, false);
     }
     function savePerformanceTuning_() {
@@ -1149,6 +1154,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         saveIntSetting_(STORE_DRIVER_ID_LOOKUP_MS_KEY, driverIdLookupMs);
         saveIntSetting_(STORE_DRIVER_INTEL_SETTLE_MS_KEY, driverIntelSettleMs);
         saveParticipantScanRepeat_();
+        saveIntSetting_(STORE_FOCUSED_ROW_WINDOW_EACH_SIDE_KEY, focusedRowWindowEachSide);
     }
     function applyPerformancePreset_(presetKey, persist = true) {
         const preset = PERFORMANCE_PRESETS[presetKey];
@@ -2002,6 +2008,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
     async function pgPlayerCacheRaceData_(payload, source = "torn-racingData", opts = {}) {
         const p = getRacePayload_(payload) || payload || {};
         if (!p || !p.cars) return Promise.resolve(null);
+        const autoNotify = !/^manual/i.test(String(source || ""));
         if (!pgPlayerPayloadHasDecodableIntervals_(p)) {
             const message = "Hosted player cache skipped: racingData does not include replay intervals yet.";
             if (opts.force) {
@@ -2086,16 +2093,19 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
             }
             if (result?.pending) {
                 pgPlayerCacheStatus = result.error || "Hosted player cache pending: replay intervals are not available yet.";
+                if (autoNotify) notifyRaceUpload_(`upload-pending:${key}`, pgPlayerCacheStatus);
                 return result;
             }
             const raceId = String(result?.race?.raceId || directRaceIdFromPayload_(p) || "").trim();
             pgPlayerCacheStatus = raceId ? `Cached Race ID ${raceId} in hosted player.` : "Cached race in hosted player.";
             pgPlayerCachedRaceKeys.add(key);
             if (result?.transport?.trackIntervalsStored) pgPlayerRememberHostedTrack_(trackTransportKey);
+            if (autoNotify) notifyRaceUpload_(`upload-ok:${key}`, raceId ? `Race upload complete: Race ID ${raceId} is cached on the hosted player.` : "Race upload complete: cached on the hosted player.");
             if (debugEnabled) console.log(TAG, "hosted player cached racingData", source, result?.race);
             return result;
         } catch (error) {
             pgPlayerCacheStatus = `Hosted player cache failed: ${error?.message || error || "request failed"}`;
+            if (autoNotify) notifyRaceUpload_(`upload-fail:${key}:${pgPlayerCacheStatus}`, pgPlayerCacheStatus);
             if (debugEnabled) console.warn(TAG, pgPlayerCacheStatus);
             return null;
         } finally {
@@ -4658,24 +4668,51 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
     unsafeWindow.pgLocalFetchCurrentRaceIntel = pgLocalFetchCurrentRaceIntel_;
     unsafeWindow.pgLocalGetCachedIntelForDriver = pgLocalGetCachedIntelForDriver_;
 
+    function confidenceShrinkScore_(rawScore, sampleCount, neutral = 0.5, confidenceBase = 6) {
+        const raw = Number(rawScore);
+        if (!Number.isFinite(raw)) return neutral;
+        const count = Math.max(0, Number(sampleCount) || 0);
+        const confidence = clamp_(count / (count + confidenceBase), 0, 1);
+        return neutral + ((clamp_(raw, 0, 1) - neutral) * confidence);
+    }
+
+    function predictionWinScore_(intel) {
+        const starts = Number(intel?.racesEntered);
+        const wins = Number(intel?.racesWon);
+        const rate = Number.isFinite(Number(intel?.winRate))
+            ? Number(intel.winRate)
+            : (Number.isFinite(starts) && starts > 0 && Number.isFinite(wins) ? wins / starts : NaN);
+        if (!Number.isFinite(rate)) return 0.45;
+        return clamp_(rate / 0.35, 0, 1);
+    }
+
+    function predictionExperienceScore_(intel) {
+        const starts = Number(intel?.racesEntered);
+        if (!Number.isFinite(starts) || starts <= 0) return 0.45;
+        return clamp_(Math.log10(starts + 1) / 4, 0, 1);
+    }
+
     function predictionScoreForDriver_(d, drivers = analysis?.drivers || [], trackName = analysis?.trackName || raceMeta?.track || "") {
         const intel = useApiPredictions ? (d.driverIntel || getDriverIntelForDriver_(d)) : null;
         const rs = Number.isFinite(d.racingSkill) ? d.racingSkill : Number(intel?.racingSkill);
-        const skill = Number.isFinite(rs) ? clamp_(rs / 60, 0, 1) : 0.5;
-        const win = Number.isFinite(intel?.winRate) ? intel.winRate : 0.08;
+        const skill = Number.isFinite(rs) ? Math.sqrt(clamp_(rs / 100, 0, 1)) : 0.45;
+        const win = predictionWinScore_(intel);
+        const experience = predictionExperienceScore_(intel);
 
         const grid = Math.max(1, drivers.length || 1);
 
         const history = useHistoryPredictions ? getDriverTrackHistory_(d.driverId, d.name, trackName) : null;
-        const historyScore = history?.races
+        const rawHistoryScore = history?.races
             ? clamp_(1 - ((history.avgFinish || grid) - 1) / Math.max(1, grid - 1), 0, 1)
             : 0.5;
+        const historyScore = confidenceShrinkScore_(rawHistoryScore, history?.races || 0, 0.5, 6);
 
         const riskPenalty = history?.riskScore
-            ? clamp_(history.riskScore / 100, 0, 0.25)
+            ? clamp_((history.riskScore / 100) * clamp_((history.races || 0) / 10, 0, 1), 0, 0.12)
             : 0;
 
-        let score = (skill * 0.46) + (win * 0.24) + (historyScore * 0.30) - riskPenalty;
+        let carTrackScore = 0.5;
+        let localServerScore = 0.5;
 
         const localIntel = pgLocalGetCachedIntelForDriver_(d, trackName);
 
@@ -4694,27 +4731,39 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
                 1
             );
 
-            const localTrackScore = localTrack?.races
+            const localTrackScoreRaw = localTrack?.races
                 ? clamp_(1 - ((Number(localTrack.avg_finish) || grid) - 1) / Math.max(1, grid - 1), 0, 1)
                 : 0.5;
+            const localTrackScore = confidenceShrinkScore_(localTrackScoreRaw, Number(localTrack?.races) || 0, 0.5, 6);
 
-            const localTrackCarScore = Number.isFinite(Number(localTrackCar?.result_score))
+            const localTrackCarScoreRaw = Number.isFinite(Number(localTrackCar?.result_score))
                 ? clamp_(Number(localTrackCar.result_score) / 100, 0, 1)
                 : 0.5;
+            const localTrackCarScore = confidenceShrinkScore_(localTrackCarScoreRaw, Number(localTrackCar?.races) || 0, 0.5, 4);
 
-            const localServerScore = Number.isFinite(Number(localPrediction?.score))
+            localServerScore = Number.isFinite(Number(localPrediction?.score))
                 ? clamp_(Number(localPrediction.score) / 100, 0, 1)
                 : 0.5;
 
             const localScore =
-                (localTrackScore * 0.40) +
-                (localTrackCarScore * 0.40) +
+                (localTrackScore * 0.35) +
+                (localTrackCarScore * 0.45) +
                 (localServerScore * 0.20);
 
-            const localWeight = clamp_(localConfidence * 0.55, 0, 0.55);
+            const localWeight = clamp_(localConfidence * 0.30, 0, 0.30);
 
-            score = (score * (1 - localWeight)) + (localScore * localWeight);
+            carTrackScore = (carTrackScore * (1 - localWeight)) + (localScore * localWeight);
         }
+
+        let score =
+            (skill * 0.42) +
+            (win * 0.18) +
+            (experience * 0.12) +
+            (historyScore * 0.18) +
+            (carTrackScore * 0.10) -
+            riskPenalty;
+
+        if (!intel && !Number.isFinite(rs)) score -= 0.04;
 
         return score;
     }
@@ -5271,6 +5320,7 @@ return {
         if (!todo.length) {
             driverIntelStatus = `Driver Intel ready from cache (${pool.length} driver${pool.length === 1 ? "" : "s"}).`;
             applyDriverIntelToModel_();
+            notifyDriverSync_(`driver-sync-cache:${preRaceParticipantsKey || raceMeta?.raceId || pool.length}`, driverIntelStatus);
             uiDirty = true; scheduleRender_();
             return;
         }
@@ -5310,6 +5360,7 @@ return {
                 pgLocalUpsertDriverIntel_(sqliteProfiles).catch(() => {});
             }
             driverIntelStatus = `Driver Intel complete: ${ok} fetched, ${failed} failed, ${pool.length - todo.length} cached.`;
+            notifyDriverSync_(`driver-sync:${preRaceParticipantsKey || raceMeta?.raceId || ""}:${ok}:${failed}:${pool.length - todo.length}`, driverIntelStatus);
             applyDriverIntelToModel_();
             uiDirty = true; scheduleRender_();
         }
@@ -7760,6 +7811,23 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
         } catch { }
     }
 
+    function notifyDriverSync_(key, msg) {
+        const k = String(key || msg || "").trim();
+        if (!k || driverIntelNotificationKey === k) return;
+        driverIntelNotificationKey = k;
+        toast_(msg);
+    }
+
+    function notifyRaceUpload_(key, msg) {
+        const k = String(key || msg || "").trim();
+        if (!k || pgPlayerCacheNotificationKeys.has(k)) return;
+        pgPlayerCacheNotificationKeys.add(k);
+        if (pgPlayerCacheNotificationKeys.size > 80) {
+            pgPlayerCacheNotificationKeys = new Set(Array.from(pgPlayerCacheNotificationKeys).slice(-40));
+        }
+        toast_(msg);
+    }
+
     function readFileText_(file) {
         return new Promise((resolve, reject) => {
             try {
@@ -8511,7 +8579,7 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
             JSON.stringify(apiKeyInfo || {}), apiKeyStatus, driverIntelFetchActive ? 1 : 0, driverIntelStatus,
             recordsOpen ? 1 : 0, recordsDetached ? 1 : 0, clearOnRaceChange ? 1 : 0,
             fuelEnabled ? 1 : 0, fuelDisplayStyle, liveCommentaryEnabled ? 1 : 0, pitCrewEnabled ? 1 : 0, experimentalGyroTrace ? 1 : 0,
-            performancePreset, visibleRaceScanMs, participantScanMs, driverIdLookupMs, driverIntelSettleMs, participantScanRepeat
+            performancePreset, visibleRaceScanMs, participantScanMs, driverIdLookupMs, driverIntelSettleMs, participantScanRepeat, focusedRowWindowEachSide
         ].join("|");
         if (panel.dataset.renderKey === key && panel.children.length) return;
         const active = document.activeElement;
@@ -8566,6 +8634,8 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
             <div class="mpg-setting-row"><label for="mpgParticipantScanMs">Participant grid scan</label><input id="mpgParticipantScanMs" type="number" min="500" max="60000" step="250" value="${participantScanMs}"></div>
             <p class="mpg-section-note">Scans Torn participant/leaderboard rows for driver names, profile links/IDs, car names, and car images only while this tab is visible and focused. Current: every ${(participantScanMs / 1000).toFixed(2)}s while allowed by repeat mode.</p>
             <div class="mpg-setting-row"><label for="mpgParticipantScanRepeat">Grid repetition</label><select id="mpgParticipantScanRepeat"><option value="continuous"${participantScanRepeat === "continuous" ? " selected" : ""}>Continuous</option><option value="twice"${participantScanRepeat === "twice" ? " selected" : ""}>Twice per race</option><option value="once"${participantScanRepeat === "once" ? " selected" : ""}>Once per race</option></select></div>
+            <div class="mpg-setting-row"><label for="mpgFocusWindowEachSide">Drivers drawn around focus</label><select id="mpgFocusWindowEachSide">${[3,5,7,10,15,25].map(v => `<option value="${v}"${focusedRowWindowEachSide === v ? " selected" : ""}>${v} ahead / ${v} behind (${(v * 2) + 1} rows)</option>`).join("")}</select></div>
+            <p class="mpg-section-note">Large-field tables still keep the full race in memory, but only draw this focused row window in the DOM. Smaller values are better for 50-100 driver races.</p>
             <div class="mpg-setting-row"><label for="mpgDriverIdLookupMs">Profile-ID lookup cache</label><input id="mpgDriverIdLookupMs" type="number" min="1000" max="120000" step="500" value="${driverIdLookupMs}"></div>
             <p class="mpg-section-note">When a visible row lacks an ID, Pit Guru searches nearby profile/data attributes by driver name only while focused, then reuses positive or negative results for ${(driverIdLookupMs / 1000).toFixed(2)}s.</p>
             <div class="mpg-setting-row"><label for="mpgDriverIntelSettleMs">Driver Intel settle delay</label><input id="mpgDriverIntelSettleMs" type="number" min="500" max="30000" step="250" value="${driverIntelSettleMs}"></div>
@@ -8628,6 +8698,7 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
         };
         panel.querySelector("#mpgVisibleRaceScanMs").onchange = e => { visibleRaceScanMs = Math.round(clamp_(Number(e.target.value) || visibleRaceScanMs, 250, 30000)); saveIntSetting_(STORE_VISIBLE_RACE_SCAN_MS_KEY, visibleRaceScanMs); markPerfCustom(); };
         panel.querySelector("#mpgParticipantScanMs").onchange = e => { participantScanMs = Math.round(clamp_(Number(e.target.value) || participantScanMs, 500, 60000)); saveIntSetting_(STORE_PARTICIPANT_SCAN_MS_KEY, participantScanMs); markPerfCustom(); };
+        panel.querySelector("#mpgFocusWindowEachSide").onchange = e => { focusedRowWindowEachSide = Math.round(clamp_(Number(e.target.value) || DEFAULT_FOCUSED_ROW_WINDOW_EACH_SIDE, 1, 25)); saveIntSetting_(STORE_FOCUSED_ROW_WINDOW_EACH_SIDE_KEY, focusedRowWindowEachSide); uiDirty = true; scheduleRender_(); };
         panel.querySelector("#mpgDriverIdLookupMs").onchange = e => { driverIdLookupMs = Math.round(clamp_(Number(e.target.value) || driverIdLookupMs, 1000, 120000)); saveIntSetting_(STORE_DRIVER_ID_LOOKUP_MS_KEY, driverIdLookupMs); markPerfCustom(); };
         panel.querySelector("#mpgDriverIntelSettleMs").onchange = e => { driverIntelSettleMs = Math.round(clamp_(Number(e.target.value) || driverIntelSettleMs, 500, 30000)); saveIntSetting_(STORE_DRIVER_INTEL_SETTLE_MS_KEY, driverIntelSettleMs); markPerfCustom(); };
         panel.querySelector("#mpgParticipantScanRepeat").onchange = e => {
@@ -10366,7 +10437,7 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
     function focusedOrderWindow_(ordered, options = {}) {
         const list = Array.isArray(ordered) ? ordered : [];
         const total = list.length;
-        const eachSide = Math.max(1, Number(options.eachSide) || FOCUSED_ROW_WINDOW_EACH_SIDE);
+        const eachSide = Math.max(1, Number(options.eachSide) || focusedRowWindowEachSide || DEFAULT_FOCUSED_ROW_WINDOW_EACH_SIDE);
         const maxRows = Math.max(3, eachSide * 2 + 1);
         const force = options.force === true;
         const focus = focusedDriverResolution_(list);
@@ -10518,6 +10589,7 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
         try {
             if (!apiKey) {
                 driverIntelStatus = "Add an API key in Settings first.";
+                toast_(driverIntelStatus);
                 return;
             }
             if (!id) id = lookupVisibleDriverIdByName_(name) || "";
@@ -10527,6 +10599,7 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
             }
             if (!id) {
                 driverIntelStatus = `Driver Intel manual fetch failed: no Torn ID found for ${name || "that row"}.`;
+                toast_(driverIntelStatus);
                 return;
             }
             const model = findPredictionDriver_(id, name) || findPredictionDriver_("", name);
@@ -10534,6 +10607,7 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
             const intel = await fetchDriverIntelOne_(id, name, btn.dataset.force === "1");
             if (!intel) {
                 driverIntelStatus = `Driver Intel manual fetch failed for ${name || id}.`;
+                toast_(driverIntelStatus);
                 return;
             }
             if (model) {
@@ -10547,6 +10621,7 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
             applyDriverIntelToModel_();
             pgLocalUpsertDriverIntel_(intel).catch(() => {});
             driverIntelStatus = `Driver Intel fetched for ${intel.name || name || id}.`;
+            toast_(driverIntelStatus);
         } finally {
             uiDirty = true;
             scheduleRender_();
