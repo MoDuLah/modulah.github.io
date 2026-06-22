@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         MoDuL's Pit Guru
 // @namespace    modul.torn.racing
-// @version      2.0.1
+// @version      2.0.2
 // @description  Live Torn race timing, gaps, sectors, speed and estimated telemetry analysis
 // @author       MoDuL
 // @copyright    2026 MoDuL. All rights reserved.
@@ -309,7 +309,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
     unsafeWindow.pgPlayerCacheRaceId = pgPlayerFetchRaceDataById_;
     unsafeWindow.pgPlayerCacheCurrentRace = openLocalPlayerForCurrentRace_;
 
-    const MPG_VERSION = "2.0.1";
+    const MPG_VERSION = "2.0.2";
     var TAG = "[MoDuL's Pit Guru v" + MPG_VERSION + "]";
 
     const PitGuruRaceEngine = (() => {
@@ -668,7 +668,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
     const WIN_MIN_WIDTH = 550;
     const WIN_MIN_HEIGHT = 500;
     const WIN_VIEWPORT_MARGIN = 12;
-    const SCRIPT_FORUM_POST_URL = "https://www.torn.com/forums.php#/p=threads&f=67&t=16538065";
+    const SCRIPT_FORUM_POST_URL = "https://www.torn.com/forums.php#/p=threads&f=21&t=16574141";
     const VISUAL_PROGRESS_SELECTORS = Object.freeze({
         lap: [
             "#racingdetails .pd-val.pd-lap",
