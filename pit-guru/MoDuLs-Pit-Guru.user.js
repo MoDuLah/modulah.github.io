@@ -948,6 +948,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
     let nativeResizeEl = null;
     let nativeResizeStoreKey = "";
     let nativeResizeAt = 0;
+    const resizePersistTimers = new Map();
     const gyroTraceByDriver = new Map();
     let slideEventsCache = new WeakMap();
     const LARGE_FIELD_THRESHOLD = 30;
@@ -1986,10 +1987,24 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
 
     function prepareNewRaceUi_() {
         analysisMode = "predictions";
+        saveAnalysisMode_();
         pgPlayerAvailabilityArmed = true;
         pgPlayerReadyHighlightUntil = 0;
         clearTimeout(pgPlayerReadyHighlightTimer);
         pgPlayerReadyHighlightTimer = 0;
+    }
+
+    function maybeSwitchReplayAnalysisMode_(payload, source = "") {
+        if (!payload || analysisMode !== "predictions") return;
+        const td = payload?.timeData || payload?.raceData?.timeData || {};
+        const status = Number(td.status ?? td.stauts);
+        const info = String(payload?.info || payload?.raceData?.info || source || "").toLowerCase();
+        const replayOrFinished = isReplayPage_()
+            || /replay|log|racingdata|finished/.test(info)
+            || status === 3;
+        if (!replayOrFinished) return;
+        analysisMode = "gaps";
+        saveAnalysisMode_();
     }
 
     function markPlayerRaceDataAvailable_() {
@@ -2003,6 +2018,47 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
             uiDirty = true;
             scheduleRender_();
         }, 10050);
+    }
+
+    function pgPlayerGetJson_(url, session = "", timeout = 15000) {
+        return new Promise((resolve, reject) => {
+            const headers = session ? { "X-Pit-Guru-Session": session } : {};
+            const parse = (status, statusText, responseText) => {
+                let body = null;
+                try { body = JSON.parse(String(responseText || "{}")); }
+                catch { body = {}; }
+                resolve({ status, statusText, body });
+            };
+            if (typeof GM_xmlhttpRequest === "function") {
+                GM_xmlhttpRequest({
+                    method: "GET",
+                    url,
+                    headers,
+                    timeout,
+                    onload: res => parse(res.status, res.statusText, res.responseText),
+                    onerror: () => reject(new Error("hosted player request failed")),
+                    ontimeout: () => reject(new Error("hosted player request timed out"))
+                });
+                return;
+            }
+            fetch(url, { headers })
+                .then(async r => parse(r.status, r.statusText, await r.text()))
+                .catch(reject);
+        });
+    }
+
+    async function pgPlayerHostedRaceExists_(raceId, session = "") {
+        const rid = String(raceId || "").trim();
+        if (!rid) return null;
+        try {
+            const url = `${PG_LOCAL_PLAYER_BASE}/api/race/exists?raceID=${encodeURIComponent(rid)}`;
+            const result = await pgPlayerGetJson_(url, session, 12000);
+            if (result.status === 200 && result.body?.exists) return result.body;
+            if (result.status === 404) return { ok: true, exists: false, race: { raceId: rid } };
+        } catch (error) {
+            if (debugEnabled) console.debug(TAG, "hosted player race existence check failed", error);
+        }
+        return null;
     }
 
     async function pgPlayerCacheRaceData_(payload, source = "torn-racingData", opts = {}) {
@@ -2076,6 +2132,16 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         try {
             let session = pgHostedSession_() || await pgVerifyHostedSession_();
             let result;
+            const raceIdBeforeUpload = directRaceIdFromPayload_(p);
+            if (raceIdBeforeUpload) {
+                const existing = await pgPlayerHostedRaceExists_(raceIdBeforeUpload, session);
+                if (existing?.exists) {
+                    pgPlayerCacheStatus = `Race ID ${raceIdBeforeUpload} is already cached on the hosted player.`;
+                    pgPlayerCachedRaceKeys.add(key);
+                    if (autoNotify) notifyRaceUpload_(`upload-skip-existing:${raceIdBeforeUpload}`, pgPlayerCacheStatus);
+                    return { ok: true, cached: true, skipped: true, race: existing.race || { raceId: raceIdBeforeUpload } };
+                }
+            }
             try {
                 result = await submit(session, pgPlayerCompactTransport_(p, includeTrackIntervals));
             } catch (error) {
@@ -2863,6 +2929,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
             raceDataCurrentTimeAtReceive = Number(payload?.timeData?.currentTime);
             clearedRaceDataKey = "";
             buildAnalysisFromRaceData_(payload);
+            maybeSwitchReplayAnalysisMode_(payload, source);
             markPlayerRaceDataAvailable_();
             if (debugEnabled) console.log(TAG, "raceData captured", source || "", analysis);
             pgPlayerCacheRaceData_(payload, source || "captured-racingData").catch(() => {});
@@ -3609,6 +3676,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         if (allowPreFinishPreview) return true;
         const visual = visualRaceProgressState_();
         if (visual.hasProgress) return visual.finished;
+        if (getRaceContext_() === "replay" && analysis?.payload) return true;
         return false;
     }
 
@@ -3616,6 +3684,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         if (allowPreFinishPreview) return true;
         const visual = visualRaceProgressState_();
         if (visual.hasProgress) return visual.finished;
+        if (getRaceContext_() === "replay" && analysis?.payload) return true;
         return false;
     }
 
@@ -12284,15 +12353,34 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
    * DRAGGING
    * ============================ */
 
+    function queueResizePersist_(el, storeKey) {
+        if (!el || !storeKey) return;
+        const existing = resizePersistTimers.get(storeKey);
+        if (existing) clearTimeout(existing);
+        resizePersistTimers.set(storeKey, setTimeout(() => {
+            resizePersistTimers.delete(storeKey);
+            if (!el.isConnected) return;
+            const rect = getWindowRect_(el);
+            if (storedRectLooksPageSized_(rect)) return;
+            saveElementRect_(storeKey, el.getBoundingClientRect());
+        }, 220));
+    }
+
     function observeResize_(el, storeKey) {
         if (!el || !storeKey || typeof ResizeObserver === "undefined") return;
         const ro = new ResizeObserver(() => {
             const isManualNativeResize = nativeResizeEl === el && nativeResizeStoreKey === storeKey && Date.now() - nativeResizeAt < 3500;
-            if (!isManualNativeResize && storedRectLooksPageSized_(getWindowRect_(el))) {
+            const rect = getWindowRect_(el);
+            if (!isManualNativeResize && storedRectLooksPageSized_(rect)) {
                 restoreSafeRect_(el, storeKey);
                 return;
             }
-            keepWindowInBounds_(el, storeKey, { persist: isManualNativeResize });
+            keepWindowInBounds_(el, storeKey, { persist: false });
+            if (el.dataset.mpgResizeObserverReady === "1" || isManualNativeResize) {
+                queueResizePersist_(el, storeKey);
+            } else {
+                el.dataset.mpgResizeObserverReady = "1";
+            }
         });
         ro.observe(el);
     }
