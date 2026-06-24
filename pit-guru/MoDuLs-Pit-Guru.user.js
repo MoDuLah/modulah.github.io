@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         MoDuL's Pit Guru
 // @namespace    modul.torn.racing
-// @version      2.0.2
+// @version      2.0.3
 // @description  Live Torn race timing, gaps, sectors, speed and estimated telemetry analysis
 // @author       MoDuL
 // @copyright    2026 MoDuL. All rights reserved.
@@ -309,7 +309,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
     unsafeWindow.pgPlayerCacheRaceId = pgPlayerFetchRaceDataById_;
     unsafeWindow.pgPlayerCacheCurrentRace = openLocalPlayerForCurrentRace_;
 
-    const MPG_VERSION = "2.0.2";
+    const MPG_VERSION = "2.0.3";
     var TAG = "[MoDuL's Pit Guru v" + MPG_VERSION + "]";
 
     const PitGuruRaceEngine = (() => {
@@ -12366,10 +12366,18 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
         }, 220));
     }
 
+    function isNativeResizeZone_(event, rect) {
+        if (!event || !rect) return false;
+        const hotZone = 24;
+        const nearRight = event.clientX >= rect.right - hotZone && event.clientX <= rect.right + 3;
+        const nearBottom = event.clientY >= rect.bottom - hotZone && event.clientY <= rect.bottom + 3;
+        return nearRight || nearBottom;
+    }
+
     function observeResize_(el, storeKey) {
         if (!el || !storeKey || typeof ResizeObserver === "undefined") return;
         const ro = new ResizeObserver(() => {
-            const isManualNativeResize = nativeResizeEl === el && nativeResizeStoreKey === storeKey && Date.now() - nativeResizeAt < 3500;
+            const isManualNativeResize = nativeResizeEl === el && nativeResizeStoreKey === storeKey && Date.now() - nativeResizeAt < 20000;
             const rect = getWindowRect_(el);
             if (!isManualNativeResize && storedRectLooksPageSized_(rect)) {
                 restoreSafeRect_(el, storeKey);
@@ -12396,8 +12404,8 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
 
             const rect = targetEl.getBoundingClientRect();
 
-            // If user is grabbing the native resize handle, don't start a drag.
-            if (e.clientX > rect.right - 18 && e.clientY > rect.bottom - 18) {
+            // If user is grabbing a native resize edge/corner, don't start a drag.
+            if (isNativeResizeZone_(e, rect)) {
                 nativeResizeEl = targetEl;
                 nativeResizeStoreKey = storeKey || "";
                 nativeResizeAt = Date.now();
