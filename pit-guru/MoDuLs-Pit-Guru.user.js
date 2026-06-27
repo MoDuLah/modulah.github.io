@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         MoDuL's Pit Guru
 // @namespace    modul.torn.racing
-// @version      2.0.3
+// @version      2.0.6
 // @description  Live Torn race timing, gaps, sectors, speed and estimated telemetry analysis
 // @author       MoDuL
 // @copyright    2026 MoDuL. All rights reserved.
@@ -309,7 +309,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
     unsafeWindow.pgPlayerCacheRaceId = pgPlayerFetchRaceDataById_;
     unsafeWindow.pgPlayerCacheCurrentRace = openLocalPlayerForCurrentRace_;
 
-    const MPG_VERSION = "2.0.3";
+    const MPG_VERSION = "2.0.6";
     var TAG = "[MoDuL's Pit Guru v" + MPG_VERSION + "]";
 
     const PitGuruRaceEngine = (() => {
@@ -879,6 +879,15 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
     let raceDataDirectFetchAt = 0;
     let raceDataDirectFetchActive = false;
     let raceDataDirectFetchLastKey = "";
+    const raceDataPayloadCacheByRaceId = new Map();
+    const raceDataInFlightByRaceId = new Map();
+    const raceDataAcceptedStateByRaceId = new Map();
+    const raceDataFetchStatsByRaceId = new Map();
+    const optionalImageUrlCache = new Map();
+    let lastHeavyRaceStats = { heavyRace: false, estimatedPoints: 0, drivers: 0, laps: 0, intervals: 0 };
+    let heavyRaceOverrideRaceKey = "";
+    let heavyRaceShowAllDrivers = false;
+    let heavyRaceFullCardsEnabled = false;
     let pgPlayerCacheActive = false;
     let pgPlayerCacheLastKey = "";
     let pgPlayerCacheLastAt = 0;
@@ -953,7 +962,11 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
     let slideEventsCache = new WeakMap();
     const LARGE_FIELD_THRESHOLD = 30;
     const HUGE_FIELD_THRESHOLD = 45;
-    const DEFAULT_FOCUSED_ROW_WINDOW_EACH_SIDE = 5;
+    const DEFAULT_FOCUSED_ROW_WINDOW_EACH_SIDE = 10;
+    const DEFAULT_HEAVY_ROW_WINDOW_EACH_SIDE = 10;
+    const HEAVY_RACE_LAP_THRESHOLD = 100;
+    const HEAVY_RACE_DRIVER_THRESHOLD = 50;
+    const HEAVY_RACE_POINT_THRESHOLD = 150000;
     const LARGE_LOBBY_CANDIDATE_LIMIT = 220;
     const HUGE_LOBBY_CANDIDATE_LIMIT = 160;
 
@@ -974,6 +987,11 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
     let playerId = "";
 
     let uiDirty = true;
+    let dataDirty = true;
+    let layoutDirty = true;
+    let statusDirty = true;
+    let selectionDirty = true;
+    let statusOnlyRenderPending = false;
 
     /** @type {{id:string,track:string,mode:"lap"|"race",car:string,carImg?:string,carClass?:string,driverName?:string,driverId?:string,timeText:string,ms:number,atIso:string,trackKey?:string,trackLabel?:string,sourceTrack?:string}[]} */
     let records = [];
@@ -1069,6 +1087,21 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         }
     }
     function saveJson_(key, obj) { GM_setValue(key, JSON.stringify(obj)); }
+
+    function markDirty_(flags = {}) {
+        uiDirty = true;
+        if (!flags || !Object.keys(flags).length) {
+            dataDirty = true;
+            layoutDirty = true;
+            statusDirty = true;
+            selectionDirty = true;
+            return;
+        }
+        if (flags.data) dataDirty = true;
+        if (flags.layout) layoutDirty = true;
+        if (flags.status) statusDirty = true;
+        if (flags.selection) selectionDirty = true;
+    }
 
     function loadRecords_() {
         const data = loadJson_(STORE_RECORDS_KEY, []);
@@ -1290,6 +1323,10 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         analysisFocusMode = "auto";
         analysisFocusDriverId = "";
         analysisFocusDriverName = "";
+        lastHeavyRaceStats = { heavyRace: false, estimatedPoints: 0, drivers: 0, laps: 0, intervals: 0 };
+        heavyRaceOverrideRaceKey = "";
+        heavyRaceShowAllDrivers = false;
+        heavyRaceFullCardsEnabled = false;
         directCurrentRaceId = "";
         preRaceParticipants = [];
         directRacingDataParticipants = [];
@@ -1305,6 +1342,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         raceOvertakesCache = { key: "", value: 0 };
         raceOvertakesFloorCache = { key: "", value: 0 };
         fuelSessionCache = { key: "", liters: 0, levelPct: 100 };
+        markDirty_({ data: true, layout: true, status: true, selection: true });
 
         clearRaceMeta_();
         if (nextRaceId && priorMeta) {
@@ -1866,6 +1904,114 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         return `shape:${extractTrackNameFromPayloadOrMeta_(p)}:${extractLapsFromPayloadOrUi_(p)}:${drivers}`;
     }
 
+    function stableSignatureValue_(value) {
+        if (Array.isArray(value)) return value.map(stableSignatureValue_);
+        if (value && typeof value === "object") {
+            return Object.keys(value).sort().reduce((out, key) => {
+                out[key] = stableSignatureValue_(value[key]);
+                return out;
+            }, {});
+        }
+        return value;
+    }
+
+    function raceDataStaticSignature_(payload) {
+        const p = getRacePayload_(payload) || payload || {};
+        const cars = p?.cars || p?.raceData?.cars || {};
+        const trackData = p?.trackData || p?.raceData?.trackData || {};
+        const laps = extractLapsFromPayloadOrUi_(p);
+        return hash32_(JSON.stringify({
+            laps,
+            trackData: stableSignatureValue_(trackData),
+            cars: stableSignatureValue_(cars)
+        }));
+    }
+
+    function raceDataFetchRaceKey_(raceId = "", payload = null) {
+        const payloadRid = payload ? directRaceIdFromPayload_(payload) : "";
+        return String(raceId || payloadRid || directCurrentRaceId || urlRaceId_() || visibleRaceId_() || raceMeta?.raceId || "current").trim();
+    }
+
+    function raceDataFetchStats_(raceId = "") {
+        const key = raceDataFetchRaceKey_(raceId);
+        let stats = raceDataFetchStatsByRaceId.get(key);
+        if (!stats) {
+            stats = { fetches: 0, duplicatePayloadsSkipped: 0, fullRenders: 0, lightweightRenders: 0, renderedRows: 0, totalRows: 0 };
+            raceDataFetchStatsByRaceId.set(key, stats);
+        }
+        return stats;
+    }
+
+    function raceDataStatusFinished_(payload) {
+        const p = getRacePayload_(payload) || payload || {};
+        const td = p?.timeData || {};
+        const status = Number(td.status ?? td.stauts ?? td.state);
+        if (Number.isFinite(status) && status === 1) return true;
+        const info = String(p?.info || p?.raceData?.info || "").trim();
+        if (/\brace\s+(?:finished|complete|completed)\b/i.test(info) || /\bfinished\b/i.test(info)) return true;
+        const log = extractRaceLogData_(p);
+        return !!(log.timeEnded || log.TimeEnded);
+    }
+
+    function raceDataUsableForAnalysis_(payload) {
+        return !!((getRacePayload_(payload) || payload || {})?.cars) && pgPlayerPayloadHasDecodableIntervals_(payload);
+    }
+
+    function updateRaceDataLightweightFields_(target, source) {
+        if (!target || !source) return false;
+        let changed = false;
+        for (const key of ["timeData", "info", "user", "logData"]) {
+            if (source[key] == null) continue;
+            const next = source[key];
+            const prev = target[key];
+            if (JSON.stringify(prev || null) !== JSON.stringify(next || null)) {
+                target[key] = next;
+                changed = true;
+            }
+        }
+        return changed;
+    }
+
+    function raceDataAcceptedState_(raceId, create = true) {
+        const key = raceDataFetchRaceKey_(raceId);
+        let state = raceDataAcceptedStateByRaceId.get(key);
+        if (!state && create) {
+            state = { raceId: key, signature: "", accepted: false, complete: false, payload: null, duplicatePayloadsSkipped: 0 };
+            raceDataAcceptedStateByRaceId.set(key, state);
+        }
+        return state;
+    }
+
+    function maybeSkipDuplicateRaceDataPayload_(payload, raceId) {
+        const key = raceDataFetchRaceKey_(raceId, payload);
+        const signature = raceDataStaticSignature_(payload);
+        const state = raceDataAcceptedState_(key);
+        if (state.accepted && state.signature && state.signature === signature) {
+            state.duplicatePayloadsSkipped += 1;
+            const stats = raceDataFetchStats_(key);
+            stats.duplicatePayloadsSkipped += 1;
+            updateRaceDataLightweightFields_(state.payload || latestRaceDataPayload, payload);
+            if (state.payload) latestRaceDataPayload = state.payload;
+            raceDataReceivedPerfMs = performance.now();
+            raceDataCurrentTimeAtReceive = Number((state.payload || payload)?.timeData?.currentTime);
+            statusDirty = true;
+            statusOnlyRenderPending = true;
+            if (debugEnabled) console.debug(TAG, "raceData duplicate static payload skipped", key, signature);
+            return true;
+        }
+        state.signature = signature;
+        state.accepted = true;
+        state.complete = raceDataUsableForAnalysis_(payload) || raceDataStatusFinished_(payload);
+        state.payload = payload;
+        if (key) raceDataPayloadCacheByRaceId.set(key, payload);
+        return false;
+    }
+
+    function directRaceDataFetchComplete_(raceId) {
+        const state = raceDataAcceptedState_(raceId, false);
+        return !!(state?.accepted && state.complete);
+    }
+
     function pgPlayerDecodedIntervalsPreview_(value) {
         const encoded = String(value || "").trim();
         if (!encoded || encoded.length < 8 || /[^A-Za-z0-9+/=]/.test(encoded)) return [];
@@ -2423,28 +2569,41 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
     }
 
     async function fetchDirectRaceData_(raceId = "", source = "direct-racingData") {
+        const requestKey = raceDataFetchRaceKey_(raceId);
+        if (directRaceDataFetchComplete_(requestKey)) {
+            const cached = raceDataPayloadCacheByRaceId.get(requestKey);
+            return cached ? maybeAcceptRaceDataPayload_(cached, `${source}-cache`, racingDataUrl_(raceId)) : true;
+        }
+        if (raceDataInFlightByRaceId.has(requestKey)) return raceDataInFlightByRaceId.get(requestKey);
         const url = racingDataUrl_(raceId);
-        const resp = await fetch(url, {
-            credentials: "include",
-            cache: "no-store",
-            headers: {
-                "Accept": "application/json, text/javascript, */*; q=0.01",
-                "X-Requested-With": "XMLHttpRequest"
+        const run = (async () => {
+            raceDataFetchStats_(requestKey).fetches += 1;
+            const resp = await fetch(url, {
+                credentials: "include",
+                cache: "no-store",
+                headers: {
+                    "Accept": "application/json, text/javascript, */*; q=0.01",
+                    "X-Requested-With": "XMLHttpRequest"
+                }
+            });
+            if (!resp.ok) return false;
+            const text = await resp.text();
+            if (!text || /^Wrong RFC/i.test(text.trim())) {
+                if (debugEnabled) console.warn(TAG, "direct racingData rejected", text || resp.statusText);
+                return false;
             }
+            let json = null;
+            try { json = JSON.parse(text); }
+            catch (e) {
+                if (debugEnabled) console.warn(TAG, "direct racingData was not JSON", e);
+                return false;
+            }
+            return maybeAcceptRaceDataPayload_(json, source, url);
+        })().finally(() => {
+            raceDataInFlightByRaceId.delete(requestKey);
         });
-        if (!resp.ok) return false;
-        const text = await resp.text();
-        if (!text || /^Wrong RFC/i.test(text.trim())) {
-            if (debugEnabled) console.warn(TAG, "direct racingData rejected", text || resp.statusText);
-            return false;
-        }
-        let json = null;
-        try { json = JSON.parse(text); }
-        catch (e) {
-            if (debugEnabled) console.warn(TAG, "direct racingData was not JSON", e);
-            return false;
-        }
-        return maybeAcceptRaceDataPayload_(json, source, url);
+        raceDataInFlightByRaceId.set(requestKey, run);
+        return run;
     }
 
     function directFetchLeaseOk_(key, ttlMs) {
@@ -2469,10 +2628,12 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
 
         const currentPayload = latestRaceDataPayload || analysis?.payload || null;
         const hasRaceData = !!(currentPayload && analysis?.drivers?.length);
+        const resolvedRaceKey = raceDataFetchRaceKey_(explicitRaceId, currentPayload);
+        if (directRaceDataFetchComplete_(resolvedRaceKey)) return false;
         const nativeRecentlyDelivered = raceDataReceivedPerfMs && (performance.now() - raceDataReceivedPerfMs < 8000);
         if (!force && !replay && nativeRecentlyDelivered) return false;
         const intervalMs = replay ? (hasRaceData ? 10000 : 3000) : (hasRaceData ? 30000 : 15000);
-        const key = `${replay ? `race:${explicitRaceId}` : "current"}|${currentRfcv_() || "no-rfc"}`;
+        const key = `${replay ? `race:${explicitRaceId}` : resolvedRaceKey || "current"}|${currentRfcv_() || "no-rfc"}`;
         const now = Date.now();
         if (!force && raceDataDirectFetchLastKey === key && now - raceDataDirectFetchAt < intervalMs) return false;
         if (!directFetchLeaseOk_(key, Math.max(2500, intervalMs - 500))) return false;
@@ -2574,6 +2735,81 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
 
     function fieldSize_() {
         return analysis?.drivers?.length || preRaceParticipants.length || directRacingDataParticipants.length || 0;
+    }
+
+    function heavyRaceStatsFromPayload_(payload) {
+        const p = getRacePayload_(payload) || payload || {};
+        const cars = p?.cars || p?.raceData?.cars || {};
+        const drivers = Object.keys(cars || {}).length || Number(raceMetaFromPayload_(p, false).currentDrivers) || fieldSize_() || 0;
+        const laps = extractLapsFromPayloadOrUi_(p);
+        const intervals = Array.isArray(p?.trackData?.intervals) ? p.trackData.intervals.length : (analysis?.segmentsPerLap || 0);
+        const estimatedPoints = Math.max(0, drivers) * Math.max(0, laps) * Math.max(0, intervals);
+        return {
+            drivers,
+            laps,
+            intervals,
+            estimatedPoints,
+            heavyRace: laps >= HEAVY_RACE_LAP_THRESHOLD || drivers >= HEAVY_RACE_DRIVER_THRESHOLD || estimatedPoints >= HEAVY_RACE_POINT_THRESHOLD
+        };
+    }
+
+    function heavyRaceStats_() {
+        if (analysis?.heavyRaceStats) return analysis.heavyRaceStats;
+        return lastHeavyRaceStats || { heavyRace: false, estimatedPoints: 0, drivers: fieldSize_(), laps: 0, intervals: 0 };
+    }
+
+    function heavyRaceMode_() {
+        return !!heavyRaceStats_().heavyRace;
+    }
+
+    function heavyRaceOverrideKey_() {
+        return String(analysis?.raceId || directRaceIdFromPayload_(latestRaceDataPayload) || directCurrentRaceId || raceMeta?.raceId || raceDataPayloadKey_(latestRaceDataPayload || analysis?.payload || {}) || "current");
+    }
+
+    function ensureHeavyRaceOverrideState_() {
+        const key = heavyRaceOverrideKey_();
+        if (key === heavyRaceOverrideRaceKey) return;
+        heavyRaceOverrideRaceKey = key;
+        heavyRaceShowAllDrivers = false;
+        heavyRaceFullCardsEnabled = false;
+    }
+
+    function heavyRaceLightweightMode_() {
+        ensureHeavyRaceOverrideState_();
+        return heavyRaceMode_() && !heavyRaceFullCardsEnabled;
+    }
+
+    function heavyRaceWindowedRows_() {
+        ensureHeavyRaceOverrideState_();
+        return heavyRaceMode_() && !heavyRaceShowAllDrivers && !heavyRaceFullCardsEnabled;
+    }
+
+    function analysisImagesEnabled_() {
+        return !heavyRaceLightweightMode_();
+    }
+
+    function cachedOptionalImageUrl_(kind, key, url) {
+        const id = `${kind || "image"}:${String(key || url || "").trim()}`;
+        if (!id || id === `${kind || "image"}:`) return String(url || "").trim();
+        if (!optionalImageUrlCache.has(id)) optionalImageUrlCache.set(id, String(url || "").trim());
+        return optionalImageUrlCache.get(id) || "";
+    }
+
+    function isAnimatedProfileImageUrl_(url) {
+        return /\.(?:gif|apng)(?:[?#]|$)/i.test(String(url || ""));
+    }
+
+    function profileImageForRender_(url) {
+        const raw = String(url || "").trim();
+        if (!raw || heavyRaceLightweightMode_() || isAnimatedProfileImageUrl_(raw)) return "";
+        return cachedOptionalImageUrl_("profile", raw, raw);
+    }
+
+    function optionalImageTag_(url, className = "carIcon", alt = "") {
+        const raw = String(url || "").trim();
+        if (!raw || !analysisImagesEnabled_()) return "";
+        const cached = cachedOptionalImageUrl_("item", raw, raw);
+        return `<img class="${escAttr_(className)}" src="${escAttr_(cached)}" alt="${escAttr_(alt)}" loading="lazy" decoding="async">`;
     }
 
     function largeFieldMode_() {
@@ -2924,6 +3160,13 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
             if (pageRid && payloadRid && pageRid !== payloadRid && !isCurrentEndpoint) return false;
             const payloadKey = raceDataPayloadKey_(payload);
             if (clearedRaceDataKey && payloadKey === clearedRaceDataKey) return false;
+            lastHeavyRaceStats = heavyRaceStatsFromPayload_(payload);
+            if (maybeSkipDuplicateRaceDataPayload_(payload, payloadRid || pageRid || directCurrentRaceId)) {
+                if (analysis) syncRaceMetaFromAnalysis_();
+                markDirty_({ status: true });
+                scheduleRender_();
+                return true;
+            }
             latestRaceDataPayload = payload;
             raceDataReceivedPerfMs = performance.now();
             raceDataCurrentTimeAtReceive = Number(payload?.timeData?.currentTime);
@@ -2942,7 +3185,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
                 updateRecordsFromAnalysis_();
             }
             maybeAutoFetchDriverIntel_();
-            uiDirty = true;
+            markDirty_({ data: true, layout: true, status: true });
             scheduleRender_();
             return true;
         } catch (e) {
@@ -3395,6 +3638,8 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         const trackKey = makeTrackLookupKey_(trackName);
         const trackMeta = TRACK_META[trackKey] || null;
         const laps = extractLapsFromPayloadOrUi_(payload);
+        const heavyStats = heavyRaceStatsFromPayload_(payload);
+        lastHeavyRaceStats = heavyStats;
         let engineModel = null;
         try {
             engineModel = PitGuruRaceEngine.parseRaceData(payload, { laps });
@@ -3479,6 +3724,8 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
             trackKey,
             trackMeta,
             laps,
+            heavyRace: heavyStats.heavyRace,
+            heavyRaceStats: heavyStats,
             segmentsPerLap,
             lapMeters,
             engineModel,
@@ -7279,7 +7526,7 @@ img.carIcon{
     function reportCarCell_(d, fallbackCar = "") {
         const car = toOgCarName_(d?.car || fallbackCar || "");
         const img = reportTornImageUrl_(d?.carImg || "");
-        const html = `${img ? `<img class="carIcon" src="${escAttr_(img)}" alt=""> ` : ""}${esc_(car || "--")}`;
+        const html = `${img ? `<img class="carIcon" src="${escAttr_(img)}" alt="" loading="lazy" decoding="async"> ` : ""}${esc_(car || "--")}`;
         return { text: car || "--", html };
     }
 
@@ -8557,6 +8804,10 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
         analysisFocusMode = "auto";
         analysisFocusDriverId = "";
         analysisFocusDriverName = "";
+        lastHeavyRaceStats = { heavyRace: false, estimatedPoints: 0, drivers: 0, laps: 0, intervals: 0 };
+        heavyRaceOverrideRaceKey = "";
+        heavyRaceShowAllDrivers = false;
+        heavyRaceFullCardsEnabled = false;
         liveOrderCache = { key: "", value: [] };
         raceDataReceivedPerfMs = 0;
         raceDataCurrentTimeAtReceive = NaN;
@@ -8648,7 +8899,8 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
             JSON.stringify(apiKeyInfo || {}), apiKeyStatus, driverIntelFetchActive ? 1 : 0, driverIntelStatus,
             recordsOpen ? 1 : 0, recordsDetached ? 1 : 0, clearOnRaceChange ? 1 : 0,
             fuelEnabled ? 1 : 0, fuelDisplayStyle, liveCommentaryEnabled ? 1 : 0, pitCrewEnabled ? 1 : 0, experimentalGyroTrace ? 1 : 0,
-            performancePreset, visibleRaceScanMs, participantScanMs, driverIdLookupMs, driverIntelSettleMs, participantScanRepeat, focusedRowWindowEachSide
+            performancePreset, visibleRaceScanMs, participantScanMs, driverIdLookupMs, driverIntelSettleMs, participantScanRepeat, focusedRowWindowEachSide,
+            heavyRaceDebugLine_()
         ].join("|");
         if (panel.dataset.renderKey === key && panel.children.length) return;
         const active = document.activeElement;
@@ -8721,6 +8973,7 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
           <section class="mpg-settings-section">
             <div class="mpg-section-head"><h3>Advanced</h3><p>Diagnostics and script behavior.</p></div>
             <label class="mpg-checkline"><input id="mpgDebug" type="checkbox"${debugEnabled ? " checked" : ""}> Debug logging</label>
+            <p class="mpg-section-note mono">${esc_(heavyRaceDebugLine_())}</p>
             <p class="mpg-section-note">Pit Guru analyses data delivered to the current Torn racing page. It does not use external servers. Speed and G values are estimated from segment timing and official track distance.</p>
           </section>
 
@@ -8850,12 +9103,12 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
 
     function garageTornCarImage_(itemId) {
         const id = String(itemId || "").trim();
-        return id ? `https://www.torn.com/images/items/${encodeURIComponent(id)}/large.png` : "";
+        return id ? cachedOptionalImageUrl_("item", id, `https://www.torn.com/images/items/${encodeURIComponent(id)}/large.png`) : "";
     }
 
     function garageHostedCarImage_(itemId) {
         const id = String(itemId || "").trim();
-        return id ? `${PG_LOCAL_PLAYER_BASE}/assets/cars/${encodeURIComponent(id)}.png` : "";
+        return id ? cachedOptionalImageUrl_("hosted-item", id, `${PG_LOCAL_PLAYER_BASE}/assets/cars/${encodeURIComponent(id)}.png`) : "";
     }
 
     function garageCatalogByItem_() {
@@ -9532,11 +9785,11 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
           <div class="mpg-garage-compare-head">
             <div class="mpg-garage-compare-car a">
               <div><b>${esc_(garageCarTitle_(selected))}</b><div class="mpg-garage-meta">A · ID ${esc_(selected.enlistedCarId || "--")}</div></div>
-              ${selected.imageUrl ? `<img src="${escAttr_(selected.imageUrl)}" alt="">` : ""}
+              ${selected.imageUrl ? `<img src="${escAttr_(selected.imageUrl)}" alt="" loading="lazy" decoding="async">` : ""}
             </div>
             <div class="mpg-garage-compare-vs">A vs B<button id="mpgGarageCloseCompare" class="pill mpg-garage-compare-close" type="button" title="Close comparison"><span>×</span></button></div>
             <div class="mpg-garage-compare-car b">
-              ${compared.imageUrl ? `<img src="${escAttr_(compared.imageUrl)}" alt="">` : ""}
+              ${compared.imageUrl ? `<img src="${escAttr_(compared.imageUrl)}" alt="" loading="lazy" decoding="async">` : ""}
               <div><select id="mpgGarageCompareCar">${options}</select><div class="mpg-garage-meta">B · ID ${esc_(compared.enlistedCarId || "--")}</div></div>
             </div>
           </div>
@@ -9761,7 +10014,7 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
         return selected ? `
           <div class="mpg-garage-selected">
             <div class="mpg-garage-hero">
-              ${selected.imageUrl ? `<img src="${escAttr_(selected.imageUrl)}" alt="">` : `<div class="mpg-garage-empty">No image</div>`}
+              ${selected.imageUrl ? `<img src="${escAttr_(selected.imageUrl)}" alt="" loading="lazy" decoding="async">` : `<div class="mpg-garage-empty">No image</div>`}
               <div class="mpg-garage-title">${esc_(selected.nickname ? `${selected.car} "${selected.nickname}"` : selected.car || "--")}</div>
               <div class="mpg-garage-meta">Instance ID ${esc_(selected.enlistedCarId || "--")} · Item ${esc_(selected.itemID || "--")} · Class ${esc_(selected.carClass || "--")} · ${selected.isRemoved ? "Delisted" : "Enlisted"}</div>
             </div>
@@ -9891,7 +10144,7 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
             return `<tr class="mpg-garage-row${active ? " active" : ""}" data-car-id="${escAttr_(car.enlistedCarId || "")}">
               <td data-sort="${escAttr_(title || "")}">
                 <div class="mpg-garage-car-cell">
-                  ${car.imageUrl ? `<img src="${escAttr_(car.imageUrl)}" alt="">` : `<span class="carIcon"></span>`}
+                  ${car.imageUrl ? `<img src="${escAttr_(car.imageUrl)}" alt="" loading="lazy" decoding="async">` : `<span class="carIcon"></span>`}
                   <span><span class="mpg-garage-car-name">${esc_(title || "--")}</span><span class="mpg-garage-car-sub">${esc_(car.carClass ? `Class ${car.carClass}` : "")}</span></span>
                 </div>
               </td>
@@ -10201,6 +10454,8 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
         renderSettingsPanel_();
         renderGarageModal_();
         renderModeBar_();
+        renderDriverRowsCurrent = 0;
+        renderDriverRowsTotalCurrent = fieldSize_();
         const body = document.getElementById("mpgAnalysisBody");
         const status = document.getElementById("mpgStatusBadge");
         if (!body) return false;
@@ -10213,11 +10468,13 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
             if (analysisMode === "predictions") {
                 const set = predictionDriverSet_();
                 if (status) status.textContent = set.drivers.length ? "PREDICTIONS · Pre-race grid" : "PREDICTIONS · Waiting for driver list";
-                const predKey = `pre-race-predictions|${theme}|${liveCommentaryEnabled ? 1 : 0}|${pitCrewEnabled ? 1 : 0}|${useApiPredictions ? 1 : 0}|${useHistoryPredictions ? 1 : 0}|${driverIntelStatus}|${preRaceParticipantsKey}|${pgLocalTrackHistoryRenderKey_(set.trackName)}|focus:${analysisFocusMode}:${analysisFocusDriverId}:${analysisFocusDriverName}`;
+                const predKey = `pre-race-predictions|${theme}|${liveCommentaryEnabled ? 1 : 0}|${pitCrewEnabled ? 1 : 0}|${useApiPredictions ? 1 : 0}|${useHistoryPredictions ? 1 : 0}|${driverIntelStatus}|${preRaceParticipantsKey}|${pgLocalTrackHistoryRenderKey_(set.trackName)}|focus:${analysisFocusMode}:${analysisFocusDriverId}:${analysisFocusDriverName}|heavy:${heavyRaceMode_() ? 1 : 0}:${heavyRaceShowAllDrivers ? 1 : 0}:${heavyRaceFullCardsEnabled ? 1 : 0}`;
                 if (body.dataset.renderKey !== predKey) {
                     body.dataset.renderKey = predKey;
                     body.innerHTML = analysisStageHtml_(0, false) + renderPredictionsMode_(set);
                     bindAnalysisBodyActions_(body);
+                    recordRenderInstrumentation_(true);
+                    statusOnlyRenderPending = false;
                 }
                 updateAnalysisStageStatus_(body, 0, false);
                 return true;
@@ -10227,6 +10484,8 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
             if (body.dataset.renderKey !== waitingKey) {
                 body.dataset.renderKey = waitingKey;
                 body.innerHTML = analysisStageHtml_(0, false) + `<div class="mpg-card"><div class="mpg-empty-title">Waiting for racingData</div><p class="mpg-note">Pit Guru now reads Torn's delivered racingData JSON only. Page leaderboard and lap UI scraping are disabled.</p><p class="mpg-note">Open the race before it starts, or load a replay/log that provides racingData, and this panel will fill automatically.</p></div>`;
+                recordRenderInstrumentation_(true);
+                statusOnlyRenderPending = false;
             }
             updateAnalysisStageStatus_(body, 0, false);
             return true;
@@ -10255,6 +10514,13 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
                             : "LIVE · Final results hidden until finish";
         }
         updateCommentary_(elapsed, canFull);
+        if (statusOnlyRenderPending && body.dataset.renderKey && !dataDirty && !layoutDirty && !selectionDirty) {
+            statusOnlyRenderPending = false;
+            updateAnalysisStageStatus_(body, elapsed, canFull);
+            if (analysisMode === "gyro") updateGyroLive_(body, elapsed);
+            recordRenderInstrumentation_(false);
+            return true;
+        }
         const renderBucket = analysisRenderBucket_(elapsed, canFull);
         const renderKey = [
             analysis.raceId || analysis.trackName || "race",
@@ -10275,11 +10541,13 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
             (analysisMode === "predictions" || analysisMode === "driver") ? pgLocalTrackHistoryRenderKey_(analysis?.trackName || raceMeta?.track || "") : "",
             analysis?.routeModel ? "route" : "noroute",
             body.dataset.gyroDriver || "",
-            `focus:${analysisFocusMode}:${analysisFocusDriverId}:${analysisFocusDriverName}`
+            `focus:${analysisFocusMode}:${analysisFocusDriverId}:${analysisFocusDriverName}`,
+            `heavy:${heavyRaceMode_() ? 1 : 0}:${heavyRaceShowAllDrivers ? 1 : 0}:${heavyRaceFullCardsEnabled ? 1 : 0}`
         ].join("|");
         if (body.dataset.renderKey === renderKey) {
             updateAnalysisStageStatus_(body, elapsed, canFull);
             if (analysisMode === "gyro") updateGyroLive_(body, elapsed);
+            recordRenderInstrumentation_(false);
             return true;
         }
         const html = ({
@@ -10299,6 +10567,8 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
         body.innerHTML = analysisStageHtml_(elapsed, canFull) + html;
         bindAnalysisBodyActions_(body);
         if (analysisMode === "gyro") updateGyroLive_(body, elapsed);
+        recordRenderInstrumentation_(true);
+        statusOnlyRenderPending = false;
         return true;
     }
 
@@ -10323,7 +10593,30 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
     function setupAnalysisFocusActions_(body) {
         if (!body || body.dataset.focusHooked === "1") return;
         body.dataset.focusHooked = "1";
+        body.addEventListener("change", e => {
+            const select = e.target?.closest?.("[data-analysis-focus-select]");
+            if (!select || !body.contains(select)) return;
+            const [id, name] = String(select.value || "").split("\t");
+            setManualAnalysisFocus_(id || "", name || "");
+        });
         body.addEventListener("click", e => {
+            const heavyAction = e.target?.closest?.("[data-analysis-heavy-action]");
+            if (heavyAction && body.contains(heavyAction)) {
+                const action = heavyAction.getAttribute("data-analysis-heavy-action") || "";
+                ensureHeavyRaceOverrideState_();
+                if (action === "show-all") {
+                    heavyRaceShowAllDrivers = true;
+                } else if (action === "full-cards") {
+                    heavyRaceShowAllDrivers = true;
+                    heavyRaceFullCardsEnabled = true;
+                } else if (action === "protect") {
+                    heavyRaceShowAllDrivers = false;
+                    heavyRaceFullCardsEnabled = false;
+                }
+                markDirty_({ layout: true, selection: true, status: true });
+                scheduleRender_();
+                return;
+            }
             const action = e.target?.closest?.("[data-analysis-focus-action]");
             if (action && body.contains(action)) {
                 clearManualAnalysisFocus_();
@@ -10398,15 +10691,17 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
     function carCell_(d) {
         const car = toOgCarName_(d?.car || "");
         const suffix = d?.carSource ? ` <span class="muted">(last seen)</span>` : "";
-        return `${car && d.carImg ? `<img class="carIcon" src="${escAttr_(d.carImg)}" alt=""> ` : ""}${esc_(car || "--")}${car ? suffix : ""}`;
+        const img = car && d?.carImg ? optionalImageTag_(d.carImg, "carIcon") : "";
+        return `${img ? `${img} ` : ""}${esc_(car || "--")}${car ? suffix : ""}`;
     }
 
     function carComboCell_(dOrCar, img = "", source = "") {
         const car = toOgCarName_(typeof dOrCar === "string" ? dOrCar : (dOrCar?.car || ""));
         const carImg = String(img || (typeof dOrCar === "string" ? "" : dOrCar?.carImg) || "").trim();
         const suffix = source || (typeof dOrCar === "string" ? "" : dOrCar?.carSource) ? ` <span class="muted">(last seen)</span>` : "";
-        const imgHtml = carImg ? `<img class="carIcon" src="${escAttr_(carImg)}" alt="">` : `<span class="carIcon" aria-hidden="true"></span>`;
-        return `<span class="mpg-car-combo"><span class="mpg-car-img">${imgHtml}</span><span class="mpg-car-name">${esc_(car || "--")}${suffix}</span></span>`;
+        const imgHtml = carImg ? optionalImageTag_(carImg, "carIcon") : "";
+        const imgWrap = imgHtml ? `<span class="mpg-car-img">${imgHtml}</span>` : "";
+        return `<span class="mpg-car-combo">${imgWrap}<span class="mpg-car-name">${esc_(car || "--")}${suffix}</span></span>`;
     }
 
     function driverRsText_(d) {
@@ -10487,6 +10782,12 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
         return ` data-focus-driver-id="${escAttr_(id)}" data-focus-driver-name="${escAttr_(name)}"`;
     }
 
+    function noteRenderedDriverRows_(rendered, total) {
+        if (!Number.isFinite(rendered) || !Number.isFinite(total)) return;
+        renderDriverRowsCurrent = Math.max(renderDriverRowsCurrent, rendered);
+        renderDriverRowsTotalCurrent = Math.max(renderDriverRowsTotalCurrent, total);
+    }
+
     function setManualAnalysisFocus_(id, name) {
         analysisFocusMode = "manual";
         analysisFocusDriverId = String(id || "").trim();
@@ -10506,12 +10807,17 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
     function focusedOrderWindow_(ordered, options = {}) {
         const list = Array.isArray(ordered) ? ordered : [];
         const total = list.length;
-        const eachSide = Math.max(1, Number(options.eachSide) || focusedRowWindowEachSide || DEFAULT_FOCUSED_ROW_WINDOW_EACH_SIDE);
+        const defaultEachSide = heavyRaceMode_() ? DEFAULT_HEAVY_ROW_WINDOW_EACH_SIDE : DEFAULT_FOCUSED_ROW_WINDOW_EACH_SIDE;
+        const eachSide = Math.max(1, Number(options.eachSide) || focusedRowWindowEachSide || defaultEachSide);
         const maxRows = Math.max(3, eachSide * 2 + 1);
         const force = options.force === true;
         const focus = focusedDriverResolution_(list);
-        if (!total || total <= maxRows || (!force && !largeFieldMode_())) {
-            return {
+        const focusOptions = list.map((row, index) => {
+            const d = driverFromOrderedItem_(row) || {};
+            return { index, pos: index + 1, id: String(d.driverId || "").trim(), name: String(d.name || d.driverIntel?.name || "").trim() };
+        });
+        if (!total || total <= maxRows || heavyRaceShowAllDrivers || heavyRaceFullCardsEnabled || (!force && !largeFieldMode_() && !heavyRaceWindowedRows_())) {
+            const result = {
                 windowed: false,
                 total,
                 start: 0,
@@ -10519,8 +10825,11 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
                 focusIndex: focus.index,
                 focusSource: focus.source,
                 focusDriver: focus.driver,
+                focusOptions,
                 items: list.map((row, index) => ({ row, index, pos: index + 1 }))
             };
+            noteRenderedDriverRows_(result.items.length, total);
+            return result;
         }
 
         let focusIndex = focus.index;
@@ -10533,7 +10842,7 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
             else if (end === total) start = Math.max(0, total - maxRows);
         }
 
-        return {
+        const result = {
             windowed: true,
             total,
             start,
@@ -10541,19 +10850,37 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
             focusIndex,
             focusSource: focus.source,
             focusDriver: driverFromOrderedItem_(list[focusIndex]),
+            focusOptions,
             items: list.slice(start, end).map((row, offset) => ({ row, index: start + offset, pos: start + offset + 1 }))
         };
+        noteRenderedDriverRows_(result.items.length, total);
+        return result;
     }
 
     function focusedWindowNote_(win, label = "table") {
-        if (!win?.windowed) return "";
+        if (!win?.windowed && !heavyRaceMode_()) return "";
         const d = win.focusDriver || {};
         const focusName = d.name ? `following ${esc_(d.name)} at P${win.focusIndex + 1}/${win.total}` : "no focused driver found, showing leader window";
         const source = win.focusSource === "manual" ? "manual pin" : win.focusSource === "user" ? "your driver" : win.focusSource === "spectated" ? "spectated driver" : win.focusSource === "meta" ? "race driver" : "leader";
         const action = analysisFocusMode === "manual"
             ? `<button type="button" class="pill mini" data-analysis-focus-action="clear">Clear Focus</button>`
             : `<button type="button" class="pill mini" data-analysis-focus-action="auto">Auto Follow</button>`;
-        return `<div class="mpg-note mpg-focus-note"><span>Large field view: ${focusName}, rendering positions ${win.start + 1}-${win.end}. Source: ${esc_(source)}. Sorting is disabled for this windowed table.</span>${action}</div>`;
+        const selector = win.focusOptions?.length
+            ? `<label class="mpg-focus-select-label">Focus <select class="mpg-focus-select" data-analysis-focus-select>${win.focusOptions.map(opt => {
+                const selected = opt.index === win.focusIndex ? " selected" : "";
+                const labelText = `P${opt.pos} ${opt.name || opt.id || "Driver"}`;
+                return `<option value="${escAttr_(`${opt.id}\t${opt.name}`)}"${selected}>${esc_(labelText)}</option>`;
+            }).join("")}</select></label>`
+            : "";
+        const heavyStats = heavyRaceStats_();
+        const heavyControls = heavyRaceMode_()
+            ? `<span class="mpg-heavy-controls">${!heavyRaceShowAllDrivers && !heavyRaceFullCardsEnabled ? `<button type="button" class="pill mini" data-analysis-heavy-action="show-all">Show all drivers</button>` : ""}${!heavyRaceFullCardsEnabled ? `<button type="button" class="pill mini" data-analysis-heavy-action="full-cards">Enable full cards</button>` : ""}${heavyRaceShowAllDrivers || heavyRaceFullCardsEnabled ? `<button type="button" class="pill mini" data-analysis-heavy-action="protect">Protected view</button>` : ""}</span>`
+            : "";
+        const prefix = heavyRaceMode_()
+            ? `Heavy mode: ${heavyRaceLightweightMode_() ? "ON" : "OVERRIDDEN"} (${Math.round(heavyStats.estimatedPoints || 0).toLocaleString()} estimated points).`
+            : "Large field view:";
+        const rangeText = win.windowed ? `rendering positions ${win.start + 1}-${win.end}` : `rendering all ${win.total} drivers`;
+        return `<div class="mpg-note mpg-focus-note"><span>${prefix} ${focusName}, ${rangeText}. Source: ${esc_(source)}. ${win.windowed ? "Sorting is disabled for this windowed table." : ""}</span>${selector}${action}${heavyControls}</div>`;
     }
 
     function lookupDriver_(driverId, driverName) {
@@ -10702,7 +11029,7 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
         const intel = getCachedDriverIntel_(driverId, 24 * 7) || getCachedDriverIntelByName_(driverName, 24 * 7) || getDriverIntelForDriver_(model, 24 * 7) || {};
         const name = intel.name || model.name || driverName || "--";
         const id = intel.driverId || (driverId === "self" ? "" : driverId) || model.driverId || "--";
-        const avatar = intel.avatar || "";
+        const avatar = profileImageForRender_(intel.avatar || "");
         const rs = Number.isFinite(Number(intel.racingSkill)) ? Number(intel.racingSkill) : Number(model.racingSkill);
         const starts = Number(intel.racesEntered);
         const wins = Number(intel.racesWon);
@@ -10711,7 +11038,7 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
         const fallbackImg = `<div style="width:58px;height:58px;border-radius:10px;border:1px solid var(--border);background:var(--pill);display:grid;place-items:center;font-weight:900">${esc_(String(name).slice(0, 1).toUpperCase())}</div>`;
         return `
           <div class="mpg-driver-card-head">
-            ${avatar ? `<img src="${escAttr_(avatar)}" alt="">` : fallbackImg}
+            ${avatar ? `<img src="${escAttr_(avatar)}" alt="" loading="lazy" decoding="async">` : fallbackImg}
             <div>
               <h3>${esc_(name)} <span class="mpg-card-id">[${esc_(id)}]</span></h3>
               <div class="mpg-card-id">${esc_([intel.title, intel.rank, Number.isFinite(intel.level) ? `Lvl ${intel.level}` : ""].filter(Boolean).join(" · ") || "Race Details")}</div>
@@ -10758,6 +11085,7 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
             if (card) card.style.display = "none";
         };
         const validHoverSource = target => {
+            if (heavyRaceLightweightMode_()) return null;
             if (analysisMode !== "gaps") return null;
             const el = target?.closest?.(".mpg-driver-cell");
             if (!el || !el.closest("#mpgAnalysisBody")) return null;
@@ -11794,7 +12122,7 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
                   <td id="mpgRaceLength">—</td>
                   <td>
                     <span class="rtMetaCar">
-                      <img id="rtCarImg" class="carIcon" style="display:none" alt="" />
+                      <img id="rtCarImg" class="carIcon" style="display:none" alt="" loading="lazy" decoding="async" />
                       <span id="rtCar" class="carName">—</span>
                     </span>
                   </td>
@@ -12122,8 +12450,29 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
    * ============================ */
     let lastRenderKey = "";
     let renderScheduled = false;
+    let renderDriverRowsCurrent = 0;
+    let renderDriverRowsTotalCurrent = 0;
 
-    function scheduleRender_() {
+    function recordRenderInstrumentation_(rebuiltDom) {
+        const stats = raceDataFetchStats_(analysis?.raceId || directRaceIdFromPayload_(latestRaceDataPayload) || directCurrentRaceId || raceMeta?.raceId || "");
+        if (rebuiltDom) {
+            if (heavyRaceLightweightMode_()) stats.lightweightRenders += 1;
+            else stats.fullRenders += 1;
+        }
+        stats.renderedRows = renderDriverRowsCurrent || 0;
+        stats.totalRows = renderDriverRowsTotalCurrent || fieldSize_() || 0;
+    }
+
+    function heavyRaceDebugLine_() {
+        const stats = raceDataFetchStats_(analysis?.raceId || directRaceIdFromPayload_(latestRaceDataPayload) || directCurrentRaceId || raceMeta?.raceId || "");
+        const heavy = heavyRaceStats_();
+        const rendered = Number(stats.renderedRows || 0);
+        const total = Number(stats.totalRows || heavy.drivers || fieldSize_() || 0);
+        return `Heavy mode: ${heavyRaceLightweightMode_() ? "ON" : "OFF"}, estimated points: ${Math.round(heavy.estimatedPoints || 0).toLocaleString()}, racingData fetches: ${stats.fetches || 0}, duplicate payloads skipped: ${stats.duplicatePayloadsSkipped || 0}, rendered rows: ${rendered}/${total}.`;
+    }
+
+    function scheduleRender_(dirty = null) {
+        if (dirty) markDirty_(dirty);
         if (renderScheduled) return;
         renderScheduled = true;
         requestAnimationFrame(() => {
@@ -12211,9 +12560,12 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
             carEl.title = metaCarName;
         }
         if (carImgEl) {
-            const u = (analysisDisplayDriver?.carImg || raceMeta?.carImg || spectateCarImg || "").trim();
+            const u = analysisImagesEnabled_() ? (analysisDisplayDriver?.carImg || raceMeta?.carImg || spectateCarImg || "").trim() : "";
             carImgEl.title = metaCarName;
-            if (u) { carImgEl.src = u; carImgEl.style.display = "inline-block"; }
+            if (u) {
+                if (carImgEl.getAttribute("src") !== u) carImgEl.src = u;
+                carImgEl.style.display = "inline-block";
+            }
             else { carImgEl.removeAttribute("src"); carImgEl.style.display = "none"; }
         }
         if (driverEl) {
@@ -12314,7 +12666,7 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
             } else {
                 activeRecTbody.innerHTML = top.map((r, i) => {
                     const imgUrl = r.carImg || carImageFromCatalog_(r.car);
-                    const imgCell = imgUrl ? `<img class="carIcon" src="${escAttr_(imgUrl)}" alt="">` : `<div class="carIcon" aria-hidden="true"></div>`;
+                    const imgCell = imgUrl ? `<img class="carIcon" src="${escAttr_(imgUrl)}" alt="" loading="lazy" decoding="async">` : `<div class="carIcon" aria-hidden="true"></div>`;
                     const drv = (r.driverName || r.driverId || "—");
                     const rsNum = Number(r.racingSkill);
                     const rs = Number.isFinite(rsNum) && rsNum > 0 && rsNum < 1 ? "--" : formatDriverRs_(r.racingSkill).replace(/^RS:\s*/i, "");
@@ -12344,9 +12696,17 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
             }
             lastRenderKey = `${analysis?.raceId || "waiting"}|${analysisMode}|${theme}|${allowPreFinishPreview ? 1 : 0}|${speedUnit}|${participantCount}`;
             uiDirty = false;
+            dataDirty = false;
+            layoutDirty = false;
+            statusDirty = false;
+            selectionDirty = false;
             return;
         }
         uiDirty = false;
+        dataDirty = false;
+        layoutDirty = false;
+        statusDirty = false;
+        selectionDirty = false;
     }
 
     /* ============================
@@ -12366,12 +12726,19 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
         }, 220));
     }
 
-    function isNativeResizeZone_(event, rect) {
-        if (!event || !rect) return false;
-        const hotZone = 24;
-        const nearRight = event.clientX >= rect.right - hotZone && event.clientX <= rect.right + 3;
-        const nearBottom = event.clientY >= rect.bottom - hotZone && event.clientY <= rect.bottom + 3;
-        return nearRight || nearBottom;
+    function canEdgeResize_(el, storeKey) {
+        if (!el || !["win", "records"].includes(storeKey)) return false;
+        const resize = String(getComputedStyle(el).resize || "").toLowerCase();
+        return resize && resize !== "none";
+    }
+
+    function getResizeEdges_(event, rect, el, storeKey) {
+        if (!event || !rect || !canEdgeResize_(el, storeKey)) return { right: false, bottom: false };
+        const hotZone = 18;
+        return {
+            right: event.clientX >= rect.right - hotZone && event.clientX <= rect.right + 4,
+            bottom: event.clientY >= rect.bottom - hotZone && event.clientY <= rect.bottom + 4
+        };
     }
 
     function observeResize_(el, storeKey) {
@@ -12396,22 +12763,34 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
     function makeDraggable_(targetEl, handleEl, opts) {
         const { storeKey, clickGuardAttr, noDragSelector } = opts || {};
         let down = false, startX = 0, startY = 0, startL = 0, startT = 0, startW = 0, startH = 0;
+        let resizing = false, resizeRight = false, resizeBottom = false;
         let moved = false;
 
         handleEl.addEventListener("mousedown", (e) => {
-            if (noDragSelector && e.target.closest(noDragSelector)) return;
-            down = true; moved = false;
-
             const rect = targetEl.getBoundingClientRect();
-
-            // If user is grabbing a native resize edge/corner, don't start a drag.
-            if (isNativeResizeZone_(e, rect)) {
+            const resizeEdges = getResizeEdges_(e, rect, targetEl, storeKey);
+            if (resizeEdges.right || resizeEdges.bottom) {
+                resizing = true;
+                resizeRight = resizeEdges.right;
+                resizeBottom = resizeEdges.bottom;
+                moved = false;
+                startX = e.clientX; startY = e.clientY;
+                startL = rect.left; startT = rect.top;
+                startW = rect.width; startH = rect.height;
                 nativeResizeEl = targetEl;
                 nativeResizeStoreKey = storeKey || "";
                 nativeResizeAt = Date.now();
-                down = false;
+                targetEl.style.right = "auto";
+                targetEl.style.bottom = "auto";
+                targetEl.style.left = `${startL}px`;
+                targetEl.style.top = `${startT}px`;
+                e.preventDefault();
+                e.stopPropagation();
                 return;
             }
+
+            if (noDragSelector && e.target.closest(noDragSelector)) return;
+            down = true; moved = false;
             startX = e.clientX; startY = e.clientY;
             startL = rect.left; startT = rect.top;
             startW = rect.width;
@@ -12426,6 +12805,23 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
         });
 
         window.addEventListener("mousemove", (e) => {
+            if (resizing) {
+                const dx = e.clientX - startX;
+                const dy = e.clientY - startY;
+                if (Math.abs(dx) > 2 || Math.abs(dy) > 2) moved = true;
+                nativeResizeAt = Date.now();
+                const minSize = getWindowMinSize_(targetEl);
+                const clamped = clampWindowRect_({
+                    left: startL,
+                    top: startT,
+                    width: startW + (resizeRight ? dx : 0),
+                    height: startH + (resizeBottom ? dy : 0)
+                }, minSize.width, minSize.height);
+                applyWindowRect_(targetEl, clamped);
+                if (clickGuardAttr) targetEl.dataset[clickGuardAttr] = "1";
+                return;
+            }
+
             if (!down) return;
             const dx = e.clientX - startX;
             const dy = e.clientY - startY;
@@ -12450,11 +12846,19 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
         });
 
         window.addEventListener("mouseup", () => {
-            if (nativeResizeEl === targetEl && nativeResizeStoreKey === storeKey) {
+            if (resizing) {
+                resizing = false;
+                resizeRight = false;
+                resizeBottom = false;
                 keepWindowInBounds_(targetEl, storeKey, { persist: true });
                 nativeResizeEl = null;
                 nativeResizeStoreKey = "";
                 nativeResizeAt = 0;
+                if (clickGuardAttr) {
+                    setTimeout(() => { targetEl.dataset[clickGuardAttr] = moved ? "1" : "0"; }, 0);
+                    if (moved) setTimeout(() => { targetEl.dataset[clickGuardAttr] = "0"; }, 60);
+                }
+                return;
             }
             if (!down) return;
             down = false;
