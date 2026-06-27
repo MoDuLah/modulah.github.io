@@ -33,11 +33,11 @@
         <div class="hero-copy">
           <p class="section-kicker">Supporter Racing Analysis Tool</p>
           <h1 class="hero-title">MoDuL's Pit Guru</h1>
-          <p class="hero-text">A next-generation Torn racing analysis workspace built from Lap Recorder's lessons, with a public race player, PostgreSQL-backed history, and the live v2.0.6 userscript focused on live and post-race insight.</p>
+          <p class="hero-text">A next-generation Torn racing analysis workspace built from Lap Recorder's lessons, with a public race player, PostgreSQL-backed history, and the live v2.0.7 userscript focused on live and post-race insight.</p>
 
           <div class="hero-actions">
             <a class="cta-button" href="https://pp_api.sokin.xyz/pit-guru/" target="_blank" rel="noopener noreferrer">Open Public Race Player</a>
-            <a class="cta-button" href="MoDuLs-Pit-Guru.user.js">Install v2.0.6</a>
+            <a class="cta-button" href="MoDuLs-Pit-Guru.user.js">Install v2.0.7</a>
             <a class="ghost-button" href="https://discord.gg/JP8FQBATMV" target="_blank" rel="noopener noreferrer">Join Pit Guru Discord</a>
             <a class="ghost-button" href="../index.html#supporter-scripts">Back to Supporter Scripts</a>
           </div>
@@ -73,7 +73,7 @@
             </div>
             <div class="feature-block">
               <h3>Guided setup</h3>
-              <p>The v2.0.6 userscript verifies users without storing their public Torn API key and includes first-run setup plus a replayable guided tour.</p>
+              <p>The v2.0.7 userscript verifies users without storing their public Torn API key and includes first-run setup plus a replayable guided tour.</p>
             </div>
             <div class="feature-block">
               <h3>Large race performance</h3>
@@ -118,7 +118,7 @@
 
         <article class="content-card content-card-full">
           <h2>Supporter Access</h2>
-          <p><a href="MoDuLs-Pit-Guru.user.js">Install Pit Guru v2.0.6</a>, then follow the first-run guided setup to verify your Torn account using a public Torn API key. The key is used only for verification and is never saved in the Pit Guru database.</p>
+          <p><a href="MoDuLs-Pit-Guru.user.js">Install Pit Guru v2.0.7</a>, then follow the first-run guided setup to verify your Torn account using a public Torn API key. The key is used only for verification and is never saved in the Pit Guru database.</p>
           <p>Race external player:</p>
           <p>Every verified account can analyse one race as a demo.<br> For supporter licensing, <a href="https://discord.gg/JP8FQBATMV" target="_blank" rel="noopener noreferrer">join the MoDuL's Hub Discord</a> and run <code>/buylicense</code> in any server channel.</p>
         </article>
@@ -172,7 +172,8 @@
                 <li>The hosted API and player now persist Pit Guru data in PostgreSQL, with pooled connections and backend-aware health checks.</li>
                 <li>The pre-race countdown now occupies the racingData status line, while Past Races uses a scoped title and compact help button.</li>
                 <li>The public proxy now accepts full racingData analysis payloads, and destructive Records deletion requires an admin token.</li>
-                <li>The v2.0.6 userscript is publicly installable, verifies users without storing their API key, and includes first-run setup plus a replayable guided tour.</li>
+                <li>The v2.0.7 userscript is publicly installable, verifies users without storing their API key, and includes first-run setup plus a replayable guided tour.</li>
+                <li>The main Pit Guru window and detached Records pop-out now resize from an explicit Pit Guru grip instead of browser-native CSS resizing.</li>
                 <li>Floating-window resize handling now treats the right and bottom resize edges as resize gestures, preventing snap-back after moving the window left.</li>
                 <li>The public player now has gap-aware commentary, a saved-race dropdown, duplicate upload checks, and smoother replay loading from cached racingData.</li>
                 <li>Large custom races now expose a Settings control for the focused driver window, avoiding full 100-driver table redraws while keeping full race data internally.</li>
