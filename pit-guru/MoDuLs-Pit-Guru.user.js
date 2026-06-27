@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         MoDuL's Pit Guru
 // @namespace    modul.torn.racing
-// @version      2.0.6
+// @version      2.0.7
 // @description  Live Torn race timing, gaps, sectors, speed and estimated telemetry analysis
 // @author       MoDuL
 // @copyright    2026 MoDuL. All rights reserved.
@@ -309,7 +309,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
     unsafeWindow.pgPlayerCacheRaceId = pgPlayerFetchRaceDataById_;
     unsafeWindow.pgPlayerCacheCurrentRace = openLocalPlayerForCurrentRace_;
 
-    const MPG_VERSION = "2.0.6";
+    const MPG_VERSION = "2.0.7";
     var TAG = "[MoDuL's Pit Guru v" + MPG_VERSION + "]";
 
     const PitGuruRaceEngine = (() => {
@@ -957,6 +957,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
     let nativeResizeEl = null;
     let nativeResizeStoreKey = "";
     let nativeResizeAt = 0;
+    let headerCompactRaf = 0;
     const resizePersistTimers = new Map();
     const gyroTraceByDriver = new Map();
     let slideEventsCache = new WeakMap();
@@ -6388,11 +6389,31 @@ img.carIcon{
   display:none;
   z-index:2147483600;
   overflow:hidden;
-  resize:both;
+  resize:none;
   max-width:calc(100vw - ${WIN_VIEWPORT_MARGIN * 2}px);
   max-height:calc(100vh - ${WIN_VIEWPORT_MARGIN * 2}px);
   box-sizing:border-box;
   contain:layout paint style;
+}
+
+#rtLapWin .mpgResizeGrip,
+#rtRecordsPopup .mpgResizeGrip{
+  position:absolute;
+  right:0;
+  bottom:0;
+  width:22px;
+  height:22px;
+  z-index:8;
+  cursor:nwse-resize;
+  touch-action:none;
+  user-select:none;
+  opacity:.72;
+  background:
+    linear-gradient(135deg,transparent 0 48%,rgba(255,255,255,.24) 48% 54%,transparent 54% 66%,rgba(255,255,255,.34) 66% 72%,transparent 72%);
+}
+#rtLapWin.mpg-resizing,
+#rtRecordsPopup.mpg-resizing{
+  user-select:none;
 }
 
 #rtLapWin, #rtRecordsPopup, #mpgSettingsModal, #mpgGarageModal{
@@ -7234,7 +7255,7 @@ img.carIcon{
   max-height:calc(100vh - ${WIN_VIEWPORT_MARGIN * 2}px);
   z-index:2147483630;
   display:none;
-  resize:both;
+  resize:none;
   overflow:hidden;
   color:var(--text);
   background:var(--bg);
@@ -8350,6 +8371,20 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
 
             win.classList.toggle("rtCompact", needsCompact);
         } catch { }
+    }
+
+    function requestHeaderCompact_(win) {
+        try {
+            const target = win || document.getElementById("rtLapWin");
+            if (!target || headerCompactRaf) return;
+            headerCompactRaf = requestAnimationFrame(() => {
+                headerCompactRaf = 0;
+                updateHeaderCompact_(target.isConnected ? target : document.getElementById("rtLapWin"));
+            });
+        } catch {
+            headerCompactRaf = 0;
+            updateHeaderCompact_(win || document.getElementById("rtLapWin"));
+        }
     }
 
     function loadHeaderButtonOrder_() {
@@ -12185,12 +12220,13 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
 
           <input id="rtImportInput" type="file" accept="text/html,.html" multiple style="display:none" />
         </div>
+        <div class="mpgResizeGrip" title="Resize Pit Guru" aria-hidden="true"></div>
       `;
             document.body.appendChild(w);
             applyHeaderButtonOrder_();
             setupHeaderButtonDrag_();
 
-            const updateHeaderCompact = () => updateHeaderCompact_(w);
+            const updateHeaderCompact = () => requestHeaderCompact_(w);
 
             // Switch the header buttons to icon-only when the title and buttons no longer fit.
             try {
@@ -12199,7 +12235,7 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
             } catch (e) {
                 // ResizeObserver not supported (very old browsers) — ignore
             }
-            updateHeaderCompact();
+            updateHeaderCompact_(w);
             window.addEventListener("resize", () => keepWindowInBounds_(w, "win", { persist: false }));
 
             document.getElementById("rtClose").onclick = closeWin_;
@@ -12318,7 +12354,8 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
                 deleteRecordFromButton_(btn).catch(err => toast_(pgErrorMessage_(err, "Record delete failed")));
             });
 
-            makeDraggable_(w, w, { storeKey: "win", clickGuardAttr: null, noDragSelector: "button, a, input, textarea, select, td, th" });
+            makeDraggable_(w, w, { storeKey: "win", clickGuardAttr: null, noDragSelector: "button, a, input, textarea, select, td, th, .mpgResizeGrip" });
+            makeResizeGrip_(w, w.querySelector(".mpgResizeGrip"), "win");
 
             observeResize_(w, "win");
         }
@@ -12374,6 +12411,7 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
             </div>
           </div>
         </div>
+        <div class="mpgResizeGrip" title="Resize Records" aria-hidden="true"></div>
       `;
             document.body.appendChild(p);
             document.getElementById("rtDockRecords").onclick = () => {
@@ -12419,7 +12457,8 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
                 if (!btn) return;
                 deleteRecordFromButton_(btn).catch(err => toast_(pgErrorMessage_(err, "Record delete failed")));
             });
-            makeDraggable_(p, p.querySelector(".recordsPopupHdr"), { storeKey: "records", clickGuardAttr: null, noDragSelector: "button, a, input, textarea, select, .recDelBtn, td, th" });
+            makeDraggable_(p, p.querySelector(".recordsPopupHdr"), { storeKey: "records", clickGuardAttr: null, noDragSelector: "button, a, input, textarea, select, .recDelBtn, td, th, .mpgResizeGrip" });
+            makeResizeGrip_(p, p.querySelector(".mpgResizeGrip"), "records");
             observeResize_(p, "records");
         }
 
@@ -12746,18 +12785,115 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
         const ro = new ResizeObserver(() => {
             const isManualNativeResize = nativeResizeEl === el && nativeResizeStoreKey === storeKey && Date.now() - nativeResizeAt < 20000;
             const rect = getWindowRect_(el);
+            if (isManualNativeResize) {
+                if (storeKey === "win") requestHeaderCompact_(el);
+                queueResizePersist_(el, storeKey);
+                return;
+            }
             if (!isManualNativeResize && storedRectLooksPageSized_(rect)) {
                 restoreSafeRect_(el, storeKey);
                 return;
             }
             keepWindowInBounds_(el, storeKey, { persist: false });
-            if (el.dataset.mpgResizeObserverReady === "1" || isManualNativeResize) {
+            if (el.dataset.mpgResizeObserverReady === "1") {
                 queueResizePersist_(el, storeKey);
             } else {
                 el.dataset.mpgResizeObserverReady = "1";
             }
         });
         ro.observe(el);
+    }
+
+    function makeResizeGrip_(targetEl, gripEl, storeKey) {
+        if (!targetEl || !gripEl || !storeKey || gripEl.dataset.mpgResizeGripReady === "1") return;
+        gripEl.dataset.mpgResizeGripReady = "1";
+        let active = false;
+        let startX = 0, startY = 0, startL = 0, startT = 0, startW = 0, startH = 0;
+        let lastX = 0, lastY = 0;
+        let resizeRaf = 0;
+
+        const moveEvent = typeof PointerEvent !== "undefined" ? "pointermove" : "mousemove";
+        const upEvent = typeof PointerEvent !== "undefined" ? "pointerup" : "mouseup";
+        const cancelEvent = typeof PointerEvent !== "undefined" ? "pointercancel" : "mouseleave";
+
+        const applyPendingResize = () => {
+            resizeRaf = 0;
+            if (!active) return;
+            const dx = lastX - startX;
+            const dy = lastY - startY;
+            nativeResizeAt = Date.now();
+            const minSize = getWindowMinSize_(targetEl);
+            const clamped = clampWindowRect_({
+                left: startL,
+                top: startT,
+                width: startW + dx,
+                height: startH + dy
+            }, minSize.width, minSize.height);
+            applyWindowRect_(targetEl, clamped);
+            if (storeKey === "win") requestHeaderCompact_(targetEl);
+        };
+
+        const onMove = (e) => {
+            if (!active) return;
+            if (!Number.isFinite(e.clientX) || !Number.isFinite(e.clientY)) return;
+            lastX = e.clientX;
+            lastY = e.clientY;
+            if (!resizeRaf) resizeRaf = requestAnimationFrame(applyPendingResize);
+            e.preventDefault();
+            e.stopPropagation();
+        };
+
+        const finish = (e) => {
+            if (!active) return;
+            if (resizeRaf) {
+                cancelAnimationFrame(resizeRaf);
+                applyPendingResize();
+            }
+            active = false;
+            targetEl.classList.remove("mpg-resizing");
+            keepWindowInBounds_(targetEl, storeKey, { persist: true });
+            nativeResizeEl = null;
+            nativeResizeStoreKey = "";
+            nativeResizeAt = 0;
+            window.removeEventListener(moveEvent, onMove, true);
+            window.removeEventListener(upEvent, finish, true);
+            window.removeEventListener(cancelEvent, finish, true);
+            try {
+                if (gripEl.releasePointerCapture && e?.pointerId != null) gripEl.releasePointerCapture(e.pointerId);
+            } catch { }
+            e?.preventDefault?.();
+            e?.stopPropagation?.();
+        };
+
+        const start = (e) => {
+            if (e.button != null && e.button !== 0) return;
+            const rect = targetEl.getBoundingClientRect();
+            active = true;
+            startX = lastX = e.clientX;
+            startY = lastY = e.clientY;
+            startL = rect.left;
+            startT = rect.top;
+            startW = rect.width;
+            startH = rect.height;
+            nativeResizeEl = targetEl;
+            nativeResizeStoreKey = storeKey;
+            nativeResizeAt = Date.now();
+            targetEl.classList.add("mpg-resizing");
+            targetEl.style.right = "auto";
+            targetEl.style.bottom = "auto";
+            targetEl.style.left = `${startL}px`;
+            targetEl.style.top = `${startT}px`;
+            window.addEventListener(moveEvent, onMove, true);
+            window.addEventListener(upEvent, finish, true);
+            window.addEventListener(cancelEvent, finish, true);
+            try {
+                if (gripEl.setPointerCapture && e.pointerId != null) gripEl.setPointerCapture(e.pointerId);
+            } catch { }
+            e.preventDefault();
+            e.stopPropagation();
+        };
+
+        gripEl.addEventListener(typeof PointerEvent !== "undefined" ? "pointerdown" : "mousedown", start, true);
     }
 
     function makeDraggable_(targetEl, handleEl, opts) {
