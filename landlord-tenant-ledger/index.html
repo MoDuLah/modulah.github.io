@@ -32,10 +32,10 @@
         <div class="hero-copy">
           <p class="section-kicker">Supporter Property Tool</p>
           <h1 class="hero-title">Landlord Tenant Ledger</h1>
-          <p class="hero-text">A Torn property ledger for landlords and renters that fills leases from property data, keeps partner homes tidy, and prepares rent suggestions for server-side calculation.</p>
+          <p class="hero-text">A Torn property ledger for landlords and renters that fills leases from property data, shows subscriber status, keeps partner homes tidy, and asks the server for ROI/listing suggestions.</p>
 
           <div class="hero-actions">
-            <a class="cta-button" href="MoDuLs-Landlord-Tenant-Ledger.user.js">Install v0.5.0</a>
+            <a class="cta-button" href="MoDuLs-Landlord-Tenant-Ledger.user.js">Install v0.5.1</a>
             <a class="ghost-button" href="SERVER_API_CONTRACT.md">Server Contract</a>
             <a class="ghost-button" href="../index.html#supporter-scripts">Back to Supporter Scripts</a>
           </div>
@@ -46,7 +46,7 @@
           <ul class="feature-list">
             <li class="feature-item"><span class="feature-dot" aria-hidden="true"></span><span>Fetch owned, current, and partner properties into one readable lease list</span></li>
             <li class="feature-item"><span class="feature-dot" aria-hidden="true"></span><span>Merge shared homes and duplicate property rows by Torn property ID</span></li>
-            <li class="feature-item"><span class="feature-dot" aria-hidden="true"></span><span>Prepare rent suggestions and ROI checks for hidden server-side processing</span></li>
+            <li class="feature-item"><span class="feature-dot" aria-hidden="true"></span><span>Scan ROI/listings through the hosted server without exposing raw market pages</span></li>
           </ul>
         </aside>
       </section>
@@ -54,13 +54,13 @@
       <section class="content-grid" aria-label="Script details">
         <article class="content-card content-card-full">
           <h2>Description</h2>
-          <p>Landlord Tenant Ledger is built for Torn players managing rented homes, partner homes, and contract dates. The current client keeps the visible workflow simple: Setup, Fetch, Leases, and Suggestions.</p>
-          <p>The old visible price scanner has been removed. The browser client is now prepared to ask the hosted server for paid access, ledger rows, market summaries, and rent suggestions.</p>
+          <p>Landlord Tenant Ledger is built for Torn players managing rented homes, partner homes, contract dates, and rental status. The current client keeps the visible workflow simple: Setup, Fetch, Leases, and Suggestions.</p>
+          <p>The old visible price scanner has been removed. The browser client checks paid access, fills ledger rows, reloads Torn contract details, and asks the hosted server for market summaries and sale/rent suggestions.</p>
         </article>
 
         <article class="content-card content-card-full" id="access">
           <h2>Supporter Access</h2>
-          <p>Install the userscript, save a public Torn API key in Setup, then press <strong>Check subscription</strong>. The client uses the same hosted session style as MoDuL's Pit Guru.</p>
+          <p>Install the userscript, save a public Torn API key in Setup, then press <strong>Check subscription</strong>. Setup shows whether the Torn user from that key is a subscriber.</p>
           <p>Until the ledger backend route is live, property fetching can fall back to direct Torn property calls so the ledger can still fill owned homes, current homes, and partner contracts.</p>
         </article>
 
@@ -69,7 +69,7 @@
           <div class="feature-grid">
             <div class="feature-block">
               <h3>Leases</h3>
-              <p>Shows home type, owner, renter, rent total, rent per day, start/end dates, days left, status, and notes.</p>
+              <p>Shows home type, owner, renter, rent total, rent per day, start/end dates, days left, status, notes, and a status filter.</p>
             </div>
             <div class="feature-block">
               <h3>Fetch</h3>
@@ -77,7 +77,7 @@
             </div>
             <div class="feature-block">
               <h3>Suggestions</h3>
-              <p>Displays server-returned rent suggestions without exposing rental market scan controls to the user.</p>
+              <p>Displays server-returned ROI/listing suggestions for the user's own properties, including sale/rent and duration guidance.</p>
             </div>
             <div class="feature-block">
               <h3>Backups</h3>
@@ -88,7 +88,7 @@
 
         <article class="content-card content-card-full" id="backend">
           <h2>Backend Work</h2>
-          <p>The client expects <code>/api/landlord-ledger/sync</code> on the hosted service. That endpoint should verify paid entitlement, fetch property data, merge duplicate homes, calculate suggestions, and paginate market scans server-side.</p>
+          <p>The client expects <code>/api/landlord-ledger/sync</code> on the hosted service. That endpoint should verify paid entitlement, fetch property data, merge duplicate homes, calculate suggestions, and paginate market scans server-side. The Scan ROI/Listings button sends <code>scope: "scan-owned-market"</code>.</p>
           <p>The exact response shape and pagination notes are documented in <a href="SERVER_API_CONTRACT.md">SERVER_API_CONTRACT.md</a>.</p>
         </article>
       </section>
@@ -99,6 +99,17 @@
 
         <div class="changelog-tree" role="tree">
           <details class="changelog-version" role="treeitem" open>
+            <summary class="changelog-summary">v0.5.1 - June 28, 2026</summary>
+            <div class="changelog-content">
+              <ul class="changelog-list">
+                <li>Added a Setup subscription indicator based on the Torn user ID from the saved API key.</li>
+                <li>Added Ledger status filtering.</li>
+                <li>Added Ledger buttons for server-side ROI/listing scans and direct Torn contract refresh.</li>
+                <li>Expanded server suggestion support for sale/rent actions and suggested rental duration.</li>
+              </ul>
+            </div>
+          </details>
+          <details class="changelog-version" role="treeitem">
             <summary class="changelog-summary">v0.5.0 - June 28, 2026</summary>
             <div class="changelog-content">
               <ul class="changelog-list">
