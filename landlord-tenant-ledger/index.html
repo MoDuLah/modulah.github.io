@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Landlord Tenant Ledger | MoDuL's Hub</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="MoDuL's Landlord Tenant Ledger for Torn property owners and renters, with server-backed sync prepared for supporter access.">
+  <link rel="canonical" href="https://modulah.github.io/landlord-tenant-ledger/">
+  <link rel="stylesheet" href="../assets/css/landlord-tenant-ledger/style.css">
+</head>
+<body class="script-page" data-script-slug="landlord-tenant-ledger">
+  <div class="page-shell">
+    <header class="site-nav" aria-label="Main navigation">
+      <div class="site-brand">
+        <span class="site-brand-mark" aria-hidden="true"></span>
+        <div class="site-brand-text">
+          <span class="site-brand-title">Landlord Tenant Ledger</span>
+          <span class="site-brand-subtitle">Supporter property tool</span>
+        </div>
+      </div>
+
+      <div class="site-nav-links">
+        <a class="site-nav-link" href="../index.html">Hub</a>
+        <a class="site-nav-link" href="#access">Access</a>
+        <a class="site-nav-link" href="#backend">Backend</a>
+        <a class="site-nav-link" href="#changelog">Changelog</a>
+      </div>
+    </header>
+
+    <main>
+      <section class="hero">
+        <div class="hero-copy">
+          <p class="section-kicker">Supporter Property Tool</p>
+          <h1 class="hero-title">Landlord Tenant Ledger</h1>
+          <p class="hero-text">A Torn property ledger for landlords and renters that fills leases from property data, keeps partner homes tidy, and prepares rent suggestions for server-side calculation.</p>
+
+          <div class="hero-actions">
+            <a class="cta-button" href="MoDuLs-Landlord-Tenant-Ledger.user.js">Install v0.5.0</a>
+            <a class="ghost-button" href="SERVER_API_CONTRACT.md">Server Contract</a>
+            <a class="ghost-button" href="../index.html#supporter-scripts">Back to Supporter Scripts</a>
+          </div>
+        </div>
+
+        <aside class="hero-panel" aria-label="Feature overview">
+          <h2 class="hero-panel-title">At a glance</h2>
+          <ul class="feature-list">
+            <li class="feature-item"><span class="feature-dot" aria-hidden="true"></span><span>Fetch owned, current, and partner properties into one readable lease list</span></li>
+            <li class="feature-item"><span class="feature-dot" aria-hidden="true"></span><span>Merge shared homes and duplicate property rows by Torn property ID</span></li>
+            <li class="feature-item"><span class="feature-dot" aria-hidden="true"></span><span>Prepare rent suggestions and ROI checks for hidden server-side processing</span></li>
+          </ul>
+        </aside>
+      </section>
+
+      <section class="content-grid" aria-label="Script details">
+        <article class="content-card content-card-full">
+          <h2>Description</h2>
+          <p>Landlord Tenant Ledger is built for Torn players managing rented homes, partner homes, and contract dates. The current client keeps the visible workflow simple: Setup, Fetch, Leases, and Suggestions.</p>
+          <p>The old visible price scanner has been removed. The browser client is now prepared to ask the hosted server for paid access, ledger rows, market summaries, and rent suggestions.</p>
+        </article>
+
+        <article class="content-card content-card-full" id="access">
+          <h2>Supporter Access</h2>
+          <p>Install the userscript, save a public Torn API key in Setup, then press <strong>Check subscription</strong>. The client uses the same hosted session style as MoDuL's Pit Guru.</p>
+          <p>Until the ledger backend route is live, property fetching can fall back to direct Torn property calls so the ledger can still fill owned homes, current homes, and partner contracts.</p>
+        </article>
+
+        <article class="content-card content-card-full">
+          <h2>What this tool does</h2>
+          <div class="feature-grid">
+            <div class="feature-block">
+              <h3>Leases</h3>
+              <p>Shows home type, owner, renter, rent total, rent per day, start/end dates, days left, status, and notes.</p>
+            </div>
+            <div class="feature-block">
+              <h3>Fetch</h3>
+              <p>Pulls the user's owned homes, current home, and partner properties/contracts when that data is available.</p>
+            </div>
+            <div class="feature-block">
+              <h3>Suggestions</h3>
+              <p>Displays server-returned rent suggestions without exposing rental market scan controls to the user.</p>
+            </div>
+            <div class="feature-block">
+              <h3>Backups</h3>
+              <p>Exports the local ledger as JSON or CSV for recovery and spreadsheet checks.</p>
+            </div>
+          </div>
+        </article>
+
+        <article class="content-card content-card-full" id="backend">
+          <h2>Backend Work</h2>
+          <p>The client expects <code>/api/landlord-ledger/sync</code> on the hosted service. That endpoint should verify paid entitlement, fetch property data, merge duplicate homes, calculate suggestions, and paginate market scans server-side.</p>
+          <p>The exact response shape and pagination notes are documented in <a href="SERVER_API_CONTRACT.md">SERVER_API_CONTRACT.md</a>.</p>
+        </article>
+      </section>
+
+      <section class="content-card changelog-card" id="changelog" aria-label="Changelog">
+        <p class="section-kicker">Release history</p>
+        <h2>Changelog</h2>
+
+        <div class="changelog-tree" role="tree">
+          <details class="changelog-version" role="treeitem" open>
+            <summary class="changelog-summary">v0.5.0 - June 28, 2026</summary>
+            <div class="changelog-content">
+              <ul class="changelog-list">
+                <li>Added hosted subscription verification and prepared server-backed ledger sync.</li>
+                <li>Removed user-facing market scanner and ROI scanner controls.</li>
+                <li>Added a read-only Suggestions tab for server-returned rent suggestions.</li>
+                <li>Added visible local save status in the footer.</li>
+                <li>Kept direct Torn property fetch as a temporary fallback while the hosted ledger endpoint is being built.</li>
+              </ul>
+            </div>
+          </details>
+        </div>
+      </section>
+    </main>
+
+    <footer class="page-footer">
+      <p>Part of MoDuL's Hub.</p>
+    </footer>
+  </div>
+</body>
+</html>
