@@ -9,7 +9,11 @@ This keeps the userscript simple and keeps paid/scanning logic server-side.
 Request:
 
 ```json
-{ "apiKey": "USER_PUBLIC_TORN_KEY" }
+{
+  "apiKey": "USER_PUBLIC_TORN_KEY",
+  "userId": "4022159",
+  "product": "landlord-ledger"
+}
 ```
 
 Response:
@@ -25,7 +29,7 @@ Response:
 }
 ```
 
-The server should reuse the same paid-account model used for CIS, CRF, and MPG. If the user has no valid access, return `403` with a clear error. The userscript sends the token back as `X-Pit-Guru-Session` to match the existing hosted pattern.
+The server should reuse the same paid-account model used for CIS, CRF, and MPG. The Discord bot or admin tooling grants access; the userscript only checks the Torn user ID from the saved API key. If the user has no valid access, return `403` with a clear error or entitlement payload. The userscript sends the token back as `X-Pit-Guru-Session` to match the existing hosted pattern.
 
 ## Main Sync Endpoint
 
@@ -44,6 +48,7 @@ Request:
 {
   "product": "landlord-ledger",
   "scope": "all",
+  "userId": "4022159",
   "includePartner": true,
   "apiKey": "USER_PUBLIC_TORN_KEY",
   "settings": {
@@ -53,7 +58,9 @@ Request:
 }
 ```
 
-`scope` can be `all`, `owned`, `current`, or `partner`.
+`scope` can be `all`, `owned`, `current`, `partner`, or `scan-owned-market`.
+
+`scan-owned-market` is sent by the **Scan ROI/Listings** button. It should refresh the user's owned-property contracts first, then run server-side comparable rental/sale scans for the user's own properties only.
 
 ## Server Responsibilities
 
@@ -69,6 +76,8 @@ Request:
 - If cache is missing, call Torn from the server using the configured server public key.
 - Match comps by property type and happiness first. Staff/modification matching can be added later.
 - Calculate ROI and rent suggestions on the server.
+- Suggest whether each owned property is better kept idle, rented, repriced, or sold.
+- Include a suggested rental duration when rent is recommended.
 - Return summaries/suggestions only. Do not return raw market scan rows unless an admin endpoint needs them.
 
 ## ROI Pagination
@@ -124,11 +133,15 @@ The userscript accepts flexible names, but this is the preferred response:
       "property": "Villa",
       "status": "rented",
       "happy": 800,
+      "recommended_action": "rent",
       "current_cost_per_day": 700,
       "market_median_daily": 720,
       "suggested_rent_per_day": 720,
+      "suggested_duration_days": 100,
       "suggested_total": 72000,
+      "suggested_sale_price": 2404000,
       "suggested_roi": 10.17,
+      "listing_note": "rented already; do not list as idle",
       "suggestion_note": "current rent is near market"
     }
   ],

@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         MoDuL's Landlord Tenant Ledger
 // @namespace    https://github.com/local/torn-landlord-tenant-ledger
-// @version      0.5.0
+// @version      0.5.1
 // @description  Server-backed lease ledger for Torn landlords and tenants.
 // @author       MoDuL
 // @copyright    2026 MoDuL. All rights reserved.
@@ -155,10 +155,12 @@
   const emptyState = {
     apiKey: "",
     role: "landlord",
+    statusFilter: "all",
     search: "",
     leases: [],
     lastSyncAt: null,
     lastSavedAt: null,
+    lastSubscriptionCheckAt: null,
     panelOpen: true,
     panelPosition: null,
     panelSize: null,
@@ -349,6 +351,12 @@
     return property.name || property.type || property.title || "";
   }
 
+  function numberOrBlank(value) {
+    if (value === null || value === undefined || value === "") return "";
+    const number = Number(value);
+    return Number.isFinite(number) ? number : "";
+  }
+
   function normalizeLease(property, source) {
     const propertyId = property.id || property.property_id || "";
     const propertyLabel = propertyName(property.property) || propertyName(property) || `Property ${propertyId}`;
@@ -369,10 +377,10 @@
       property: propertyLabel,
       landlord: owner,
       tenant,
-      amount: Number(totalCost) || "",
-      dailyAmount: Number(dailyCost) || "",
-      durationDays: Number(period) || "",
-      remainingDays: Number(remaining) || "",
+      amount: numberOrBlank(totalCost),
+      dailyAmount: numberOrBlank(dailyCost),
+      durationDays: numberOrBlank(period),
+      remainingDays: numberOrBlank(remaining),
       startDate,
       endDate,
       status: property.status || "manual",
@@ -574,17 +582,86 @@
   async function verifyHostedAccess() {
     const key = apiKeyValue();
     if (!key) throw new Error("Add your Torn public API key first.");
-    const body = await hostedRequest("/api/account/verify", {
-      method: "POST",
-      body: { apiKey: key },
-      timeout: 15000,
-    });
+    const userId = await currentApiKeyUserId();
+    let body;
+    try {
+      body = await hostedRequest("/api/account/verify", {
+        method: "POST",
+        body: { apiKey: key, userId, product: "landlord-ledger" },
+        timeout: 15000,
+      });
+    } catch (error) {
+      if (error.status === 401 || error.status === 403) {
+        applyHostedAccessBody(error.payload || {}, userId);
+        if (state.serverEntitlement && !hasEntitlementSignal(state.serverEntitlement)) {
+          state.serverEntitlement.status = error.status === 403 ? "denied" : "invalid";
+          state.serverEntitlement.product = state.serverEntitlement.product || "landlord-ledger";
+        }
+        saveState("Subscription checked");
+        render();
+      }
+      throw error;
+    }
     const token = body.sessionToken || body.session || body.token;
-    if (!token) throw new Error("Hosted account check did not return a session.");
-    setHostedSession(token);
-    state.serverEntitlement = body.entitlement || body.subscription || body.license || state.serverEntitlement || null;
+    applyHostedAccessBody(body, userId);
+    if (token) setHostedSession(token);
+    else clearHostedSession();
+    if (token && state.serverEntitlement && !hasEntitlementSignal(state.serverEntitlement)) {
+      state.serverEntitlement.status = "active";
+      state.serverEntitlement.product = state.serverEntitlement.product || "landlord-ledger";
+    }
     saveState("Server access saved");
+    if (!token) {
+      const info = subscriptionStatusInfo();
+      if (!info.isSubscribed) throw new Error(info.message || "No active Landlord Ledger subscription was found.");
+      throw new Error("Hosted account check did not return a session.");
+    }
     return token;
+  }
+
+  async function currentApiKeyUserId() {
+    const known = (state.endpointInputs && state.endpointInputs.userId) || keyInfoUserId(state.keyInfo);
+    if (known) return String(known);
+    const body = await checkApiKey();
+    return String(keyInfoUserId(body));
+  }
+
+  function applyHostedAccessBody(body, userId = "") {
+    if (!body || typeof body !== "object") body = {};
+    const profile = body.profile || body.userProfile || body.user || null;
+    const keyInfo = body.keyInfo || body.key || body.account || null;
+    let entitlement = body.entitlement || body.subscription || body.license || body.access || {
+      status: body.status,
+      active: body.active,
+      valid: body.valid,
+      product: body.product,
+      plan: body.plan,
+      tier: body.tier,
+      expires_at: body.expires_at || body.expiresAt,
+    };
+    if (!entitlement || typeof entitlement !== "object") {
+      entitlement = {
+        status: entitlement || body.status,
+        active: body.active,
+        valid: body.valid,
+        product: body.product,
+        plan: body.plan,
+        tier: body.tier,
+        expires_at: body.expires_at || body.expiresAt,
+      };
+    }
+    if (keyInfo) state.keyInfo = keyInfo;
+    const resolvedUserId = userId || keyInfoUserId(keyInfo) || (profile && profile.id) || "";
+    if (resolvedUserId) {
+      state.endpointInputs = {
+        ...emptyState.endpointInputs,
+        ...(state.endpointInputs || {}),
+        userId: String(resolvedUserId),
+        lookupUser: (state.endpointInputs && state.endpointInputs.lookupUser) || String(resolvedUserId),
+      };
+    }
+    state.serverEntitlement = { ...(entitlement || {}), userId: resolvedUserId || (entitlement && entitlement.userId) || "" };
+    state.lastSubscriptionCheckAt = nowIso();
   }
 
   async function syncHostedLedger(scope = "all") {
@@ -601,6 +678,8 @@
         defaultSuggestionLeaseDays: defaultSuggestionLeaseDays(),
       },
     };
+    const userId = (state.endpointInputs && state.endpointInputs.userId) || keyInfoUserId(state.keyInfo);
+    if (userId) payload.userId = String(userId);
 
     const submit = (session) => hostedRequest("/api/landlord-ledger/sync", {
       method: "POST",
@@ -667,7 +746,10 @@
     const message = body.message || `Server filled ${leases.length.toLocaleString()} ledger rows${suggestions.length ? ` and ${suggestions.length.toLocaleString()} suggestions` : ""}.`;
 
     if (keyInfo) state.keyInfo = keyInfo;
-    if (entitlement) state.serverEntitlement = entitlement;
+    if (entitlement) {
+      state.serverEntitlement = entitlement;
+      state.lastSubscriptionCheckAt = nowIso();
+    }
     if (profile) storeEndpointDataWithoutRender("user-profile", { profile }, "Fetched profile from server.");
     if (ownedProperties.length) storeEndpointDataWithoutRender("user-properties", { properties: ownedProperties }, `Server returned ${ownedProperties.length.toLocaleString()} owned homes.`);
     if (currentProperty) storeEndpointDataWithoutRender("user-property", { property: currentProperty }, "Server returned current home.");
@@ -696,6 +778,23 @@
     saveState("Server sync saved");
     render();
     setStatus(message);
+  }
+
+  async function scanOwnedPropertyMarket() {
+    setStatus("Asking the subscription server to scan ROI and listings...");
+    try {
+      const body = await syncHostedLedger("scan-owned-market");
+      const suggestions = firstArray(body, ["suggestions", "rentSuggestions", "rent_suggestions"]);
+      const roiSummary = firstArray(body, ["roiSummary", "roi_summary", "marketSummary", "market_summary"]);
+      const message = body.message || `Server scan finished: ${suggestions.length.toLocaleString()} suggestions and ${roiSummary.length.toLocaleString()} market summaries.`;
+      setStatus(message);
+      return body;
+    } catch (error) {
+      if (!canUseDirectTornFallback(error)) throw error;
+      await importOwnedPropertiesDirect();
+      setStatus("The hosted ROI/listing scan is not live yet. Torn contract details were refreshed, but financial suggestions need the subscription server.", true);
+      return null;
+    }
   }
 
   function normalizeHostedLease(row) {
@@ -888,8 +987,9 @@
     mergeLeases(leases);
     const owned = all.filter((property) => ownerMatchesLookup(property, spouse.id)).length;
     const used = all.filter((property) => propertyUsedByLookup(property, spouse.id) || renterMatchesLookup(property, spouse.id)).length;
+    const withContracts = all.filter(propertyHasContractDetails).length;
     const label = spouse.name ? `${spouse.name} [${spouse.id}]` : spouse.id;
-    const message = `Fetched ${all.length.toLocaleString()} partner properties/contracts for ${label}: ${owned.toLocaleString()} owned, ${used.toLocaleString()} used or rented.`;
+    const message = `Fetched ${all.length.toLocaleString()} partner properties/contracts for ${label}: ${owned.toLocaleString()} owned, ${used.toLocaleString()} used or rented, ${withContracts.toLocaleString()} with contract details.`;
     state.endpointResults = { ...(state.endpointResults || {}), "spouse-properties": message };
     state.endpointData = {
       ...(state.endpointData || {}),
@@ -1316,7 +1416,8 @@
     const rented = owned.filter((property) => property.status === "rented").length;
     const listed = owned.filter((property) => property.status === "for_rent").length;
     const idle = owned.filter((property) => !property.status || property.status === "none").length;
-    const message = `Fetched ${owned.length.toLocaleString()} owned properties. Imported ${leases.length.toLocaleString()} rows: ${rented.toLocaleString()} rented, ${listed.toLocaleString()} listed, ${idle.toLocaleString()} idle.`;
+    const withContracts = owned.filter(propertyHasContractDetails).length;
+    const message = `Fetched ${owned.length.toLocaleString()} owned properties. Imported ${leases.length.toLocaleString()} rows: ${rented.toLocaleString()} rented, ${listed.toLocaleString()} listed, ${idle.toLocaleString()} idle, ${withContracts.toLocaleString()} with contract details.`;
     state.endpointResults = { ...(state.endpointResults || {}), "user-properties": message };
     state.endpointData = {
       ...(state.endpointData || {}),
@@ -1401,6 +1502,7 @@
     state.keyInfo = null;
     clearHostedSession();
     state.serverEntitlement = null;
+    state.lastSubscriptionCheckAt = null;
     state.endpointInputs = {
       ...emptyState.endpointInputs,
       ...(state.endpointInputs || {}),
@@ -1417,6 +1519,7 @@
     state.keyInfo = null;
     clearHostedSession();
     state.serverEntitlement = null;
+    state.lastSubscriptionCheckAt = null;
     state.endpointInputs = { ...emptyState.endpointInputs, propertyTypeId: (state.endpointInputs || {}).propertyTypeId || "" };
     saveState();
     render();
@@ -1542,10 +1645,12 @@
   }
 
   function visibleLeases() {
-    const query = state.search.trim().toLowerCase();
+    const query = clean(state.search, "").trim().toLowerCase();
+    const statusFilter = clean(state.statusFilter || "all", "all").toLowerCase();
     return state.leases.filter((lease) => {
       const roleMatch = state.role === "all" || lease.roleHint === state.role || lease.source === "manual";
       if (!roleMatch) return false;
+      if (statusFilter !== "all" && clean(lease.status || "unknown", "unknown").toLowerCase() !== statusFilter) return false;
       if (!query) return true;
       return [lease.property, lease.propertyId, lease.landlord, lease.tenant, lease.status, lease.notes]
         .join(" ")
@@ -1785,7 +1890,7 @@
       #${APP_ID} button.tlt-ghost { background: transparent; }
       #${APP_ID} .tlt-toolbar {
         display: grid;
-        grid-template-columns: minmax(190px, 1fr) minmax(180px, 240px) auto auto;
+        grid-template-columns: minmax(150px, 1fr) minmax(145px, 190px) minmax(130px, 180px) auto auto auto;
         gap: 8px;
         align-items: center;
       }
@@ -2039,6 +2144,37 @@
         margin-top: 8px;
         color: #c9d4de;
         font-size: 11px;
+      }
+      #${APP_ID} .tlt-subscription {
+        margin-top: 10px;
+        border: 1px solid #40505f;
+        border-left: 4px solid #8a99a6;
+        border-radius: 7px;
+        padding: 10px;
+        background: #0f1820;
+      }
+      #${APP_ID} .tlt-subscription.is-active { border-left-color: #69c58b; }
+      #${APP_ID} .tlt-subscription.is-blocked { border-left-color: #d17878; }
+      #${APP_ID} .tlt-subscription.is-warning { border-left-color: #d8b25d; }
+      #${APP_ID} .tlt-subscription span,
+      #${APP_ID} .tlt-subscription strong,
+      #${APP_ID} .tlt-subscription small {
+        display: block;
+      }
+      #${APP_ID} .tlt-subscription span,
+      #${APP_ID} .tlt-subscription small {
+        color: #a9b5c0;
+        font-size: 11px;
+      }
+      #${APP_ID} .tlt-subscription strong {
+        margin-top: 3px;
+        color: #f3f6f9;
+        font-size: 15px;
+      }
+      #${APP_ID} .tlt-subscription p {
+        margin: 8px 0 0;
+        color: #c9d4de;
+        line-height: 1.35;
       }
       #${APP_ID} .tlt-data-table {
         width: 100%;
@@ -2453,6 +2589,7 @@
             <input type="text" data-api-key-input placeholder="${keyMask ? "Paste a new key only if you want to replace it" : "Paste key here"}" autocomplete="off" autocapitalize="off" spellcheck="false">
           </label>
           ${keyMask ? `<div class="tlt-result">Saved key: ${escapeHtml(keyMask)}</div>` : `<div class="tlt-result">No key saved yet.</div>`}
+          ${subscriptionStatusHtml()}
           <div class="tlt-actions">
             <button class="tlt-primary" type="button" data-action="save-api-key">Save key</button>
             <button type="button" data-action="check-key">Test key</button>
@@ -2526,6 +2663,7 @@
           <strong>Rent suggestions</strong>
           <span class="tlt-muted">Fetch your homes. The server checks matching listings and sends back the useful answer.</span>
           <button class="tlt-primary" type="button" data-action="refresh-user-details">Fetch everything</button>
+          <button type="button" data-action="scan-owned-property-market">Scan ROI/Listings</button>
           <button type="button" data-action="export-rent-suggestions-csv">Export suggestions CSV</button>
           ${endpointResultHtml("server-sync")}
           ${updated ? `<div class="tlt-result">Market data checked ${escapeHtml(new Date(updated).toLocaleString())}.</div>` : ""}
@@ -2626,7 +2764,7 @@
         <strong>Server market check</strong>
         <span class="tlt-muted">Market checks are handled by the subscription server and returned as suggestions.</span>
         <div class="tlt-actions">
-          <button class="tlt-primary" type="button" data-action="refresh-user-details">Fetch everything</button>
+          <button class="tlt-primary" type="button" data-action="scan-owned-property-market">Scan ROI/Listings</button>
         </div>
       </div>
     `;
@@ -2645,7 +2783,7 @@
         <strong>Rent suggestions</strong>
         <span class="tlt-muted">Suggestions are calculated by the subscription server.</span>
         <div class="tlt-actions">
-          <button class="tlt-primary" type="button" data-action="refresh-user-details">Fetch everything</button>
+          <button class="tlt-primary" type="button" data-action="scan-owned-property-market">Scan ROI/Listings</button>
           <button type="button" data-action="export-rent-suggestions-csv">Export suggestions CSV</button>
         </div>
       </div>
@@ -2892,7 +3030,25 @@
   }
 
   function statusOptionsHtml(current) {
-    const options = [
+    return leaseStatusOptions().map(([value, label]) => `<option value="${value}"${current === value ? " selected" : ""}>${label}</option>`).join("");
+  }
+
+  function statusFilterOptionsHtml() {
+    const selected = clean(state.statusFilter || "all", "all");
+    const options = [["all", "All statuses"], ...leaseStatusOptions()];
+    const seen = new Set(options.map(([value]) => value));
+    for (const lease of state.leases || []) {
+      const value = clean(lease && lease.status, "");
+      if (value && !seen.has(value)) {
+        seen.add(value);
+        options.push([value, humanHeader(value)]);
+      }
+    }
+    return options.map(([value, label]) => `<option value="${escapeAttr(value)}"${selected === value ? " selected" : ""}>${escapeHtml(label)}</option>`).join("");
+  }
+
+  function leaseStatusOptions() {
+    return [
       ["rented", "Rented"],
       ["for_rent", "For rent"],
       ["leased", "I rent it"],
@@ -2904,7 +3060,6 @@
       ["none", "None"],
       ["unknown", "Unknown"],
     ];
-    return options.map(([value, label]) => `<option value="${value}"${current === value ? " selected" : ""}>${label}</option>`).join("");
   }
 
   function ledgerHtml(leases, summary) {
@@ -2918,6 +3073,11 @@
           <option value="tenant"${state.role === "tenant" ? " selected" : ""}>Homes I use</option>
           <option value="all"${state.role === "all" ? " selected" : ""}>Everything</option>
         </select>
+        <select data-field="statusFilter">
+          ${statusFilterOptionsHtml()}
+        </select>
+        <button class="tlt-primary" type="button" data-action="scan-owned-property-market">Scan ROI/Listings</button>
+        <button type="button" data-action="import-owned-direct">Reload Torn details</button>
         <button type="button" data-action="export-csv">Export CSV</button>
       </div>
       <div class="tlt-summary">
@@ -3150,6 +3310,20 @@
     return { value: "leased", label: `Leased from ${ownerLabel}` };
   }
 
+  function propertyHasContractDetails(property) {
+    if (!property || typeof property !== "object") return false;
+    return Boolean(
+      property.rented_by ||
+      property.renter ||
+      property.renter_asked ||
+      property.cost !== undefined ||
+      property.cost_per_day !== undefined ||
+      property.rental_period !== undefined ||
+      property.rental_period_remaining !== undefined ||
+      (Array.isArray(property.used_by) && property.used_by.length)
+    );
+  }
+
   function isLeasedToOther(property) {
     const status = clean(property && property.status, "").toLowerCase();
     return status === "rented" || Boolean(property && (property.rented_by || property.renter || property.tenant));
@@ -3302,7 +3476,7 @@
       "user-id-property": ["property_image", "lease_status", "id", "owner", "property", "happy", "upkeep.property", "upkeep.staff", "market_price", "used_by", "rented_by", "staff", "modifications"],
       "market-properties": ["property_image", "id", "owner", "property", "happy", "market_price", "cost", "upkeep.property", "upkeep.staff", "staff", "modifications"],
       "market-rentals": ["property_image", "owner", "happy", "cost", "cost_per_day", "rental_period", "property", "market_price", "upkeep.property", "upkeep.staff", "staff", "modifications"],
-      "rent-suggestions": ["property_image", "id", "property", "status", "happy", "current_cost_per_day", "market_median_daily", "market_avg_daily", "suggested_rent_per_day", "suggested_total", "suggested_roi", "suggestion_note"],
+      "rent-suggestions": ["property_image", "id", "property", "status", "happy", "recommended_action", "suggested_action", "sale_price_suggested", "suggested_sale_price", "rent_per_day_suggested", "suggested_rent_per_day", "suggested_duration_days", "suggested_total", "suggested_roi", "market_median_daily", "market_avg_daily", "listing_note", "suggestion_note"],
     };
     return columns[id] || [];
   }
@@ -3353,8 +3527,15 @@
       market_max_daily: "Market max/day",
       target_rent_per_day: "Target rent/day",
       suggested_rent_per_day: "Suggested rent/day",
+      rent_per_day_suggested: "Suggested rent/day",
       suggested_total: "Suggested total",
       suggested_roi: "Suggested ROI",
+      recommended_action: "Advice",
+      suggested_action: "Action",
+      sale_price_suggested: "Suggested sale price",
+      suggested_sale_price: "Suggested sale price",
+      suggested_duration_days: "Suggested days",
+      listing_note: "Listing note",
       suggestion_note: "Suggestion",
       error: "Error",
       cost_per_day: "Cost per day",
@@ -3726,12 +3907,134 @@
   }
 
   function serverAccessHtml() {
+    const info = subscriptionStatusInfo();
+    if (["missing-key", "missing-user", "unchecked"].includes(info.state)) return "";
+    const bits = [info.label, info.plan].filter(Boolean).join(" / ");
+    return `Subscription: ${escapeHtml(bits || info.label)}. `;
+  }
+
+  function subscriptionStatusHtml() {
+    const info = subscriptionStatusInfo();
+    const details = [
+      info.userId ? `Torn user ID ${info.userId}` : "",
+      info.plan ? `Plan: ${info.plan}` : "",
+      info.expiresAt ? `Expires: ${new Date(info.expiresAt).toLocaleString()}` : "",
+    ].filter(Boolean).join(" | ");
+    return `
+      <div class="tlt-subscription ${escapeAttr(info.className)}">
+        <span>Subscription check</span>
+        <strong>${escapeHtml(info.label)}</strong>
+        <p>${escapeHtml(info.message)}</p>
+        ${details ? `<small>${escapeHtml(details)}</small>` : ""}
+        ${info.checkedAt ? `<small>Checked ${escapeHtml(new Date(info.checkedAt).toLocaleString())}</small>` : ""}
+      </div>
+    `;
+  }
+
+  function subscriptionStatusInfo() {
+    const userId = (state.endpointInputs && state.endpointInputs.userId) || keyInfoUserId(state.keyInfo);
+    if (!apiKeyValue()) {
+      return {
+        state: "missing-key",
+        label: "No key saved",
+        message: "Save a Torn public API key first.",
+        className: "is-warning",
+        isSubscribed: false,
+      };
+    }
+    if (!userId) {
+      return {
+        state: "missing-user",
+        label: "Key not checked yet",
+        message: "Test the key or press Check subscription so the script knows which Torn user owns the key.",
+        className: "is-warning",
+        isSubscribed: false,
+      };
+    }
+
     const entitlement = state.serverEntitlement;
-    if (!entitlement || typeof entitlement !== "object") return "";
+    if (!entitlement || typeof entitlement !== "object" || !hasEntitlementSignal(entitlement)) {
+      return {
+        state: "unchecked",
+        label: "Subscription not checked",
+        message: `Ready to check Landlord Ledger access for Torn user ${userId}.`,
+        className: "is-warning",
+        isSubscribed: false,
+        userId,
+      };
+    }
+
+    const active = isEntitlementActive(entitlement);
+    const inactive = isEntitlementInactive(entitlement);
+    const status = entitlementStatusText(entitlement);
     const plan = entitlement.plan || entitlement.product || entitlement.name || entitlement.tier || "";
-    const status = entitlement.status || entitlement.state || "";
-    const pieces = [plan, status].filter(Boolean);
-    return pieces.length ? `Server access: ${escapeHtml(pieces.join(" / "))}.` : "Server access checked.";
+    const expiresAt = entitlement.expires_at || entitlement.expiresAt || entitlement.expiry || "";
+    const checkedAt = state.lastSubscriptionCheckAt;
+
+    if (active) {
+      return {
+        state: "active",
+        label: "Subscriber",
+        message: "Financial data and hosted ROI/listing suggestions are available.",
+        className: "is-active",
+        isSubscribed: true,
+        userId,
+        plan,
+        expiresAt,
+        checkedAt,
+      };
+    }
+
+    if (inactive) {
+      return {
+        state: "inactive",
+        label: "Not subscribed",
+        message: "The bot or admin licence service needs to grant Landlord Ledger access for this Torn user before financial scans will work.",
+        className: "is-blocked",
+        isSubscribed: false,
+        userId,
+        plan,
+        expiresAt,
+        checkedAt,
+      };
+    }
+
+    return {
+      state: "unknown",
+      label: "Subscription unclear",
+      message: status ? `Server replied with status: ${status}.` : "The server replied, but did not say active or inactive clearly.",
+      className: "is-warning",
+      isSubscribed: false,
+      userId,
+      plan,
+      expiresAt,
+      checkedAt,
+    };
+  }
+
+  function hasEntitlementSignal(entitlement) {
+    return ["status", "state", "active", "valid", "allowed", "hasAccess", "has_access", "subscribed", "licensed", "plan", "product", "tier", "expires_at", "expiresAt"].some((key) => (
+      entitlement[key] !== undefined && entitlement[key] !== null && entitlement[key] !== ""
+    ));
+  }
+
+  function entitlementStatusText(entitlement) {
+    return clean(entitlement && (entitlement.status || entitlement.state || entitlement.result || entitlement.access), "");
+  }
+
+  function isEntitlementActive(entitlement) {
+    if (!entitlement || typeof entitlement !== "object") return false;
+    const boolKeys = ["active", "valid", "allowed", "hasAccess", "has_access", "subscribed", "licensed"];
+    if (boolKeys.some((key) => entitlement[key] === true)) return true;
+    if (boolKeys.some((key) => entitlement[key] === false)) return false;
+    return /^(active|valid|subscribed|subscriber|paid|licensed|allowed|ok|trialing)$/i.test(entitlementStatusText(entitlement));
+  }
+
+  function isEntitlementInactive(entitlement) {
+    if (!entitlement || typeof entitlement !== "object") return false;
+    const boolKeys = ["active", "valid", "allowed", "hasAccess", "has_access", "subscribed", "licensed"];
+    if (boolKeys.some((key) => entitlement[key] === false)) return true;
+    return /^(inactive|expired|denied|missing|none|not_found|not-found|unlicensed|unsubscribed|blocked|invalid|forbidden)$/i.test(entitlementStatusText(entitlement));
   }
 
   function keyInfoUserId(body) {
@@ -3921,6 +4224,8 @@
           if (action === "refresh-user-details") await refreshUserDetails();
           if (action === "fetch-torn-properties") await fetchTornProperties();
           if (action === "import-owned") await importOwnedProperties();
+          if (action === "import-owned-direct") await importOwnedPropertiesDirect();
+          if (action === "scan-owned-property-market") await scanOwnedPropertyMarket();
           if (action === "fetch-spouse-properties") await fetchSpouseProperties();
           if (action === "fetch-user-properties") await fetchUserProperties();
           if (action === "import-current") await importCurrentProperty();
