@@ -1,0 +1,20 @@
+@import url("../script-page-base.css");
+
+:root {
+  --bg-image: url("../../images/landlord-tenant-ledger/landlord-tenant-ledger-logo.png");
+}
+
+body.script-page {
+  --bg-image: url("../../images/landlord-tenant-ledger/landlord-tenant-ledger-logo.png");
+}
+
+.site-brand-mark {
+  background-image: url("../../images/landlord-tenant-ledger/landlord-tenant-ledger-logo.png");
+}
+
+body.script-page[data-script-slug="landlord-tenant-ledger"] .hero-panel::before {
+  background-image:
+    radial-gradient(circle at 28% 18%, rgba(255,255,255,0.26), rgba(255,255,255,0) 34%),
+    linear-gradient(145deg, rgba(217, 239, 82, 0.16), rgba(98, 240, 139, 0.12)),
+    url("../../images/landlord-tenant-ledger/landlord-tenant-ledger-logo.png");
+}
