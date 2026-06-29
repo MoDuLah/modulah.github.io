@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <title>Landlord Tenant Ledger | MoDuL's Hub</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="MoDuL's Landlord Tenant Ledger for Torn property owners and renters, with server-backed sync prepared for supporter access.">
+  <meta name="description" content="MoDuL's Landlord Tenant Ledger is a private-preview Torn property helper for renters and landlords.">
   <link rel="canonical" href="https://modulah.github.io/landlord-tenant-ledger/">
   <link rel="stylesheet" href="../assets/css/landlord-tenant-ledger/style.css">
 </head>
@@ -21,103 +21,93 @@
 
       <div class="site-nav-links">
         <a class="site-nav-link" href="../index.html">Hub</a>
-        <a class="site-nav-link" href="#access">Access</a>
-        <a class="site-nav-link" href="#backend">Backend</a>
-        <a class="site-nav-link" href="#changelog">Changelog</a>
+        <a class="site-nav-link" href="#status">Status</a>
+        <a class="site-nav-link" href="#features">What it does</a>
+        <a class="site-nav-link" href="#updates">Updates</a>
       </div>
     </header>
 
     <main>
       <section class="hero">
         <div class="hero-copy">
-          <p class="section-kicker">Supporter Property Tool</p>
+          <p class="section-kicker">Private preview</p>
           <h1 class="hero-title">Landlord Tenant Ledger</h1>
-          <p class="hero-text">A Torn property ledger for landlords and renters that fills leases from property data, shows subscriber status, keeps partner homes tidy, and asks the server for ROI/listing suggestions.</p>
+          <p class="hero-text">A simple Torn property helper for seeing who rents what, what is ending soon, and what your own homes may be worth listing for.</p>
 
           <div class="hero-actions">
-            <a class="cta-button" href="MoDuLs-Landlord-Tenant-Ledger.user.js">Install v0.5.1</a>
-            <a class="ghost-button" href="SERVER_API_CONTRACT.md">Server Contract</a>
+            <span class="cta-button" aria-disabled="true">Under development</span>
             <a class="ghost-button" href="../index.html#supporter-scripts">Back to Supporter Scripts</a>
+            <a class="ghost-button" href="https://discord.gg/JP8FQBATMV" target="_blank" rel="noopener noreferrer">Join Discord</a>
           </div>
         </div>
 
         <aside class="hero-panel" aria-label="Feature overview">
           <h2 class="hero-panel-title">At a glance</h2>
           <ul class="feature-list">
-            <li class="feature-item"><span class="feature-dot" aria-hidden="true"></span><span>Fetch owned, current, and partner properties into one readable lease list</span></li>
-            <li class="feature-item"><span class="feature-dot" aria-hidden="true"></span><span>Merge shared homes and duplicate property rows by Torn property ID</span></li>
-            <li class="feature-item"><span class="feature-dot" aria-hidden="true"></span><span>Scan ROI/listings through the hosted server without exposing raw market pages</span></li>
+            <li class="feature-item"><span class="feature-dot" aria-hidden="true"></span><span>See rented homes, renters, prices, dates, and days left in one place</span></li>
+            <li class="feature-item"><span class="feature-dot" aria-hidden="true"></span><span>Keep partner homes and shared homes from showing twice</span></li>
+            <li class="feature-item"><span class="feature-dot" aria-hidden="true"></span><span>Get rent or sale suggestions for homes you personally own</span></li>
           </ul>
         </aside>
       </section>
 
       <section class="content-grid" aria-label="Script details">
-        <article class="content-card content-card-full">
-          <h2>Description</h2>
-          <p>Landlord Tenant Ledger is built for Torn players managing rented homes, partner homes, contract dates, and rental status. The current client keeps the visible workflow simple: Setup, Fetch, Leases, and Suggestions.</p>
-          <p>The old visible price scanner has been removed. The browser client checks paid access, fills ledger rows, reloads Torn contract details, and asks the hosted server for market summaries and sale/rent suggestions.</p>
-        </article>
-
-        <article class="content-card content-card-full" id="access">
-          <h2>Supporter Access</h2>
-          <p>Install the userscript, save a public Torn API key in Setup, then press <strong>Check subscription</strong>. Setup shows whether the Torn user from that key is a subscriber.</p>
-          <p>Until the ledger backend route is live, property fetching can fall back to direct Torn property calls so the ledger can still fill owned homes, current homes, and partner contracts.</p>
+        <article class="content-card content-card-full" id="status">
+          <h2>Status</h2>
+          <p>Landlord Tenant Ledger is under development and is not public yet.</p>
+          <p>The public download has been removed until the green light is given. Private testing will be shared through Discord when it is ready.</p>
         </article>
 
         <article class="content-card content-card-full">
+          <h2>Access</h2>
+          <p>Ledger access will be its own LTL pass. It will not use the Pit Guru pass.</p>
+          <p>Setup will show whether the Torn user from the saved Torn key has Ledger access, so players can tell straight away if their access is active.</p>
+        </article>
+
+        <article class="content-card content-card-full" id="features">
           <h2>What this tool does</h2>
           <div class="feature-grid">
             <div class="feature-block">
               <h3>Leases</h3>
-              <p>Shows home type, owner, renter, rent total, rent per day, start/end dates, days left, status, notes, and a status filter.</p>
+              <p>Shows home type, owner, renter, rent total, rent per day, start and end dates, days left, status, and notes.</p>
             </div>
             <div class="feature-block">
-              <h3>Fetch</h3>
-              <p>Pulls the user's owned homes, current home, and partner properties/contracts when that data is available.</p>
+              <h3>Fetching</h3>
+              <p>Can fill homes you own, the home you live in, and partner homes when Torn has that information available.</p>
             </div>
             <div class="feature-block">
               <h3>Suggestions</h3>
-              <p>Displays server-returned ROI/listing suggestions for the user's own properties, including sale/rent and duration guidance.</p>
+              <p>Can suggest whether your own homes should be rented out or sold, with a suggested rental length where useful.</p>
             </div>
             <div class="feature-block">
-              <h3>Backups</h3>
-              <p>Exports the local ledger as JSON or CSV for recovery and spreadsheet checks.</p>
+              <h3>Safer editing</h3>
+              <p>Owner and days-left values come from Torn or from the dates. The user should not have to edit those by hand.</p>
             </div>
           </div>
         </article>
 
-        <article class="content-card content-card-full" id="backend">
-          <h2>Backend Work</h2>
-          <p>The client expects <code>/api/landlord-ledger/sync</code> on the hosted service. That endpoint should verify paid entitlement, fetch property data, merge duplicate homes, calculate suggestions, and paginate market scans server-side. The Scan ROI/Listings button sends <code>scope: "scan-owned-market"</code>.</p>
-          <p>The exact response shape and pagination notes are documented in <a href="SERVER_API_CONTRACT.md">SERVER_API_CONTRACT.md</a>.</p>
+        <article class="content-card content-card-full">
+          <h2>Why it is still private</h2>
+          <p>The tool is being made clearer before release. The ledger should stay in place while editing, avoid duplicate homes, use simple status names, and make manual entries easier to fill.</p>
+          <p>Price checks and suggestions should happen quietly in the background, so the user only sees the answer instead of a confusing wall of scan results.</p>
         </article>
       </section>
 
-      <section class="content-card changelog-card" id="changelog" aria-label="Changelog">
-        <p class="section-kicker">Release history</p>
-        <h2>Changelog</h2>
+      <section class="content-card changelog-card" id="updates" aria-label="Updates">
+        <p class="section-kicker">Update notes</p>
+        <h2>What changed</h2>
 
         <div class="changelog-tree" role="tree">
           <details class="changelog-version" role="treeitem" open>
-            <summary class="changelog-summary">v0.5.1 - June 28, 2026</summary>
+            <summary class="changelog-summary">Private build - June 29, 2026</summary>
             <div class="changelog-content">
               <ul class="changelog-list">
-                <li>Added a Setup subscription indicator based on the Torn user ID from the saved API key.</li>
-                <li>Added Ledger status filtering.</li>
-                <li>Added Ledger buttons for server-side ROI/listing scans and direct Torn contract refresh.</li>
-                <li>Expanded server suggestion support for sale/rent actions and suggested rental duration.</li>
-              </ul>
-            </div>
-          </details>
-          <details class="changelog-version" role="treeitem">
-            <summary class="changelog-summary">v0.5.0 - June 28, 2026</summary>
-            <div class="changelog-content">
-              <ul class="changelog-list">
-                <li>Added hosted subscription verification and prepared server-backed ledger sync.</li>
-                <li>Removed user-facing market scanner and ROI scanner controls.</li>
-                <li>Added a read-only Suggestions tab for server-returned rent suggestions.</li>
-                <li>Added visible local save status in the footer.</li>
-                <li>Kept direct Torn property fetch as a temporary fallback while the hosted ledger endpoint is being built.</li>
+                <li>Owner is now shown as a fixed value for fetched homes.</li>
+                <li>Days left is now calculated instead of typed by hand.</li>
+                <li>Editing one row no longer rebuilds the whole ledger and jumps back to the top.</li>
+                <li>Manual renter entry now has separate username and User ID fields.</li>
+                <li>Status names are being changed to plain player wording.</li>
+                <li>The public install link is removed while testing stays private.</li>
               </ul>
             </div>
           </details>
