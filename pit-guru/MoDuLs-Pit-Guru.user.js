@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         MoDuL's Pit Guru
 // @namespace    modul.torn.racing
-// @version      2.0.8
+// @version      2.0.9
 // @description  Live Torn race timing, gaps, sectors, speed and estimated telemetry analysis
 // @author       MoDuL
 // @copyright    2026 MoDuL. All rights reserved.
@@ -309,7 +309,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
     unsafeWindow.pgPlayerCacheRaceId = pgPlayerFetchRaceDataById_;
     unsafeWindow.pgPlayerCacheCurrentRace = openLocalPlayerForCurrentRace_;
 
-    const MPG_VERSION = "2.0.8";
+    const MPG_VERSION = "2.0.9";
     var TAG = "[MoDuL's Pit Guru v" + MPG_VERSION + "]";
 
     const PitGuruRaceEngine = (() => {
@@ -5074,7 +5074,8 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
 
     function predictionDriverSet_() {
         const source = analysis?.drivers?.length ? "raceData" : "visible";
-        const drivers = source === "raceData" ? analysis.drivers : refreshPreRaceParticipants_();
+        const rawDrivers = source === "raceData" ? analysis.drivers : refreshPreRaceParticipants_();
+        const drivers = Array.isArray(rawDrivers) ? rawDrivers : [];
         const trackName = analysis?.trackName || raceMeta?.track || visibleRaceTrackName_() || "";
         for (const d of drivers) {
             const intel = getDriverIntelForDriver_(d);
@@ -12464,7 +12465,14 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
 
     function renderPredictionsMode_(providedSet = null) {
         if (!enablePredictions) return `<div class="mpg-note">Pre-race predictions are disabled in Settings.</div>`;
-        const set = providedSet || predictionDriverSet_();
+        const rawSet = providedSet && typeof providedSet === "object" && Array.isArray(providedSet.drivers)
+            ? providedSet
+            : predictionDriverSet_();
+        const set = {
+            drivers: Array.isArray(rawSet?.drivers) ? rawSet.drivers : [],
+            source: rawSet?.source || (analysis?.drivers?.length ? "raceData" : "visible"),
+            trackName: rawSet?.trackName || analysis?.trackName || raceMeta?.track || visibleRaceTrackName_() || ""
+        };
         if (!set.drivers.length) {
             return `<div class="mpg-note">Waiting for the race driver list. Predictions appear as soon as Pit Guru can see participants, before the race starts.</div>`;
         }
