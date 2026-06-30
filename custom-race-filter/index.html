@@ -58,7 +58,7 @@
           <h2>Supporter Access</h2>
           <p>Licensing for Custom Race Filter is handled through my Discord server rather than through the hub page itself.</p>
           <p>To get licensed, first make sure you are verified in the server. After that, head to <code>#bot-commands</code>, talk to <strong>The Stig</strong>, and run <code>/buylicense</code>.</p>
-          <p>The bot issues a <code>PP-CRF</code> supporter key, and the script checks access through the License API status endpoint for your Torn user ID.</p>
+          <p>No manual script key is needed. The bot grants access server-side, and the script unlocks Supporter features through the License API status endpoint for your Torn user ID.</p>
         </article>
 
         <article class="content-card content-card-full">
@@ -102,18 +102,29 @@
       <section class="content-card changelog-card" id="changelog" aria-label="Changelog">
         <p class="section-kicker">Release history</p>
         <h2>Changelog</h2>
-        <p>The current supporter build is v2.3.9, updated on June 30, 2026.</p>
+        <p>The current supporter build is v2.4.0, updated on July 1, 2026.</p>
 
         <div class="changelog-tree" role="tree">
           <details class="changelog-version" role="treeitem" open>
-            <summary class="changelog-summary">v2.3.9 - June 30, 2026</summary>
+            <summary class="changelog-summary">v2.4.0 - July 1, 2026</summary>
             <div class="changelog-content">
               <ul class="changelog-list">
                 <li>Current supporter build.</li>
-                <li>Supporter verification now uses only the Discord bot License API and active status endpoint.</li>
+                <li>Replaced the manual key paste panel with Discord Licensing instructions.</li>
+                <li>Supporter access now unlocks only from the active Discord bot License API status check for the detected Torn ID.</li>
+                <li>Old saved key data is no longer used to unlock or lock the UI.</li>
+                <li>Keeps the update notice modal, supporter filters, and OG-name-aware workflow in place.</li>
+              </ul>
+            </div>
+          </details>
+
+          <details class="changelog-version" role="treeitem">
+            <summary class="changelog-summary">v2.3.9 - June 30, 2026</summary>
+            <div class="changelog-content">
+              <ul class="changelog-list">
                 <li>Removed the old internal signed-key verifier.</li>
+                <li>Kept licensing aligned with the Discord bot License API process.</li>
                 <li>Added the update notice modal for Discord license instructions.</li>
-                <li>Keeps the supporter filter line, inline licence manager, and OG-name-aware workflow in place.</li>
               </ul>
             </div>
           </details>
