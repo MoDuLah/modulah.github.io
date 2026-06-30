@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         MoDuL's Pit Guru
 // @namespace    modul.torn.racing
-// @version      2.0.7
+// @version      2.0.8
 // @description  Live Torn race timing, gaps, sectors, speed and estimated telemetry analysis
 // @author       MoDuL
 // @copyright    2026 MoDuL. All rights reserved.
@@ -309,7 +309,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
     unsafeWindow.pgPlayerCacheRaceId = pgPlayerFetchRaceDataById_;
     unsafeWindow.pgPlayerCacheCurrentRace = openLocalPlayerForCurrentRace_;
 
-    const MPG_VERSION = "2.0.7";
+    const MPG_VERSION = "2.0.8";
     var TAG = "[MoDuL's Pit Guru v" + MPG_VERSION + "]";
 
     const PitGuruRaceEngine = (() => {
@@ -662,6 +662,10 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
     const STORE_DIRECT_FETCH_LEASE_KEY = "RT_TORN_RA_DIRECT_FETCH_LEASE_V1";
     const STORE_ONBOARDING_COMPLETE_KEY = "RT_TORN_RA_ONBOARDING_COMPLETE_V1";
     const STORE_HOSTED_TRACK_INTERVALS_KEY = "RT_TORN_MPG_HOSTED_TRACK_INTERVALS_V1";
+    const BIG_RACE_DB_NAME = "MoDuLsPitGuruBigRaceCache";
+    const BIG_RACE_DB_VERSION = 1;
+    const BIG_RACE_RAW_STORE = "rawRaceJson";
+    const BIG_RACE_SUMMARY_STORE = "processedSummaries";
     const STORE_RECORDS_MAX = 2500;
     const WIN_DEFAULT_WIDTH = 720;
     const WIN_DEFAULT_HEIGHT = 740;
@@ -884,6 +888,12 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
     const raceDataAcceptedStateByRaceId = new Map();
     const raceDataFetchStatsByRaceId = new Map();
     const optionalImageUrlCache = new Map();
+    const bigRaceRawStoredKeys = new Set();
+    const bigRaceSummaryStoredKeys = new Set();
+    const bigRaceSummaryInFlightKeys = new Set();
+    const bigRaceProcessedSummaryCache = new Map();
+    let bigRaceDbPromise = null;
+    let bigRaceCacheStatus = { rawStored: 0, summaryStored: 0, workerUsed: false, lastError: "" };
     let lastHeavyRaceStats = { heavyRace: false, estimatedPoints: 0, drivers: 0, laps: 0, intervals: 0 };
     let heavyRaceOverrideRaceKey = "";
     let heavyRaceShowAllDrivers = false;
@@ -1089,6 +1099,74 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
     }
     function saveJson_(key, obj) { GM_setValue(key, JSON.stringify(obj)); }
 
+    function bigRaceIndexedDbAvailable_() {
+        return typeof indexedDB !== "undefined";
+    }
+
+    function openBigRaceDb_() {
+        if (!bigRaceIndexedDbAvailable_()) return Promise.resolve(null);
+        if (bigRaceDbPromise) return bigRaceDbPromise;
+        bigRaceDbPromise = new Promise((resolve, reject) => {
+            try {
+                const req = indexedDB.open(BIG_RACE_DB_NAME, BIG_RACE_DB_VERSION);
+                req.onupgradeneeded = () => {
+                    const db = req.result;
+                    if (!db.objectStoreNames.contains(BIG_RACE_RAW_STORE)) {
+                        db.createObjectStore(BIG_RACE_RAW_STORE, { keyPath: "key" });
+                    }
+                    if (!db.objectStoreNames.contains(BIG_RACE_SUMMARY_STORE)) {
+                        db.createObjectStore(BIG_RACE_SUMMARY_STORE, { keyPath: "key" });
+                    }
+                };
+                req.onsuccess = () => resolve(req.result);
+                req.onerror = () => reject(req.error || new Error("IndexedDB open failed"));
+            } catch (error) {
+                reject(error);
+            }
+        }).catch(error => {
+            bigRaceCacheStatus.lastError = String(error?.message || error || "IndexedDB unavailable");
+            if (debugEnabled) console.warn(TAG, "Big Race IndexedDB unavailable", error);
+            return null;
+        });
+        return bigRaceDbPromise;
+    }
+
+    async function bigRaceIdbPut_(storeName, record) {
+        if (!record?.key) return false;
+        const db = await openBigRaceDb_();
+        if (!db) return false;
+        return await new Promise(resolve => {
+            try {
+                const tx = db.transaction(storeName, "readwrite");
+                tx.objectStore(storeName).put(record);
+                tx.oncomplete = () => resolve(true);
+                tx.onerror = () => {
+                    bigRaceCacheStatus.lastError = String(tx.error?.message || tx.error || "IndexedDB write failed");
+                    resolve(false);
+                };
+            } catch (error) {
+                bigRaceCacheStatus.lastError = String(error?.message || error || "IndexedDB write failed");
+                resolve(false);
+            }
+        });
+    }
+
+    async function bigRaceIdbGet_(storeName, key) {
+        if (!key) return null;
+        const db = await openBigRaceDb_();
+        if (!db) return null;
+        return await new Promise(resolve => {
+            try {
+                const tx = db.transaction(storeName, "readonly");
+                const req = tx.objectStore(storeName).get(key);
+                req.onsuccess = () => resolve(req.result || null);
+                req.onerror = () => resolve(null);
+            } catch {
+                resolve(null);
+            }
+        });
+    }
+
     function markDirty_(flags = {}) {
         uiDirty = true;
         if (!flags || !Object.keys(flags).length) {
@@ -1226,9 +1304,12 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
     function saveApiKeyInfo_() { saveJson_(STORE_API_KEY_INFO_KEY, apiKeyInfo || {}); }
     function loadDriverIntelCache_() {
         const data = loadJson_(STORE_DRIVER_INTEL_CACHE_KEY, {});
-        return data && typeof data === "object" && !Array.isArray(data) ? data : {};
+        return normalizeDriverIntelCache_(data && typeof data === "object" && !Array.isArray(data) ? data : {});
     }
-    function saveDriverIntelCache_() { saveJson_(STORE_DRIVER_INTEL_CACHE_KEY, driverIntelCache || {}); }
+    function saveDriverIntelCache_() {
+        driverIntelCache = normalizeDriverIntelCache_(driverIntelCache || {});
+        saveJson_(STORE_DRIVER_INTEL_CACHE_KEY, driverIntelCache || {});
+    }
     function loadDriverHistory_() {
         const data = loadJson_(STORE_DRIVER_HISTORY_KEY, {});
         return data && typeof data === "object" && !Array.isArray(data) ? data : {};
@@ -1719,10 +1800,63 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         };
     }
 
+    function driverIntelCanonicalId_(key, intel) {
+        const fromIntel = String(intel?.driverId || intel?.id || intel?.userID || intel?.userId || "").trim();
+        if (fromIntel) return fromIntel;
+        const rawKey = String(key || "").trim();
+        if (!rawKey || rawKey.startsWith("name:")) return "";
+        return rawKey;
+    }
+
+    function mergeDriverIntelEntries_(current, next, canonicalId = "") {
+        const base = (current && !current.__mpgAlias && typeof current === "object") ? current : {};
+        const incoming = (next && typeof next === "object") ? next : {};
+        const merged = { ...base, ...incoming };
+        if (canonicalId) merged.driverId = canonicalId;
+        return merged;
+    }
+
+    function driverIntelAlias_(target) {
+        return { __mpgAlias: String(target || "").trim() };
+    }
+
+    function resolveDriverIntelAlias_(entry, seen = new Set()) {
+        if (!entry || typeof entry !== "object") return null;
+        if (!entry.__mpgAlias) return entry;
+        const target = String(entry.__mpgAlias || "").trim();
+        if (!target || seen.has(target)) return null;
+        seen.add(target);
+        return resolveDriverIntelAlias_(driverIntelCache?.[target], seen);
+    }
+
+    function normalizeDriverIntelCache_(cache) {
+        const source = cache && typeof cache === "object" && !Array.isArray(cache) ? cache : {};
+        const normalized = {};
+        for (const [key, value] of Object.entries(source)) {
+            if (!value || typeof value !== "object") continue;
+            if (value.__mpgAlias) continue;
+            const canonical = driverIntelCanonicalId_(key, value);
+            if (!canonical) {
+                normalized[key] = mergeDriverIntelEntries_(normalized[key], value, "");
+                continue;
+            }
+            normalized[canonical] = mergeDriverIntelEntries_(normalized[canonical], value, canonical);
+        }
+        for (const [key, value] of Object.entries(source)) {
+            if (!value || typeof value !== "object") continue;
+            const canonical = driverIntelCanonicalId_(key, value);
+            if (canonical && key !== canonical) normalized[key] = driverIntelAlias_(canonical);
+            const nameKey = driverIntelNameKey_(value.name);
+            if (canonical && nameKey) normalized[nameKey] = driverIntelAlias_(canonical);
+            if (value.__mpgAlias && normalized[value.__mpgAlias] && key !== value.__mpgAlias) normalized[key] = driverIntelAlias_(value.__mpgAlias);
+        }
+        return normalized;
+    }
+
     function getCachedDriverIntel_(driverId, maxAgeHours = 24 * 7) {
         const id = String(driverId || "").trim();
         if (!id) return null;
-        const cached = driverIntelCache?.[id];
+        const cached = resolveDriverIntelAlias_(driverIntelCache?.[id]);
         if (!cached || !cached.fetchedAt) return null;
         if ((Date.now() - Number(cached.fetchedAt)) > maxAgeHours * 3600 * 1000) return null;
         return cached;
@@ -1736,10 +1870,19 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
     function cacheDriverIntel_(key, intel) {
         if (!intel) return;
         const idKey = String(key || "").trim();
-        if (idKey) driverIntelCache[idKey] = intel;
-        if (intel.driverId) driverIntelCache[String(intel.driverId)] = intel;
+        const canonical = driverIntelCanonicalId_(idKey, intel);
+        if (canonical) {
+            const merged = mergeDriverIntelEntries_(resolveDriverIntelAlias_(driverIntelCache[canonical]), intel, canonical);
+            driverIntelCache[canonical] = merged;
+            if (idKey && idKey !== canonical) driverIntelCache[idKey] = driverIntelAlias_(canonical);
+            if (intel.driverId && String(intel.driverId) !== canonical) driverIntelCache[String(intel.driverId)] = driverIntelAlias_(canonical);
+            const nameKey = driverIntelNameKey_(merged.name || intel.name);
+            if (nameKey) driverIntelCache[nameKey] = driverIntelAlias_(canonical);
+            return;
+        }
+        if (idKey) driverIntelCache[idKey] = mergeDriverIntelEntries_(driverIntelCache[idKey], intel, "");
         const nameKey = driverIntelNameKey_(intel.name);
-        if (nameKey) driverIntelCache[nameKey] = intel;
+        if (nameKey && nameKey !== idKey) driverIntelCache[nameKey] = idKey ? driverIntelAlias_(idKey) : intel;
     }
 
     function getCachedDriverIntelByName_(name, maxAgeHours = 24 * 7) {
@@ -1750,7 +1893,8 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         }
         const nn = normalizeDriverName_(name || "");
         if (!nn) return null;
-        for (const intel of Object.values(driverIntelCache || {})) {
+        for (const entry of Object.values(driverIntelCache || {})) {
+            const intel = resolveDriverIntelAlias_(entry);
             if (!intel?.fetchedAt || (Date.now() - Number(intel.fetchedAt)) > maxAgeHours * 3600 * 1000) continue;
             if (normalizeDriverName_(intel.name || "") === nn) return intel;
         }
@@ -1928,6 +2072,286 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         }));
     }
 
+    function bigRaceCacheIdentity_(payload) {
+        const p = getRacePayload_(payload) || payload || {};
+        const signature = raceDataStaticSignature_(p);
+        const raceId = directRaceIdFromPayload_(p) || extractRaceIdFromPayloadOrUrl_(p) || raceDataPayloadKey_(p);
+        const heavy = heavyRaceStatsFromPayload_(p);
+        return {
+            key: `${raceId || "race"}:${signature}`,
+            raceId: String(raceId || "").trim(),
+            signature,
+            heavy
+        };
+    }
+
+    function persistBigRaceRawPayload_(raw) {
+        const p = getRacePayload_(raw) || raw || {};
+        if (!p?.cars) return false;
+        const identity = bigRaceCacheIdentity_(p);
+        if (!identity.heavy.heavyRace || !identity.key || bigRaceRawStoredKeys.has(identity.key)) return false;
+        bigRaceRawStoredKeys.add(identity.key);
+        (async () => {
+            const existing = await bigRaceIdbGet_(BIG_RACE_RAW_STORE, identity.key);
+            if (existing?.payload) return true;
+            return await bigRaceIdbPut_(BIG_RACE_RAW_STORE, {
+                key: identity.key,
+                raceId: identity.raceId,
+                signature: identity.signature,
+                storedAt: Date.now(),
+                estimatedPoints: identity.heavy.estimatedPoints || 0,
+                payload: raw || p
+            });
+        })().then(ok => {
+            if (ok) {
+                bigRaceCacheStatus.rawStored += 1;
+                if (bigRaceObservationShouldPause_()) disconnectJoinRaceObserver_();
+            } else {
+                bigRaceRawStoredKeys.delete(identity.key);
+            }
+            markDirty_({ status: true });
+            scheduleRender_();
+        }).catch(error => {
+            bigRaceRawStoredKeys.delete(identity.key);
+            bigRaceCacheStatus.lastError = String(error?.message || error || "raw cache failed");
+        });
+        return true;
+    }
+
+    function finiteSummaryNumber_(value) {
+        const n = Number(value);
+        return Number.isFinite(n) ? n : null;
+    }
+
+    function processedSummaryInputFromAnalysis_(model) {
+        if (!model?.drivers?.length) return null;
+        const identity = model.bigRaceCacheKey
+            ? { key: model.bigRaceCacheKey, raceId: model.raceId || "", signature: model.bigRaceStaticSignature || "", heavy: model.heavyRaceStats || {} }
+            : bigRaceCacheIdentity_(model.payload);
+        return {
+            version: 1,
+            key: identity.key,
+            raceId: String(model.raceId || identity.raceId || "").trim(),
+            signature: identity.signature || model.bigRaceStaticSignature || "",
+            estimatedPoints: Number(model.heavyRaceStats?.estimatedPoints || identity.heavy?.estimatedPoints || 0),
+            meta: {
+                trackName: model.trackName || "",
+                trackKey: model.trackKey || "",
+                laps: Number(model.laps || 0),
+                segmentsPerLap: Number(model.segmentsPerLap || 0),
+                drivers: model.drivers.length
+            },
+            drivers: model.drivers.map((d, index) => ({
+                driverId: String(d.driverId || d.engineKey || normalizeDriverName_(d.name || "") || `driver-${index + 1}`),
+                name: String(d.name || ""),
+                car: toOgCarName_(d.car || ""),
+                racingSkill: finiteSummaryNumber_(d.racingSkill),
+                startPosition: finiteSummaryNumber_(d.startPosition || index + 1),
+                finalTime: finiteSummaryNumber_(d.finalTime),
+                crashed: !!d.crashed,
+                completedFullLaps: finiteSummaryNumber_(d.completedFullLaps),
+                bestLapSeconds: finiteSummaryNumber_(d.bestLapSeconds),
+                averageLapSeconds: finiteSummaryNumber_(d.averageLapSeconds),
+                idealLapSeconds: finiteSummaryNumber_(d.idealLapSeconds),
+                consistencyScore: finiteSummaryNumber_(d.consistencyScore),
+                topSpeedMps: finiteSummaryNumber_(d.topSpeedMps),
+                sectorsWon: finiteSummaryNumber_(d.sectorsWon),
+                lapsLed: finiteSummaryNumber_(d.lapsLed),
+                segmentsLed: finiteSummaryNumber_(d.segmentsLed),
+                timeInLeadSeconds: finiteSummaryNumber_(d.timeInLeadSeconds),
+                leadChanges: finiteSummaryNumber_(d.leadChanges),
+                lapTotals: (d.validLapTimes || []).map(lap => ({
+                    lap: Number(lap.lap || 0),
+                    seconds: finiteSummaryNumber_(lap.seconds)
+                })).filter(lap => lap.lap > 0 && lap.seconds != null),
+                sectorTimes: (d.sectorTimes || []).map(sec => ({
+                    sector: Number(sec.sector || 0),
+                    lap: Number(sec.lap || 0),
+                    seconds: finiteSummaryNumber_(sec.seconds)
+                })).filter(sec => sec.sector > 0 && sec.seconds != null)
+            }))
+        };
+    }
+
+    function buildProcessedSummarySync_(input) {
+        const finite = value => {
+            const n = Number(value);
+            return Number.isFinite(n) ? n : null;
+        };
+        const average = values => {
+            const nums = values.map(Number).filter(Number.isFinite);
+            return nums.length ? nums.reduce((sum, n) => sum + n, 0) / nums.length : null;
+        };
+        const sectorSummaries = times => [1, 2, 3].map(sector => {
+            const values = (times || []).filter(x => Number(x.sector) === sector).map(x => Number(x.seconds)).filter(Number.isFinite);
+            return {
+                sector,
+                count: values.length,
+                bestSeconds: values.length ? Math.min(...values) : null,
+                averageSeconds: values.length ? average(values) : null
+            };
+        });
+        const drivers = (input?.drivers || []).map((d, index) => ({ ...d, inputIndex: index }));
+        const finalOrder = drivers.slice().sort((a, b) => {
+            if (!!a.crashed !== !!b.crashed) return a.crashed ? 1 : -1;
+            const af = Number.isFinite(Number(a.finalTime)) ? Number(a.finalTime) : Infinity;
+            const bf = Number.isFinite(Number(b.finalTime)) ? Number(b.finalTime) : Infinity;
+            if (af !== bf) return af - bf;
+            const as = Number.isFinite(Number(a.startPosition)) ? Number(a.startPosition) : a.inputIndex + 1;
+            const bs = Number.isFinite(Number(b.startPosition)) ? Number(b.startPosition) : b.inputIndex + 1;
+            return as - bs;
+        });
+        const positionById = new Map();
+        finalOrder.forEach((d, index) => positionById.set(String(d.driverId || d.inputIndex), index + 1));
+        const leader = finalOrder.find(d => !d.crashed && Number.isFinite(Number(d.finalTime))) || null;
+        const leaderTime = Number(leader?.finalTime);
+        const aheadById = new Map();
+        for (let i = 0; i < finalOrder.length; i++) {
+            const current = finalOrder[i];
+            const ahead = i > 0 ? finalOrder[i - 1] : null;
+            aheadById.set(String(current.driverId || current.inputIndex), ahead);
+        }
+        return {
+            version: 1,
+            key: input?.key || "",
+            raceId: input?.raceId || "",
+            signature: input?.signature || "",
+            estimatedPoints: Number(input?.estimatedPoints || 0),
+            generatedAt: Date.now(),
+            meta: input?.meta || {},
+            drivers: drivers.map(d => {
+                const id = String(d.driverId || d.inputIndex);
+                const finalPosition = positionById.get(id) || null;
+                const startPosition = finite(d.startPosition);
+                const finalTime = finite(d.finalTime);
+                const ahead = aheadById.get(id);
+                const aheadTime = finite(ahead?.finalTime);
+                return {
+                    driverId: d.driverId,
+                    name: d.name,
+                    car: d.car,
+                    racingSkill: finite(d.racingSkill),
+                    startPosition,
+                    finalPosition,
+                    positionChange: startPosition && finalPosition ? startPosition - finalPosition : null,
+                    finalTime,
+                    crashed: !!d.crashed,
+                    completedFullLaps: finite(d.completedFullLaps),
+                    bestLapSeconds: finite(d.bestLapSeconds),
+                    averageLapSeconds: finite(d.averageLapSeconds),
+                    idealLapSeconds: finite(d.idealLapSeconds),
+                    consistencyScore: finite(d.consistencyScore),
+                    topSpeedMps: finite(d.topSpeedMps),
+                    lapTotals: d.lapTotals || [],
+                    sectorSummaries: sectorSummaries(d.sectorTimes || []),
+                    gapSummary: {
+                        toLeaderSeconds: (!d.crashed && Number.isFinite(finalTime) && Number.isFinite(leaderTime)) ? finalTime - leaderTime : null,
+                        aheadSeconds: (!d.crashed && ahead && !ahead.crashed && Number.isFinite(finalTime) && Number.isFinite(aheadTime)) ? finalTime - aheadTime : null
+                    },
+                    sectorsWon: finite(d.sectorsWon),
+                    lapsLed: finite(d.lapsLed),
+                    segmentsLed: finite(d.segmentsLed),
+                    timeInLeadSeconds: finite(d.timeInLeadSeconds),
+                    leadChanges: finite(d.leadChanges)
+                };
+            })
+        };
+    }
+
+    function buildProcessedSummaryWorkerSource_() {
+        return `"use strict";\nconst finite=value=>{const n=Number(value);return Number.isFinite(n)?n:null;};\nconst average=values=>{const nums=values.map(Number).filter(Number.isFinite);return nums.length?nums.reduce((sum,n)=>sum+n,0)/nums.length:null;};\nconst sectorSummaries=times=>[1,2,3].map(sector=>{const values=(times||[]).filter(x=>Number(x.sector)===sector).map(x=>Number(x.seconds)).filter(Number.isFinite);return{sector,count:values.length,bestSeconds:values.length?Math.min(...values):null,averageSeconds:values.length?average(values):null};});\nfunction build(input){const drivers=(input&&input.drivers||[]).map((d,index)=>Object.assign({},d,{inputIndex:index}));const finalOrder=drivers.slice().sort((a,b)=>{if(!!a.crashed!==!!b.crashed)return a.crashed?1:-1;const af=Number.isFinite(Number(a.finalTime))?Number(a.finalTime):Infinity;const bf=Number.isFinite(Number(b.finalTime))?Number(b.finalTime):Infinity;if(af!==bf)return af-bf;const as=Number.isFinite(Number(a.startPosition))?Number(a.startPosition):a.inputIndex+1;const bs=Number.isFinite(Number(b.startPosition))?Number(b.startPosition):b.inputIndex+1;return as-bs;});const positionById=new Map();finalOrder.forEach((d,index)=>positionById.set(String(d.driverId||d.inputIndex),index+1));const leader=finalOrder.find(d=>!d.crashed&&Number.isFinite(Number(d.finalTime)))||null;const leaderTime=Number(leader&&leader.finalTime);const aheadById=new Map();for(let i=0;i<finalOrder.length;i++){aheadById.set(String(finalOrder[i].driverId||finalOrder[i].inputIndex),i>0?finalOrder[i-1]:null);}return{version:1,key:input&&input.key||"",raceId:input&&input.raceId||"",signature:input&&input.signature||"",estimatedPoints:Number(input&&input.estimatedPoints||0),generatedAt:Date.now(),meta:input&&input.meta||{},drivers:drivers.map(d=>{const id=String(d.driverId||d.inputIndex);const finalPosition=positionById.get(id)||null;const startPosition=finite(d.startPosition);const finalTime=finite(d.finalTime);const ahead=aheadById.get(id);const aheadTime=finite(ahead&&ahead.finalTime);return{driverId:d.driverId,name:d.name,car:d.car,racingSkill:finite(d.racingSkill),startPosition,finalPosition,positionChange:startPosition&&finalPosition?startPosition-finalPosition:null,finalTime,crashed:!!d.crashed,completedFullLaps:finite(d.completedFullLaps),bestLapSeconds:finite(d.bestLapSeconds),averageLapSeconds:finite(d.averageLapSeconds),idealLapSeconds:finite(d.idealLapSeconds),consistencyScore:finite(d.consistencyScore),topSpeedMps:finite(d.topSpeedMps),lapTotals:d.lapTotals||[],sectorSummaries:sectorSummaries(d.sectorTimes||[]),gapSummary:{toLeaderSeconds:!d.crashed&&Number.isFinite(finalTime)&&Number.isFinite(leaderTime)?finalTime-leaderTime:null,aheadSeconds:!d.crashed&&ahead&&!ahead.crashed&&Number.isFinite(finalTime)&&Number.isFinite(aheadTime)?finalTime-aheadTime:null},sectorsWon:finite(d.sectorsWon),lapsLed:finite(d.lapsLed),segmentsLed:finite(d.segmentsLed),timeInLeadSeconds:finite(d.timeInLeadSeconds),leadChanges:finite(d.leadChanges)};})};}\nself.onmessage=event=>{try{self.postMessage({ok:true,summary:build(event.data)});}catch(error){self.postMessage({ok:false,error:String(error&&error.message||error||"worker failed")});}};`;
+    }
+
+    function buildProcessedSummaryWithWorker_(input) {
+        if (typeof Worker === "undefined" || typeof Blob === "undefined" || typeof URL === "undefined" || typeof URL.createObjectURL !== "function") {
+            return Promise.resolve(buildProcessedSummarySync_(input));
+        }
+        return new Promise(resolve => {
+            let worker = null;
+            let url = "";
+            let done = false;
+            const finish = summary => {
+                if (done) return;
+                done = true;
+                try { if (worker) worker.terminate(); } catch {}
+                try { if (url) URL.revokeObjectURL(url); } catch {}
+                resolve(summary || buildProcessedSummarySync_(input));
+            };
+            try {
+                url = URL.createObjectURL(new Blob([buildProcessedSummaryWorkerSource_()], { type: "text/javascript" }));
+                worker = new Worker(url);
+                const timer = setTimeout(() => finish(null), 4000);
+                worker.onmessage = event => {
+                    clearTimeout(timer);
+                    if (event.data?.ok && event.data.summary) {
+                        bigRaceCacheStatus.workerUsed = true;
+                        finish(event.data.summary);
+                    } else {
+                        bigRaceCacheStatus.lastError = String(event.data?.error || "summary worker failed");
+                        finish(null);
+                    }
+                };
+                worker.onerror = error => {
+                    clearTimeout(timer);
+                    bigRaceCacheStatus.lastError = String(error?.message || error || "summary worker failed");
+                    finish(null);
+                };
+                worker.postMessage(input);
+            } catch (error) {
+                bigRaceCacheStatus.lastError = String(error?.message || error || "summary worker unavailable");
+                finish(null);
+            }
+        });
+    }
+
+    function persistBigRaceProcessedSummary_(model) {
+        if (!model?.heavyRace || !model?.drivers?.length) return false;
+        const identity = model.bigRaceCacheKey
+            ? { key: model.bigRaceCacheKey, raceId: model.raceId || "", signature: model.bigRaceStaticSignature || "", heavy: model.heavyRaceStats || {} }
+            : bigRaceCacheIdentity_(model.payload);
+        if (!identity.key) return false;
+        const cached = bigRaceProcessedSummaryCache.get(identity.key);
+        if (cached) {
+            model.processedSummary = cached;
+            return true;
+        }
+        if (bigRaceSummaryStoredKeys.has(identity.key) || bigRaceSummaryInFlightKeys.has(identity.key)) return true;
+        bigRaceSummaryInFlightKeys.add(identity.key);
+        (async () => {
+            const stored = await bigRaceIdbGet_(BIG_RACE_SUMMARY_STORE, identity.key);
+            if (stored?.summary) {
+                bigRaceProcessedSummaryCache.set(identity.key, stored.summary);
+                model.processedSummary = stored.summary;
+                bigRaceSummaryStoredKeys.add(identity.key);
+                return;
+            }
+            const input = processedSummaryInputFromAnalysis_(model);
+            if (!input) return;
+            const summary = await buildProcessedSummaryWithWorker_(input);
+            bigRaceProcessedSummaryCache.set(identity.key, summary);
+            model.processedSummary = summary;
+            const ok = await bigRaceIdbPut_(BIG_RACE_SUMMARY_STORE, {
+                key: identity.key,
+                raceId: identity.raceId || model.raceId || "",
+                signature: identity.signature || model.bigRaceStaticSignature || "",
+                storedAt: Date.now(),
+                estimatedPoints: identity.heavy?.estimatedPoints || model.heavyRaceStats?.estimatedPoints || 0,
+                summary
+            });
+            if (ok) {
+                bigRaceSummaryStoredKeys.add(identity.key);
+                bigRaceCacheStatus.summaryStored += 1;
+            }
+        })().catch(error => {
+            bigRaceCacheStatus.lastError = String(error?.message || error || "summary cache failed");
+        }).finally(() => {
+            bigRaceSummaryInFlightKeys.delete(identity.key);
+            markDirty_({ status: true });
+            scheduleRender_();
+        });
+        return true;
+    }
+
     function raceDataFetchRaceKey_(raceId = "", payload = null) {
         const payloadRid = payload ? directRaceIdFromPayload_(payload) : "";
         return String(raceId || payloadRid || directCurrentRaceId || urlRaceId_() || visibleRaceId_() || raceMeta?.raceId || "current").trim();
@@ -2011,6 +2435,18 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
     function directRaceDataFetchComplete_(raceId) {
         const state = raceDataAcceptedState_(raceId, false);
         return !!(state?.accepted && state.complete);
+    }
+
+    function bigRaceObservationShouldPause_() {
+        const payload = latestRaceDataPayload || analysis?.payload || null;
+        if (!payload || !heavyRaceMode_()) return false;
+        const fetchKey = raceDataFetchRaceKey_("", payload);
+        const payloadKey = raceDataPayloadKey_(payload);
+        const cacheKey = bigRaceCacheIdentity_(payload).key;
+        return raceDataStatusFinished_(payload)
+            || directRaceDataFetchComplete_(fetchKey)
+            || pgPlayerCachedRaceKeys.has(payloadKey)
+            || bigRaceRawStoredKeys.has(cacheKey);
     }
 
     function pgPlayerDecodedIntervalsPreview_(value) {
@@ -2743,7 +3179,8 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         const cars = p?.cars || p?.raceData?.cars || {};
         const drivers = Object.keys(cars || {}).length || Number(raceMetaFromPayload_(p, false).currentDrivers) || fieldSize_() || 0;
         const laps = extractLapsFromPayloadOrUi_(p);
-        const intervals = Array.isArray(p?.trackData?.intervals) ? p.trackData.intervals.length : (analysis?.segmentsPerLap || 0);
+        const rawIntervals = p?.trackData?.intervals || p?.raceData?.trackData?.intervals || [];
+        const intervals = Array.isArray(rawIntervals) ? rawIntervals.length : (analysis?.segmentsPerLap || 0);
         const estimatedPoints = Math.max(0, drivers) * Math.max(0, laps) * Math.max(0, intervals);
         return {
             drivers,
@@ -3169,6 +3606,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
                 return true;
             }
             latestRaceDataPayload = payload;
+            persistBigRaceRawPayload_(payload);
             raceDataReceivedPerfMs = performance.now();
             raceDataCurrentTimeAtReceive = Number(payload?.timeData?.currentTime);
             clearedRaceDataKey = "";
@@ -3176,7 +3614,9 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
             maybeSwitchReplayAnalysisMode_(payload, source);
             markPlayerRaceDataAvailable_();
             if (debugEnabled) console.log(TAG, "raceData captured", source || "", analysis);
-            pgPlayerCacheRaceData_(payload, source || "captured-racingData").catch(() => {});
+            pgPlayerCacheRaceData_(payload, source || "captured-racingData")
+                .then(() => { if (bigRaceObservationShouldPause_()) disconnectJoinRaceObserver_(); })
+                .catch(() => {});
             const notifyKey = analysis?.raceId || raceDataPayloadKey_(analysis?.payload || payload);
             if (shouldPopulateFinalAnalysisNow_() && notifyKey && finalAnalysisNotifiedForRaceId !== notifyKey) {
                 finalAnalysisNotifiedForRaceId = notifyKey;
@@ -3640,7 +4080,9 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         const trackMeta = TRACK_META[trackKey] || null;
         const laps = extractLapsFromPayloadOrUi_(payload);
         const heavyStats = heavyRaceStatsFromPayload_(payload);
+        const bigRaceIdentity = bigRaceCacheIdentity_(payload);
         lastHeavyRaceStats = heavyStats;
+        if (heavyStats.heavyRace) persistBigRaceRawPayload_(payload);
         let engineModel = null;
         try {
             engineModel = PitGuruRaceEngine.parseRaceData(payload, { laps });
@@ -3727,6 +4169,9 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
             laps,
             heavyRace: heavyStats.heavyRace,
             heavyRaceStats: heavyStats,
+            bigRaceCacheKey: bigRaceIdentity.key,
+            bigRaceStaticSignature: bigRaceIdentity.signature,
+            processedSummary: bigRaceProcessedSummaryCache.get(bigRaceIdentity.key) || null,
             segmentsPerLap,
             lapMeters,
             engineModel,
@@ -3741,6 +4186,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         liveOrderCache = { key: "", value: [] };
         applyDriverIntelToModel_();
         syncRaceMetaFromAnalysis_();
+        persistBigRaceProcessedSummary_(analysis);
         return analysis;
     }
 
@@ -6220,18 +6666,19 @@ return {
             isReplayPage_() ||
             !clearOnRaceChange ||
             !analysis ||
-            !priorRaceFinishedForClear_()
+            !priorRaceFinishedForClear_() ||
+            bigRaceObservationShouldPause_()
         ) return;
         const root = document.body || document.documentElement;
         if (!root) return;
         joinRaceObserver = new MutationObserver(() => {
-            if (!clearOnRaceChange || !analysis || !priorRaceFinishedForClear_()) {
+            if (!clearOnRaceChange || !analysis || !priorRaceFinishedForClear_() || bigRaceObservationShouldPause_()) {
                 disconnectJoinRaceObserver_();
                 return;
             }
             clearTimeout(joinRaceClearTimer);
             joinRaceClearTimer = setTimeout(() => {
-                if (clearOnRaceChange && analysis && priorRaceFinishedForClear_() && hasJoinRacingEventAction_()) {
+                if (clearOnRaceChange && analysis && priorRaceFinishedForClear_() && !bigRaceObservationShouldPause_() && hasJoinRacingEventAction_()) {
                     resetForRaceChange_("");
                 }
             }, 120);
@@ -12507,7 +12954,13 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
         const heavy = heavyRaceStats_();
         const rendered = Number(stats.renderedRows || 0);
         const total = Number(stats.totalRows || heavy.drivers || fieldSize_() || 0);
-        return `Heavy mode: ${heavyRaceLightweightMode_() ? "ON" : "OFF"}, estimated points: ${Math.round(heavy.estimatedPoints || 0).toLocaleString()}, racingData fetches: ${stats.fetches || 0}, duplicate payloads skipped: ${stats.duplicatePayloadsSkipped || 0}, rendered rows: ${rendered}/${total}.`;
+        const payload = latestRaceDataPayload || analysis?.payload || null;
+        const cacheKey = payload ? bigRaceCacheIdentity_(payload).key : "";
+        const rawState = cacheKey && bigRaceRawStoredKeys.has(cacheKey) ? "stored" : "pending";
+        const summaryState = cacheKey && (bigRaceSummaryStoredKeys.has(cacheKey) || bigRaceProcessedSummaryCache.has(cacheKey)) ? "stored" : (cacheKey && bigRaceSummaryInFlightKeys.has(cacheKey) ? "building" : "pending");
+        const worker = bigRaceCacheStatus.workerUsed ? ", worker: used" : "";
+        const error = bigRaceCacheStatus.lastError ? `, cache note: ${bigRaceCacheStatus.lastError}` : "";
+        return `Heavy mode: ${heavyRaceLightweightMode_() ? "ON" : "OFF"}, estimated points: ${Math.round(heavy.estimatedPoints || 0).toLocaleString()}, racingData fetches: ${stats.fetches || 0}, duplicate payloads skipped: ${stats.duplicatePayloadsSkipped || 0}, rendered rows: ${rendered}/${total}. Big Race cache: raw ${rawState}, summary ${summaryState}${worker}${error}.`;
     }
 
     function scheduleRender_(dirty = null) {
@@ -13104,7 +13557,7 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
             maybeFetchRacingDataForCurrentRace_();
             if (!liveWorking || !largeFieldMode_()) maybeAutoFetchDriverIntel_();
             ensureRaceMeta_();
-            if (clearOnRaceChange && analysis && priorRaceFinishedForClear_()) installJoinRaceObserver_();
+            if (clearOnRaceChange && analysis && priorRaceFinishedForClear_() && !bigRaceObservationShouldPause_()) installJoinRaceObserver_();
             else disconnectJoinRaceObserver_();
             if (!liveWorking) {
                 uiDirty = true;
