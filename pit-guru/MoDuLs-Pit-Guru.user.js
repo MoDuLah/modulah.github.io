@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         MoDuL's Pit Guru
 // @namespace    modul.torn.racing
-// @version      2.1.0
+// @version      2.1.1
 // @description  Live Torn race timing, gaps, sectors, speed and estimated telemetry analysis
 // @author       MoDuL
 // @copyright    2026 MoDuL. All rights reserved.
@@ -354,7 +354,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         try {
             const result = await pgLocalApiRequest('/health', null, { forceRefresh: true });
             console.log('[Pit Guru Local API health]', result);
-            alert('Pit Guru hosted API works. Check console for details.');
+            alert(`Pit Guru hosted API works:\n${JSON.stringify(result, null, 2).slice(0, 1800)}`);
             return result;
         } catch (error) {
             console.error('[Pit Guru Local API health failed]', error);
@@ -550,8 +550,9 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
     unsafeWindow.pgPitGuruApiBase = pgApiBase_;
     unsafeWindow.pgPitGuruPlayerBase = pgPlayerBase_;
     unsafeWindow.pgPitGuruClearApiCache = pgClearApiResponseCache_;
+    unsafeWindow.pgPitGuruHealthTest = unsafeWindow.pgLocalHealthTest;
 
-    const MPG_VERSION = "2.1.0";
+    const MPG_VERSION = "2.1.1";
     var TAG = "[MoDuL's Pit Guru v" + MPG_VERSION + "]";
 
     const PitGuruRaceEngine = (() => {
@@ -939,10 +940,10 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
     const LONGITUDINAL_G_LIMIT = 2.4;
     const LATERAL_G_LIMIT = 2.8;
     const PERFORMANCE_PRESETS = Object.freeze({
-        balanced: { label: "Balanced", visibleRaceScanMs: 1500, participantScanMs: 2500, driverIdLookupMs: 5000, driverIntelSettleMs: 2500, participantScanRepeat: "continuous" },
-        fast: { label: "Fast", visibleRaceScanMs: 750, participantScanMs: 1250, driverIdLookupMs: 2500, driverIntelSettleMs: 1500, participantScanRepeat: "continuous" },
-        eco: { label: "Eco", visibleRaceScanMs: 3000, participantScanMs: 5000, driverIdLookupMs: 10000, driverIntelSettleMs: 4000, participantScanRepeat: "twice" },
-        once: { label: "Once", visibleRaceScanMs: 5000, participantScanMs: 8000, driverIdLookupMs: 15000, driverIntelSettleMs: 5000, participantScanRepeat: "once" }
+        balanced: { label: "Balanced", visibleRaceScanMs: 1500, participantScanMs: 2500, driverIdLookupMs: 5000, driverIntelSettleMs: 2500, participantScanRepeat: "continuous", focusWindowEachSide: 5 },
+        fast: { label: "Fast", visibleRaceScanMs: 750, participantScanMs: 1250, driverIdLookupMs: 2500, driverIntelSettleMs: 1500, participantScanRepeat: "continuous", focusWindowEachSide: 7 },
+        eco: { label: "Eco", visibleRaceScanMs: 3000, participantScanMs: 5000, driverIdLookupMs: 10000, driverIntelSettleMs: 4000, participantScanRepeat: "twice", focusWindowEachSide: 3 },
+        once: { label: "Once", visibleRaceScanMs: 5000, participantScanMs: 8000, driverIdLookupMs: 15000, driverIntelSettleMs: 5000, participantScanRepeat: "once", focusWindowEachSide: 3 }
     });
     const TRACK_META = Object.freeze({
         "underdog":    { name: "Underdog",    lapMiles: 1.73, officialLaps: 9,  lapKm: 2.78 },
@@ -1520,6 +1521,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         driverIdLookupMs = preset.driverIdLookupMs;
         driverIntelSettleMs = preset.driverIntelSettleMs;
         participantScanRepeat = preset.participantScanRepeat;
+        focusedRowWindowEachSide = preset.focusWindowEachSide;
         if (persist) savePerformanceTuning_();
         resetScanCaches_();
         return true;
@@ -7323,7 +7325,7 @@ img.carIcon{
 .mpg-section-head p,.mpg-section-note{margin:0;color:var(--muted);font-size:12px;line-height:1.35}
 .mpg-setting-row{display:grid;grid-template-columns:minmax(130px,180px) minmax(0,1fr);gap:10px;align-items:center}
 .mpg-setting-row label,.mpg-setting-label{font-weight:800;color:var(--text)}
-.mpg-setting-row select,.mpg-setting-row input[type="text"],.mpg-setting-row input[type="password"]{
+.mpg-setting-row select,.mpg-setting-row input[type="text"],.mpg-setting-row input[type="password"],.mpg-setting-row input[type="number"]{
   width:100%;
   min-width:0;
   background:var(--pill);
@@ -9634,21 +9636,12 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
             recordsOpen ? 1 : 0, recordsDetached ? 1 : 0, clearOnRaceChange ? 1 : 0,
             fuelEnabled ? 1 : 0, fuelDisplayStyle, liveCommentaryEnabled ? 1 : 0, pitCrewEnabled ? 1 : 0, experimentalGyroTrace ? 1 : 0,
             performancePreset, visibleRaceScanMs, participantScanMs, driverIdLookupMs, driverIntelSettleMs, participantScanRepeat, focusedRowWindowEachSide,
-            heavyRaceDebugLine_(), pgEndpointMode_(), pgCustomApiBase_(), pgCustomPlayerBase_(), pgApiBase_(), pgPlayerBase_()
+            heavyRaceDebugLine_()
         ].join("|");
         if (panel.dataset.renderKey === key && panel.children.length) return;
         const active = document.activeElement;
         if (panel.contains(active) && /^(INPUT|SELECT|TEXTAREA)$/i.test(active?.tagName || "")) return;
         panel.dataset.renderKey = key;
-        const endpointMode = pgEndpointMode_();
-        const activeApiBase = pgApiBase_();
-        const activePlayerBase = pgPlayerBase_();
-        const customApiBase = pgCustomApiBase_();
-        const customPlayerBase = pgCustomPlayerBase_();
-        const customEndpointDisabled = endpointMode === "custom" ? "" : " disabled";
-        const endpointOptions = Object.entries(PG_ENDPOINT_PRESETS)
-            .map(([mode, preset]) => `<option value="${escAttr_(mode)}"${endpointMode === mode ? " selected" : ""}>${esc_(preset.label)}</option>`)
-            .join("");
         const keyInput = apiKeyVisible || !apiKey
             ? `<input id="mpgApiKey" type="${apiKeyVisible ? "text" : "password"}" autocomplete="off" value="${escAttr_(apiKey)}" placeholder="Torn API key">`
             : `<input id="mpgApiKey" type="text" readonly value="${escAttr_(maskApiKey_(apiKey))}" title="Click View to reveal or edit">`;
@@ -9671,20 +9664,6 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
               <button id="mpgRefreshMissingIntel" class="pill" type="button"${driverIntelFetchActive || !apiKey ? " disabled" : ""}>Refresh Driver Profiles</button>
               <button id="mpgClearIntel" class="pill" type="button">Clear Intel Cache</button>
               <span class="muted">${esc_(driverIntelStatus || apiKeyStatus || "One API call per uncached driver. Manual driver-list fetching was removed because this now runs automatically.")}</span>
-            </div>
-          </section>
-
-          <section class="mpg-settings-section wide">
-            <div class="mpg-section-head"><h3>Hosted API & Player</h3><p>Endpoint selection applies to records, predictions, garage data, and the hosted race player.</p></div>
-            <div class="mpg-setting-row"><label for="mpgEndpointMode">Endpoint mode</label><select id="mpgEndpointMode">${endpointOptions}</select></div>
-            <div class="mpg-setting-row"><label for="mpgCustomApiBase">Custom API base</label><input id="mpgCustomApiBase" type="text" inputmode="url" value="${escAttr_(customApiBase)}"${customEndpointDisabled}></div>
-            <div class="mpg-setting-row"><label for="mpgCustomPlayerBase">Custom player base</label><input id="mpgCustomPlayerBase" type="text" inputmode="url" value="${escAttr_(customPlayerBase)}"${customEndpointDisabled}></div>
-            <p class="mpg-section-note mono">API: ${esc_(activeApiBase)}</p>
-            <p class="mpg-section-note mono">Player: ${esc_(activePlayerBase)}</p>
-            <div class="mpg-setting-actions">
-              <button id="mpgTestHostedApi" class="pill" type="button">Test API</button>
-              <button id="mpgClearHostedApiCache" class="pill" type="button">Clear API Cache</button>
-              <span class="muted">Transient failures retry up to ${PG_API_RETRY_MAX} times; repeated read calls use a TTL cache.</span>
             </div>
           </section>
 
@@ -9777,7 +9756,7 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
         };
         panel.querySelector("#mpgVisibleRaceScanMs").onchange = e => { visibleRaceScanMs = Math.round(clamp_(Number(e.target.value) || visibleRaceScanMs, 250, 30000)); saveIntSetting_(STORE_VISIBLE_RACE_SCAN_MS_KEY, visibleRaceScanMs); markPerfCustom(); };
         panel.querySelector("#mpgParticipantScanMs").onchange = e => { participantScanMs = Math.round(clamp_(Number(e.target.value) || participantScanMs, 500, 60000)); saveIntSetting_(STORE_PARTICIPANT_SCAN_MS_KEY, participantScanMs); markPerfCustom(); };
-        panel.querySelector("#mpgFocusWindowEachSide").onchange = e => { focusedRowWindowEachSide = Math.round(clamp_(Number(e.target.value) || DEFAULT_FOCUSED_ROW_WINDOW_EACH_SIDE, 1, 25)); saveIntSetting_(STORE_FOCUSED_ROW_WINDOW_EACH_SIDE_KEY, focusedRowWindowEachSide); uiDirty = true; scheduleRender_(); };
+        panel.querySelector("#mpgFocusWindowEachSide").onchange = e => { focusedRowWindowEachSide = Math.round(clamp_(Number(e.target.value) || DEFAULT_FOCUSED_ROW_WINDOW_EACH_SIDE, 1, 25)); saveIntSetting_(STORE_FOCUSED_ROW_WINDOW_EACH_SIDE_KEY, focusedRowWindowEachSide); markPerfCustom(); };
         panel.querySelector("#mpgDriverIdLookupMs").onchange = e => { driverIdLookupMs = Math.round(clamp_(Number(e.target.value) || driverIdLookupMs, 1000, 120000)); saveIntSetting_(STORE_DRIVER_ID_LOOKUP_MS_KEY, driverIdLookupMs); markPerfCustom(); };
         panel.querySelector("#mpgDriverIntelSettleMs").onchange = e => { driverIntelSettleMs = Math.round(clamp_(Number(e.target.value) || driverIntelSettleMs, 500, 30000)); saveIntSetting_(STORE_DRIVER_INTEL_SETTLE_MS_KEY, driverIntelSettleMs); markPerfCustom(); };
         panel.querySelector("#mpgParticipantScanRepeat").onchange = e => {
@@ -9804,50 +9783,6 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
             apiKeyStatus = apiKey ? "API key saved locally. Checking key access..." : "API key cleared.";
             if (apiKey) checkApiKeyInfo_({ manual: false });
             uiDirty = true; scheduleRender_();
-        };
-        const syncEndpointControls = () => {
-            const isCustom = pgEndpointMode_() === "custom";
-            const apiInput = panel.querySelector("#mpgCustomApiBase");
-            const playerInput = panel.querySelector("#mpgCustomPlayerBase");
-            if (apiInput) apiInput.disabled = !isCustom;
-            if (playerInput) playerInput.disabled = !isCustom;
-        };
-        panel.querySelector("#mpgEndpointMode").onchange = e => {
-            pgSetEndpointMode_(e.target.value);
-            syncEndpointControls();
-            toast_("Pit Guru hosted endpoint updated.");
-            uiDirty = true; scheduleRender_();
-        };
-        panel.querySelector("#mpgCustomApiBase").onchange = e => {
-            pgSetCustomApiBase_(e.target.value);
-            e.target.value = pgCustomApiBase_();
-            toast_("Pit Guru custom API base saved.");
-            uiDirty = true; scheduleRender_();
-        };
-        panel.querySelector("#mpgCustomPlayerBase").onchange = e => {
-            pgSetCustomPlayerBase_(e.target.value);
-            e.target.value = pgCustomPlayerBase_();
-            toast_("Pit Guru custom player base saved.");
-            uiDirty = true; scheduleRender_();
-        };
-        panel.querySelector("#mpgClearHostedApiCache").onclick = () => {
-            pgClearApiResponseCache_();
-            toast_("Pit Guru hosted API cache cleared.");
-        };
-        panel.querySelector("#mpgTestHostedApi").onclick = async e => {
-            const button = e.currentTarget;
-            const originalText = button.textContent;
-            button.disabled = true;
-            button.textContent = "Testing...";
-            try {
-                const result = await pgLocalApiRequest("/health", null, { forceRefresh: true, maxRetries: PG_API_RETRY_MAX });
-                toast_(result?.ok === false ? "Pit Guru hosted API responded with an error." : "Pit Guru hosted API is reachable.");
-            } catch (error) {
-                toast_(`Pit Guru hosted API failed: ${pgErrorMessage_(error, "request failed")}`);
-            } finally {
-                button.disabled = false;
-                button.textContent = originalText;
-            }
         };
         panel.querySelector("#mpgRefreshMissingIntel").onclick = () => {
             if (!apiKey) {
