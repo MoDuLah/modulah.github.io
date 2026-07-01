@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         MoDuL's Pit Guru
 // @namespace    modul.torn.racing
-// @version      2.0.9
+// @version      2.1.0
 // @description  Live Torn race timing, gaps, sectors, speed and estimated telemetry analysis
 // @author       MoDuL
 // @copyright    2026 MoDuL. All rights reserved.
@@ -18,6 +18,9 @@
 // @grant        unsafeWindow
 // @connect      api.torn.com
 // @connect      pp_api.sokin.xyz
+// @connect      127.0.0.1
+// @connect      localhost
+// @connect      *
 
 // @icon         https://www.google.com/s2/favicons?sz=64&domain=torn.com
 // @run-at       document-start
@@ -31,45 +34,282 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
 (function () {
     "use strict";
 
-    const PG_LOCAL_API_BASE = 'https://pp_api.sokin.xyz/pit-guru';
-    const PG_LOCAL_PLAYER_BASE = 'https://pp_api.sokin.xyz/pit-guru';
+    const PG_PUBLIC_BASE_DEFAULT = "https://pp_api.sokin.xyz/pit-guru";
+    const PG_LOCAL_API_BASE_DEFAULT = "http://127.0.0.1:8787";
+    const PG_LOCAL_PLAYER_BASE_DEFAULT = "http://127.0.0.1:8790";
+    const PG_TUNNEL_BASE_DEFAULT = "http://127.0.0.1:8092";
+    const PG_ENDPOINT_MODE_KEY = "RT_TORN_MPG_ENDPOINT_MODE";
+    const PG_CUSTOM_API_BASE_KEY = "RT_TORN_MPG_CUSTOM_API_BASE";
+    const PG_CUSTOM_PLAYER_BASE_KEY = "RT_TORN_MPG_CUSTOM_PLAYER_BASE";
+    const PG_API_CACHE_KEY = "RT_TORN_MPG_API_RESPONSE_CACHE_V1";
+    const PG_API_CACHE_MAX_ENTRIES = 80;
+    const PG_API_RETRY_MAX = 3;
     const PG_HOSTED_SESSION_KEY = 'RT_TORN_MPG_HOSTED_SESSION';
+    const PG_LEGACY_HOSTED_SESSION_KEYS = ['RT_TORN_LTL_HOSTED_SESSION'];
+    const PG_ENDPOINT_PRESETS = Object.freeze({
+        public: { label: "Public VM", apiBase: PG_PUBLIC_BASE_DEFAULT, playerBase: PG_PUBLIC_BASE_DEFAULT },
+        local: { label: "Local desktop", apiBase: PG_LOCAL_API_BASE_DEFAULT, playerBase: PG_LOCAL_PLAYER_BASE_DEFAULT },
+        tunnel: { label: "SSH tunnel", apiBase: PG_TUNNEL_BASE_DEFAULT, playerBase: PG_TUNNEL_BASE_DEFAULT },
+        custom: { label: "Custom URL", apiBase: PG_PUBLIC_BASE_DEFAULT, playerBase: PG_PUBLIC_BASE_DEFAULT }
+    });
     let pgHostedSessionPromise = null;
 
+    function pgNormalizeBaseUrl_(value, fallback = PG_PUBLIC_BASE_DEFAULT) {
+        const raw = String(value || "").trim().replace(/\/+$/, "");
+        if (!raw) return fallback;
+        try {
+            const url = new URL(raw);
+            if (url.protocol !== "http:" && url.protocol !== "https:") return fallback;
+            url.hash = "";
+            url.search = "";
+            return url.toString().replace(/\/+$/, "");
+        } catch {
+            return fallback;
+        }
+    }
+
+    function pgEndpointMode_() {
+        const mode = String(GM_getValue(PG_ENDPOINT_MODE_KEY, "public") || "public").trim().toLowerCase();
+        return PG_ENDPOINT_PRESETS[mode] ? mode : "public";
+    }
+
+    function pgSetEndpointMode_(mode) {
+        const next = PG_ENDPOINT_PRESETS[String(mode || "").trim().toLowerCase()] ? String(mode || "").trim().toLowerCase() : "public";
+        GM_setValue(PG_ENDPOINT_MODE_KEY, next);
+        pgClearHostedSession_();
+        pgClearApiResponseCache_();
+        return next;
+    }
+
+    function pgCustomApiBase_() {
+        return pgNormalizeBaseUrl_(GM_getValue(PG_CUSTOM_API_BASE_KEY, PG_PUBLIC_BASE_DEFAULT), PG_PUBLIC_BASE_DEFAULT);
+    }
+
+    function pgCustomPlayerBase_() {
+        return pgNormalizeBaseUrl_(GM_getValue(PG_CUSTOM_PLAYER_BASE_KEY, PG_PUBLIC_BASE_DEFAULT), PG_PUBLIC_BASE_DEFAULT);
+    }
+
+    function pgSetCustomApiBase_(value) {
+        GM_setValue(PG_CUSTOM_API_BASE_KEY, pgNormalizeBaseUrl_(value, PG_PUBLIC_BASE_DEFAULT));
+        pgClearHostedSession_();
+        pgClearApiResponseCache_();
+    }
+
+    function pgSetCustomPlayerBase_(value) {
+        GM_setValue(PG_CUSTOM_PLAYER_BASE_KEY, pgNormalizeBaseUrl_(value, PG_PUBLIC_BASE_DEFAULT));
+        pgClearHostedSession_();
+        pgClearApiResponseCache_();
+    }
+
+    function pgApiBase_() {
+        const mode = pgEndpointMode_();
+        return mode === "custom" ? pgCustomApiBase_() : PG_ENDPOINT_PRESETS[mode].apiBase;
+    }
+
+    function pgPlayerBase_() {
+        const mode = pgEndpointMode_();
+        return mode === "custom" ? pgCustomPlayerBase_() : PG_ENDPOINT_PRESETS[mode].playerBase;
+    }
+
+    function pgJoinUrl_(base, path = "") {
+        const p = String(path || "");
+        if (!p) return base;
+        return `${base}${p.startsWith("/") ? "" : "/"}${p}`;
+    }
+
+    function pgApiUrl_(path = "") {
+        return pgJoinUrl_(pgApiBase_(), path);
+    }
+
+    function pgPlayerUrl_(path = "") {
+        return pgJoinUrl_(pgPlayerBase_(), path);
+    }
+
     function pgHostedSession_() {
-        return String(GM_getValue(PG_HOSTED_SESSION_KEY, "") || "").trim();
+        const current = String(GM_getValue(PG_HOSTED_SESSION_KEY, "") || "").trim();
+        if (current) return current;
+        for (const legacyKey of PG_LEGACY_HOSTED_SESSION_KEYS) {
+            const legacy = String(GM_getValue(legacyKey, "") || "").trim();
+            if (legacy) {
+                GM_setValue(PG_HOSTED_SESSION_KEY, legacy);
+                GM_setValue(legacyKey, "");
+                return legacy;
+            }
+        }
+        return "";
     }
 
     function pgClearHostedSession_() {
         GM_setValue(PG_HOSTED_SESSION_KEY, "");
+        for (const legacyKey of PG_LEGACY_HOSTED_SESSION_KEYS) GM_setValue(legacyKey, "");
+    }
+
+    function pgDelay_(ms) {
+        return new Promise(resolve => setTimeout(resolve, Math.max(0, Number(ms) || 0)));
+    }
+
+    function pgShouldRetryApiError_(error) {
+        const status = Number(error?.status || error?.statusCode || 0);
+        if (!status) return true;
+        if ([400, 401, 403, 404, 409, 422].includes(status)) return false;
+        return status >= 500 || status === 408 || status === 429;
+    }
+
+    async function pgWithRetry_(operation, options = {}) {
+        const maxRetries = Math.max(1, Number(options.maxRetries) || PG_API_RETRY_MAX);
+        let lastError = null;
+        for (let attempt = 1; attempt <= maxRetries; attempt++) {
+            try {
+                return await operation(attempt);
+            } catch (error) {
+                lastError = error;
+                if (attempt >= maxRetries || !pgShouldRetryApiError_(error)) throw error;
+                const retryAfter = Number(error?.retryAfterMs || 0);
+                const delay = retryAfter > 0 ? retryAfter : Math.min(6000, 500 * Math.pow(2, attempt - 1));
+                await pgDelay_(delay);
+            }
+        }
+        throw lastError || new Error("Pit Guru API request failed");
+    }
+
+    function pgStableJson_(value) {
+        if (value == null || typeof value !== "object") return JSON.stringify(value);
+        if (Array.isArray(value)) return `[${value.map(pgStableJson_).join(",")}]`;
+        return `{${Object.keys(value).sort().map(key => `${JSON.stringify(key)}:${pgStableJson_(value[key])}`).join(",")}}`;
+    }
+
+    function pgCacheStorage_() {
+        try {
+            if (typeof localStorage !== "undefined" && localStorage) return localStorage;
+        } catch { }
+        try {
+            if (typeof unsafeWindow !== "undefined" && unsafeWindow?.localStorage) return unsafeWindow.localStorage;
+        } catch { }
+        return null;
+    }
+
+    function pgLoadApiResponseCache_() {
+        try {
+            const storage = pgCacheStorage_();
+            const raw = storage ? storage.getItem(PG_API_CACHE_KEY) : GM_getValue(PG_API_CACHE_KEY, "");
+            const parsed = JSON.parse(String(raw || "{}"));
+            return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : {};
+        } catch {
+            return {};
+        }
+    }
+
+    function pgSaveApiResponseCache_(cache) {
+        try {
+            const entries = Object.entries(cache || {})
+                .filter(([, entry]) => entry && Number.isFinite(Number(entry.at)))
+                .sort((a, b) => Number(b[1].at) - Number(a[1].at))
+                .slice(0, PG_API_CACHE_MAX_ENTRIES);
+            const serialized = JSON.stringify(Object.fromEntries(entries));
+            const storage = pgCacheStorage_();
+            if (storage) storage.setItem(PG_API_CACHE_KEY, serialized);
+            else GM_setValue(PG_API_CACHE_KEY, serialized);
+        } catch { }
+    }
+
+    function pgClearApiResponseCache_() {
+        try {
+            const storage = pgCacheStorage_();
+            if (storage) storage.removeItem(PG_API_CACHE_KEY);
+        } catch { }
+        GM_setValue(PG_API_CACHE_KEY, "{}");
+    }
+
+    function pgApiResponseCacheKey_(method, url, payload) {
+        return `${method}|${url}|${pgStableJson_(payload || null)}`;
+    }
+
+    function pgReadApiResponseCache_(key, ttlMs) {
+        const ttl = Number(ttlMs) || 0;
+        if (!key || ttl <= 0) return null;
+        const cache = pgLoadApiResponseCache_();
+        const entry = cache[key];
+        if (!entry || Date.now() - Number(entry.at || 0) > ttl) {
+            if (entry) {
+                delete cache[key];
+                pgSaveApiResponseCache_(cache);
+            }
+            return null;
+        }
+        return entry.value;
+    }
+
+    function pgWriteApiResponseCache_(key, value) {
+        if (!key) return;
+        const cache = pgLoadApiResponseCache_();
+        cache[key] = { at: Date.now(), value };
+        pgSaveApiResponseCache_(cache);
+    }
+
+    function pgRequestJson_(method, url, payload = null, options = {}) {
+        return new Promise((resolve, reject) => {
+            const headers = Object.assign(
+                payload ? { "Content-Type": "application/json" } : {},
+                options.headers || {}
+            );
+            const parse = (status, statusText, responseText, responseHeaders = "") => {
+                let body = null;
+                try { body = JSON.parse(String(responseText || "{}")); }
+                catch { body = {}; }
+                if (status < 200 || status >= 300) {
+                    const error = new Error(body?.error || statusText || `HTTP ${status}`);
+                    error.status = status;
+                    error.statusText = statusText;
+                    error.payload = body;
+                    const retryAfter = String(responseHeaders || "").match(/retry-after:\s*(\d+)/i);
+                    if (retryAfter) error.retryAfterMs = Number(retryAfter[1]) * 1000;
+                    reject(error);
+                    return;
+                }
+                resolve({ status, statusText, body });
+            };
+            if (typeof GM_xmlhttpRequest === "function") {
+                GM_xmlhttpRequest({
+                    method,
+                    url,
+                    headers,
+                    data: payload ? JSON.stringify(payload) : undefined,
+                    timeout: Number(options.timeout) || 10000,
+                    onload: response => parse(response.status, response.statusText, response.responseText, response.responseHeaders),
+                    onerror: () => reject(new Error(options.errorMessage || `Pit Guru API unavailable at ${url}.`)),
+                    ontimeout: () => reject(new Error(options.timeoutMessage || "Pit Guru API request timed out"))
+                });
+                return;
+            }
+            fetch(url, {
+                method,
+                headers,
+                body: payload ? JSON.stringify(payload) : undefined,
+                cache: "no-store"
+            }).then(async response => {
+                parse(response.status, response.statusText, await response.text(), "");
+            }).catch(reject);
+        });
+    }
+
+    async function pgRequestJsonWithRetry_(method, url, payload = null, options = {}) {
+        return await pgWithRetry_(() => pgRequestJson_(method, url, payload, options), options);
     }
 
     function pgVerifyHostedSession_() {
         if (pgHostedSessionPromise) return pgHostedSessionPromise;
         const key = String(GM_getValue("RT_TORN_RA_API_KEY", "") || "").trim();
         if (!key) return Promise.reject(new Error("Add a public Torn API key in Pit Guru Settings to verify the hosted player."));
-        pgHostedSessionPromise = new Promise((resolve, reject) => {
-            GM_xmlhttpRequest({
-                method: "POST",
-                url: `${PG_LOCAL_PLAYER_BASE}/api/account/verify`,
-                headers: { "Content-Type": "application/json" },
-                data: JSON.stringify({ apiKey: key }),
-                timeout: 15000,
-                onload: response => {
-                    try {
-                        const data = JSON.parse(response.responseText || "{}");
-                        if (response.status < 200 || response.status >= 300 || !data.sessionToken) {
-                            throw new Error(data.error || response.statusText || `HTTP ${response.status}`);
-                        }
-                        GM_setValue(PG_HOSTED_SESSION_KEY, data.sessionToken);
-                        resolve(data.sessionToken);
-                    } catch (error) {
-                        reject(error);
-                    }
-                },
-                onerror: () => reject(new Error("Pit Guru hosted account verification failed.")),
-                ontimeout: () => reject(new Error("Pit Guru hosted account verification timed out.")),
-            });
+        pgHostedSessionPromise = pgRequestJsonWithRetry_("POST", pgPlayerUrl_("/api/account/verify"), { apiKey: key }, {
+            timeout: 15000,
+            maxRetries: PG_API_RETRY_MAX,
+            errorMessage: "Pit Guru hosted account verification failed.",
+            timeoutMessage: "Pit Guru hosted account verification timed out."
+        }).then(result => {
+            const data = result.body || {};
+            if (!data.sessionToken) throw new Error(data.error || "Pit Guru hosted account verification did not return a session.");
+            GM_setValue(PG_HOSTED_SESSION_KEY, data.sessionToken);
+            return data.sessionToken;
         }).finally(() => { pgHostedSessionPromise = null; });
         return pgHostedSessionPromise;
     }
@@ -88,33 +328,31 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         return fallback;
     }
 
-    function pgLocalApiRequest(path, payload = null) {
-        return new Promise((resolve, reject) => {
-            GM_xmlhttpRequest({
-                method: payload ? 'POST' : 'GET',
-                url: `${PG_LOCAL_API_BASE}${path}`,
-                headers: {
-                    'Content-Type': 'application/json',
-                    ...(pgHostedSession_() ? { 'X-Pit-Guru-Session': pgHostedSession_() } : {})
-                },
-                data: payload ? JSON.stringify(payload) : undefined,
-                timeout: 10000,
-                onload: response => {
-                    try {
-                        resolve(JSON.parse(response.responseText || '{}'));
-                    } catch (error) {
-                        reject(error);
-                    }
-                },
-                onerror: () => reject(new Error(`Pit Guru hosted API unavailable at ${PG_LOCAL_API_BASE}.`)),
-                ontimeout: () => reject(new Error('Pit Guru hosted API request timed out'))
-            });
+    async function pgLocalApiRequest(path, payload = null, options = {}) {
+        const method = payload ? "POST" : "GET";
+        const url = pgApiUrl_(path);
+        const session = pgHostedSession_();
+        const headers = session ? { "X-Pit-Guru-Session": session } : {};
+        const cacheKey = Number(options.cacheTtlMs || 0) > 0 ? pgApiResponseCacheKey_(method, url, payload) : "";
+        if (!options.forceRefresh) {
+            const cached = pgReadApiResponseCache_(cacheKey, options.cacheTtlMs);
+            if (cached) return cached;
+        }
+        const result = await pgRequestJsonWithRetry_(method, url, payload, {
+            timeout: Number(options.timeout) || 10000,
+            maxRetries: Number(options.maxRetries) || PG_API_RETRY_MAX,
+            headers,
+            errorMessage: `Pit Guru hosted API unavailable at ${pgApiBase_()}.`,
+            timeoutMessage: "Pit Guru hosted API request timed out"
         });
+        const body = result.body || {};
+        if (cacheKey) pgWriteApiResponseCache_(cacheKey, body);
+        return body;
     }
 
     unsafeWindow.pgLocalHealthTest = async function () {
         try {
-            const result = await pgLocalApiRequest('/health');
+            const result = await pgLocalApiRequest('/health', null, { forceRefresh: true });
             console.log('[Pit Guru Local API health]', result);
             alert('Pit Guru hosted API works. Check console for details.');
             return result;
@@ -147,7 +385,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
             drivers,
             raceType: options.raceType || "official",
             laps: options.laps || null
-        });
+        }, { cacheTtlMs: 120000 });
     }
 
     async function pgLocalFetchTrackHistory(track, options = {}) {
@@ -159,11 +397,11 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
             track,
             raceType: options.raceType || "official",
             laps: options.laps || null
-        });
+        }, { cacheTtlMs: 120000 });
     }
 
     async function pgLocalFetchTracks() {
-        return await pgLocalApiRequest('/api/pit-guru/v1/tracks');
+        return await pgLocalApiRequest('/api/pit-guru/v1/tracks', null, { cacheTtlMs: 600000 });
     }
 
     async function pgLocalUpsertTrackRoute(route) {
@@ -185,7 +423,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
             scope: options.scope || "global",
             driverId: options.driverId || "",
             driverName: options.driverName || ""
-        });
+        }, { cacheTtlMs: 30000 });
     }
 
     async function pgLocalUpsertDrivers(drivers) {
@@ -198,15 +436,15 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
     }
 
     async function pgLocalFetchCars() {
-        return await pgLocalApiRequest('/api/pit-guru/v1/cars');
+        return await pgLocalApiRequest('/api/pit-guru/v1/cars', null, { cacheTtlMs: 600000 });
     }
 
     async function pgLocalFetchUpgrades() {
-        return await pgLocalApiRequest('/api/pit-guru/v1/upgrades');
+        return await pgLocalApiRequest('/api/pit-guru/v1/upgrades', null, { cacheTtlMs: 600000 });
     }
 
     async function pgLocalFetchFuelSummary(payload = {}) {
-        return await pgLocalApiRequest('/api/pit-guru/v1/fuel-summary', payload || {});
+        return await pgLocalApiRequest('/api/pit-guru/v1/fuel-summary', payload || {}, { cacheTtlMs: 60000 });
     }
 
     async function pgLocalDeleteRecord(payload = {}) {
@@ -225,7 +463,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
     async function pgLocalFetchEnlistedCars(ownerId = "") {
         return await pgLocalApiRequest('/api/pit-guru/v1/enlisted-cars', {
             ownerId
-        });
+        }, { cacheTtlMs: 60000 });
     }
 
     async function pgLocalUpsertEnlistedCars(cars, ownerId = "") {
@@ -239,7 +477,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
     }
 
     async function pgLocalFetchEnlistedCarEvents(filter = {}) {
-        return await pgLocalApiRequest('/api/pit-guru/v1/enlisted-car-events', filter || {});
+        return await pgLocalApiRequest('/api/pit-guru/v1/enlisted-car-events', filter || {}, { cacheTtlMs: 60000 });
     }
 
     async function pgLocalUpsertEnlistedCarEvents(events, ownerId = "") {
@@ -308,8 +546,12 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
     unsafeWindow.pgLocalUpsertEnlistedCarEvents = pgLocalUpsertEnlistedCarEvents;
     unsafeWindow.pgPlayerCacheRaceId = pgPlayerFetchRaceDataById_;
     unsafeWindow.pgPlayerCacheCurrentRace = openLocalPlayerForCurrentRace_;
+    unsafeWindow.pgPitGuruEndpointMode = pgEndpointMode_;
+    unsafeWindow.pgPitGuruApiBase = pgApiBase_;
+    unsafeWindow.pgPitGuruPlayerBase = pgPlayerBase_;
+    unsafeWindow.pgPitGuruClearApiCache = pgClearApiResponseCache_;
 
-    const MPG_VERSION = "2.0.9";
+    const MPG_VERSION = "2.1.0";
     var TAG = "[MoDuL's Pit Guru v" + MPG_VERSION + "]";
 
     const PitGuruRaceEngine = (() => {
@@ -2604,12 +2846,20 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
     }
 
     function pgPlayerGetJson_(url, session = "", timeout = 15000) {
-        return new Promise((resolve, reject) => {
+        return pgWithRetry_(() => new Promise((resolve, reject) => {
             const headers = session ? { "X-Pit-Guru-Session": session } : {};
             const parse = (status, statusText, responseText) => {
                 let body = null;
                 try { body = JSON.parse(String(responseText || "{}")); }
                 catch { body = {}; }
+                if (status >= 500 || status === 408 || status === 429) {
+                    const error = new Error(body?.error || statusText || `HTTP ${status}`);
+                    error.status = status;
+                    error.statusText = statusText;
+                    error.payload = body;
+                    reject(error);
+                    return;
+                }
                 resolve({ status, statusText, body });
             };
             if (typeof GM_xmlhttpRequest === "function") {
@@ -2627,14 +2877,14 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
             fetch(url, { headers })
                 .then(async r => parse(r.status, r.statusText, await r.text()))
                 .catch(reject);
-        });
+        }), { maxRetries: PG_API_RETRY_MAX });
     }
 
     async function pgPlayerHostedRaceExists_(raceId, session = "") {
         const rid = String(raceId || "").trim();
         if (!rid) return null;
         try {
-            const url = `${PG_LOCAL_PLAYER_BASE}/api/race/exists?raceID=${encodeURIComponent(rid)}`;
+            const url = pgPlayerUrl_(`/api/race/exists?raceID=${encodeURIComponent(rid)}`);
             const result = await pgPlayerGetJson_(url, session, 12000);
             if (result.status === 200 && result.body?.exists) return result.body;
             if (result.status === 404) return { ok: true, exists: false, race: { raceId: rid } };
@@ -2669,8 +2919,9 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         pgPlayerCacheStatus = "Caching race in hosted player...";
         const trackTransportKey = pgPlayerTrackTransportKey_(p);
         let includeTrackIntervals = !pgPlayerHostedTrackKnown_(trackTransportKey);
-        const submit = (session, requestPayload) => new Promise((resolve, reject) => {
+        const submit = (session, requestPayload) => pgWithRetry_(() => new Promise((resolve, reject) => {
             const data = JSON.stringify(requestPayload);
+            const url = pgPlayerUrl_("/api/analyze");
             const handleResponse = (status, statusText, responseText) => {
                 try {
                     const parsed = JSON.parse(String(responseText || "{}"));
@@ -2694,7 +2945,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
             if (typeof GM_xmlhttpRequest === "function") {
                 GM_xmlhttpRequest({
                     method: "POST",
-                    url: `${PG_LOCAL_PLAYER_BASE}/api/analyze`,
+                    url,
                     headers: { "Content-Type": "application/json", "X-Pit-Guru-Session": session },
                     data,
                     timeout: 30000,
@@ -2704,14 +2955,14 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
                 });
                 return;
             }
-            fetch(`${PG_LOCAL_PLAYER_BASE}/api/analyze`, {
+            fetch(url, {
                 method: "POST",
                 headers: { "Content-Type": "application/json", "X-Pit-Guru-Session": session },
                 body: data
             }).then(async r => {
                 handleResponse(r.status, r.statusText, await r.text());
             }).catch(reject);
-        });
+        }), { maxRetries: PG_API_RETRY_MAX });
         try {
             let session = pgHostedSession_() || await pgVerifyHostedSession_();
             let result;
@@ -2793,7 +3044,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         }
         const payload = latestRaceDataPayload || analysis?.payload || null;
         const rid = String(directRaceIdFromPayload_(payload) || directCurrentRaceId || urlRaceId_() || visibleRaceId_() || raceMeta?.raceId || "").trim();
-        const target = rid ? `${PG_LOCAL_PLAYER_BASE}/?raceID=${encodeURIComponent(rid)}` : PG_LOCAL_PLAYER_BASE;
+        const target = rid ? pgPlayerUrl_(`/?raceID=${encodeURIComponent(rid)}`) : pgPlayerBase_();
         const popup = window.open("about:blank", "_blank");
         try {
             if (popup?.document) {
@@ -9383,12 +9634,21 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
             recordsOpen ? 1 : 0, recordsDetached ? 1 : 0, clearOnRaceChange ? 1 : 0,
             fuelEnabled ? 1 : 0, fuelDisplayStyle, liveCommentaryEnabled ? 1 : 0, pitCrewEnabled ? 1 : 0, experimentalGyroTrace ? 1 : 0,
             performancePreset, visibleRaceScanMs, participantScanMs, driverIdLookupMs, driverIntelSettleMs, participantScanRepeat, focusedRowWindowEachSide,
-            heavyRaceDebugLine_()
+            heavyRaceDebugLine_(), pgEndpointMode_(), pgCustomApiBase_(), pgCustomPlayerBase_(), pgApiBase_(), pgPlayerBase_()
         ].join("|");
         if (panel.dataset.renderKey === key && panel.children.length) return;
         const active = document.activeElement;
         if (panel.contains(active) && /^(INPUT|SELECT|TEXTAREA)$/i.test(active?.tagName || "")) return;
         panel.dataset.renderKey = key;
+        const endpointMode = pgEndpointMode_();
+        const activeApiBase = pgApiBase_();
+        const activePlayerBase = pgPlayerBase_();
+        const customApiBase = pgCustomApiBase_();
+        const customPlayerBase = pgCustomPlayerBase_();
+        const customEndpointDisabled = endpointMode === "custom" ? "" : " disabled";
+        const endpointOptions = Object.entries(PG_ENDPOINT_PRESETS)
+            .map(([mode, preset]) => `<option value="${escAttr_(mode)}"${endpointMode === mode ? " selected" : ""}>${esc_(preset.label)}</option>`)
+            .join("");
         const keyInput = apiKeyVisible || !apiKey
             ? `<input id="mpgApiKey" type="${apiKeyVisible ? "text" : "password"}" autocomplete="off" value="${escAttr_(apiKey)}" placeholder="Torn API key">`
             : `<input id="mpgApiKey" type="text" readonly value="${escAttr_(maskApiKey_(apiKey))}" title="Click View to reveal or edit">`;
@@ -9411,6 +9671,20 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
               <button id="mpgRefreshMissingIntel" class="pill" type="button"${driverIntelFetchActive || !apiKey ? " disabled" : ""}>Refresh Driver Profiles</button>
               <button id="mpgClearIntel" class="pill" type="button">Clear Intel Cache</button>
               <span class="muted">${esc_(driverIntelStatus || apiKeyStatus || "One API call per uncached driver. Manual driver-list fetching was removed because this now runs automatically.")}</span>
+            </div>
+          </section>
+
+          <section class="mpg-settings-section wide">
+            <div class="mpg-section-head"><h3>Hosted API & Player</h3><p>Endpoint selection applies to records, predictions, garage data, and the hosted race player.</p></div>
+            <div class="mpg-setting-row"><label for="mpgEndpointMode">Endpoint mode</label><select id="mpgEndpointMode">${endpointOptions}</select></div>
+            <div class="mpg-setting-row"><label for="mpgCustomApiBase">Custom API base</label><input id="mpgCustomApiBase" type="text" inputmode="url" value="${escAttr_(customApiBase)}"${customEndpointDisabled}></div>
+            <div class="mpg-setting-row"><label for="mpgCustomPlayerBase">Custom player base</label><input id="mpgCustomPlayerBase" type="text" inputmode="url" value="${escAttr_(customPlayerBase)}"${customEndpointDisabled}></div>
+            <p class="mpg-section-note mono">API: ${esc_(activeApiBase)}</p>
+            <p class="mpg-section-note mono">Player: ${esc_(activePlayerBase)}</p>
+            <div class="mpg-setting-actions">
+              <button id="mpgTestHostedApi" class="pill" type="button">Test API</button>
+              <button id="mpgClearHostedApiCache" class="pill" type="button">Clear API Cache</button>
+              <span class="muted">Transient failures retry up to ${PG_API_RETRY_MAX} times; repeated read calls use a TTL cache.</span>
             </div>
           </section>
 
@@ -9531,6 +9805,50 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
             if (apiKey) checkApiKeyInfo_({ manual: false });
             uiDirty = true; scheduleRender_();
         };
+        const syncEndpointControls = () => {
+            const isCustom = pgEndpointMode_() === "custom";
+            const apiInput = panel.querySelector("#mpgCustomApiBase");
+            const playerInput = panel.querySelector("#mpgCustomPlayerBase");
+            if (apiInput) apiInput.disabled = !isCustom;
+            if (playerInput) playerInput.disabled = !isCustom;
+        };
+        panel.querySelector("#mpgEndpointMode").onchange = e => {
+            pgSetEndpointMode_(e.target.value);
+            syncEndpointControls();
+            toast_("Pit Guru hosted endpoint updated.");
+            uiDirty = true; scheduleRender_();
+        };
+        panel.querySelector("#mpgCustomApiBase").onchange = e => {
+            pgSetCustomApiBase_(e.target.value);
+            e.target.value = pgCustomApiBase_();
+            toast_("Pit Guru custom API base saved.");
+            uiDirty = true; scheduleRender_();
+        };
+        panel.querySelector("#mpgCustomPlayerBase").onchange = e => {
+            pgSetCustomPlayerBase_(e.target.value);
+            e.target.value = pgCustomPlayerBase_();
+            toast_("Pit Guru custom player base saved.");
+            uiDirty = true; scheduleRender_();
+        };
+        panel.querySelector("#mpgClearHostedApiCache").onclick = () => {
+            pgClearApiResponseCache_();
+            toast_("Pit Guru hosted API cache cleared.");
+        };
+        panel.querySelector("#mpgTestHostedApi").onclick = async e => {
+            const button = e.currentTarget;
+            const originalText = button.textContent;
+            button.disabled = true;
+            button.textContent = "Testing...";
+            try {
+                const result = await pgLocalApiRequest("/health", null, { forceRefresh: true, maxRetries: PG_API_RETRY_MAX });
+                toast_(result?.ok === false ? "Pit Guru hosted API responded with an error." : "Pit Guru hosted API is reachable.");
+            } catch (error) {
+                toast_(`Pit Guru hosted API failed: ${pgErrorMessage_(error, "request failed")}`);
+            } finally {
+                button.disabled = false;
+                button.textContent = originalText;
+            }
+        };
         panel.querySelector("#mpgRefreshMissingIntel").onclick = () => {
             if (!apiKey) {
                 driverIntelStatus = "Add an API key first.";
@@ -9591,7 +9909,7 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
 
     function garageHostedCarImage_(itemId) {
         const id = String(itemId || "").trim();
-        return id ? cachedOptionalImageUrl_("hosted-item", id, `${PG_LOCAL_PLAYER_BASE}/assets/cars/${encodeURIComponent(id)}.png`) : "";
+        return id ? cachedOptionalImageUrl_("hosted-item", `${pgPlayerBase_()}:${id}`, pgPlayerUrl_(`/assets/cars/${encodeURIComponent(id)}.png`)) : "";
     }
 
     function garageCatalogByItem_() {
