@@ -32,7 +32,7 @@
         <div class="hero-copy">
           <p class="section-kicker">Supporter Script</p>
           <h1 class="hero-title">Pythagoras Project</h1>
-          <p class="hero-text">A focused company management workspace for Torn built to help directors handle training, staff history, analytics, reporting, backups, cloud history, and operational planning in one place.</p>
+          <p class="hero-text">A focused company management workspace for Torn built to help directors handle training, staff history, Torn API V2 company sync, analytics, reporting, backups, cloud history, and operational planning in one place.</p>
 
           <div class="hero-actions">
             <span class="cta-button cta-button-disabled" aria-disabled="true">Under Development</span>
@@ -46,7 +46,7 @@
             <li class="feature-item"><span class="feature-dot" aria-hidden="true"></span><span>Training ledger with configurable discounts and loyalty handling</span></li>
             <li class="feature-item"><span class="feature-dot" aria-hidden="true"></span><span>FIFO train planner with sponsored rotation support</span></li>
             <li class="feature-item"><span class="feature-dot" aria-hidden="true"></span><span>Staff and director history tracking with timeline views</span></li>
-            <li class="feature-item"><span class="feature-dot" aria-hidden="true"></span><span>Daily and weekly analytics summaries, exports, themed reports, and cloud-backed workspace history</span></li>
+            <li class="feature-item"><span class="feature-dot" aria-hidden="true"></span><span>Balance history, risk-strike records, daily and weekly analytics, exports, themed reports, and cloud-backed workspace history</span></li>
           </ul>
         </aside>
       </section>
@@ -54,7 +54,7 @@
       <section class="content-grid" aria-label="Project details">
         <article class="content-card">
           <h2>What it does</h2>
-          <p>Pythagoras CIS gives you a structured workspace for company operations without relying on background scraping. Syncs are triggered manually, the browser stores only the local profile fields, and company history is saved in the Pythagoras cloud workspace.</p>
+          <p>Pythagoras CIS gives you a structured workspace for company operations without relying on background scraping. Syncs are triggered manually, Torn API V2 company data feeds the active workspace, and company history can be saved in the Pythagoras cloud workspace.</p>
         </article>
 
         <article class="content-card">
@@ -112,6 +112,54 @@
 
         <div class="changelog-tree" role="tree">
           <details class="changelog-version" role="treeitem" open>
+            <summary class="changelog-summary">v2.8.11 - Risk strike persistence and data-flow cleanup</summary>
+            <div class="changelog-content">
+              <ul class="changelog-list">
+                <li>Visible risk notifications now record same-day strike history on the member record instead of only appearing as alerts.</li>
+                <li>Staff snapshots sent to the Pythagoras API now include strike-history data.</li>
+                <li>Current Staff now filters stale database snapshots when a member has a valid left date after hire date.</li>
+                <li>Mechanic Shop sponsored/free training favors the lowest known working stats first and avoids repeating the same projected pick.</li>
+                <li>Business Profile daily and weekly values fall back to synced report rows when direct profile values are empty.</li>
+                <li>Balance no longer copies today's ad budget, rating, wages, or staff count backward into historical dates.</li>
+              </ul>
+            </div>
+          </details>
+
+          <details class="changelog-version" role="treeitem">
+            <summary class="changelog-summary">v2.8.10 - Staff load guardrail and Mechanic Shop training rotation</summary>
+            <div class="changelog-content">
+              <ul class="changelog-list">
+                <li>Cloud and database member loading now treats a valid left date on or after hire date as past staff before the current staff list is built.</li>
+                <li>Mechanic Shop auto training ranks free and sponsored slots by lowest known total working stats first.</li>
+                <li>Projected sponsored picks now carry a training penalty so one staff member cannot dominate the same slot all week.</li>
+              </ul>
+            </div>
+          </details>
+
+          <details class="changelog-version" role="treeitem">
+            <summary class="changelog-summary">v2.8.9 - Staff departure guard and Balance cleanup</summary>
+            <div class="changelog-content">
+              <ul class="changelog-list">
+                <li>Company news left and fired events now override stale current-staff snapshots unless a newer hire event exists.</li>
+                <li>Employee sync now runs full staff dedupe after merging API rows.</li>
+                <li>Balance ledger and generated balance reports no longer show the unreliable Employees column.</li>
+              </ul>
+            </div>
+          </details>
+
+          <details class="changelog-version" role="treeitem">
+            <summary class="changelog-summary">v2.8.7 - Loading, rate limits, and Balance fixes</summary>
+            <div class="changelog-content">
+              <ul class="changelog-list">
+                <li>Torn API calls now run through a shared throttle queue to reduce account-wide rate-limit bursts.</li>
+                <li>Startup renders the panel before rebuilding stored timeline analytics so loading does not appear frozen on large histories.</li>
+                <li>Business Profile daily and weekly income/customer rows fall back to synced daily report data.</li>
+                <li>The userscript loads only on <code>companies.php</code> and runs at <code>document-end</code> for faster page startup.</li>
+              </ul>
+            </div>
+          </details>
+
+          <details class="changelog-version" role="treeitem">
             <summary class="changelog-summary">v2.6.0 - Cloud workspace architecture</summary>
             <div class="changelog-content">
               <ul class="changelog-list">
