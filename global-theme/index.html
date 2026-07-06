@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>MoDuL Hub Control Room | MoDuL's Hub</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="MoDuL Hub Control Room global theme userscript for shared Torn script colours, fonts, spacing, and table identifiers.">
+  <link rel="stylesheet" href="../assets/css/site-hub/style.css">
+</head>
+<body class="hub-page">
+  <div class="hub-shell">
+    <header class="hub-nav" aria-label="Site navigation">
+      <div class="hub-brand">
+        <img class="hub-brand-mark" src="../assets/images/moduls-hub-logo.png" alt="MoDuL's Hub logo">
+        <div>
+          <h1 class="hub-brand-title">MoDuL Hub Control Room</h1>
+          <p class="hub-brand-subtitle">Global userscript theme contract</p>
+        </div>
+      </div>
+
+      <nav class="hub-nav-links">
+        <a class="hub-nav-link" href="../index.html">Hub</a>
+        <a class="hub-nav-link" href="#contract">Contract</a>
+        <a class="hub-nav-link" href="#changelog">Changelog</a>
+      </nav>
+    </header>
+
+    <main>
+      <section class="hero">
+        <div class="hero-copy">
+          <p class="hero-kicker">Global Theme</p>
+          <h2 class="hero-title">One theme contract for MoDuL Torn scripts.</h2>
+          <p class="hero-text">MoDuL Hub Control Room is the shared source of truth for colours, fonts, radius, spacing, borders, table styling, and future script refactors.</p>
+          <div class="hero-actions">
+            <a class="button-primary" href="modul-hub-global-theme.user.js">Install / Update v0.2.8</a>
+            <a class="button-secondary" href="#contract">View Contract</a>
+            <a class="button-discord" href="https://discord.gg/JP8FQBATMV" target="_blank" rel="noopener noreferrer">
+              <svg class="button-icon" viewBox="0 0 127.14 96.36" aria-hidden="true" focusable="false">
+                <path d="M107.7 8.07A105.15 105.15 0 0 0 81.47 0a72.06 72.06 0 0 0-3.36 6.83 97.68 97.68 0 0 0-29.11 0A72.37 72.37 0 0 0 45.64 0a105.89 105.89 0 0 0-26.25 8.09C2.79 32.65-1.71 56.6.54 80.21A105.73 105.73 0 0 0 32.71 96.36a77.7 77.7 0 0 0 6.89-11.11 68.42 68.42 0 0 1-10.85-5.18c.91-.66 1.8-1.35 2.66-2.06a75.57 75.57 0 0 0 64.32 0c.87.71 1.76 1.4 2.66 2.06a68.68 68.68 0 0 1-10.87 5.19 77 77 0 0 0 6.89 11.1 105.25 105.25 0 0 0 32.19-16.14c2.64-27.38-4.51-51.11-18.9-72.15ZM42.45 65.69c-6.26 0-11.43-5.75-11.43-12.81s5.05-12.82 11.43-12.82 11.54 5.8 11.43 12.82-5.04 12.81-11.43 12.81Zm42.24 0c-6.26 0-11.43-5.75-11.43-12.81s5-12.82 11.43-12.82 11.54 5.8 11.43 12.82-5.04 12.81-11.43 12.81Z"></path>
+              </svg>
+              Discord
+            </a>
+          </div>
+        </div>
+
+        <aside class="hero-panel" aria-label="Theme overview">
+          <div class="hero-panel-art">
+            <img class="hero-panel-logo" src="../assets/images/moduls-hub-logo.png" alt="MoDuL's Hub logo">
+          </div>
+          <h2>Source of truth</h2>
+          <ul class="hero-list">
+            <li><span class="hero-dot" aria-hidden="true"></span><span>One shared `--mh-*` variable set for supported scripts.</span></li>
+            <li><span class="hero-dot" aria-hidden="true"></span><span>Canonical table identifiers for current and future refactors.</span></li>
+            <li><span class="hero-dot" aria-hidden="true"></span><span>Compatibility bridge for older hardcoded script styles.</span></li>
+            <li><span class="hero-dot" aria-hidden="true"></span><span>Exportable runtime contract for development and releases.</span></li>
+          </ul>
+        </aside>
+      </section>
+
+      <section class="tier-section" id="contract" aria-labelledby="contract-title">
+        <div class="tier-header">
+          <div class="tier-title-wrap">
+            <h2 id="contract-title">Theme Contract</h2>
+            <p>All current, future, and edited historical MoDuL userscripts should use these identifiers instead of local theme names.</p>
+          </div>
+          <span class="tier-badge free">Contract v1.0.0</span>
+        </div>
+
+        <div class="script-grid">
+          <article class="script-card">
+            <h3 class="script-card-title">Runtime API</h3>
+            <p class="script-card-text">The same API is exposed as `window.MoDuLHubControlRoom` and `window.MoDuLHubTheme`.</p>
+            <ul class="script-feature-list">
+              <li>`getContract()`</li>
+              <li>`getClasses()`</li>
+              <li>`getSelectors()`</li>
+              <li>`varName()` and `cssVar()`</li>
+            </ul>
+          </article>
+
+          <article class="script-card">
+            <h3 class="script-card-title">Shared Tables</h3>
+            <p class="script-card-text">Every script table should use the same class/data contract.</p>
+            <ul class="script-feature-list">
+              <li>`.mh-table`</li>
+              <li>`.mh-table-head`</li>
+              <li>`.mh-table-body`</li>
+              <li>`.mh-table-row`</li>
+              <li>`.mh-table-cell`</li>
+            </ul>
+          </article>
+
+          <article class="script-card">
+            <h3 class="script-card-title">Shared Variables</h3>
+            <p class="script-card-text">Read visual values from `--mh-*` variables so one editor can theme all scripts.</p>
+            <ul class="script-feature-list">
+              <li>`--mh-panel` and `--mh-panel2`</li>
+              <li>`--mh-table-bg` and `--mh-table-head`</li>
+              <li>`--mh-control` and `--mh-control-hover`</li>
+              <li>`--mh-text`, `--mh-accent`, and status colours</li>
+            </ul>
+          </article>
+        </div>
+      </section>
+
+      <section class="tier-section" id="changelog" aria-labelledby="changelog-title">
+        <div class="tier-header">
+          <div class="tier-title-wrap">
+            <h2 id="changelog-title">v0.2.8 Changelog</h2>
+            <p>Released July 6, 2026.</p>
+          </div>
+          <span class="tier-badge free">Live</span>
+        </div>
+
+        <div class="script-grid">
+          <article class="script-card">
+            <h3 class="script-card-title">Contract Export</h3>
+            <p class="script-card-text">Added a versioned contract and public helper API for future script refactors.</p>
+          </article>
+          <article class="script-card">
+            <h3 class="script-card-title">Canonical Selectors</h3>
+            <p class="script-card-text">Added canonical classes and data attributes for panels, controls, status text, and tables.</p>
+          </article>
+          <article class="script-card">
+            <h3 class="script-card-title">Bridge Cleanup</h3>
+            <p class="script-card-text">Updated the compatibility bridge to reuse the shared selector contract.</p>
+          </article>
+        </div>
+      </section>
+    </main>
+
+    <footer class="page-footer">
+      MoDuL's Hub - Global Theme - <a href="https://www.torn.com/profiles.php?XID=4022159" target="_blank">MoDuL[402215]</a> - All rights reserved.
+    </footer>
+  </div>
+  <script defer src="../assets/js/discord-dock.js"></script>
+</body>
+</html>
