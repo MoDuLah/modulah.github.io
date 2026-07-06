@@ -62,20 +62,20 @@
           <h2>Latest updates</h2>
           <div class="feature-grid">
             <div class="feature-block">
-              <h3>Quick-action anti-spam delay</h3>
-              <p>Version 3.0.5 adds a short shared cooldown so rapid hotkey presses or plane taps do not stack multiple travel actions on top of each other.</p>
+              <h3>Flight session stays locked</h3>
+              <p>Version 3.0.6 keeps one active flight session pinned while you are still airborne, so the pill keeps its route, countdown, ETA, and progress after you leave the travel page.</p>
             </div>
             <div class="feature-block">
-              <h3>Direct hub page route</h3>
-              <p>The script now has its own <code>/smuggler/</code> route so forum, Discord, and release copy can send traffic through the hub page first.</p>
+              <h3>Validated route parsing</h3>
+              <p>Live route detection now prefers real travel UI sources over loose page text, which stops return flights from swapping origin and destination in the pill.</p>
             </div>
             <div class="feature-block">
-              <h3>Release assets in place</h3>
-              <p>Screenshots, FAQ coverage, changelog structure, and branding are now set up around the live script release.</p>
+              <h3>No repeated badge fetches</h3>
+              <p>The Torn badge is now rendered inline instead of refetching an external icon every refresh tick while the pill updates.</p>
             </div>
             <div class="feature-block">
-              <h3>Support path ready</h3>
-              <p>The forum thread and Discord channel are both linked from the hub page for easier follow-up and feedback.</p>
+              <h3>Existing safeguards stay in place</h3>
+              <p>The shared anti-spam delay, blocked-state plane overlay, and TornPDA-safe continue targeting from the earlier 3.0.x work all remain in place.</p>
             </div>
           </div>
         </article>
@@ -125,6 +125,18 @@
 
         <div class="changelog-tree" role="tree">
           <details class="changelog-version" role="treeitem" open>
+            <summary class="changelog-summary">v3.0.6 - July 1, 2026</summary>
+            <div class="changelog-content">
+              <ul class="changelog-list">
+                <li>Active in-flight state now persists cleanly across normal page changes instead of collapsing as soon as you leave the travel page.</li>
+                <li>Route detection now prefers validated travel UI sources, which stops return flights from swapping origin and destination in the pill.</li>
+                <li>The progress bar, countdown, and ETA now stay tied to the active stored flight session while the trip is still in progress.</li>
+                <li>The Torn badge now renders inline instead of repeatedly refetching an external icon while the pill refreshes.</li>
+              </ul>
+            </div>
+          </details>
+
+          <details class="changelog-version" role="treeitem">
             <summary class="changelog-summary">v3.0.5 - April 28, 2026</summary>
             <div class="changelog-content">
               <ul class="changelog-list">
