@@ -28,6 +28,7 @@
       </div>
 
       <nav class="hub-nav-links">
+        <a class="hub-nav-link" href="global-theme/">Theme</a>
         <a class="hub-nav-link" href="#supporter-scripts">Supporter</a>
         <a class="hub-nav-link" href="#free-scripts">Free</a>
         <a class="hub-nav-link" href="#past-projects">Past Projects</a>
@@ -79,10 +80,19 @@
         <div class="updates-header">
           <p class="hero-kicker">Live Snapshot</p>
           <h2 id="updates-title">Latest script updates</h2>
-          <p>Latest public releases, archive notices, and current development status across the hub as of July 3, 2026.</p>
+          <p>Latest public releases, archive notices, and current development status across the hub as of July 6, 2026.</p>
         </div>
 
         <div class="updates-grid">
+          <article class="update-item">
+            <div class="update-item-top">
+              <h3 class="update-title">MoDuL Hub Control Room</h3>
+              <span class="update-status update-status-live">v0.2.8</span>
+            </div>
+            <p class="update-meta">Global theme contract · Updated July 6, 2026</p>
+            <p class="update-copy">The global theme script is now the source of truth for shared MoDuL userscript styling, with canonical `mh-*` identifiers, shared table names, and exported contract helpers for future refactors.</p>
+          </article>
+
           <article class="update-item">
             <div class="update-item-top">
               <h3 class="update-title">Custom Race Filter</h3>
@@ -176,10 +186,10 @@
           <article class="update-item">
             <div class="update-item-top">
               <h3 class="update-title">Smuggler</h3>
-              <span class="update-status update-status-live">v3.0.5</span>
+              <span class="update-status update-status-live">v3.0.6</span>
             </div>
-            <p class="update-meta">Live release · Updated Apr 28, 2026</p>
-            <p class="update-copy">Smuggler now throttles rapid hotkey presses and repeated plane taps through a short shared cooldown, while keeping the draggable pill and blocked-state plane overlay improvements from the earlier 3.0.x updates.</p>
+            <p class="update-meta">Live release · Updated July 1, 2026</p>
+            <p class="update-copy">Smuggler now keeps its active flight session stable across normal page changes, so return legs stop swapping origin and destination, the progress bar stays present, and the Torn badge no longer refetches on every refresh tick.</p>
           </article>
         </div>
       </section>
@@ -305,6 +315,30 @@
           <div class="script-grid">
             <article class="script-card">
               <div class="script-card-head">
+                <span class="script-card-logo script-card-logo--global-theme" aria-hidden="true"></span>
+                <div class="script-card-title-wrap">
+                  <h3 class="script-card-title">MoDuL Hub Control Room</h3>
+                  <p class="script-card-tag">Global theme userscript</p>
+                  <div class="script-card-meta" aria-label="Release status">
+                    <span class="script-card-badge script-card-badge-version">v0.2.8</span>
+                    <span class="script-card-badge script-card-badge-updated">Updated Jul 6</span>
+                  </div>
+                </div>
+              </div>
+              <p class="script-card-text">The shared theme source of truth for MoDuL Torn scripts, including palettes, fonts, spacing, radius, table styling, canonical `mh-*` identifiers, and a compatibility bridge for older hardcoded scripts.</p>
+              <ul class="script-feature-list">
+                <li>One theme editor for shared `--mh-*` variables</li>
+                <li>Canonical table identifiers for future refactors</li>
+                <li>Exported contract API for all MoDuL scripts</li>
+              </ul>
+              <div class="script-card-actions">
+                <a class="script-link" href="global-theme/">Open Page</a>
+                <a class="script-link script-link-primary" href="global-theme/modul-hub-global-theme.user.js">Install v0.2.8</a>
+              </div>
+            </article>
+
+            <article class="script-card">
+              <div class="script-card-head">
                 <span class="script-card-logo script-card-logo--race-tracker" aria-hidden="true"></span>
                 <div class="script-card-title-wrap">
                   <h3 class="script-card-title">Race Tracker</h3>
@@ -412,8 +446,8 @@
                   <h3 class="script-card-title">Smuggler</h3>
                   <p class="script-card-tag">Userscript</p>
                   <div class="script-card-meta" aria-label="Release status">
-                    <span class="script-card-badge script-card-badge-version">v3.0.5</span>
-                    <span class="script-card-badge script-card-badge-updated">Updated Apr 28</span>
+                    <span class="script-card-badge script-card-badge-version">v3.0.6</span>
+                    <span class="script-card-badge script-card-badge-updated">Updated Jul 1</span>
                   </div>
                 </div>
               </div>
