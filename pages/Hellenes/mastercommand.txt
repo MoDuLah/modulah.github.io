@@ -24,7 +24,6 @@ Rise of the Hellenes is a persistent browser-based MMO where players:
 * Experience Points: Kleos → experience points (your legend)
 * Reputation Points: Doxa → reputation points (cities, factions)
 
-CORE SYSTEMS IMPLEMENTED
 
 - PLAYER SYSTEM
 
@@ -52,4 +51,3 @@ Core Rank Ladder (Clean & Scalable)
 * 30 quests / day 
 * 4 difficulties to choose (easy, medium, hard, very hard)
 * The rewards are escalating with the tiers
-* Easy rewards: currency random between
