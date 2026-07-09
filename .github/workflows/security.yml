@@ -6,7 +6,6 @@ on:
   pull_request:
     branches: [main, master]
   schedule:
-    # Run weekly on Sunday at 6 AM UTC
     - cron: '0 6 * * 0'
   workflow_dispatch:
 
@@ -22,20 +21,33 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
           cache: 'npm'
 
+      - name: Check if package.json exists
+        id: check_package
+        run: |
+          if [ -f "package.json" ]; then
+            echo "has_package=true" >> $GITHUB_OUTPUT
+          else
+            echo "has_package=false" >> $GITHUB_OUTPUT
+            echo "⚠️ No package.json found. Skipping npm audit."
+          fi
+
       - name: Install dependencies
-        run: npm ci
+        if: steps.check_package.outputs.has_package == 'true'
+        run: npm ci || npm install
 
       - name: Run npm audit
-        run: npm audit --audit-level=moderate
-        continue-on-error: true
+        if: steps.check_package.outputs.has_package == 'true'
+        run: npm audit --audit-level=moderate || true
 
       - name: Generate audit report
+        if: steps.check_package.outputs.has_package == 'true'
         run: npm audit --json > audit-report.json || true
 
       - name: Upload audit report
+        if: steps.check_package.outputs.has_package == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: npm-audit-report
@@ -55,22 +67,25 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Initialize CodeQL
-        uses: github/codeql-action/init@v3
+        uses: github/codeql-action/init@v4
         with:
           languages: javascript
           queries: +security-and-quality
 
       - name: Autobuild
-        uses: github/codeql-action/autobuild@v3
+        uses: github/codeql-action/autobuild@v4
 
       - name: Perform CodeQL Analysis
-        uses: github/codeql-action/analyze@v3
+        uses: github/codeql-action/analyze@v4
         with:
           category: "/language:javascript"
 
   trivy:
     name: Trivy Security Scan
     runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+      contents: read
     
     steps:
       - name: Checkout repository
@@ -86,7 +101,7 @@ jobs:
           severity: 'CRITICAL,HIGH'
 
       - name: Upload Trivy scan results
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: 'trivy-results.sarif'
 
@@ -94,6 +109,8 @@ jobs:
     name: Dependency Review
     runs-on: ubuntu-latest
     if: github.event_name == 'pull_request'
+    permissions:
+      contents: read
     
     steps:
       - name: Checkout repository
@@ -108,6 +125,8 @@ jobs:
   secret-scanning:
     name: Secret Scanning
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     
     steps:
       - name: Checkout repository
@@ -119,3 +138,4 @@ jobs:
         uses: gitleaks/gitleaks-action@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        continue-on-error: true

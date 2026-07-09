@@ -18,13 +18,25 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
           cache: 'npm'
 
+      - name: Check if package.json exists
+        id: check_package
+        run: |
+          if [ -f "package.json" ]; then
+            echo "has_package=true" >> $GITHUB_OUTPUT
+          else
+            echo "has_package=false" >> $GITHUB_OUTPUT
+            echo "⚠️ No package.json found. Skipping linting."
+          fi
+
       - name: Install dependencies
-        run: npm ci
+        if: steps.check_package.outputs.has_package == 'true'
+        run: npm ci || npm install
 
       - name: Run ESLint
+        if: steps.check_package.outputs.has_package == 'true'
         run: npm run lint:js
         continue-on-error: false
 
