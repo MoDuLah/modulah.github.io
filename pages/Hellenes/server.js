@@ -296,24 +296,50 @@ app.use(express.static(__dirname));
 
 app.post("/api/register", async (req, res) => {
   try {
-    const email = String(req.body.email || req.body.username || "").trim().toLowerCase();
+    // Input validation and sanitization
+    const rawEmail = String(req.body.email || req.body.username || "").trim();
+    const email = rawEmail.toLowerCase().replace(/[<>\"'&]/g, ''); // Strip potentially dangerous characters
     const password = String(req.body.password || "");
-    const characterName = String(req.body.characterName || "Alexios").trim() || "Alexios";
-    const genos = String(req.body.genos || "Hellenic").trim() || "Hellenic";
-    const origin = String(req.body.origin || "athens").trim().toLowerCase();
+    const characterName = String(req.body.characterName || "Alexios").trim().replace(/[<>\"'&]/g, '').slice(0, 50);
+    const genos = String(req.body.genos || "Hellenic").trim().replace(/[<>\"'&]/g, '').slice(0, 50);
+    const origin = String(req.body.origin || "athens").trim().toLowerCase().replace(/[<>\"'&]/g, '');
 
     const allowedOrigins = new Set(["athens", "sparta", "corinth", "macedon", "thebes"]);
 
+    // Enhanced email validation
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 254) {
       return res.status(400).json({ error: "Enter a valid email address." });
     }
 
+    // Password strength validation
     if (password.length < 6 || password.length > 72) {
       return res.status(400).json({ error: "Password must be 6-72 characters." });
     }
 
+    // Character name validation - alphanumeric and spaces only
+    if (!/^[a-zA-Z0-9\s\-']{2,50}$/.test(characterName)) {
+      return res.status(400).json({ error: "Character name must be 2-50 alphanumeric characters." });
+    }
+
+    // Genos validation
+    if (!/^[a-zA-Z\s\-]{2,50}$/.test(genos)) {
+      return res.status(400).json({ error: "Genos must be 2-50 alphabetic characters." });
+    }
+
+    // Origin validation
     if (!allowedOrigins.has(origin)) {
       return res.status(400).json({ error: "Invalid origin selected." });
+    }
+
+    // Rate limiting check (basic implementation)
+    const clientIP = req.ip || req.connection.remoteAddress;
+    const recentRegistrations = await all(
+      "SELECT COUNT(*) as count FROM users WHERE created_at > datetime('now', '-1 hour') AND email LIKE ?",
+      [`%${email.split('@')[1] || ''}%`]
+    );
+    
+    if (recentRegistrations[0].count > 5) {
+      return res.status(429).json({ error: "Too many registration attempts. Please try again later." });
     }
 
     const passwordData = hashPassword(password);
