@@ -34,9 +34,9 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
     "use strict";
 
     const PG_PUBLIC_BASE_DEFAULT = "https://pp_api.sokin.xyz/pit-guru";
-    const PG_LOCAL_API_BASE_DEFAULT = "http://127.0.0.1:8787";
-    const PG_LOCAL_PLAYER_BASE_DEFAULT = "http://127.0.0.1:8790";
-    const PG_TUNNEL_BASE_DEFAULT = "http://127.0.0.1:8092";
+    const PG_LOCAL_API_BASE_DEFAULT = "https://127.0.0.1:8787";
+    const PG_LOCAL_PLAYER_BASE_DEFAULT = "https://127.0.0.1:8790";
+    const PG_TUNNEL_BASE_DEFAULT = "https://127.0.0.1:8092";
     const PG_ENDPOINT_MODE_KEY = "RT_TORN_MPG_ENDPOINT_MODE";
     const PG_CUSTOM_API_BASE_KEY = "RT_TORN_MPG_CUSTOM_API_BASE";
     const PG_CUSTOM_PLAYER_BASE_KEY = "RT_TORN_MPG_CUSTOM_PLAYER_BASE";
