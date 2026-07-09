@@ -6,11 +6,10 @@
 // @author       MoDuL
 // @copyright    2026 MoDuL. All rights reserved.
 // @license      All Rights Reserved
-// @updateURL    https://modulah.github.io/pit-guru/MoDuLs-Pit-Guru.user.js
-// @downloadURL  https://modulah.github.io/pit-guru/MoDuLs-Pit-Guru.user.js
+// @updateURL    https://modulah.github.io/pit-guru/pit-guru.user.js
+// @downloadURL  https://modulah.github.io/pit-guru/pit-guru.user.js
 // @match        https://www.torn.com/page.php?sid=racing*
 // @match        https://www.torn.com/loader.php?sid=racing*
-// @include      https://www.torn.com/page.php*sid=racing*
 // @grant        GM_addStyle
 // @grant        GM_getValue
 // @grant        GM_setValue
