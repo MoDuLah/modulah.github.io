@@ -1,0 +1,49 @@
+# Git attributes configuration
+# https://git-scm.com/docs/gitattributes
+
+# Set the default behavior, in case people don't have core.autocrlf set
+* text=auto
+
+# Explicitly declare text files you want to always be normalized and converted to native line endings on checkout
+*.js text
+*.json text
+*.html text
+*.css text
+*.md text
+*.yml text
+*.yaml text
+*.xml text
+*.txt text
+
+# Denote all files that are truly binary and should not be modified
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.svg binary
+*.ico binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.eot binary
+
+# Treat lockfiles as binary to prevent merge conflicts
+package-lock.json binary
+yarn.lock binary
+
+# Make sure shell scripts are treated as text
+*.sh text
+*.bash text
+
+# Ensure Makefiles use LF line endings
+Makefile text eol=lf
+makefile text eol=lf
+
+# Python files
+*.py text eol=lf
+
+# Shell scripts
+*.sh text eol=lf
+
+# GitHub Actions
+.github/** text eol=lf
