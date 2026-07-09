@@ -84,9 +84,11 @@ function formatDuration(ms) {
 function escapeJsString(value) {
   return String(value)
     .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;")
-    .replace(/\\/g, "\\\\")
-    .replace(/'/g, "\\'")
+    .replace(/'/g, "&#39;")
+    .replace(/\\/g, "&#92;")
     .replace(/\r?\n/g, " ");
 }
 

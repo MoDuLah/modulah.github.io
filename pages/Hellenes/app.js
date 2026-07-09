@@ -351,7 +351,12 @@ function updateHomeOriginDetail() {
   }
 
   if (bonusesRoot) {
-    bonusesRoot.innerHTML = text.bonuses.map(bonus => `<div>${bonus}</div>`).join("");
+    bonusesRoot.innerHTML = ''; // Clear first
+    text.bonuses.forEach(bonus => {
+      const div = document.createElement('div');
+      div.textContent = bonus; // Safe text content
+      bonusesRoot.appendChild(div);
+    });
   }
 
   updateHomeOriginCardsSelection();
@@ -399,11 +404,14 @@ function setOrigin(originKey, options = {}) {
   });
 
   document.querySelectorAll("[data-bind='originSymbol']").forEach(el => {
+    // Safe innerHTML - origin.logo is from internal constants, but escape for safety
+    const safeLogo = origin.logo.replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+    const safeName = text.name.replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
     el.innerHTML = `
       <img
         class="origin-logo-img"
-        src="${origin.logo}"
-        alt="${text.name} logo"
+        src="${safeLogo}"
+        alt="${safeName} logo"
         loading="lazy"
       >
     `;
@@ -419,7 +427,12 @@ function setOrigin(originKey, options = {}) {
 
   const bonusRoot = document.getElementById("originPreviewBonus");
   if (bonusRoot) {
-    bonusRoot.innerHTML = text.bonuses.map(bonus => `<div>${bonus}</div>`).join("");
+    bonusRoot.innerHTML = ''; // Clear first
+    text.bonuses.forEach(bonus => {
+      const div = document.createElement('div');
+      div.textContent = bonus; // Safe text content
+      bonusRoot.appendChild(div);
+    });
   }
 
   const originInput = document.querySelector("input[name='origin']");
@@ -439,15 +452,21 @@ function renderAttributes() {
   const root = document.getElementById("attributesList");
   if (!root) return;
 
+  // Helper to escape HTML
+  const escapeHtml = (str) => String(str).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+
   root.innerHTML = ATTRIBUTES.map(attribute => {
     const text = attribute[currentLanguage] || attribute.en;
+    const safeName = escapeHtml(text.name);
+    const safeDesc = escapeHtml(text.desc);
+    const safeIcon = escapeHtml(attribute.icon);
 
     return `
       <div class="stat-row">
-        <span class="stat-icon ${attribute.danger ? "danger" : ""}">${attribute.icon}</span>
+        <span class="stat-icon ${attribute.danger ? "danger" : ""}">${safeIcon}</span>
         <div>
-          <strong class="stat-name ${attribute.danger ? "danger" : ""}">${text.name}</strong>
-          <small class="stat-desc">${text.desc}</small>
+          <strong class="stat-name ${attribute.danger ? "danger" : ""}">${safeName}</strong>
+          <small class="stat-desc">${safeDesc}</small>
         </div>
         <div class="bar"><span style="width:${Math.min(attribute.value, 100)}%"></span></div>
         <strong class="stat-value ${attribute.danger ? "danger" : ""}">${attribute.value}</strong>
@@ -460,30 +479,39 @@ function renderOriginCards() {
   const root = document.getElementById("originCards");
   if (!root) return;
 
+  // Helper to escape HTML
+  const escapeHtml = (str) => String(str).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+
   root.innerHTML = Object.entries(ORIGINS).map(([key, origin]) => {
     const isSelected = key === selectedOrigin;
     const text = originText(key);
+    const safeName = escapeHtml(text.name);
+    const safeMood = escapeHtml(text.mood);
+    const safeDescription = escapeHtml(text.description);
+    const safeLogo = escapeHtml(origin.logo);
+    const safeBonus = escapeHtml(text.bonuses.join("<br>"));
+    const buttonLabel = isSelected ? (currentLanguage === "el" ? "Επιλεγμένη" : "Selected") : (currentLanguage === "el" ? "Προβολή" : "View Panel");
 
     return `
       <article
         class="origin-card ${isSelected ? "is-selected" : ""}"
         style="--card-primary:${origin.primary}; --card-glow:${origin.glow};"
-        data-origin-card="${key}"
+        data-origin-card="${escapeHtml(key)}"
       >
         <div>
           <div class="origin-symbol">
-            <img class="origin-logo-img" src="${origin.logo}" alt="${text.name} logo" loading="lazy">
+            <img class="origin-logo-img" src="${safeLogo}" alt="${safeName} logo" loading="lazy">
           </div>
-          <h3>${text.name}</h3>
-          <p><strong>${text.mood}</strong></p>
-          <p>${text.description}</p>
+          <h3>${safeName}</h3>
+          <p><strong>${safeMood}</strong></p>
+          <p>${safeDescription}</p>
           <div class="origin-bonus">
             <strong>${currentLanguage === "el" ? "Προνόμιο Καταγωγής" : "Origin Bonus"}</strong><br>
-            ${text.bonuses.join("<br>")}
+            ${safeBonus}
           </div>
         </div>
 
-        <button type="button">${isSelected ? (currentLanguage === "el" ? "Επιλεγμένη" : "Selected") : (currentLanguage === "el" ? "Προβολή" : "View Panel")}</button>
+        <button type="button">${buttonLabel}</button>
       </article>
     `;
   }).join("");
