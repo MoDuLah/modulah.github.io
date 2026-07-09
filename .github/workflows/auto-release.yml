@@ -1,0 +1,46 @@
+name: Auto-Release & Changelog
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '**/*.user.js'
+
+jobs:
+  auto-release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Run Auto-Release
+        run: |
+          python3 scripts/auto-release.py
+
+      - name: Check for Changes
+        id: changes
+        run: |
+          if git diff --quiet; then
+            echo "no_changes=true" >> $GITHUB_OUTPUT
+          else
+            echo "no_changes=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Commit Changelog Updates
+        if: steps.changes.outputs.no_changes == 'false'
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: 'docs: auto-generate changelogs from commits'
+          branch: main
+          file_pattern: '**/changelog.txt'
+
+      - name: Trigger Version Sync
+        if: steps.changes.outputs.no_changes == 'false'
+        run: |
+          echo "Changelogs updated. Version sync will run in next workflow."
