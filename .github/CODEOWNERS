@@ -1,0 +1,31 @@
+# Code owners for the repository
+# https://help.github.com/articles/about-codeowners/
+
+# Everyone is a code owner for the root documentation
+* @MoDuL
+
+# GitHub Actions workflows
+.github/workflows/ @MoDuL
+
+# JavaScript files
+*.js @MoDuL
+
+# HTML files
+*.html @MoDuL
+
+# Userscripts
+*.user.js @MoDuL
+
+# Configuration files
+*.json @MoDuL
+*.yml @MoDuL
+*.yaml @MoDuL
+
+# Documentation
+*.md @MoDuL
+
+# Test files
+__tests__/ @MoDuL
+
+# Assets
+assets/ @MoDuL

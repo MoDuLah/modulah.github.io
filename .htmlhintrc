@@ -1,0 +1,19 @@
+{
+  "rules": {
+    "attr-value-quotes": "double",
+    "tag-self-close": "never",
+    "tagname-lowercase": true,
+    "attr-lowercase": true,
+    "attr-unsafe-chars": true,
+    "attr-no-duplication": true,
+    "element-newline": true,
+    "id-naming-convention": "camelCase",
+    "class-naming-convention": "camelCase",
+    "indent": 2,
+    "disallowed-tags": [],
+    "disallowed-elements": []
+  },
+  "ignoreFiles": [
+    "pit-guru/exports/**/*.html"
+  ]
+}

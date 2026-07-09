@@ -1,0 +1,49 @@
+{
+  "env": {
+    "browser": true,
+    "es2021": true,
+    "node": false,
+    "greasemonkey": true
+  },
+  "extends": [
+    "eslint:recommended",
+    "plugin:prettier/recommended"
+  ],
+  "parserOptions": {
+    "ecmaVersion": "latest",
+    "sourceType": "module"
+  },
+  "rules": {
+    "no-unused-vars": "warn",
+    "no-console": "off",
+    "prefer-const": "warn",
+    "no-var": "error",
+    "eqeqeq": ["error", "always"],
+    "no-implicit-coercion": "warn",
+    "guard-for-in": "warn",
+    "no-loop-func": "warn",
+    "callback-return": "off",
+    "handle-callback-err": "off"
+  },
+  "globals": {
+    "GM_addStyle": "readonly",
+    "GM_getValue": "readonly",
+    "GM_setValue": "readonly",
+    "GM_xmlhttpRequest": "readonly",
+    "unsafeWindow": "readonly",
+    "document": "readonly",
+    "window": "readonly",
+    "console": "readonly",
+    "setTimeout": "readonly",
+    "setInterval": "readonly",
+    "clearTimeout": "readonly",
+    "clearInterval": "readonly",
+    "Promise": "readonly",
+    "fetch": "readonly",
+    "XMLHttpRequest": "readonly"
+  },
+  "ignorePatterns": [
+    "node_modules/",
+    "pit-guru/exports/"
+  ]
+}

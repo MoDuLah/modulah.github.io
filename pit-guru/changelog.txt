@@ -4,7 +4,7 @@ MoDuL's Pit Guru Changelog
 Project status (2026-07-09)
 ---------------------------
 - MoDuL's Pit Guru is now the public-facing successor project to Lap Recorder on MoDuL's Hub.
-- The live supporter userscript build is v2.1.1 at https://modulah.github.io/pit-guru/MoDuLs-Pit-Guru.user.js.
+- The live supporter userscript build is v2.1.2 at https://modulah.github.io/pit-guru/pit-guru.user.js.
 - v2.1.2 updates the api connection to the latest dns.
 - v2.1.1 removes the advanced Hosted API & Player controls from public Settings while keeping transient retry recovery, short TTL read caching, and legacy hosted-session key cleanup.
 - v2.0.9 fixes the Predictions renderer crash after racingData is captured, when the shared render loop passes elapsed-time arguments instead of a prediction driver set.
