@@ -1,0 +1,27 @@
+MoDuL's Smuggler Changelog
+==========================
+
+v3.0.6 (2026-07-01)
+-------------------
+- Active in-flight state now persists cleanly across normal page changes instead of collapsing as soon as you leave the travel page.
+- Route detection now prefers validated travel UI sources, which stops return flights from swapping origin and destination in the pill.
+- The progress bar, countdown, and ETA now stay tied to the active stored flight session while the trip is still in progress.
+- The Torn badge now renders inline instead of repeatedly refetching an external icon while the pill refreshes.
+
+v3.0.5 (2026-04-28)
+-------------------
+- Current public Greasy Fork release.
+- Rapid hotkey presses and repeated plane taps now run through a short shared cooldown so the same travel step does not stack several times in a burst.
+- The whole pill still stays draggable except the plane button, and the blocked-state prohibition overlay remains in place on the plane button.
+- The blocked-page suppression, TornPDA continue-targeting fix, and floating dropdown overlay from the earlier 3.0.x releases remain in place.
+
+Hub page refresh (2026-04-28)
+-----------------------------
+- Updated the Smuggler hub card and live snapshot to reflect the public release instead of a rename-only placeholder.
+- Repointed related page links so Smuggler traffic goes to the hub page first.
+- Kept screenshots, FAQ, and changelog structure in place for future versioned updates.
+
+Rename and branding pass (2026-04-22)
+-------------------------------------
+- The former Travel Assistant hub presence was renamed to Smuggler across the hub, page, and FAQ.
+- The Smuggler logo and dedicated script branding were added throughout the site.

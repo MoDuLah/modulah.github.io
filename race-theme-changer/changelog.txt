@@ -1,0 +1,261 @@
+# Changelog
+
+## 2.4.1.
+
+- API Connection string updated to the latest DNS.
+
+## 2.4.0
+
+- Reworked the license panel into Discord Licensing instructions
+- Removed the manual key paste, verify/save, clear-license, and redirect progress flow from the UI
+- Supporter access now unlocks only through the active Discord bot License API status check for the detected Torn ID
+- Old saved key data is cleared opportunistically and is no longer used to unlock or lock the UI
+- Added a short localStorage cache for successful active license status checks
+- Tightened hosted update-notice sanitization with allowed tags, attributes, link protocols, and CSS properties
+- Added a Jest validation suite covering license status caching and hosted update-notice sanitization
+
+## 2.3.9
+
+- Removed the old internal signed-key verifier completely
+- Supporter verification now uses only the Discord bot License API and active status endpoint
+- Pasted keys are limited to bot/API formats such as `PP-CRF` and `PP2`
+
+## 2.3.8
+
+- Kept the hosted notice file as `custom-race-filter/update-notice.html`
+- Replaces notice placeholders like `{TORN_NAME}` before showing the mini-modal
+
+## 2.3.7
+
+- Added an `Update notice` button before the license manager in the top supporter bar
+- Added a mini-modal that loads license instructions from the hosted update notice page
+- The update notice opens once per script version, then stays available on demand from the button
+
+## 2.3.6
+
+- Added a post-mount License API status refresh so an active bot-issued supporter license unlocks the UI after Torn exposes the user ID
+- Supports Promise-style `GM.xmlHttpRequest` responses used by some Firefox/Greasemonkey setups
+- Active `custom-race-filter` status now overrides stale local locked state immediately after the UI is mounted
+
+## 2.3.5
+
+- Fixed active bot-issued licenses not unlocking the UI when the user had no usable saved key
+- Added primary License API status checks for `custom-race-filter` and the detected Torn user ID
+- Ensured successful status checks override stale locked or failed cached state
+- Prevented retriable user-ID/API failures from resetting Supporter settings
+- Made filter option changes trigger an immediate race-list reapply without requiring a page refresh
+
+## 2.3.4
+
+- Updated Supporter license verification to use the shared License API used by the Discord bot
+- Bot-issued `PP-CRF` keys now verify as `custom-race-filter` licenses against the active license database
+- Added userscript request grants and `pp-api.sokin.xyz` connect permission for the License API
+- Kept legacy signed-key checking only as a fallback when the License API cannot be reached
+
+## 2.3.3
+
+- Restored the main script file to the newest active branch version
+- Restricts license user ID validation to Torn's own header `Name` profile link and the `mon.js` bootstrap `playerid`
+- Prevents broad page scans from picking the wrong profile ID on racing subpages and clearing a valid saved license
+- Restores `@run-at document-idle` to match the active browser branch timing
+
+## 2.3.1
+
+- Tightened user ID detection for license validation to use only Torn's own profile/header `Name` link and the `mon.js` bootstrap `playerid`
+- Fixed a case where the script could detect the wrong ID from unrelated profile links on racing subpages and clear a valid saved license
+- Keeps the existing retry flow for cases where those Torn-owned fields are temporarily unavailable
+
+## 2.3.0
+
+- Added a `👍 Support + Like` button under `Car names`
+- The new button opens the Torn forum thread in a new window using the same button styling as the rest of the panel
+
+## 2.2.10
+
+- Added two extra JLT selectors that appear only when `UTR / JLT` is set to `Only`
+- Added optional `League` filter with `L0` through `L6`
+- Added optional `Group` filter with `A` through `P`
+- The final race number in tags like `JLT-L2-A-2` is treated as variable, so matching focuses on league and group only
+- The extra selectors stay hidden when `UTR / JLT` is set to `Any` or `Hide`
+
+## 2.2.9
+
+- Fixed a licensing bug where visiting race log pages could cause a valid saved license to be cleared on refresh
+- Saved licenses are now preserved when the page is in a transient racing state and user detection cannot be confirmed yet
+- Added retry handling so the script can recover the saved license state when Torn switches back into Custom Events without a clean URL update
+
+## 2.2.8
+
+- Renamed the Supporter filter label from `URT` to `UTR / JLT`
+
+## 2.2.7
+
+- Synced the release text files with the actual script changes
+- Updated the version references in:
+  - `greasyfork.txt`
+  - `forum.txt`
+  - `discord.txt`
+- Added compatibility notes to the release copy
+- Documented the newer Firefox / Greasemonkey style compatibility improvements in the release text
+
+## 2.2.6
+
+- GreasyFork public version page shows the script with:
+  - MIT license metadata
+  - `URT/JLT` wording in the public feature list
+  - whitespace-tolerant license pasting
+  - Restore OG Car Names compatibility
+- Exact per-release delta is not described on the public version history page
+
+## 2.2.5
+
+- GreasyFork public version page shows the script with:
+  - Track and laps filters
+  - Car name selector: `Fictional / Real (OG)`
+  - Supporter filters for password, URT/JLT, car/class, start time, bet/fee, popularity, and full-race visibility
+  - Settings persistence
+  - PDA-friendly notes and whitespace-tolerant license pasting
+- Exact per-release delta is not described on the public version history page
+
+## 2.2.4
+
+- Added broader compatibility for stricter userscript-manager environments
+- Added support for modern Greasemonkey style storage APIs:
+  - `GM.getValue`
+  - `GM.setValue`
+- Kept compatibility with legacy storage APIs:
+  - `GM_getValue`
+  - `GM_setValue`
+- Added local storage fallback handling for environments where storage behavior is stricter
+- Improved license save / clear flow so storage writes are awaited before continuing
+- Added clearer license failure messaging when verification or saving fails
+- Expanded user ID detection for sandboxed environments by checking:
+  - additional global names
+  - broader profile-link patterns
+  - page-context access via `unsafeWindow`
+- Bumped the script version to `2.2.4`
+
+## 2.2.3
+
+- Bumped the script version to `2.2.3`
+- Reworked the license flow into an inline panel instead of browser prompts
+- Added custom license action controls to avoid Torn hijacking button clicks
+- Fixed the post-verification redirect so it returns to:
+  - `https://www.torn.com/page.php?sid=racing&tab=customrace`
+- Added a 2-second redirect delay after successful verification
+- Added a visible progress bar for that redirect delay
+- Changed clearing a license so only Supporter-only settings reset while free settings stay as they were
+- Added a darker information icon with improved spacing in the Supporter status area
+- Restyled dropdowns to better match Torn styling
+- Added spacing improvements between dropdown rows and columns
+- Reworked dropdown rendering to use DOM option creation instead of `innerHTML`
+- Reduced script size by removing older unused verifier code
+- Replaced the old verifier path with the current Ed25519 fallback verifier
+- Avoided `globalThis` and direct `BigInt` assumptions that were causing lint / compatibility issues
+- Added auto-detection for pages where another script has already changed fictional car names to real names
+- Added `Real (Detected)` mode so the car-name dropdown follows what is actually shown on the page
+- Preserved matching car selections when switching between fictional and real-name modes
+- Improved forum and release copy workflow by splitting post content into dedicated text files
+
+## 2.2.2
+
+- GreasyFork public version page shows the same broader feature set as the early `2.2.x` line:
+  - Car name selector
+  - Password, URT, car/class, start time, bet/fee, popularity, and show-full Supporter filters
+  - Settings persistence
+  - Restore OG Car Names compatibility
+  - Lightweight / PDA-friendly behavior
+  - Whitespace-tolerant license pasting
+- Exact per-release delta is not described on the public version history page
+
+## 2.2.1
+
+- GreasyFork public version page shows the same `2.2.x` feature baseline as `2.2.2`
+- Exact per-release delta is not described on the public version history page
+
+## 2.2.0
+
+- GreasyFork public version page shows the same `2.2.x` feature baseline as `2.2.1` and `2.2.2`
+- Exact per-release delta is not described on the public version history page
+
+## 2.1.9
+
+- Visual improvements
+
+## 2.1.8
+
+- UI styling updated to better match Torn’s native theme
+- Improved dropdown readability
+- Improved panel mounting reliability on page and tab updates
+- Fixed button interactions that could cause page errors
+
+## 2.1.7
+
+- Added Popularity filter as a Supporter feature
+- Added minimum fill percentage filtering:
+  - `>= 30%`
+  - `>= 50%`
+  - `>= 70%`
+- Used current and max driver counts for popularity calculation
+
+## 2.1.6
+
+- Added Car Names mode selector:
+  - `Fictional`
+  - `Real (OG)`
+- Improved compatibility with car name replacement scripts
+- Stability and performance improvements
+
+## 2.1.5
+
+- Added car name mode selector
+- Made `Real (OG)` compatible with Restore OG Car Names
+- Fixed car/class filtering when OG names are active
+- Improved compatibility between multiple MoDuL scripts
+- UI polish and icon consistency
+- Performance optimisations for mobile devices
+
+## 2.1.4
+
+- Added Ko-fi support button
+- Moved Supporter verification to the top section
+- Reworked Advanced section placement
+- Reduced observer overhead
+- Improved PDA compatibility
+
+## 2.1.3
+
+- Added Start Time filter
+- Added Bet / Free race filter
+- Added Show Full races toggle
+- Improved batching for large race lists
+
+## 2.1.2
+
+- Added URT (Championship) detection
+- Improved gold and protected race detection
+- Reworked parts of the UI for clarity
+
+## 2.1.0
+
+- Introduced Supporter and Free editions
+- Added offline license verification using Ed25519
+- Added settings persistence for supporters
+- Major UI redesign
+
+## 2.0.0
+
+- Full rewrite focused on performance
+- Mobile-first filtering logic
+- PDA-safe observer handling
+
+## 1.3.1
+
+- Earlier public release listed on GreasyFork history
+- No detailed public changelog text was shown on the version history page excerpt used here
+
+## Notes
+
+- Versions `2.1.9` and older were expanded using the public GreasyFork version history and version pages
+- Versions `2.2.0` through `2.2.6` are only as specific as the public GreasyFork history and version pages allowed
+- Versions `2.2.3` and newer also include the concrete local development changes made in this workspace

@@ -1,0 +1,19 @@
+Stock-X Changelog
+=================
+
+Current status (2026-06-03)
+---------------------------
+- The public info page, screenshots, FAQ, changelog, forum post, and Discord announcement are now all live.
+- The script is still marked under development while the stock workflow feature set is being refined.
+- The public positioning continues to focus on vault visibility, ROI support, Trade Assistant flow, and faster market checks.
+
+v1.0.0 (Current development build)
+----------------------------------
+- The current local build is versioned as v1.0.0.
+- Core direction remains vault control, quick withdrawals, ROI context, benefit-lock protection, and the Trade Assistant.
+- Download routing still stays off the page while staff review remains pending.
+
+Public rollout material (2026-06-03)
+------------------------------------
+- The Torn-side changelog, forum post draft, and Discord announcement are now in place beside the page and FAQ.
+- The page structure is ready to switch from development notes to numbered public release notes once the download path opens.

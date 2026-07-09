@@ -17,7 +17,7 @@
 // @grant        GM_xmlhttpRequest
 // @grant        unsafeWindow
 // @connect      api.torn.com
-// @connect      pp_api.sokin.xyz
+// @connect      pp-api.sokin.xyz
 // @connect      127.0.0.1
 // @connect      localhost
 
@@ -33,7 +33,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
 (function () {
     "use strict";
 
-    const PG_PUBLIC_BASE_DEFAULT = "https://pp_api.sokin.xyz/pit-guru";
+    const PG_PUBLIC_BASE_DEFAULT = "https://pp-api.sokin.xyz/pit-guru";
     const PG_LOCAL_API_BASE_DEFAULT = "https://127.0.0.1:8787";
     const PG_LOCAL_PLAYER_BASE_DEFAULT = "https://127.0.0.1:8790";
     const PG_TUNNEL_BASE_DEFAULT = "https://127.0.0.1:8092";

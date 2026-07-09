@@ -1,0 +1,336 @@
+# Pythagoras Project - CIS Changelog
+
+## v2.9.0 - API DNS Update
+
+- New API DNS location for improved security and SSL compliance.
+
+## v2.8.12 - Advertising budget history
+
+- Business/Profile sync now records Torn API V2 `advertisement_budget` as dated advertising-budget history.
+- Balance now uses the latest observed advertising budget on or before each report date instead of leaving every ad-budget row blank.
+- The Pythagoras API now stores advertising-budget history separately from the latest company settings so older dated values are preserved for statistics.
+
+## v2.8.11 - Risk strike persistence
+
+- Visible risk notifications now record same-day risk-strike history, so warnings cannot appear without also updating the member record.
+- Staff sync snapshots now include `strikeHistory` and raw strike-history data for the Pythagoras API snapshot path.
+- Risk-strike updates are also saved as staff-card edits and queued for staff/workspace cloud sync.
+
+## v2.8.10 - Staff load guardrail and Mechanic Shop training rotation
+
+- Cloud/database member loading now treats a valid left date on or after hire date as past staff before the current staff list is built.
+- Mechanic Shop auto training now ranks free/sponsored slots by lowest known total working stats first, with a large projected-training penalty so Lucas-style repeats cannot dominate the ninth slot.
+- Confirmed the active Balance ledger markup no longer contains the unreliable Employees column.
+
+## v2.8.9 - Staff departure guard and Balance cleanup
+
+- Company news left/fired events now override stale current-staff snapshots so departed employees cannot reappear from cached, cloud, profile, or employee-sync data unless a newer hire event exists.
+- Employee sync now runs full staff dedupe after merging API rows, not only director filtering.
+- Balance ledger and generated balance reports no longer show the unreliable Employees column.
+
+## v2.8.8 - Business Profile and Balance render fix
+
+- Business Profile daily/weekly fallback now reads lightweight report rows instead of building the full Balance ledger during profile render.
+- Balance ledger now caches staff hire/left and wage-history data once per render instead of recalculating it for every report date.
+- Balance wage lookup uses saved previous/new wage history when available and avoids repeated expensive staff date inference during table and graph rendering.
+
+## v2.8.7 - Loading, rate limits, and Balance fixes
+
+- Torn API calls now run through a shared throttle queue at roughly 27 calls per minute to avoid account-wide rate-limit bursts.
+- Startup now renders the panel before rebuilding stored timeline analytics so loading does not appear frozen on large histories.
+- Business Profile daily and weekly income/customer rows now fall back to synced daily report data when direct profile fields are empty.
+- Userscript loading is scoped to `companies.php` and now runs at `document-end` for faster Torn page loading.
+- Balance ledger no longer stamps current ad budget, rating, wages, or staff count onto every historical row; unknown ad budget/rating values stay blank.
+
+## v2.8.6 - Training priority and Balance graphs
+
+- Sponsored/free training slots now prioritize eligible staff with the largest role-stat gaps, falling back to the lowest total working stats when no role requirement is configured.
+- Projected sponsored picks now reduce that member's immediate priority so the same ninth slot is less likely to repeat across planned days.
+- Daily Balance was renamed to Operating Balance/Balance and the performance graph now includes Wages as a selectable money line.
+
+## v2.8.5 - Torn Company API V2 sync
+
+- Sync center Business, Company details, Employees, Stock, and Company news now use Torn API V2 Company endpoints.
+- V2 company profile data now feeds both Business profile and Company details, including extended fields such as funds, trains, upgrades, storage capacity, and company value when the key allows it.
+- Employee sync now understands V2 position, working stats, effectiveness, wage, joined date, status, and last action shapes.
+- Company age display now rejects invalid tiny founded timestamps and falls back to the company age day count.
+- Business Profile now shows founded date from the known company start estimate and staff as full company headcount.
+
+## v2.8.4 - Database bootstrap repair
+
+- Business profile loading now merges saved database company profile and company detail records into the active workspace during CIS bootstrap.
+- Company funds, popularity, efficiency, environment, storage, value, staff capacity, daily figures, and weekly figures now load from the backend instead of rendering empty defaults after page load.
+- Company identity, rating, director, founded date, and sync timestamps are still refreshed from the current backend company row.
+
+## v2.8.0 - Cloud workspace sync hardening
+
+- Added server-backed sync paths for staff-card edits, settings, training orders, and full company workspace mirrors.
+- Company workspaces are keyed by the active user and company so separate companies can keep separate saved data.
+- Cloud sync failures now keep local edits available and show a clear toast instead of silently discarding the change.
+
+## v2.7.0 - Company workspace workflow
+
+- Added the Data workspace controls for loading, saving, exporting, importing, and clearing active company data.
+- Added saved company workspace handling so directors can reconnect to the correct cloud-backed company state after refresh.
+- Added clearer privacy copy around local profile storage and backend verification.
+
+## v2.6.5 - Script-side cleanup
+
+- Removed obsolete client-side account UI, badge snippets, old saved-key storage, and local unlock prompts from the userscript.
+- Removed local feature gates and stale disabled-control messages. The userscript now keeps UI, sync helpers, display formatting, and local calculations.
+- Removed old local 7-day retention trimming and pass-through access helpers from the script-side state path.
+- Removed dead handlers and report options tied to the old activation panel.
+
+## v2.6.4 - Compliance cleanup
+
+- Removed the wildcard userscript connect permission and limited external requests to Torn API and the Pythagoras API.
+- Replaced local key-protection string helper functions with plain constants so the source does not look obfuscated during review.
+- Removed lifetime wording and local signed lifetime-key acceptance from the userscript payload validator.
+- Updated About/support wording to refer to in-game supporter notes and Torn-dollar/item contributions.
+
+## v2.6.3 - Server-side premium enforcement
+
+- Premium report and export buttons now request server-generated output from the Pythagoras API instead of generating premium-value output locally.
+- Added backend endpoints for server-limited history queries, advanced weekly analytics, report generation, JSON exports, and planner generation.
+- Added endpoint-level tier checks so edited client buttons cannot bypass Supporter, Company Boost, or Ultimate requirements.
+- Updated the tier gate migration so Supporter keeps history/report benefits while advanced analytics and planner generation remain Company Boost/Ultimate server features.
+
+## v2.6.2 - Local identity and entitlement refresh
+
+- Fixed remembered API key handling so the local profile keeps the explicit Remember locally choice instead of deriving it from whether the key field is currently populated.
+- Preserved local identity fields when cloud bootstrap data is loaded, preventing older cloud settings from blanking the API key or company/user IDs.
+- After a successful Torn key check, CIS now immediately reloads the cloud workspace and entitlement so the active tier is applied without a page refresh.
+- Lifetime-style backend entitlements no longer require a timed expiry field when the signed backend response marks the entitlement as active.
+
+## v2.6.0 - Cloud workspace architecture
+
+- Added the server-backed workspace migration path. The userscript now writes only the local profile fields: API key, user ID, username, and company ID.
+- Added bootstrap loading from the CIS API and one-time legacy local data migration to the cloud workspace normalizer.
+- Removed lifetime licensing from the current issue flow; CIS plans are now 1m, 3m, 6m, or 12m.
+- Added server-side entitlement support for Free 7-day visibility, Supporter, Company Boost, and Ultimate.
+
+## v2.5.9 - V2-only local storage
+
+- Removed legacy local-storage fallback logic.
+- Fresh installs and existing users now read and write only the current v2 local state record.
+
+## v2.5.8 - Local storage privacy migration
+
+- Local Tampermonkey state now writes to the current v2 storage record.
+- New local saves no longer persist raw license verification cache entries, license payload/signature fields, or readable protected-storage algorithm markers.
+- Protected local state now keeps readable storage metadata minimal.
+
+## v2.5.7 - Glyph encoding cleanup
+
+- Replaced literal UI glyphs with encoding-safe output so header, planner, and staff-card buttons do not render as mojibake after install.
+- Removed the last non-ASCII source character from the userscript body.
+
+## v2.5.6 - License internals cleanup
+
+- License code and user-facing copy now use neutral wording for protected key handling.
+- Internal API-key markers were renamed to avoid exposing implementation details in readable source.
+
+## v2.5.5 - License UX and key format
+
+- The local key passphrase is now kept for the current tab session so page changes and refreshes do not repeatedly ask for it.
+- API license keys now accept the `PP-CIS-XXXX-XXXX` display format while keeping the older `PP2` format compatible.
+- Badge copying now uses userscript clipboard helpers when available and the badge snippet now uses a two-row table with the note row spanning both columns.
+
+## v2.5.4 - API license keys
+
+- CIS now accepts API-only `PP2` license serials and waits for the backend entitlement before applying tier and feature flags.
+- Existing shared keys remain supported through the License API compatibility path.
+
+## v2.5.3 - Footer icon click handling
+
+- The footer launcher now treats clicks on the triangle SVG the same as clicks on the button background.
+- The footer launcher click handler is bound on both the native-style button and wrapper for better compatibility with Torn footer styling.
+
+## v2.5.2 - Protected local key storage
+
+- Remembered Torn API keys and saved license keys are now stored locally behind a passphrase instead of readable local JSON fields.
+- Existing plaintext or legacy protected records still load and migrate on the next save.
+
+## v2.5.1 - Faster footer launcher startup
+
+- The footer launcher now uses a short startup retry loop so it appears as soon as Torn's chat footer is available.
+- A lightweight watchdog keeps the launcher restored if Torn redraws or removes the footer button after page load.
+
+## v2.5.0 - Footer fallback anchors
+
+- The minimized footer launcher now searches the full Torn chat/footer section for Notes, People, Settings, Trade, Global, Company, or Faction anchors.
+- If those buttons are hidden by user preference, the launcher now mounts into the chat footer container instead of disappearing.
+
+## v2.4.9 - Footer launcher anchoring
+
+- The minimized footer launcher now anchors before Notes when available, with fallbacks for non-donator accounts that do not have Notes.
+- The footer launcher observer now stays active so Torn footer redraws restore the button instead of letting it vanish.
+
+## v2.4.8 - Autosave local edits
+
+- Local editable panels now autosave on input/change, removing manual save buttons from settings, stock, theme, wage, and staff-card edits.
+- Staff cards now close with a Close button and silently save pending edits before closing.
+- Explicit external actions such as sync, import/export, delete, Torn actions, and cloud upload remain manual.
+
+## v2.4.7 - Panel header control spacing
+
+- Panel headers now reserve space for both the help and collapse controls, so right-side action buttons no longer slide underneath them.
+- Header action rows wrap more cleanly and remove extra button side margins inside grouped actions.
+
+## v2.4.6 - Trainer paid-cap bonus
+
+- Settings, schedule generation, and operational context now allow one extra paid slot when a Trainer role is detected.
+- The Paid cap / day dropdown now matches the displayed daily training supply bonus instead of stopping at the old base cap.
+
+## v2.4.5 - Free cloud storage with 7-day reload
+
+- Free users can save full workspace history to the Pythagoras API/database using Torn API key verification.
+- Free reloads receive only the last 7 days back into the script; upgrading later restores access to the full stored history.
+- The Data cloud workspace panel now explains that the Torn API key is used only over HTTPS for user/company verification and is not stored by the backend.
+
+## v2.4.4 - Free 7-day local persistence
+
+- Free users now keep a rolling 7-day local data slice across page refreshes instead of falling back to an empty bootstrap.
+- Current company profile, current staff/directors, settings, and recent timestamped rows are retained locally without a license key.
+- Licensed users still use the lightweight local bootstrap plus API/database-backed cloud workspace history.
+
+## v2.4.3 - Supporter cloud history and clearer data actions
+
+- Supporter licenses can now use API/database-backed cloud workspaces and history load/save.
+- Data actions now say exactly what they export or import: selected JSON backup, selected HTML report, and selected newsletter HTML.
+- Locked Data actions now show a license explanation instead of failing silently.
+- License API/database verification remains required for this build.
+- Signed backend entitlements, stale-license cleanup, director-profile dedupe, and older-news throttling are included from the recent hardening builds.
+
+## v2.1.10 - Database-authoritative premium checks
+
+- Changed configured License API builds to require API/database verification before premium features unlock.
+- Disabled local signature and legacy-key fallback whenever a License API URL is configured.
+- Saved license keys are refreshed against the API before the first UI render so revoked or missing database rows do not keep premium controls active from stale local cache.
+
+## v2.1.9 - Backend license verification
+
+- Added configurable License API verification for backend/database-backed keys and remote feature flags.
+- The License page now shows backend validation status, validation source, and returned feature flags.
+- Local signature validation remains available as a fallback when the backend URL is not configured or unavailable.
+
+## v2.1.8 - Queue freeze and selected backups
+
+- Train Schedule now freezes the prepared daily queue once it is opened/highlighted.
+- Each train click advances the same frozen queue instead of recalculating sponsored priority mid-run.
+- Completed schedule dates are marked locally so finished queues do not reshuffle on redraw.
+- Data/report switches now affect JSON export and import, not only HTML reports and newsletter output.
+- Staff cards now show addiction and inactivity strike counters near the contract type.
+- PTR/STR staff counters now use the contract recorded with each training row instead of the member's current contract.
+- Director cards now show derived director periods from timeline director-change events.
+- Script user profile now includes repeated director periods detected from company timeline history.
+- Added panel help buttons, grouped Settings sync controls, and current-week Training Log placeholders.
+
+## v2.1.7 - Working-day notification dismissals
+
+- Dismissed notifications now stay hidden across reloads until the next 18:10 TCT business reset.
+- The reset boundary matches the post-report window when daily reports and staff status checks are expected to refresh.
+- Notification dismiss buttons now describe the new working-day behavior instead of saying "until page reload".
+
+## v2.1.6 - Inner footer alert glow
+
+- Footer notification pulses now glow inside the native footer button instead of around it.
+- The alert state no longer relies on `drop-shadow`, so it keeps the footer button cleaner beside Torn's native icons.
+
+## v2.1.5 - Torn-wide launcher
+
+- The userscript now matches Torn pages generally with `https://www.torn.com/*`.
+- The full CIS interface only renders on `companies.php`.
+- On other Torn pages the native footer icon acts as a launcher and sends the user to the company page.
+- Non-company pages no longer show the CIS panel or popup badge.
+
+## v2.1.4 - Footer alert pulse
+
+- Footer notifications now use a soft red glow pulse every five seconds instead of a constant outer border.
+- The footer triangle icon is larger inside the native footer button.
+- The footer triangle icon now uses neutral `#bdbdbd` strokes to better match Torn's native panel icons.
+
+## v2.1.3 - Native footer launcher
+
+- The footer launcher now copies Torn's native Trade button wrapper and button classes.
+- The launcher mounts as its own footer sibling instead of inserting inside another button wrapper.
+- The launcher stays available while the embedded window is expanded.
+- The footer icon now uses the simplified Pythagoras triangle mark.
+
+## v2.1.2 - Footer minimized button
+
+- Minimized embedded mode now mounts a Torn-style footer button beside Torn's own panel controls when available.
+- The footer button copies Torn's footer button class and icon sizing, then applies the active Pythagoras accent colour.
+- The footer button uses the refreshed Pythagoras icon mark.
+- The previous minimized pill remains as a fallback if Torn's footer controls are not available yet.
+
+## v2.1.1 - Docked minimized button
+
+- Minimized embedded mode now docks beside Torn's channel panel button when available.
+- The minimized control uses the active Pythagoras accent colour as its button background.
+- The minimized control now shows the refreshed Pythagoras icon mark.
+- The button falls back to the saved embedded position if Torn's channel panel button is not present.
+
+## v2.1.0 - Risk strikes and report-gap backfill
+
+- Staff cards now keep a Risk strikes history.
+- Addiction strikes are recorded when synced addiction impact is above the configured Addiction Threshold.
+- Long inactivity strikes are recorded when synced last action is more than 24 hours old.
+- Business sync and Employee sync record strikes automatically.
+- The same strike type is not duplicated repeatedly for the same staff member on the same day.
+- Fetch older news now checks unfilled daily-report gaps when normal backfill has already reached the company start date.
+- Gap backfill targets the missing daily-report date with one manual API request per click, then moves to the next untried gap.
+
+## v2.0.9 - Paid switch fix
+
+- Training Orders now respect the Paid switch exactly.
+- Full payment no longer forces an order back to Paid after adding it or toggling it off.
+- Legacy orders without a saved paid flag can still infer paid status from payment, so older data remains sensible.
+
+## v2.0.8 - Greasemonkey storage compatibility
+
+- Added support for modern Greasemonkey promise-style helpers:
+  - `GM.getValue`
+  - `GM.setValue`
+  - `GM.deleteValue`
+  - `GM.xmlHttpRequest`
+  - `GM.addStyle`
+- Kept support for legacy Tampermonkey helpers:
+  - `GM_getValue`
+  - `GM_setValue`
+  - `GM_deleteValue`
+  - `GM_xmlhttpRequest`
+  - `GM_addStyle`
+- Changed startup to await Greasemonkey storage before rendering the script.
+- Improved Android Firefox / Greasemonkey behaviour where validating a key could appear to do nothing because saved state was not being persisted through the old helper names.
+
+## v2.0.7 - Friendlier gates and open training orders
+
+- Training Orders are no longer limited by the Free weekly view.
+- Saved training orders stay visible and are included in order totals for every tier.
+- Tier-gate messages now use softer wording and explain that saved data is kept safely.
+
+## v2.0.6 - Licensing gates restored
+
+- Restored tier-based feature gates for Free, Supporter, Company Boost, and Ultimate.
+- Free accounts use current-week-only visibility.
+- Historical syncs, exports, reports, receipts, automation, stock planning, wages, graphs, role management, and theme editing show visible upgrade messaging when gated.
+
+## v2.0.5 - Product-bound shared licenses
+
+- Pythagoras Project - CIS now accepts the shared signed license payload with explicit product binding.
+- Added support for tier, mode, expiry, and optional company ID in the shared license payload.
+- Bot-issued keys can now target CIS without unlocking other scripts.
+
+## v2.0.4 - New-hire training hold
+
+- Train Schedule keeps staff off the planner for their first 3 days after hire.
+- Paid orders wait and sponsored rotation/manual picks skip new hires until they are eligible.
+- The schedule note, operational context, and tutorial explain the new-hire hold.
+
+## v2.0.3 - Full script tutorial
+
+- Tutorial now walks through the full current script workflow.
+- Covered setup, sync order, settings, business profile, timeline, analytics, ledger, schedule, staff/directors, stock, balance, wages, licensing, themes, data, reports, and About.
+- Tutorial cards can show short bullet notes.
+- Changelog entries are collapsed by default inside the script.
