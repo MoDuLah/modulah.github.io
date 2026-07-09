@@ -1,0 +1,23 @@
+EggsTerminator Changelog
+========================
+
+v2.5.12 (2026-04-28)
+--------------------
+- Current public Greasy Fork release.
+- Keeps the stable state-aware navigator and egg finder flow live in the newest public build.
+- Carries forward separate found and collected counters, manual egg log sync, and the state badge in the current release line.
+
+v2.5.4 (2026-04-20)
+-------------------
+- Earlier public Greasy Fork release in the 2.5.x line.
+- Represents the live event helper before the later April public update cycle.
+
+v2.5.3 (2026-04-08)
+-------------------
+- Immediate public update in the 2.5.x release cycle.
+- Part of the rapid April 2026 polish run for the event helper.
+
+v2.5.1 (2026-04-08)
+-------------------
+- First 2.5.x public rollout on Greasy Fork.
+- Established the current spring 2026 update branch for the navigator.

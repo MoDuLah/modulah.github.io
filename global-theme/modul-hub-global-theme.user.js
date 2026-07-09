@@ -1,6 +1,6 @@
 // ==UserScript==
-// @name         MoDuL Hub Control Room
-// @namespace    modul.hub.control-room
+// @name         MoDuL Hub Global Theme
+// @namespace    modul.hub.global-theme
 // @version      0.2.8
 // @description  One-place live palette, font, radius, unit-aware spacing, padding, margin, and compatibility controller for MoDuL Torn userscripts.
 // @author       MoDuL
@@ -17,17 +17,17 @@
 (function () {
   'use strict';
 
-  if (window.MoDuLHubControlRoom) return;
+  if (window.MoDuLHubGlobalTheme) return;
 
   const VERSION = '0.2.8';
   const THEME_CONTRACT_VERSION = '1.0.0';
   const CSS_VAR_PREFIX = '--mh-';
-  const STORAGE_KEY = 'modulHubControlRoom.v2';
-  const STYLE_ID = 'modul-hub-control-room-style';
+  const STORAGE_KEY = 'modulHubGlobalTheme.v2';
+  const STYLE_ID = 'modul-hub-global-theme-style';
   const CONTRACT_STYLE_ID = 'modul-hub-contract-style';
   const BRIDGE_STYLE_ID = 'modul-hub-compat-bridge-style';
-  const OVERLAY_ID = 'modul-hub-control-room-overlay';
-  const TRIGGER_ID = 'modul-hub-control-room-trigger';
+  const OVERLAY_ID = 'modul-hub-global-theme-overlay';
+  const TRIGGER_ID = 'modul-hub-global-theme-trigger';
   const root = document.documentElement;
 
   const EVENT_NAMES = Object.freeze({
@@ -363,7 +363,7 @@
     {
       id: 'neonTokyo',
       name: 'Neon Tokyo',
-      desc: 'Pink, cyan, and purple neon control room.',
+      desc: 'Pink, cyan, and purple neon Global Theme.',
       swatches: ['#070510', '#100c22', '#cc0088', '#ff40b0', '#00e8ff'],
       vars: {
         bg: '#070510', bgSoft: '#0c0818', panel: '#100c22', panel2: '#160f2c', elevated: '#1c1438',
@@ -459,8 +459,8 @@
     ['Cards / Editor Fields Padding', ['cardPaddingTop', 'cardPaddingRight', 'cardPaddingBottom', 'cardPaddingLeft', 'fieldPaddingTop', 'fieldPaddingRight', 'fieldPaddingBottom', 'fieldPaddingLeft']],
     ['Buttons / Inputs Padding', ['buttonPaddingTop', 'buttonPaddingRight', 'buttonPaddingBottom', 'buttonPaddingLeft', 'inputPaddingTop', 'inputPaddingRight', 'inputPaddingBottom', 'inputPaddingLeft']],
     ['Table Cell Padding', ['tableCellPaddingTop', 'tableCellPaddingRight', 'tableCellPaddingBottom', 'tableCellPaddingLeft']],
-    ['Control Room Header Padding', ['headerPaddingTop', 'headerPaddingRight', 'headerPaddingBottom', 'headerPaddingLeft']],
-    ['Control Room Dock / Main / Footer Padding', ['tabsPaddingTop', 'tabsPaddingRight', 'tabsPaddingBottom', 'tabsPaddingLeft', 'sidebarPaddingTop', 'sidebarPaddingRight', 'sidebarPaddingBottom', 'sidebarPaddingLeft', 'mainPaddingTop', 'mainPaddingRight', 'mainPaddingBottom', 'mainPaddingLeft', 'footerPaddingTop', 'footerPaddingRight', 'footerPaddingBottom', 'footerPaddingLeft']],
+    ['Global Theme Header Padding', ['headerPaddingTop', 'headerPaddingRight', 'headerPaddingBottom', 'headerPaddingLeft']],
+    ['Global Theme Dock / Main / Footer Padding', ['tabsPaddingTop', 'tabsPaddingRight', 'tabsPaddingBottom', 'tabsPaddingLeft', 'sidebarPaddingTop', 'sidebarPaddingRight', 'sidebarPaddingBottom', 'sidebarPaddingLeft', 'mainPaddingTop', 'mainPaddingRight', 'mainPaddingBottom', 'mainPaddingLeft', 'footerPaddingTop', 'footerPaddingRight', 'footerPaddingBottom', 'footerPaddingLeft']],
     ['Section / Button Row Margins', ['sectionMarginTop', 'sectionMarginRight', 'sectionMarginBottom', 'sectionMarginLeft', 'buttonRowMarginTop', 'buttonRowMarginRight', 'buttonRowMarginBottom', 'buttonRowMarginLeft']]
   ]);
 
@@ -695,7 +695,7 @@
     return {
       contractVersion: THEME_CONTRACT_VERSION,
       scriptVersion: VERSION,
-      namespace: 'window.MoDuLHubControlRoom',
+      namespace: 'window.MoDuLHubGlobalTheme',
       aliasNamespace: 'window.MoDuLHubTheme',
       cssVarPrefix: CSS_VAR_PREFIX,
       storageKey: STORAGE_KEY,
@@ -736,7 +736,7 @@
     if (!trigger) return;
     const off = mergeConfig(config).enabled === false;
     trigger.classList.toggle('mhc-off', off);
-    trigger.title = off ? 'MoDuL Hub Control Room is OFF — click to enable/edit (Alt+M)' : 'Open MoDuL Hub Control Room (Alt+M)';
+    trigger.title = off ? 'MoDuL Hub Global Theme is OFF — click to enable/edit (Alt+M)' : 'Open MoDuL Hub Global Theme (Alt+M)';
     const label = trigger.querySelector('.mhc-trigger-label');
     if (label) label.textContent = off ? 'MoDuL Hub Off' : 'MoDuL Hub';
   }
@@ -1461,7 +1461,7 @@ ${selectorDescAndSelfAll(target, THEME_SELECTORS.success)} {
     const btn = document.createElement('button');
     btn.id = TRIGGER_ID;
     btn.type = 'button';
-    btn.title = 'Open MoDuL Hub Control Room (Alt+M)';
+    btn.title = 'Open MoDuL Hub Global Theme (Alt+M)';
     btn.innerHTML = '<span class="mhc-dot"></span><span class="mhc-trigger-label">MoDuL Hub</span>';
     btn.addEventListener('click', openUI, true);
     document.body.appendChild(btn);
@@ -1780,7 +1780,7 @@ ${selectorDescAndSelfAll(target, THEME_SELECTORS.success)} {
     wrap.className = 'mhc-grid one';
     const note = document.createElement('p');
     note.className = 'mhc-note';
-    note.textContent = 'Compatibility is best-effort for existing hardcoded styles. Refactored scripts should use the canonical identifiers from window.MoDuLHubControlRoom.getContract().';
+    note.textContent = 'Compatibility is best-effort for existing hardcoded styles. Refactored scripts should use the canonical identifiers from window.MoDuLHubGlobalTheme.getContract().';
     wrap.appendChild(note);
 
     const bridgeRow = document.createElement('label');
@@ -1848,7 +1848,7 @@ ${selectorDescAndSelfAll(target, THEME_SELECTORS.success)} {
 
   function exportPayload(editing) {
     return JSON.stringify({
-      type: 'MoDuL Hub Control Room Theme',
+      type: 'MoDuL Hub Global Theme Theme',
       version: VERSION,
       contractVersion: THEME_CONTRACT_VERSION,
       enabled: editing.enabled !== false,
@@ -1971,13 +1971,13 @@ ${selectorDescAndSelfAll(target, THEME_SELECTORS.success)} {
     overlay.id = OVERLAY_ID;
     const editing = mergeConfig(clone(currentConfig));
     overlay.innerHTML = `
-      <div class="mhc-shell" role="dialog" aria-modal="true" aria-label="MoDuL Hub Control Room">
+      <div class="mhc-shell" role="dialog" aria-modal="true" aria-label="MoDuL Hub Global Theme">
         <div class="mhc-topbar"></div>
         <div class="mhc-head">
           <div class="mhc-brand">
             <div class="mhc-logo"><strong>MH</strong><small>HUB</small></div>
             <div class="mhc-title-wrap">
-              <h2 class="mhc-title">MoDuL Hub Control Room</h2>
+              <h2 class="mhc-title">MoDuL Hub Global Theme</h2>
               <div class="mhc-subtitle">Theme editor · palettes · fonts · script bridge</div>
             </div>
           </div>
@@ -2020,7 +2020,7 @@ ${selectorDescAndSelfAll(target, THEME_SELECTORS.success)} {
       editing.enabled = e.target.checked;
       applyTheme(editing, 'preview-master-toggle');
       syncMasterSwitch(overlay, editing);
-      setDirty(overlay, true, editing.enabled === false ? 'Control Room disabled previewed' : 'Control Room enabled previewed');
+      setDirty(overlay, true, editing.enabled === false ? 'Global Theme disabled previewed' : 'Global Theme enabled previewed');
     });
     overlay.querySelector('[data-save]').addEventListener('click', () => {
       currentConfig = mergeConfig(clone(editing));
@@ -2054,13 +2054,13 @@ ${selectorDescAndSelfAll(target, THEME_SELECTORS.success)} {
   function registerMenu() {
     try {
       if (typeof GM_registerMenuCommand === 'function') {
-        GM_registerMenuCommand('Open MoDuL Hub Control Room', openUI);
-        GM_registerMenuCommand('Enable MoDuL Hub Control Room', () => {
+        GM_registerMenuCommand('Open MoDuL Hub Global Theme', openUI);
+        GM_registerMenuCommand('Enable MoDuL Hub Global Theme', () => {
           currentConfig.enabled = true;
           gmSet(STORAGE_KEY, currentConfig);
           applyTheme(currentConfig, 'menu-enable');
         });
-        GM_registerMenuCommand('Disable MoDuL Hub Control Room', () => {
+        GM_registerMenuCommand('Disable MoDuL Hub Global Theme', () => {
           currentConfig.enabled = false;
           gmSet(STORAGE_KEY, currentConfig);
           applyTheme(currentConfig, 'menu-disable');
@@ -2146,7 +2146,7 @@ ${selectorDescAndSelfAll(target, THEME_SELECTORS.success)} {
     presets: () => PRESETS.map(p => ({ id: p.id, name: p.name }))
   };
 
-  window.MoDuLHubControlRoom = publicApi;
+  window.MoDuLHubGlobalTheme = publicApi;
   window.MoDuLHubTheme = publicApi;
 
   bootstrap();

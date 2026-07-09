@@ -1,0 +1,25 @@
+MoDuL's: Restore OG Car Names Changelog
+======================================
+
+v1.3.1 (2026-02-10)
+-------------------
+- Current public Greasy Fork release.
+- Locks in the latest live build for cross-page OG car-name restoration.
+- Fixes the Honda S2000 naming issue noted in the February polish pass.
+
+v1.3.0
+------
+- Added support for Torn Docks and the car shop flow.
+- Restored OG names in dock listings and dock cards.
+- Kept the dock support working on mobile and TornPDA too.
+
+v1.2.9
+------
+- Expanded coverage to Item Market, item pages, Bazaar, and Activity Logs.
+- Replaced fictional names inside descriptions and log text as well.
+- Broadened the script from racing-only use into wider Torn coverage.
+
+v1.2.8
+------
+- Improved handling for dynamic lists and Torn SPA navigation.
+- Added replacements for title, aria-label, and alt attributes.

@@ -1,0 +1,485 @@
+MoDuL's Pit Guru Changelog
+==========================
+
+Project status (2026-07-09)
+---------------------------
+- MoDuL's Pit Guru is now the public-facing successor project to Lap Recorder on MoDuL's Hub.
+- The live supporter userscript build is v2.1.1 at https://modulah.github.io/pit-guru/MoDuLs-Pit-Guru.user.js.
+- v2.1.2 updates the api connection to the latest dns.
+- v2.1.1 removes the advanced Hosted API & Player controls from public Settings while keeping transient retry recovery, short TTL read caching, and legacy hosted-session key cleanup.
+- v2.0.9 fixes the Predictions renderer crash after racingData is captured, when the shared render loop passes elapsed-time arguments instead of a prediction driver set.
+- v2.0.8 extends Big Race Mode with IndexedDB raw/summary cache layers, driver/profile dedupe by driverId, Web Worker summary generation where available, and observer shutdown after finished/cached big races.
+- v2.0.7 replaces the fragile native/browser resize path with an explicit Pit Guru resize grip to avoid renderer crashes while resizing during live races.
+- v2.0.6 protects browsers during long custom replays by auto-enabling heavy mode, skipping duplicate racingData payloads, and defaulting heavy races to focused text-only rows.
+- The public race player is live at https://pp-api.sokin.xyz/pit-guru/.
+- Production persistence and player APIs now run against PostgreSQL. SQLite remains available as a rollback/local fallback.
+- Verified player accounts can save settings without Pit Guru storing their public Torn API key.
+- Verified player accounts now hide the API-key verification form and can revoke their saved player session from Settings.
+- Inactive or unverified player accounts now receive a direct Pit Guru Discord `/buylicense` prompt.
+- TV commentary now waits for playback to start, and the timing tower uses a more compact content-sized driver column.
+- The public player now introduces races with named Lead and Analyst commentators, a route-based track briefing, the stored track lap record, and a back-to-front grid introduction using driver RS and track personal bests.
+- Added a server-side OpenAI TTS provider with pronunciation normalization, licensed-account guards, rate limiting, audio caching, AI-voice disclosure, and automatic browser-voice fallback.
+- Refreshed product-specific Discord links across MoDuL's Hub and the relevant forum and announcement material.
+- Inactive accounts receive one race as a demo; Discord licensing offers 7 days for 7,000,000 Torn dollars or 31 days for 20,000,000 Torn dollars.
+- Fixed Discord license issuance authorization and added explicit MPG choices to `/genlicense` and `/testpurchase`.
+- Discord license commands now defer slow API work and return a visible error instead of silently timing out.
+- Removed license serials from every Discord-facing activation message; purchases, admin grants, test purchases, and raffle prizes now confirm account-linked access and show the exact expiry with live time remaining.
+- Removed the obsolete `/licensecheck` serial-entry command.
+- Changed purchase payment references to the compact `!#PRODUCT-ORDERID` format while retaining verification support for existing pending orders using the legacy spaced format.
+
+v2.1.1
+------
+- Removed the advanced Hosted API & Player endpoint section from public Settings.
+- The public Settings panel now stays focused on normal Pit Guru controls while the hosted reliability fixes remain active in the background.
+- Performance presets now update every Performance & Scan Timers control, including grid repetition and the focused driver row window.
+- Performance numeric inputs now use the active Pit Guru theme styling.
+- The debug health helper now exposes a concrete response through `pgPitGuruHealthTest()` / `pgLocalHealthTest()` instead of relying on the removed Settings test button.
+
+v2.1.0
+------
+- Settings now includes Hosted API & Player endpoint controls with Public VM, Local desktop, SSH tunnel, and Custom URL modes.
+- Hosted API and player account/cache calls now retry transient network, timeout, rate-limit, and server errors with exponential backoff while preserving validation/auth failures.
+- Repeated hosted read calls now use a short TTL cache keyed by endpoint, path, method, and payload; Settings includes a Clear API Cache action.
+- Hosted session storage is standardized on `RT_TORN_MPG_HOSTED_SESSION`, with automatic migration/cleanup of the legacy `RT_TORN_LTL_HOSTED_SESSION` key.
+- Hosted player race checks, uploads, open-player links, and hosted car assets now all resolve through the selected player endpoint instead of a fixed public base.
+
+v2.0.9
+------
+- Hotfix: Predictions no longer crashes after racingData capture when the shared analysis renderer passes elapsed-time arguments into the Predictions renderer.
+- Prediction driver sets now normalize missing or transient participant lists to an empty array, preserving the waiting-state message instead of throwing.
+
+v2.0.8
+------
+- Big Race Mode now stores raw racingData once per race/signature in IndexedDB instead of adding another massive userscript storage key.
+- Added a separate compact processed-summary cache for heavy races with per-driver lap totals, sector summaries, final gaps, position changes, and lead/pace metrics.
+- Heavy processed summaries are built in a Web Worker when Blob workers are available, with a main-thread fallback for userscript environments that block workers.
+- Driver Intel cache entries now canonicalize by driverId and keep lightweight name aliases, reducing duplicate profile/avatar records for the same driver.
+- The Big Race debug line now reports raw/summary cache state and worker use alongside heavy mode, estimated timing points, racingData fetches, duplicate skips, and rendered rows.
+- Finished/cached Big Races now disconnect the join-race MutationObserver path so Pit Guru does not keep watching Torn's page after the race is already captured.
+- The heavy-race detector now counts nested `raceData.trackData.intervals`; the 100-lap Speedway HAR fixture validates as 94 drivers, 100 laps, 23 intervals, and 216,200 estimated timing points with one stable static signature.
+
+v2.0.7
+------
+- Hotfix: main Pit Guru window and detached Records resizing now use an explicit bottom-right resize grip instead of Chrome/Brave native CSS resizing.
+- Disabled native `resize: both` on Pit Guru floating windows so browser native resize and Pit Guru scripted geometry updates cannot fight over the same gesture.
+- Manual resize writes are throttled with requestAnimationFrame, and ResizeObserver no longer clamps geometry while a manual resize is already active.
+- Verified in Brave that the main window and Records pop-out resize through the grip, persist their new size, and keep CSS native resize disabled.
+
+v2.0.6
+------
+- Added automatic heavy-race protection for 100+ lap, 50+ driver, or 150,000+ timing-point races.
+- Heavy races default to lightweight text-only focused rows, hide profile cards/images, block animated profile images, and expose Show all drivers / Enable full cards overrides.
+- Direct racingData fetches are cached per Race ID with in-flight guards, static race-data signatures, duplicate-payload skipping, and stopped polling after a valid accepted payload.
+- Repeated currentTime/timeLeft-only payload changes now update lightweight status instead of re-decoding cars or rebuilding the full analysis DOM.
+- Car/profile image rendering now uses lazy async tags where optional, keeps the header image source stable, and suppresses optional images in heavy protected mode.
+- Settings includes a heavy-mode debug line with estimated points, racingData fetch count, duplicate payload skips, and rendered row totals.
+
+v2.0.5
+------
+- Local pending hotfix: the Records pop-out now uses the same guarded edge-resize path as the main Pit Guru window.
+- The launcher pill remains excluded from resize handling, so it cannot grow into a panel.
+
+v2.0.4
+------
+- Local pending hotfix: the custom resize handler is now restricted to the main Pit Guru window only.
+- Fixed a regression where the floating Pit Guru pill could be treated like a resizable window and grow into a full panel.
+- Main-window edge resizing remains anchored so dragging from the right or bottom edge no longer snaps the window back across the page.
+
+v2.0.3
+------
+- Fixed the floating Pit Guru window resize edge handling so grabbing the right or bottom resize area no longer starts a window drag.
+- Extended manual resize tracking so slower resize gestures do not get mistaken for an automatic full-page resize and snap back to the old right-side position.
+
+v2.0.2
+------
+- Player commentary now treats pressure and close-battle lines as gap-aware; those comments require the relevant gap to be five seconds or less.
+- Player commentary cadence is slower and uses wall-clock cooldowns, reducing speech backlog during fast replay playback.
+- Replay pages now switch straight into analysis when racingData is captured, and show final decoded analysis until the visible replay starts moving.
+- The Pit Guru window now persists manual resize changes more reliably while still rejecting accidental full-page resize states.
+- Hosted race uploads now check whether the Race ID is already cached before sending replay data.
+- The public player import panel now includes a Saved races dropdown backed by the database/cache list, so uploaded races can be selected directly.
+
+v2.0.1
+------
+- Added a Settings control for how many drivers Pit Guru draws around the focused driver in large-field tables.
+- Driver Intel sync now gives a visible notification when profiles are ready, fetched, cached, or failed.
+- Hosted race upload now gives a visible notification for pending, successful, and failed uploads.
+- Prediction scoring has been rebalanced so sparse same-track history does not dominate the forecast; RS, global win rate, experience, track history, car history, and risk are blended with confidence weighting.
+- Added the Pit Guru Discord announcement worker to the current bot, with admin preview/post/status commands and automatic posting when the update text changes.
+
+v2.0.0
+------
+- Analysis table headers and cells now align their contents vertically in the middle, keeping car images, driver names, RS values, gaps, and finish-time cells visually centered.
+- This applies across the main Pit Guru analysis tables instead of only the Leaderboard.
+
+v1.9.9
+------
+- Large-field analysis now follows a tighter focused driver window: roughly 5 positions ahead and 5 behind instead of 10 each way.
+- The full race dataset, calculations, Records, and export data remain intact; only the visible table rows are reduced.
+- Restored the hosted PostgreSQL-backed player service after a temporary route conflict blocked cache reads.
+- Re-aligned the hosted `/pit-guru/` route with the PostgreSQL-backed player service while keeping SQLite available as fallback/local rollback.
+
+v1.9.8
+------
+- Large-field analysis now renders a focused driver window instead of building every driver row in the DOM.
+- The default large-field window follows the focused driver by roughly +/-10 positions while keeping the complete race dataset, calculations, Records, and export data intact.
+- Clicking a driver row pins the analysis window to that driver; the new focus note includes a Clear Focus / Auto Follow control to return to automatic following.
+- Automatic focus prefers the manually pinned driver, then the actual user driver, then the spectated replay driver, then the stored race driver, then the leader.
+- Lap Recording now uses cached lap lookups and limits visible lap columns in huge races, avoiding the 100-driver x 100-lap table rebuild that caused browser hangs.
+- Windowed tables disable whole-table sorting so the UI does not imply that hidden rows are being sorted.
+
+v1.9.7
+------
+- Fuel display now respects the selected economy style for session baseline and manufacturer values.
+- UK fuel display keeps lifetime fuel volume in litres while US mpg display uses US gallons.
+- Replay analysis now follows Torn's visible replay timer before using the progress bar, avoiding table data jumping ahead while reviewing long races.
+- Hosted and local player snapshots now carry immutable final time and final position data for every driver.
+- Player Leaderboard now adds a Finish Time column and switches completed races to final-time gaps instead of live distance/speed estimates.
+- Timing Tower Gap L and Gap Ahead now show final finish-time deltas after the race ends, while crashed rows show DNF instead of continuing live gap calculations.
+- Prediction Driver Intel now reuses cached Pit Guru profile data first and only falls back to Torn API when a profile is missing or older than one week.
+
+Public player commentary update - 2026-06-13
+--------------------------------------------
+- Added Apex Alex as Lead commentator and Professor Slipstream as Analyst.
+- Pressing Play from the beginning now runs the pre-race broadcast before the replay clock starts.
+- Track introductions use lap distance, approximate left/right bend counts from the loaded route, stored lap-record data, and driver track PB/RS history.
+- Driver names receive speech-safe normalization, while high-RS drivers receive stronger broadcast epithets and emphasis.
+- Added selectable Browser and OpenAI voice engines. OpenAI voices remain server-side, licensed-only, cached, rate-limited, and fall back to browser voices when unavailable.
+
+v1.9.6
+------
+- Track segment distances are now canonical track data stored once in the `tracks` table instead of being repeated in every saved race.
+- Hosted uploads use compact replay payloads with packed millisecond driver timing arrays and omit repeated SVG, car image/title, and known track interval data.
+- If a track definition is missing, the server requests it and the userscript retries once with the complete segment list.
+- Existing cached races were migrated to the compact replay format while retaining legacy full JSON/HAR import support.
+
+v1.9.5
+------
+- Gyro now updates live values without rebuilding its driver list and Grip Events table every tick.
+- Grip Events are cached per completed segment, while Sectors and Predictions use event-driven structural updates.
+- Removed the duplicate finished status and moved Gyro calculation details into a compact help button.
+- Simplified all analysis car headers to `Car`.
+- Best Sectors now uses a compact summary card with Ideal Lap, and Per-driver Best Sectors is transposed for easier comparison.
+- Lap Recording uses `Current` with live, over-PB, and over-7%-slower colors; completed lap colors now remain readable on the light theme.
+
+v1.9.4
+------
+- Moved the Predictions forecast and Driver Intel explanation into a compact help button beside the table title.
+- Removed native browser tooltips from custom table help buttons, preventing duplicate tooltip overlays.
+- Records now shows every unique car instead of limiting the table to the top 10.
+
+v1.9.3
+------
+- Moved the pre-race countdown into the racingData status line and removed the duplicate countdown above the analysis tabs.
+- Past Races table titles now include the active track, race type, and lap count.
+- Moved the Past Races explanation into a compact help button beside the table title.
+
+v1.9.2
+------
+- My Garage now preserves database mileage when Torn's fresh enlisted-car response omits mileage.
+- Garage mileage is calculated per enlisted-car instance from every matching stored race using race laps and official track length.
+- My Garage now prefers Pit Guru's hosted car images over Torn's default item images.
+
+v1.9.1
+------
+- My Garage now selects the first displayed row by default, respecting the active table sort instead of the unsorted API order.
+- Car Comparison now places Car A's image on the right with right-aligned details and Car B's image on the left with left-aligned details.
+
+v1.9.0
+------
+- Fixed hosted race uploads being rejected after verifying the same Torn account in another Pit Guru client.
+- Player and userscript sessions now coexist independently; revoking one session no longer invalidates the others.
+- The userscript automatically refreshes a stale hosted session once and retries the race upload without bypassing demo or licence limits.
+
+v1.8.9
+------
+- Switched Pit Guru and the current MoDuL userscript sources from MIT metadata to explicit copyright and All Rights Reserved notices.
+- New-race transitions now switch the analysis view to Predictions automatically.
+- The Player button stays disabled until the current race has replay-ready racingData, then receives a yellow availability outline for 10 seconds.
+
+v1.8.8
+------
+- Replaced the regular-expression Torn racing page `@include` with a normal URL glob, removing the userscript-manager performance warning while retaining support for racing and racingData URLs where `rfcv` appears before `sid`.
+
+v1.8.7
+------
+- Added first-run onboarding: Pit Guru opens Settings automatically and focuses the public Torn API-key field.
+- Added a six-step guided tour covering Driver Intel, live analysis containers, pre-race predictions, the visual Player, My Garage, Records, and HTML reports.
+- Added a permanent Quick tour button in Settings so onboarding can be replayed later.
+
+v1.8.6
+------
+- Fixed My Garage comparison mileage showing `--` when computed mileage was unavailable but the enlisted-car instance had stored mileage.
+- Moved comparison stat values beside the centre labels: Car A values now sit to the right of their bars and Car B values to the left.
+
+v1.8.5
+------
+- Added My Garage car comparison mode: the selected garage row is Car A, while a second per-instance enlisted car can be selected as Car B.
+- Added mirrored, colour-coded stat bars and directional A/B differences for performance stats, surface indices, race history, mileage, worth, upgrades, points, and manufacturer fuel economy.
+- Kept comparison changes scoped to the garage detail panel so selecting either car does not reset the garage table scroll position.
+
+v1.8.4
+------
+- Limited the Join A Racing Event Auto-clear MutationObserver to the short period after a race has finished, removing a broad page observer from active large races.
+- Removed the local player's track-image asset path from the Map Playback header.
+
+v1.8.3
+------
+- Fixed replay detection and direct racingData loading for URLs where `rfcv` appears before `sid=racingData&raceID=...`.
+- Added a focused Join A Racing Event observer so Auto-clear resets finished official races without broad page scans.
+- Preserved the race metadata shell during race changes to prevent the track details briefly disappearing and returning.
+- Removed SQLite-specific wording from the Predictions history panel.
+- Deferred expensive lead/sector aggregates and removed unused full-field G-force preprocessing from initial race capture, improving large-lobby responsiveness.
+- Reworked lead-history scans to avoid repeated array sorting.
+- Made the player prefer canonical route geometry from the tracks database and calibrated Underdog against A3.
+- Added adaptive replay snapshot density; a 100-driver, 100-lap test dropped from about 68 seconds to about 7 seconds while retaining interpolated playback.
+- Fixed PostgreSQL completed-race submissions failing while updating enlisted-car mileage.
+
+v1.8.2 (Live supporter build)
+-----------------------------
+- Added hosted account verification, PostgreSQL-backed player settings, license status, and one-race demo enforcement.
+- Added the map-overlay G-Live Accelerator driven by timing-tower selection, with live G and speed readouts.
+- Expanded the timing tower with status, colour, lap, larger car images, and selectable drivers.
+- Added a player settings modal with units, marker/tower controls, dual commentary voices, route display, and overtake zoom.
+- Added staged import progress and a safe process log while storing only the minimal replay inputs required to regenerate analysis.
+- Connected userscript analysis to the hosted player and added official-events landing-page auto-clear.
+
+Infrastructure / deployment update (2026-06-11)
+------------------------------------------------
+- Migrated the live Pit Guru API and race-player persistence layer to PostgreSQL database `pit_guru`.
+- Added a thread-safe PostgreSQL connection pool to the temporary SQLite compatibility adapter.
+- Fixed clean PostgreSQL initialization: schema scripts now execute instead of being silently ignored, and SQLite autoincrement primary keys translate to PostgreSQL serial keys.
+- Refactored the Pythagoras Express proxy so Pit Guru raw JSON routes are registered once and before the global JSON parser.
+- Fixed public `/api/analyze` forwarding; full Torn racingData payloads now reach the player without Express rejecting them first.
+- Health endpoints now identify the PostgreSQL backend and report the live table inventory and row counts.
+- Added JSON-safe PostgreSQL value conversion and compatibility for SQLite scalar MIN/MAX patterns used by existing queries.
+- Protected destructive Records deletion with an admin token header.
+- Removed empty duplicate mixed-case route columns from PostgreSQL `tracks` after verifying that the lowercase route columns contained the live data.
+- Added a local `server/` source-of-truth copy, deployment notes, environment example, requirements, and the route-column cleanup migration.
+- Kept the SQLite service and database online as a rollback path while PostgreSQL receives wider use.
+
+v1.8.1 (Previous userscript development build)
+----------------------------------------------
+- Current consolidated userscript build. The detailed feature history below records the development path through v1.5.2 and later local iterations.
+
+v1.5.2
+----------------------------------
+- Fixed Predictions track-history instability by caching SQLite history per track instead of sharing one mutable track-history cache across views.
+- Replaced the engine live-location linear segment scan with binary lookup, reducing CPU cost in large races.
+- Large-race throttling now treats 45+ racers as huge-field mode, and skipped render frames no longer recompute commentary/order data unnecessarily.
+
+v1.5.1
+----------------------------------
+- Fixed the top race metadata distance units: when Speed unit is set to mph, Lap Length now shows `mi/lap` and Race Length shows `mi`.
+
+v1.5.0
+----------------------------------
+- Added SQLite driver-profile migration for richer driver data: avatar URL, level, rank, title, racing points, starts, finishes, wins, podiums, crashes, win/podium/finish/crash rates, and last profile fetch time.
+- Added `/api/pit-guru/v1/drivers/upsert` to the local API so Driver Intel fetches can update the `drivers` table before race finish.
+- Pit Guru now syncs fetched Driver Intel into SQLite automatically and includes the same profile/stat fields when a completed race is saved.
+
+v1.4.9
+----------------------------------
+- Embedded the Pit Guru race engine into the userscript so public installs remain one Tampermonkey script while the engine also stays testable as a standalone development module.
+- Live/replay ordering now has an engine-backed path based on Torn's decoded interval playback model.
+- Reworked HTML export charts: kept Car Usage, removed the weak finish/fastest/top-speed summary charts, and added interactive Position History plus per-driver/per-lap estimated throttle/brake telemetry.
+
+v1.4.8
+----------------------------------
+- HTML exports now convert Torn-relative car image paths to absolute `https://www.torn.com/...` URLs so saved reports do not look for missing local image files.
+
+v1.4.7
+----------------------------------
+- Added large-field performance mode for 30+ racers and huge-field mode for 50+ racers.
+- Huge fields now throttle live analysis redraws to one update every 2 seconds and reduce live processing frequency, preventing 50+ racer grids from locking the Torn page.
+- Replaced repeated linear segment scans with binary lookup for live position and gap calculations.
+- Reduced live overtake sampling for large grids and throttled Driver Intel progress redraws during large automatic fetch queues.
+- Lead-history sampling now uses coarser timing for large fields so initial JSON analysis does not freeze the page.
+
+v1.4.6
+----------------------------------
+- Studied Torn's `race.js` runner and moved live-race progress to a raceData-driven clock once JSON is available, reducing dependency on repeated visible lap/completion DOM reads.
+- Countdown from raceData now ticks locally from the payload receive time instead of staying fixed until the next racingData fetch.
+- Added the first step toward an external replay-viewer architecture: Pit Guru now trusts the same interval/timeData model Torn uses for live race playback.
+
+v1.4.5
+----------------------------------
+- Changed the page-context raceData bridge to reuse Torn's page nonce, avoiding CSP inline-script violations when the nonce is available.
+- Clarified the local buttons behavior: result saving is automatic after final analysis unlocks; the disk button is a manual SQLite sync fallback and the brain button fetches local SQLite intel.
+
+v1.4.4
+----------------------------------
+- Removed the duplicate lower analysis-stage countdown before race start. The top race meta line remains the single `Race starts in` countdown.
+- Pre-race predictions no longer re-render just because the countdown text changes.
+
+v1.4.3
+----------------------------------
+- Fixed the Fun settings toggles so TV commentary and Team Radio are controlled independently.
+- Disabled TV commentary or Pit Crew messages now hide their panels entirely instead of showing disabled placeholder text.
+- TV commentary no longer receives pit-wall style messages; those now stay in the Team Radio path only.
+
+v1.4.2
+----------------------------------
+- Styled horizontal scrollbars to match the vertical scrollbar theme across Pit Guru tables, Records, popups, and settings panels.
+- Records panels now allow horizontal scrolling instead of hiding overflow, so wide rows use the same themed scrollbar treatment.
+- Hardened window resize handling: layout/content-driven near-full window sizes are rejected and restored to the previous safe size or default, while explicit user resize still persists.
+
+v1.4.1
+----------------------------------
+- Added a central focused-tab gate for Torn page scraping. Visible race/meta scans, participant grid scans, profile-ID lookup by name, visible lap/completion/replay progress reads, and visible-grid validation now run only when the Torn tab is visible and focused.
+- Automatic current-race fallback fetches and automatic Driver Intel work now also pause unless the tab is focused, then resume on visibility/focus return.
+- Updated the Performance & Scan Timers settings text to make the focused-tab rule explicit.
+
+v1.4.0
+----------------------------------
+- HAR/performance pass for multiple waiting tabs: hidden tabs no longer run Pit Guru's direct racingData polling, direct current-race fetches are leased across tabs, and the fallback interval is slower while waiting.
+- Fixed Pit Guru window bounds so Torn page/document height cannot be mistaken for viewport height, and programmatic resizes are no longer saved as the user's preferred window size.
+- Added local SQLite API endpoints for track metadata and per-track Records, and bound Pit Guru Records plus lap/race length metadata to those SQLite sources when available.
+- Local API health now reports row counts for every SQLite table so database binding can be checked quickly.
+
+v1.3.9
+----------------------------------
+- Rebuilt the live analysis layout around a status line, TV commentary, Team Radio, separator, and labeled sortable tables.
+- Renamed Gaps to Leaderboard and moved it before Lap Recording, with car image/name cells, driver RS display, previous-lap gap context, finish-time gating, and race-end position icons.
+- Reworked the metadata header to ID, Track, Lap, Lap Length, Race Length, Focused Car, Focused Driver, Race start time, and calculated race overtakes.
+- Updated Lap Recording, Sectors, Speed, Lap Pace, Summary, Driver Stats, Predictions, and Fuel views to use the shared table/car/driver UI.
+- Added SQLite-first track-history refresh in Driver Stats and kept Predictions Past Races on the local SQLite track history path.
+- Moved Fuel into its own optional container and removed it from Gyro; Gyro now includes basic grip-loss candidate rows and smoother G-force compression.
+
+v1.3.8
+----------------------------------
+- Refined empty-`raceID` racingData handling: the embedded top-level `raceID` is now trusted as the upcoming/current race ID only after the payload matches the visible grid.
+- Unverified empty-`raceID` payloads remain ignored for race identity and prediction source.
+- Removed nested `user.raceID` as a race-ID fallback because it can disagree with the actual race payload.
+
+v1.3.7
+----------------------------------
+- Predictions Past Races now reads track history from the local SQLite API instead of Tampermonkey driver-history storage.
+- Added `/api/pit-guru/v1/history/track` to the local API for deterministic track-wide driver history, including last car, best lap, best race, risk, and last seen.
+- Completed races now auto-sync silently to the local SQLite DB when final analysis unlocks; the manual DB sync button still works.
+- Legacy Tampermonkey driver history now records a race key and will not increment the same race twice.
+
+v1.3.6
+----------------------------------
+- Hardened the empty-`raceID` racingData path: it no longer becomes the Predictions driver list unless its driver names strongly match the visible Torn race grid.
+- Empty-`raceID` data is now primarily an ID-enrichment source, matching visible driver names to `carInfo.userID` without importing a stale previous-race field.
+- Torn's own intercepted empty-`raceID` requests are now subject to the same guard as Pit Guru's direct fetch.
+
+v1.3.5
+----------------------------------
+- Corrected current-race racingData handling: the endpoint can return stale `raceID` fields from the previous race, so Pit Guru now treats empty-`raceID` responses as grid/driver data only.
+- Prevented stale embedded race IDs from current-grid payloads from entering the live header, analysis identity, or race-change tracking.
+
+v1.3.4
+----------------------------------
+- Added a direct same-page racingData fetch for `/page.php?...&sid=racingData&raceID=` so pre-race Predictions can get Torn's `carInfo.userID` values without manual driver-ID copying.
+- Live race ID discovery now trusts the current-race racingData payload over stale visible race text, reducing old Race ID carry-over when moving from one race to the next.
+- The direct racingData fetch is throttled on the maintenance loop instead of the render loop to avoid adding work to the UI frame path.
+
+v1.3.3
+----------------------------------
+- Fixed the MPG rename breakage by defining MPG_VERSION and moving remaining UI selectors from mra* to mpg*.
+- Settings controls now bind to the rendered mpg IDs again, including preview, scan timers, API key controls, and fuel/commentary switches.
+- Replay moment rendering now prefers Torn's replay progress bar over timer text, reducing Pit Guru running ahead of the visible replay.
+- Gyro and Speed/G estimates now use a wider route-curvature sample and calibrated G caps to avoid unrealistic 20g+ cornering spikes.
+- HTML exports now follow the selected Pit Guru theme, show metadata as a header/value table, include chart cards, and render car images when available.
+- Prediction rows now keep a Driver Intel action button available for manual refresh as well as missing-driver fetches.
+- The local SQLite API now uses the script-local database path and updates existing submitted race rows instead of silently ignoring resubmits.
+
+v1.3.1
+----------------------------------
+- Predictions now include an Intel action column so missing RS rows can be manually fetched per driver.
+- Manual Driver Intel fetch tries the visible row/profile lookup first, then prompts for a Torn ID if Torn did not expose one.
+- The prediction history section is now track-wide local history, not only the current grid.
+- Removed "Unknown driver stats" wording from the prediction table.
+
+v1.3.0
+----------------------------------
+- Added a Settings panel for Performance & Scan Timers with Fast, Balanced, Eco, Once, and Custom tuning.
+- Visible race/meta scan, participant grid scan, profile-ID lookup cache, Driver Intel settle delay, and participant-grid repetition can now be tuned independently.
+- The panel explains exactly what each scan touches and shows the current timing in seconds.
+
+v1.2.9
+----------------------------------
+- Performance pass: cached visible race metadata, participant-grid scans, and profile-ID lookups so the page no longer re-scans Torn's DOM on every render.
+- Removed broad race-detail selectors from the hot path and limited pre-race discovery to short timed refreshes.
+
+v1.2.8
+----------------------------------
+- Improved pre-race profile ID discovery from Torn links, data attributes, and nearby participant rows so Driver Intel can fetch RS for settled official/custom grids.
+- Predictions now include a second Past Races table for the current grid on the current track using local Pit Guru history.
+- Race metadata now clears stale live-finished IDs when moving into a new live race and renders as a compact two-row table.
+
+v1.2.7
+----------------------------------
+- Reworked pre-race participant scanning so Predictions ignores Pit Guru's own UI and only reads Torn race participant rows.
+- Driver Intel auto-fetch now waits briefly for the visible grid to settle, supports up to custom-race sized grids at one call per driver, and reports rows that have no profile ID available.
+- Prediction car cells no longer show orphan profile thumbnails, and locally saved history/records can fill a last-seen car when Torn's pre-race row does not expose one.
+
+v1.2.6
+----------------------------------
+- Speed/G, Gyro, fuel, accel/brake, and summary telemetry now stay armed but blank before visible live/replay progress begins.
+- Full delivered race JSON can still be captured early for predictions and intel, but segment-derived speed values no longer seed from segment 1 at time zero.
+
+v1.2.5
+----------------------------------
+- Predictions now render before race start from the visible participant grid when full `racingData` is not available yet.
+- Driver Intel auto-fetch now includes the pre-race participant snapshot, so RS-based chances can populate as soon as the grid is visible.
+- Prediction notes now distinguish pre-race grid forecasts from full race-data forecasts.
+
+v1.2.4
+----------------------------------
+- Hardened the visual-progress gate by parsing Torn's visible race detail text such as `Lap: 1/13` and `Completion: 6.76%` when the direct value nodes are not found.
+- Removed the replay fallback that treated missing replay progress as permission to show final results. With preview off, final analysis now requires visible progress to reach the end.
+
+v1.2.3
+----------------------------------
+- Fixed live and replay result gating so full results are not shown just because Torn delivered complete racingData JSON.
+- Added a narrow visual-progress reader for lap/completion/replay progress only, so Gaps, Summary, Lap Recording, and other containers roll forward with the visible race/replay moment when preview is disabled.
+- Replay pause, play, and scrubbed positions now use the visible replay progress/timer when Torn exposes it.
+
+v1.2.2
+----------------------------------
+- Removed the remaining race-page scraping and legacy lap-recorder render paths. Pit Guru now waits for intercepted racingData JSON instead of reading Torn's visible lap, completion, leaderboard, or car UI.
+- The Clear View button now clears only the current JSON analysis state and keeps saved Records intact.
+- The top status button now reports the JSON data source instead of acting as a legacy recording toggle.
+- Removed the forum-page like-button scanner; the Like button now only opens the release thread.
+
+v1.2.1
+------
+- Removed unused legacy helper functions and the old Lap Recorder-style HTML export builder now that Pit Guru uses the professional report export path.
+
+v1.2.0
+----------------------------------
+- Removed the duplicate old Lap Recorder baseline capture path so replay start handling goes through Pit Guru's newer race-start marker only.
+
+v1.1.9
+----------------------------------
+- Fixed Driver Intel API calls to use Torn's `/user/` endpoint with the requested `stat=` list instead of the `/v2/user/` path that was failing for other racers.
+
+v1.1.8
+------
+- HTML export has been rebuilt as a professional Pit Guru report with sticky section links, full race metadata, and sortable tables for every analysis container.
+- Added the Lap Recording container as the first analysis view, with position, driver, car, total time, fastest lap, and one live-updating column per race lap.
+- Driver Intel parsing and caching now resolve racing skill for the whole grid when usable Torn IDs are available.
+- Race metadata now includes replay end time where Torn provides it, plus cleaner race name, type, car rules, upgrades, and bet fields in exports.
+- Report tables now keep RS in its own column and use OG car names consistently in exported analysis.
+
+v1.1.0 (Baseline identity build)
+--------------------------------
+- Visible project identity is now `MoDuL's Pit Guru`.
+- Current direction centers on live timing, gaps, sectors, speed, and estimated telemetry-style race insight.
+- Result-preview behavior is intended to stay gated by default until the race visually finishes unless the user explicitly enables preview mode.
+- The project is being shaped around race understanding first, not just lap capture.
+
+Development direction
+---------------------
+- Use race data already delivered to the currently viewed Torn race page.
+- Build cleaner settings and display modes for timing, pace, sectors, and race flow.
+- Carry forward only the useful record, replay, and export ideas from Lap Recorder where they still help the new analysis-first foundation.
+
+Reference pages
+---------------
+- Hub page: https://modulah.github.io/pit-guru/
+- FAQ: https://modulah.github.io/pit-guru/faq.html
+- Lap Recorder archive handoff: https://modulah.github.io/lap-recorder/
