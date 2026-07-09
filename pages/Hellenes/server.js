@@ -9,10 +9,70 @@ const PORT = Number(process.env.PORT || 3000);
 const DATA_DIR = path.join(__dirname, "data");
 const DB_PATH = path.join(DATA_DIR, "hellenes.local.sqlite3");
 const SESSION_COOKIE = "hellenes_session";
+const CSRF_COOKIE = "hellenes_csrf";
+
+// CSRF Token generation and validation
+function generateCsrfToken() {
+  return crypto.randomBytes(32).toString("hex");
+}
+
+function validateCsrfToken(token) {
+  if (!token || typeof token !== 'string') return false;
+  return /^[a-f0-9]{64}$/.test(token);
+}
+
+// CSRF middleware
+function csrfProtect(req, res, next) {
+  if (req.method === 'GET') {
+    // Generate new CSRF token for GET requests
+    const token = generateCsrfToken();
+    res.setHeader('Set-Cookie', [
+      `${CSRF_COOKIE}=${token}; HttpOnly; SameSite=Strict; Path=/; Max-Age=3600`
+    ].join('; '));
+    return next();
+  }
+  
+  // For POST/PUT/DELETE, validate CSRF token
+  const csrfToken = req.headers['x-csrf-token'];
+  const csrfCookie = req.cookies?.[CSRF_COOKIE] || req.headers['cookie']?.split('; ').find(c => c.startsWith(CSRF_COOKIE + '='))?.split('=')[1];
+  
+  if (!csrfToken || !csrfCookie || !validateCsrfToken(csrfCookie)) {
+    return res.status(403).json({ error: "Invalid or missing CSRF token." });
+  }
+  
+  if (!crypto.timingSafeEqual(Buffer.from(csrfToken), Buffer.from(csrfCookie))) {
+    return res.status(403).json({ error: "CSRF token mismatch." });
+  }
+  
+  next();
+}
+
+// Parse cookies middleware
+function parseCookiesMiddleware(req, res, next) {
+  const cookieHeader = req.headers.cookie || "";
+  req.cookies = Object.fromEntries(
+    cookieHeader
+      .split(";")
+      .map(part => part.trim())
+      .filter(Boolean)
+      .map(part => {
+        const index = part.indexOf("=");
+        if (index === -1) return [part, ""];
+        return [part.slice(0, index), decodeURIComponent(part.slice(index + 1))];
+      })
+  );
+  next();
+}
 
 fs.mkdirSync(DATA_DIR, { recursive: true });
 
 const db = new sqlite3.Database(DB_PATH);
+
+// Middleware setup
+app.use(parseCookiesMiddleware);
+app.use(express.json());
+app.use(express.static(__dirname));
+app.use(csrfProtect); // Apply CSRF protection to all routes
 
 function run(sql, params = []) {
   return new Promise((resolve, reject) => {
@@ -370,10 +430,14 @@ app.get("/api/character/:id", async (req, res) => {
 initialiseDatabase()
   .then(() => {
     app.listen(PORT, () => {
-      console.log(`Hellenes local server: http://localhost:${PORT}`);
-      console.log(`Landing page: http://localhost:${PORT}/index.html`);
-      console.log(`Login/Register: http://localhost:${PORT}/auth.html`);
-      console.log(`SQLite database: ${DB_PATH}`);
+      // Server startup logs - gated behind DEBUG flag
+      const DEBUG = process.env.DEBUG === 'true';
+      if (DEBUG) {
+        console.log(`Hellenes local server: http://localhost:${PORT}`);
+        console.log(`Landing page: http://localhost:${PORT}/index.html`);
+        console.log(`Login/Register: http://localhost:${PORT}/auth.html`);
+        console.log(`SQLite database: ${DB_PATH}`);
+      }
     });
   })
   .catch(error => {
