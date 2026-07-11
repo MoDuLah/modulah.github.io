@@ -1,8 +1,15 @@
 # Pythagoras Project - CIS Changelog
 
+## v2.9.1 - Stock settings persistence
+
+- Stock card restock toggles, warning thresholds, warning modes, and restock quantities now save to a dedicated stock settings map.
+- Stock settings now update the 24-hour sync cache immediately on input/change, so fast Torn page switches and refreshes keep the latest values.
+- Stock sync, suggested restock, stock import/export, and legacy migration now preserve stock settings instead of falling back to default row values.
+
 ## v2.9.0 - API DNS Update
 
 - New API DNS location for improved security and SSL compliance.
+- The active CIS API host is `https://pp-api.sokin.xyz`.
 
 ## v2.8.12 - Advertising budget history
 

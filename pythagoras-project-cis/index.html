@@ -112,6 +112,37 @@
 
         <div class="changelog-tree" role="tree">
           <details class="changelog-version" role="treeitem" open>
+            <summary class="changelog-summary">v2.9.1 - Stock settings persistence</summary>
+            <div class="changelog-content">
+              <ul class="changelog-list">
+                <li>Stock card restock toggles, warning thresholds, warning modes, and restock quantities now save to a dedicated stock settings map.</li>
+                <li>Stock settings update the 24-hour sync cache immediately on input/change, so fast Torn page switches and refreshes keep the latest values.</li>
+                <li>Stock sync, suggested restock, stock import/export, and legacy migration now preserve stock settings instead of falling back to default row values.</li>
+              </ul>
+            </div>
+          </details>
+
+          <details class="changelog-version" role="treeitem">
+            <summary class="changelog-summary">v2.9.0 - API DNS Update</summary>
+            <div class="changelog-content">
+              <ul class="changelog-list">
+                <li>Updated the CIS release line to the working API host at <code>https://pp-api.sokin.xyz</code>.</li>
+              </ul>
+            </div>
+          </details>
+
+          <details class="changelog-version" role="treeitem">
+            <summary class="changelog-summary">v2.8.12 - Advertising budget history</summary>
+            <div class="changelog-content">
+              <ul class="changelog-list">
+                <li>Business/Profile sync records Torn API V2 <code>advertisement_budget</code> as dated advertising-budget history.</li>
+                <li>Balance uses the latest observed advertising budget on or before each report date.</li>
+                <li>The Pythagoras API stores advertising-budget history separately from latest company settings.</li>
+              </ul>
+            </div>
+          </details>
+
+          <details class="changelog-version" role="treeitem">
             <summary class="changelog-summary">v2.8.11 - Risk strike persistence and data-flow cleanup</summary>
             <div class="changelog-content">
               <ul class="changelog-list">

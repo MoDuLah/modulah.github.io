@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Pythagoras Project - CIS
 // @namespace    https://torn.com/
-// @version      2.9.0
+// @version      2.9.1
 // @description  Company Intelligence System for Torn company training, staff, analytics, and local reporting.
 // @author       MoDuL [4022159]
 // @match        https://www.torn.com/companies.php*
@@ -42,7 +42,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
     staffEditsKey: 'pp_cis_staff_card_edits_v2',
     ledgerPendingKey: 'pp_cis_ledger_pending_v2',
     syncCacheKey: 'pp_cis_sync_cache_v1',
-    version: '2.9.0',
+    version: '2.9.1',
     popupName: 'pythagoras-cis-popup'
   };
 
@@ -115,6 +115,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         value: 0
       },
       stock: { lastSynced: '', items: [] },
+      stockSettings: {},
       stockHistory: [],
       adBudgetHistory: [],
       newsSync: { firstBackfillDone: false, earliestTimestamp: 0, oldestTimestamp: 0, latestTimestamp: 0, lastSynced: '', fetchedPages: 0, reportGapAttempts: {} },
@@ -812,6 +813,60 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
     mergeAdBudgetHistory(base, extra) {
       return Store.normaliseAdBudgetHistory([].concat(Array.isArray(base) ? base : [], Array.isArray(extra) ? extra : []));
     },
+    stockSettingKey(value) {
+      return String(value || '').trim();
+    },
+    normaliseStockSettings(settings) {
+      const source = settings && typeof settings === 'object' && !Array.isArray(settings) ? settings : {};
+      const next = {};
+      Object.entries(source).forEach(([rawKey, raw]) => {
+        const key = Store.stockSettingKey(rawKey);
+        if (!key || !raw || typeof raw !== 'object' || Array.isArray(raw)) return;
+        next[key] = {
+          needsStock: !!raw.needsStock,
+          warningMode: raw.warningMode === 'amount' ? 'amount' : 'percent',
+          warningPercent: Utils.percent(raw.warningPercent, 10),
+          warningAmount: Math.max(0, Utils.num(raw.warningAmount, 0)),
+          restockQty: raw.restockQty === '' || raw.restockQty === null || raw.restockQty === undefined ? '' : Math.max(0, Utils.num(raw.restockQty, 0)),
+          updatedAt: String(raw.updatedAt || '')
+        };
+      });
+      return next;
+    },
+    stockSettingsFromItems(items, existing) {
+      const next = Store.normaliseStockSettings(existing || {});
+      (Array.isArray(items) ? items : []).forEach((item) => {
+        const key = Store.stockSettingKey(item && item.key);
+        if (!key) return;
+        next[key] = {
+          needsStock: !!(item && item.needsStock),
+          warningMode: item && item.warningMode === 'amount' ? 'amount' : 'percent',
+          warningPercent: Utils.percent(item && item.warningPercent, 10),
+          warningAmount: Math.max(0, Utils.num(item && item.warningAmount, 0)),
+          restockQty: item && item.restockQty !== '' && item.restockQty !== null && item.restockQty !== undefined ? Math.max(0, Utils.num(item.restockQty, 0)) : '',
+          updatedAt: Utils.nowIso()
+        };
+      });
+      return next;
+    },
+    applyStockSettings(state) {
+      if (!state || !state.company || !state.company.stock) return state;
+      const settings = Store.normaliseStockSettings(state.company.stockSettings || {});
+      state.company.stockSettings = settings;
+      state.company.stock.items = (state.company.stock.items || []).map((item) => {
+        const saved = settings[Store.stockSettingKey(item && item.key)];
+        if (!saved) return item;
+        const restockable = Company.isRestockableStock(item);
+        return Object.assign({}, item, {
+          needsStock: restockable ? !!saved.needsStock : false,
+          warningMode: saved.warningMode === 'amount' ? 'amount' : 'percent',
+          warningPercent: Utils.percent(saved.warningPercent, 10),
+          warningAmount: Math.max(0, Utils.num(saved.warningAmount, 0)),
+          restockQty: restockable ? saved.restockQty : ''
+        });
+      });
+      return state;
+    },
     parseLedgerPending(raw) {
       if (!raw) return { orders: [], updatedAt: '' };
       try {
@@ -1016,8 +1071,10 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
       }
       const stock = cloneSlice('stock');
       if (stock) {
+        if (stock.stockSettings) state.company.stockSettings = Store.normaliseStockSettings(stock.stockSettings);
         if (stock.companyStock) state.company.stock = stock.companyStock;
         if (Array.isArray(stock.stockHistory)) state.company.stockHistory = stock.stockHistory;
+        Store.applyStockSettings(state);
       }
       const news = cloneSlice('news');
       if (news) {
@@ -1060,7 +1117,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
           }
         };
       }
-      if (kind === 'stock') return { companyStock: Utils.clone(state.company.stock || {}), stockHistory: Utils.clone(state.company.stockHistory || []) };
+      if (kind === 'stock') return { companyStock: Utils.clone(state.company.stock || {}), stockSettings: Utils.clone(state.company.stockSettings || {}), stockHistory: Utils.clone(state.company.stockHistory || []) };
       if (kind === 'news') return { timeline: Utils.clone(state.staff.timeline || []), newsSync: Utils.clone(state.company.newsSync || {}), analytics: Utils.clone(state.analytics || {}) };
       if (kind === 'trainingLog') return { trainingLog: Utils.clone(state.trainingLog || []), ledger: Utils.clone(state.ledger || []) };
       return {};
@@ -1423,6 +1480,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
       }
 
       const stockItems = data.stock && Array.isArray(data.stock.items) ? data.stock.items : [];
+      next.company.stockSettings = Store.normaliseStockSettings(next.company.stockSettings || {});
       if (stockItems.length) {
         const stock = {};
         stockItems.forEach((item) => {
@@ -1441,6 +1499,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         next.company.stock = Company.stock({ company_stock: stock }, next.company.stock.items, next);
         next.company.stock.lastSynced = UI.newestSync([data.stock && data.stock.snapshot && data.stock.snapshot.synced_at, watermarks.stock && watermarks.stock.latestSyncedAt, next.company.stock.lastSynced]);
       }
+      Store.applyStockSettings(next);
 
       next.staff.current = (next.staff.current || []).map((person) => Timeline.hydrateEmploymentDates(next, person));
       next.staff.past = (next.staff.past || []).map((person) => Timeline.hydrateEmploymentDates(next, person));
@@ -1552,6 +1611,11 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
       delete state['lic' + 'ense'];
       delete state.access;
       state.company = Store.merge(Utils.clone(DEFAULTS.company), state.company || {});
+      state.company.stockSettings = Store.normaliseStockSettings(state.company.stockSettings || {});
+      if (!Object.keys(state.company.stockSettings).length && state.company.stock && state.company.stock.items && state.company.stock.items.length) {
+        state.company.stockSettings = Store.stockSettingsFromItems(state.company.stock.items, state.company.stockSettings);
+      }
+      Store.applyStockSettings(state);
       state.company.adBudgetHistory = Store.normaliseAdBudgetHistory(state.company.adBudgetHistory || []);
       state.company.newsSync = Store.merge(Utils.clone(DEFAULTS.company.newsSync), state.company.newsSync || {});
       state.company.newsSync.reportGapAttempts = state.company.newsSync.reportGapAttempts && typeof state.company.newsSync.reportGapAttempts === 'object' && !Array.isArray(state.company.newsSync.reportGapAttempts)
@@ -2597,6 +2661,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
     },
     stock(data, existingItems, state) {
       const existing = new Map((existingItems || []).map((item) => [String(item.key), item]));
+      const savedSettings = Store.normaliseStockSettings(state && state.company && state.company.stockSettings || {});
       const source = Company.selection(data, 'stock') || {};
       const stockKeys = ['cost', 'rrp', 'price', 'in_stock', 'inStock', 'on_order', 'onOrder', 'sold_amount', 'soldAmount', 'sold_worth', 'soldWorth'];
       const pickStock = (value) => {
@@ -2615,13 +2680,15 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
       const items = rows.map(([key, item]) => {
         item = item && typeof item === 'object' ? item : { name: key, in_stock: item };
         const previous = existing.get(String(key)) || {};
+        const saved = savedSettings[String(key)] || {};
         const rawName = String(item.name || item.item || item.service || previous.name || key);
         const name = rawName.replace(/\bstock\b/ig, '').replace(/\s+/g, ' ').trim() || rawName;
+        const cost = Utils.num(item.cost, 0);
         return {
           key: String(key),
           name: String(name),
           label: previous.label || String(name),
-          cost: Utils.num(item.cost, 0),
+          cost,
           rrp: Utils.num(item.rrp, 0),
           price: Utils.num(item.price, 0),
           inStock: Utils.num(item.in_stock || item.inStock, 0),
@@ -2629,11 +2696,11 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
           soldAmount: Utils.num(item.sold_amount || item.soldAmount, 0),
           soldWorth: Utils.num(item.sold_worth || item.soldWorth, 0),
           capacity: Utils.num(previous.capacity || item.capacity || item.max_stock || item.maxStock || defaultCapacity, 0),
-          needsStock: Utils.num(item.cost, 0) > 0 ? Boolean(previous.needsStock) : false,
-          warningPercent: previous.warningPercent || 10,
-          warningAmount: previous.warningAmount || 0,
-          warningMode: previous.warningMode || 'percent',
-          restockQty: previous.restockQty !== undefined ? previous.restockQty : ''
+          needsStock: cost > 0 ? Boolean(Object.prototype.hasOwnProperty.call(saved, 'needsStock') ? saved.needsStock : previous.needsStock) : false,
+          warningPercent: Object.prototype.hasOwnProperty.call(saved, 'warningPercent') ? saved.warningPercent : previous.warningPercent || 10,
+          warningAmount: Object.prototype.hasOwnProperty.call(saved, 'warningAmount') ? saved.warningAmount : previous.warningAmount || 0,
+          warningMode: saved.warningMode || previous.warningMode || 'percent',
+          restockQty: Object.prototype.hasOwnProperty.call(saved, 'restockQty') ? saved.restockQty : (previous.restockQty !== undefined ? previous.restockQty : '')
         };
       }).sort((a, b) => String(a.name).localeCompare(String(b.name)));
       return { lastSynced: Utils.nowIso(), items };
@@ -4568,6 +4635,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
       if (!choices.analytics && !choices.balance) data.analytics = Utils.clone(DEFAULTS.analytics);
       if (!choices.stock) {
         data.company.stock = Utils.clone(DEFAULTS.company.stock);
+        data.company.stockSettings = {};
         data.company.stockHistory = [];
       }
       if (!choices.profile) data.company.profile = Utils.clone(DEFAULTS.company.profile);
@@ -10202,6 +10270,10 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         <div class="pp-content">
           <div class="pp-changelog">
             <details open>
+              <summary>v2.9.1 - Stock settings persistence</summary>
+              <ul><li>Major changes: Stock card restock toggles, warning thresholds, warning modes, and restock quantities now save to a dedicated stock settings map.</li><li>Major changes: Stock settings now update the 24-hour sync cache immediately on input/change, so fast Torn page switches and refreshes keep the latest values.</li><li>Minor changes: Stock sync, stock import/export, and legacy migration now preserve the stock settings map instead of falling back to default row values.</li></ul>
+            </details>
+            <details>
               <summary>v2.8.11 - Risk strike persistence</summary>
               <ul><li>Major changes: Visible risk notifications now record same-day risk-strike history, so warnings cannot appear without also updating the member record.</li><li>Major changes: Staff sync snapshots now include <code>strikeHistory</code> and raw strike-history data for the Pythagoras API snapshot path.</li><li>Minor changes: Risk-strike updates are also saved as staff-card edits and queued for staff/workspace cloud sync.</li></ul>
             </details>
@@ -10442,6 +10514,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
       }
       if (target === 'stock') {
         UI.readStockSettings(root);
+        Store.updateSyncCache(UI.state, 'stock');
         Store.save(UI.state);
         return;
       }
@@ -10716,7 +10789,11 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         numeric.value = value;
       }
       const stockField = event.target.closest('[data-stock-field]');
-      if (stockField) UI.scheduleAutoSave(stockField);
+      if (stockField) {
+        UI.readStockSettings(UI.currentRoot());
+        Store.updateSyncCache(UI.state, 'stock');
+        UI.scheduleAutoSave(stockField);
+      }
       if (event.target.closest('[data-theme-editor]')) UI.markThemeDirty(event.target.closest('[data-theme-form]'));
       if (event.target.closest('[data-date-format-input]')) UI.updateDatePreview(event.target.closest('[data-settings-form]'));
       if (form && event.target.matches('[name="playerName"]')) UI.applyLedgerStaffSelection(form);
@@ -10729,7 +10806,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         UI.state.planner[plannerField.dataset.plannerField] = plannerField.value;
         Store.save(UI.state);
       }
-      UI.scheduleAutoSave(event.target);
+      if (!stockField) UI.scheduleAutoSave(event.target);
     },
 
     onChange(event) {
@@ -10739,7 +10816,12 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         UI.markPersonCardDirty(personForm, true);
         UI.refreshPersonCardWagePreview(personForm);
       }
-      if (event.target.closest('[data-stock-field]')) UI.scheduleAutoSave(event.target, { delay: 100 });
+      const stockField = event.target.closest('[data-stock-field]');
+      if (stockField) {
+        UI.readStockSettings(UI.currentRoot());
+        Store.updateSyncCache(UI.state, 'stock');
+        UI.scheduleAutoSave(event.target, { delay: 100 });
+      }
       if (event.target.closest('[data-report-section]')) UI.readReportSections(UI.currentRoot());
       const staffPicker = event.target.closest('[data-staff-picker]');
       if (staffPicker) {
@@ -10812,7 +10894,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
       }
       const field = event.target.closest('[data-ledger-field]');
       if (field) UI.updateLedgerField(field);
-      UI.scheduleAutoSave(event.target, { delay: 100 });
+      if (!stockField) UI.scheduleAutoSave(event.target, { delay: 100 });
     },
 
     onToggle(event) {
@@ -11480,6 +11562,8 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         item.restockQty = row ? row.suggestedQty : 0;
         updated += 1;
       });
+      UI.state.company.stockSettings = Store.stockSettingsFromItems(UI.state.company.stock.items, UI.state.company.stockSettings);
+      Store.updateSyncCache(UI.state, 'stock');
       UI.saveRender(updated ? 'Restock quantities suggested from sales demand and storage capacity.' : 'No restockable stock rows found.');
     },
     applyStockOrderToTorn() {
@@ -12412,6 +12496,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
       UI.state.company.detailed = Company.detailed(data, UI.state);
       UI.recordAdBudgetHistory('business-sync', UI.state.company.detailed.lastSynced || profile.lastSynced);
       UI.state.company.stock = Company.stock(data, UI.state.company.stock.items, UI.state);
+      UI.state.company.stockSettings = Store.stockSettingsFromItems(UI.state.company.stock.items, UI.state.company.stockSettings);
       if (UI.state.company.stock.items.length) {
         UI.state.company.stockHistory.push({
           at: Utils.nowIso(),
@@ -12530,6 +12615,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         const nextStock = Company.stock(data, UI.state.company.stock.items, UI.state);
         if (!nextStock.items.length) throw new Error('No stock rows were returned by Torn. Sync Business Profile first, then try again.');
         UI.state.company.stock = nextStock;
+        UI.state.company.stockSettings = Store.stockSettingsFromItems(UI.state.company.stock.items, UI.state.company.stockSettings);
         UI.state.company.stockHistory.push({
           at: Utils.nowIso(),
           items: UI.state.company.stock.items.map((item) => ({
@@ -12597,10 +12683,12 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
     readStockSettings(root) {
       const rows = Array.from((root || UI.currentRoot()).querySelectorAll('[data-stock-row]'));
       if (!rows.length) return;
+      UI.state.company.stockSettings = Store.normaliseStockSettings(UI.state.company.stockSettings || {});
       const byKey = new Map(UI.state.company.stock.items.map((item) => [item.key, item]));
       rows.forEach((row) => {
         const item = byKey.get(row.dataset.stockRow);
         if (!item) return;
+        const key = Store.stockSettingKey(item.key);
         const needsStock = row.querySelector('[data-stock-field="needsStock"]');
         const warningMode = row.querySelector('[data-stock-field="warningMode"]');
         const warningValue = row.querySelector('[data-stock-field="warningValue"]');
@@ -12608,6 +12696,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         if (!Company.isRestockableStock(item)) {
           item.needsStock = false;
           item.restockQty = '';
+          if (key) delete UI.state.company.stockSettings[key];
           return;
         }
         if (needsStock) item.needsStock = needsStock.checked;
@@ -12615,11 +12704,22 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         if (warningValue && item.warningMode === 'amount') item.warningAmount = Math.max(0, Utils.num(warningValue.value, 0));
         if (warningValue && item.warningMode !== 'amount') item.warningPercent = Utils.percent(warningValue.value, 10);
         item.restockQty = restockQty && String(restockQty.value || '').trim() !== '' ? Math.max(0, Utils.num(restockQty.value, 0)) : '';
+        if (key) {
+          UI.state.company.stockSettings[key] = {
+            needsStock: !!item.needsStock,
+            warningMode: item.warningMode === 'amount' ? 'amount' : 'percent',
+            warningPercent: Utils.percent(item.warningPercent, 10),
+            warningAmount: Math.max(0, Utils.num(item.warningAmount, 0)),
+            restockQty: item.restockQty === '' || item.restockQty === null || item.restockQty === undefined ? '' : Math.max(0, Utils.num(item.restockQty, 0)),
+            updatedAt: Utils.nowIso()
+          };
+        }
       });
     },
 
     saveStockSettings() {
       UI.readStockSettings(UI.currentRoot());
+      Store.updateSyncCache(UI.state, 'stock');
       UI.saveRender('Stock settings saved.');
     },
 
@@ -13004,7 +13104,9 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
       if (choices.analytics || choices.balance) next.analytics = incoming.analytics || Utils.clone(DEFAULTS.analytics);
       if (choices.stock) {
         next.company.stock = incoming.company.stock || Utils.clone(DEFAULTS.company.stock);
+        next.company.stockSettings = Store.normaliseStockSettings(incoming.company.stockSettings || {});
         next.company.stockHistory = incoming.company.stockHistory || [];
+        Store.applyStockSettings(next);
       }
       if (choices.profile) next.company.profile = incoming.company.profile || Utils.clone(DEFAULTS.company.profile);
       if (choices.details) next.company.detailed = incoming.company.detailed || Utils.clone(DEFAULTS.company.detailed);
