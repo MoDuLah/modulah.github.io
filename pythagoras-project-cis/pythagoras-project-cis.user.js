@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Pythagoras Project - CIS
 // @namespace    https://torn.com/
-// @version      2.9.1
+// @version      2.9.2
 // @description  Company Intelligence System for Torn company training, staff, analytics, and local reporting.
 // @author       MoDuL [4022159]
 // @match        https://www.torn.com/companies.php*
@@ -42,7 +42,8 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
     staffEditsKey: 'pp_cis_staff_card_edits_v2',
     ledgerPendingKey: 'pp_cis_ledger_pending_v2',
     syncCacheKey: 'pp_cis_sync_cache_v1',
-    version: '2.9.1',
+    notificationDismissalsKey: 'pp_cis_notification_dismissals_v1',
+    version: '2.9.2',
     popupName: 'pythagoras-cis-popup'
   };
 
@@ -258,7 +259,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
     .pp-shell{position:relative;display:grid;grid-template-rows:auto auto auto minmax(0,1fr);max-height:calc(100vh - 30px);min-height:360px;background:var(--bg)}
     .pp-cis-popup-root .pp-shell{max-height:none;min-height:100vh}
     .pp-titlebar{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:12px;padding:12px 14px;border-bottom:1px solid var(--line);background:#141717;cursor:move;user-select:none;min-width:0}
-    .pp-brand{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center;min-width:0}.pp-logo-mark{flex:0 0 34px;width:34px;height:34px;border:1px solid var(--line);border-radius:6px;background:#0b0f14;box-shadow:0 0 0 1px rgba(255,221,0,.08)}.pp-brand strong{font-size:16px;line-height:1.2;color:#fff;white-space:nowrap}.pp-brand span{color:var(--muted);white-space:nowrap}
+    .pp-brand{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center;min-width:0}.pp-logo-mark{flex:0 0 34px;width:34px;height:34px;border:1px solid var(--line);border-radius:6px;background:#0b0f14;box-shadow:0 0 0 1px rgba(255,221,0,.08)}.pp-brand strong{font-size:16px;line-height:1.2;color:#fff;white-space:nowrap}.pp-brand span{color:var(--muted);white-space:nowrap}.pp-version-pill{display:inline-flex;align-items:center;min-height:24px;padding:2px 8px;border:1px solid var(--line);border-radius:999px;background:#111313;color:var(--accent);font-size:12px;font-weight:700}.pp-title-sync{display:flex;align-items:center;gap:5px;flex-wrap:wrap;min-width:0}.pp-title-sync .pp-btn{min-height:26px;padding:3px 7px;margin:0;font-size:12px}
     .pp-actions{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:8px;min-width:0}.pp-tabs,.pp-subtabs{display:flex;gap:4px}.pp-tabs{padding:8px;background:#111313;border-bottom:1px solid var(--line);overflow:hidden;flex-wrap:wrap}.pp-subtabs{margin-bottom:12px;overflow-x:auto}
     .pp-tab,.pp-subtab,.pp-btn{min-height:32px;border:1px solid var(--line);border-radius:6px;background:#191d1c;color:var(--text);padding:6px 10px;cursor:pointer;transition:background .14s ease,border-color .14s ease,transform .14s ease;white-space:nowrap}
     .pp-tab{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-width:max-content}.pp-tab-icon{display:inline-flex;align-items:center;justify-content:center;min-width:1.2em;line-height:1}.pp-tab-label{display:inline-block}.pp-tabs-glyph-only .pp-tabs{flex-wrap:wrap;overflow:hidden}.pp-tabs-glyph-only .pp-tab{width:34px;min-width:34px;padding-left:6px;padding-right:6px}.pp-tabs-glyph-only .pp-tab-label{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
@@ -674,7 +675,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
     load() {
       const profile = Store.loadProfile();
       const state = Store.applyProfile(Store.applyAdminConfig(Store.migrate(Utils.clone(DEFAULTS))), profile);
-      return Store.applyLedgerPending(Store.applyStaffEditCache(state, Store.loadStaffLocalEdits()), Store.loadLedgerPending());
+      return Store.applyNotificationDismissals(Store.applyLedgerPending(Store.applyStaffEditCache(state, Store.loadStaffLocalEdits()), Store.loadLedgerPending()), Store.loadNotificationDismissals());
     },
     async loadAsync() {
       const profile = await Store.loadProfileAsync();
@@ -699,7 +700,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
       state.settings.companyId = state.settings.companyId || state.company.profile.id || PageData.companyId();
       state = Store.applyLedgerPending(Store.applyStaffEditCache(state, staffEditCache), ledgerPending);
       const cloudState = await Store.loadCloudWorkspace(state);
-      return Store.applyLedgerPending(Store.applySyncCache(cloudState), ledgerPending);
+      return Store.applyNotificationDismissals(Store.applyLedgerPending(Store.applySyncCache(cloudState), ledgerPending), await Store.loadNotificationDismissalsAsync());
     },
     loadProfile() {
       const raw = Store.rawGet(APP.profileKey);
@@ -796,6 +797,17 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         if (!raw || typeof raw !== 'object') return;
         const budget = Utils.num(raw.advertisingBudget ?? raw.advertisement_budget ?? raw.adBudget ?? raw.budget ?? raw.value, null);
         if (budget === null || budget < 0) return;
+        const rawMeta = raw.raw && typeof raw.raw === 'object' && !Array.isArray(raw.raw) ? raw.raw : {};
+        const known = budget > 0
+          || raw.advertisingBudgetKnown === true
+          || raw.known === true
+          || raw.explicit === true
+          || raw.explicitZero === true
+          || rawMeta.advertisingBudgetKnown === true
+          || rawMeta.known === true
+          || rawMeta.explicit === true
+          || rawMeta.explicitZero === true;
+        if (budget === 0 && !known) return;
         const observedAt = String(raw.observedAt || raw.observed_at || raw.syncedAt || raw.synced_at || raw.at || raw.created_at || '').trim() || Utils.nowIso();
         const date = Utils.dateInput(raw.date || raw.observedDate || raw.observed_date || observedAt);
         if (!date) return;
@@ -803,6 +815,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
           date,
           observedAt,
           advertisingBudget: Math.round(budget),
+          advertisingBudgetKnown: known,
           source: String(raw.source || 'business-sync').trim() || 'business-sync'
         };
         const existing = byDate.get(date);
@@ -896,6 +909,43 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
     },
     clearLedgerPending() {
       Store.rawDelete(APP.ledgerPendingKey);
+    },
+    parseNotificationDismissals(raw) {
+      if (!raw) return {};
+      try {
+        const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+        const source = parsed && parsed.dismissedNotifications && typeof parsed.dismissedNotifications === 'object' && !Array.isArray(parsed.dismissedNotifications)
+          ? parsed.dismissedNotifications
+          : parsed;
+        const currentDay = Utils.tctWorkingDayKey();
+        const next = {};
+        Object.entries(source && typeof source === 'object' && !Array.isArray(source) ? source : {}).forEach(([key, value]) => {
+          if (String(value || '') === currentDay) next[String(key)] = currentDay;
+        });
+        return next;
+      } catch (error) {
+        console.warn('[Pythagoras Project - CIS] Could not read notification dismissals.', error);
+        return {};
+      }
+    },
+    loadNotificationDismissals() {
+      return Store.parseNotificationDismissals(Store.rawGet(APP.notificationDismissalsKey));
+    },
+    async loadNotificationDismissalsAsync() {
+      return Store.parseNotificationDismissals(await Store.rawGetAsync(APP.notificationDismissalsKey));
+    },
+    saveNotificationDismissals(state) {
+      const dismissed = Store.parseNotificationDismissals(state && state.dismissedNotifications || {});
+      if (!Object.keys(dismissed).length) {
+        Store.rawDelete(APP.notificationDismissalsKey);
+        return;
+      }
+      Store.rawSet(APP.notificationDismissalsKey, JSON.stringify({ dismissedNotifications: dismissed, updatedAt: Utils.nowIso() }));
+    },
+    applyNotificationDismissals(state, dismissals) {
+      if (!state) return state;
+      state.dismissedNotifications = Object.assign({}, Store.parseNotificationDismissals(state.dismissedNotifications || {}), Store.parseNotificationDismissals(dismissals || {}));
+      return state;
     },
     applyLedgerPending(state, pending) {
       const rows = pending && Array.isArray(pending.orders) ? pending.orders : [];
@@ -1573,6 +1623,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
       Store.rawDelete(APP.staffEditsKey);
       Store.rawDelete(APP.ledgerPendingKey);
       Store.rawDelete(APP.syncCacheKey);
+      Store.rawDelete(APP.notificationDismissalsKey);
     },
     applyAdminConfig(state) {
       if (!BUILD_CONFIG.enabled) return state;
@@ -2122,6 +2173,19 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
       }
       return fallback;
     },
+    hasPath(source, path) {
+      if (!source || typeof source !== 'object') return false;
+      const parts = String(path || '').split('.').filter(Boolean);
+      let cursor = source;
+      for (const key of parts) {
+        if (!cursor || typeof cursor !== 'object' || !Object.prototype.hasOwnProperty.call(cursor, key)) return false;
+        cursor = cursor[key];
+      }
+      return true;
+    },
+    hasAny(source, paths) {
+      return (paths || []).some((path) => Company.hasPath(source, path));
+    },
     nameKey(name) {
       return String(name || '').replace(/<[^>]+>/g, '').replace(/\s*\[\d+\]\s*$/, '').trim().toLowerCase();
     },
@@ -2642,6 +2706,8 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
       const source = Company.selection(data, 'detailed') || {};
       const upgrades = source.upgrades || {};
       const previous = state && state.company && state.company.detailed ? state.company.detailed : {};
+      const adBudgetKeys = ['advertising_budget', 'advertisingBudget', 'advertisement_budget', 'advertising'];
+      const advertisingBudgetKnown = Company.hasAny(source, adBudgetKeys) || previous.advertisingBudgetKnown === true || Utils.num(previous.advertisingBudget, 0) > 0;
       return {
         lastSynced: Utils.nowIso(),
         id: String(Company.first(source, ['company_id', 'companyId', 'id', 'ID'], state.settings.companyId || '') || ''),
@@ -2651,7 +2717,8 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         efficiency: Utils.percent(Company.first(source, ['efficiency'], previous.efficiency), 0),
         environment: Utils.percent(Company.first(source, ['environment'], previous.environment), 0),
         trainsAvailable: Utils.clamp(Utils.int(Company.first(source, ['trains_available', 'training_available', 'trainsAvailable', 'trains'], previous.trainsAvailable), 0), 0, 20),
-        advertisingBudget: Utils.num(Company.first(source, ['advertising_budget', 'advertisingBudget', 'advertisement_budget', 'advertising'], previous.advertisingBudget), 0),
+        advertisingBudget: Utils.num(Company.first(source, adBudgetKeys, previous.advertisingBudget), 0),
+        advertisingBudgetKnown,
         companySize: String(Company.first(upgrades, ['company_size', 'companySize', 'size'], previous.companySize) || ''),
         staffroomSize: String(Company.first(upgrades, ['staffroom_size', 'staffroomSize', 'staffroom', 'staff_room'], previous.staffroomSize) || ''),
         storageSize: String(Company.first(upgrades, ['storage_size', 'storageSize', 'storage'], previous.storageSize) || ''),
@@ -4790,11 +4857,10 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
     },
     dailyBalanceTable(state) {
       const staff = Company.staffEmployees(state.staff.current || [], state.company.profile.directorId || state.settings.userId || '');
-      const hasSyncedWages = staff.some((person) => person.wageFromApi);
       const includeWages = !state.ui || state.ui.dailyBalanceIncludeWages !== false;
       const wages = includeWages ? staff.reduce((sum, person) => {
         const wage = Utils.num(person.wage, 0);
-        return sum + (hasSyncedWages ? wage : (wage > 0 ? wage : Wages.estimate(person, state.settings)));
+        return sum + (person.wageFromApi || wage > 0 ? wage : 0);
       }, 0) : 0;
       const adBudget = Utils.num(state.company.detailed.advertisingBudget, 0);
       const rows = [];
@@ -5608,6 +5674,18 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
       UI.saveRender();
     },
 
+    topBarSyncButtons() {
+      const disabled = UI.apiKeyMissing() ? ' disabled' : '';
+      return `<div class="pp-title-sync" aria-label="Sync controls">
+        <button class="pp-btn is-primary ${UI.syncProgressClass('smart-sync')}" style="${UI.syncProgressStyle('smart-sync')}" type="button" data-action="smart-sync" data-sync-action="smart-sync" title="Run Smart sync"${disabled}>Smart</button>
+        <button class="${UI.syncButtonClass('business', true)} ${UI.syncProgressClass('business')}" style="${UI.syncProgressStyle('business')}" type="button" data-action="sync-business" data-sync-action="business" title="Sync business profile"${disabled}>Business</button>
+        <button class="${UI.syncButtonClass('news', false)} ${UI.syncProgressClass('news')}" style="${UI.syncProgressStyle('news')}" type="button" data-action="sync-news" data-sync-action="news" title="Sync latest company news"${disabled}>News</button>
+        <button class="${UI.syncButtonClass('employees', false)} ${UI.syncProgressClass('employees')}" style="${UI.syncProgressStyle('employees')}" type="button" data-action="sync-employees" data-sync-action="employees" title="Sync employees"${disabled}>Employees</button>
+        <button class="${UI.syncButtonClass('stock', false)} ${UI.syncProgressClass('stock')}" style="${UI.syncProgressStyle('stock')}" type="button" data-action="sync-stock" data-sync-action="stock" title="Sync services sold and stock"${disabled}>Stock</button>
+        <button class="pp-btn ${UI.syncProgressClass('training-log')}" style="${UI.syncProgressStyle('training-log')}" type="button" data-action="sync-training-log" data-sync-action="training-log" title="Sync training log"${disabled}>Training</button>
+      </div>`;
+    },
+
     layout(isPopup) {
       const state = UI.state;
       if (!isPopup && state.ui.mode === 'popup') return UI.popupBadge();
@@ -5620,7 +5698,8 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
             <div class="pp-brand">
               ${UI.logoMark('main')}
               <strong>${title}</strong>
-              <span>Local data only</span>
+              <span class="pp-version-pill">v${Utils.esc(APP.version)}</span>
+              ${UI.topBarSyncButtons()}
               ${UI.stockMiniAlert()}
             </div>
             <div class="pp-actions">
@@ -5984,6 +6063,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
       if (!safeKey) return;
       UI.state.dismissedNotifications = UI.notificationDismissals();
       UI.state.dismissedNotifications[safeKey] = Utils.tctWorkingDayKey();
+      Store.saveNotificationDismissals(UI.state);
       Store.save(UI.state);
       UI.render(UI.currentRoot(), UI.currentRoot().ownerDocument);
       UI.toast('Notification hidden until the next 18:10 TCT business reset.');
@@ -6329,11 +6409,11 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
           tab: 'balance',
           selector: '[data-tour="daily-balance-table"]',
           title: 'Balance table',
-          text: 'The balance table estimates daily operating performance from synced reports and latest company settings.',
+          text: 'The balance table calculates daily operating performance from synced reports and dated company history.',
           notes: [
             'Income and customers come from daily reports.',
             'Wages can be included or treated as zero with the Use wages switch.',
-            'Wages, employees, ad budget, and rating use dated history where available instead of stamping the latest snapshot onto old rows.'
+            'Wages use current synced values and saved wage history only; ad budget and rating use dated history where available.'
           ]
         },
         {
@@ -6984,12 +7064,9 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
     dailyWageTotal() {
       if (UI.state.ui.dailyBalanceIncludeWages === false) return 0;
       const staff = Company.staffEmployees(UI.state.staff.current || [], UI.state.company.profile.directorId || UI.state.settings.userId || '');
-      if (staff.some((person) => person.wageFromApi)) {
-        return staff.reduce((sum, person) => sum + Utils.num(person.wage, 0), 0);
-      }
       return staff.reduce((sum, person) => {
         const wage = Utils.num(person.wage, 0);
-        return sum + (wage > 0 ? wage : Wages.estimate(person, UI.state.settings));
+        return sum + (person.wageFromApi || wage > 0 ? wage : 0);
       }, 0);
     },
     reportDailyRows() {
@@ -7027,10 +7104,12 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
             ? person.wageHistory.slice().sort((a, b) => Utils.dateTimestamp(a.at) - Utils.dateTimestamp(b.at))
             : [];
           const wage = Utils.num(person && person.wage, 0);
+          const wageKnown = !!(person && person.wageFromApi) || wage > 0 || !!wageHistory.length;
           return Object.assign({}, person, {
             _balanceStartTs: Utils.dateTimestamp(UI.personHireValue(person) || Company.employmentStart(person)),
             _balanceLeftTs: Utils.dateTimestamp(UI.personLeftValue(person) || person && (person.leftDate || person.leftTimestamp)),
-            _balanceWage: wage > 0 ? wage : Wages.estimate(person, UI.state.settings),
+            _balanceWage: wageKnown ? wage : 0,
+            _balanceWageKnown: wageKnown,
             _balanceWageHistory: wageHistory
           });
         });
@@ -7048,6 +7127,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
     balancePersonWageOn(person, date) {
       const at = Utils.dateTimestamp(`${date}T23:59:59`);
       const history = Array.isArray(person && person._balanceWageHistory) ? person._balanceWageHistory : [];
+      if (!person || (!person._balanceWageKnown && !history.length)) return 0;
       let wage = Utils.num(person && person._balanceWage, 0);
       if (history.length) wage = Utils.num(history[0].previousWage, wage);
       history.forEach((row) => {
@@ -7078,12 +7158,15 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
       const detailed = UI.state.company.detailed || {};
       const budget = Utils.num(detailed.advertisingBudget, null);
       if (budget === null || budget < 0) return 0;
+      const known = detailed.advertisingBudgetKnown === true || budget > 0;
+      if (budget === 0 && !known) return 0;
       const at = String(observedAt || detailed.lastSynced || Utils.nowIso()).trim() || Utils.nowIso();
       const date = Utils.dateInput(at) || Utils.todayInput();
       UI.state.company.adBudgetHistory = Store.mergeAdBudgetHistory(UI.state.company.adBudgetHistory || [], [{
         date,
         observedAt: at,
         advertisingBudget: budget,
+        advertisingBudgetKnown: true,
         source: source || 'business-sync'
       }]);
       return 1;
@@ -7195,7 +7278,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
             </tr>`;
           }).join('')}</tbody>
         </table></div>
-        <p class="pp-note">Income and customers come from daily company report rows. ${UI.state.ui.dailyBalanceIncludeWages === false ? 'Wages are disabled for Balance, so profit treats wages as $0.' : 'Wages use employee hire/left dates with saved wage history or estimates.'} Advertising budget uses dated Business Profile sync history; dates before the first observed budget stay blank. Rating uses dated news history where available.</p>`;
+        <p class="pp-note">Income and customers come from daily company report rows. ${UI.state.ui.dailyBalanceIncludeWages === false ? 'Wages are disabled for Balance, so profit treats wages as $0.' : 'Wages use current synced employee wages and saved wage history only; estimates are not included.'} Advertising budget uses dated Business Profile sync history; dates before the first observed budget stay blank. Rating uses dated news history where available.</p>`;
     },
 
     dailyGraphRows() {
@@ -7278,6 +7361,35 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
       return text.length > 12 ? `${text.slice(0, 10)}...` : text;
     },
 
+    graphNiceStep(rawStep, minimumStep) {
+      const min = Math.max(1, Utils.num(minimumStep, 1));
+      const raw = Math.max(min, Math.abs(Utils.num(rawStep, min)));
+      const magnitude = Math.pow(10, Math.floor(Math.log10(raw)));
+      const normalized = raw / magnitude;
+      const factor = normalized <= 1 ? 1 : normalized <= 2 ? 2 : normalized <= 5 ? 5 : 10;
+      return Math.max(min, factor * magnitude);
+    },
+
+    graphTickValues(bounds, minimumStep, maxTicks) {
+      if (!bounds) return [];
+      const limit = Math.max(2, Utils.int(maxTicks, 6));
+      const span = Math.max(Math.abs(bounds.max - bounds.min), Math.max(1, Utils.num(minimumStep, 1)));
+      let step = UI.graphNiceStep(span / Math.max(1, limit - 1), minimumStep);
+      let ticks = [];
+      for (let guard = 0; guard < 8; guard += 1) {
+        const start = Math.floor(bounds.min / step) * step;
+        const end = Math.ceil(bounds.max / step) * step;
+        ticks = [];
+        for (let value = start; value <= end + step / 2; value += step) ticks.push(Math.round(value));
+        if (ticks.length <= limit || guard === 7) break;
+        step = UI.graphNiceStep(step * 1.8, minimumStep);
+      }
+      if (ticks.length < 2) ticks = [0, Math.max(step, 1)];
+      bounds.min = ticks[0];
+      bounds.max = ticks[ticks.length - 1];
+      return ticks;
+    },
+
     graphSlides() {
       const scale = UI.graphScale();
       const isDaily = scale === 'daily';
@@ -7286,8 +7398,8 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
       const serviceRows = UI.serviceSoldGraphRows();
       const vars = UI.currentThemeVars();
       return [
-        { type: 'line', title: `${scaleLabel} operating performance`, note: `${scaleLabel} income, wages, ad budget, and profit share the $250K-step money axis. Customers use the right-side 500-step count axis.`, rows: UI.performanceGraphRows(scale), series: UI.activeGraphMetrics(), label: rowLabel, empty: 'Sync company news to build performance graphs.' },
-        { type: 'bar', title: 'Services sold', note: 'Latest synced daily service totals by service type.', rows: serviceRows, value: (row) => Utils.num(row.sold, 0), label: (row) => UI.graphLabel(row.name), titleText: (row) => `${row.name}: ${Number(row.sold || 0).toLocaleString()} sold${row.worth ? ` / ${Utils.money(row.worth)} sold worth` : ''}`, format: Utils.formatNumber, color: vars.graphServices, empty: 'Use Settings -> Sync center -> Sync services sold to pull daily service totals.' }
+        { type: 'line', title: `${scaleLabel} operating performance`, note: `${scaleLabel} income, wages, ad budget, and profit share an adaptive money axis. Customers use the right-side count axis.`, rows: UI.performanceGraphRows(scale), series: UI.activeGraphMetrics(), label: rowLabel, empty: 'Sync company news to build performance graphs.' },
+        { type: 'bar', title: 'Services sold', note: 'Latest Torn stock snapshot totals by service type. Torn does not label the sold_amount period.', rows: serviceRows, value: (row) => Utils.num(row.sold, 0), label: (row) => UI.graphLabel(row.name), titleText: (row) => `${row.name}: ${Number(row.sold || 0).toLocaleString()} sold${row.worth ? ` / ${Utils.money(row.worth)} sold worth` : ''}`, format: Utils.formatNumber, color: vars.graphServices, empty: 'Use Sync services sold to pull the latest Torn stock snapshot. Torn does not label the sold_amount period.' }
       ];
     },
 
@@ -7314,8 +7426,6 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
       const bottom = 62;
       const plotWidth = width - left - right;
       const plotHeight = height - top - bottom;
-      const moneyStep = 250000;
-      const countStep = 500;
       const boundsFor = (seriesGroup) => {
         const values = seriesGroup.flatMap((series) => rows.map((row) => series.value(row))).filter((value) => Number.isFinite(value));
         let min = Math.min(0, values.length ? Math.min.apply(null, values) : 0);
@@ -7325,24 +7435,8 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
       };
       const moneyBounds = moneySeries.length ? boundsFor(moneySeries) : null;
       const countBounds = countSeries.length ? boundsFor(countSeries) : null;
-      const moneyTicks = moneyBounds ? (() => {
-        const start = Math.floor(moneyBounds.min / moneyStep) * moneyStep;
-        const end = Math.max(moneyStep, Math.ceil(moneyBounds.max / moneyStep) * moneyStep);
-        const ticks = [];
-        for (let value = start; value <= end + moneyStep / 2; value += moneyStep) ticks.push(value);
-        moneyBounds.min = ticks[0];
-        moneyBounds.max = ticks[ticks.length - 1];
-        return ticks;
-      })() : [];
-      const countTicks = countBounds ? (() => {
-        const start = Math.floor(countBounds.min / countStep) * countStep;
-        const end = Math.max(countStep, Math.ceil(countBounds.max / countStep) * countStep);
-        const ticks = [];
-        for (let value = start; value <= end + countStep / 2; value += countStep) ticks.push(value);
-        countBounds.min = ticks[0];
-        countBounds.max = ticks[ticks.length - 1];
-        return ticks;
-      })() : [];
+      const moneyTicks = UI.graphTickValues(moneyBounds, 1, 6);
+      const countTicks = UI.graphTickValues(countBounds, 1, 6);
       const axisFor = (series) => series.axis === 'count' ? countBounds : moneyBounds;
       const xFor = (index) => rows.length === 1 ? left + plotWidth / 2 : left + (index * plotWidth / (rows.length - 1));
       const pointFor = (value, min, max, index) => {
@@ -7407,7 +7501,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
           ${grid}${zeroLine}${leftAxis}${rightAxis}${seriesMarkup}${labels}
         </svg>
       </div>
-      <p class="pp-note">Money lines share the left Y axis in $250K steps. Customers use the right Y axis in 500-customer steps and are dashed because they often track income closely.</p>`;
+      <p class="pp-note">Money lines share the left Y axis with adaptive tick spacing. Customers use the right Y axis and are dashed because they often track income closely.</p>`;
     },
 
     barGraph(slide) {
@@ -10194,6 +10288,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
             ${UI.stat('Projected storage', `${plan.projectedStorage.toLocaleString()} / ${plan.capacity.toLocaleString() || '0'}`)}
             ${UI.stat('Order cost', Utils.money(plan.orderCost))}
           </div>
+          <p class="pp-note">Services sold is the latest Torn stock snapshot. Torn does not specify whether sold quantity is daily, weekly, monthly, or lifetime.</p>
           <form data-stock-form>
             <div class="pp-wrap"><table class="pp-table">
               <thead><tr><th>#</th><th>${UI.tableSortHeader('stock', 'name', 'Service')}</th><th>${UI.tableSortHeader('stock', 'cost', 'Cost')}</th><th>${UI.tableSortHeader('stock', 'rrp', 'RRP')}</th><th>${UI.tableSortHeader('stock', 'price', 'Price')}</th><th>${UI.tableSortHeader('stock', 'inStock', 'In stock')}</th><th>${UI.tableSortHeader('stock', 'onOrder', 'On order')}</th><th>${UI.tableSortHeader('stock', 'soldAmount', 'Sold qty')}</th><th>${UI.tableSortHeader('stock', 'soldWorth', 'Sold worth')}</th><th>${UI.tableSortHeader('stock', 'needsStock', 'Need Restock?')}</th><th>${UI.tableSortHeader('stock', 'warning', 'Warn')}</th><th>${UI.tableSortHeader('stock', 'restockQty', 'Restock qty')}</th></tr></thead>
@@ -10270,6 +10365,10 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         <div class="pp-content">
           <div class="pp-changelog">
             <details open>
+              <summary>v2.9.2 - Balance sync stability</summary>
+              <ul><li>Major changes: Advertising budget history now records Torn V2 profile values as explicit dated rows and ignores older unmarked zero rows in Balance.</li><li>Major changes: Balance wages now use current synced employee wages and saved wage history only; wage estimates are no longer included in Balance profit.</li><li>Major changes: Notification hides now persist locally until the next 18:10 TCT business reset, even after page refresh.</li><li>Minor changes: Weekly performance graphs now use adaptive Y-axis tick spacing, Services Sold explains that Torn does not specify the sold_amount period, and the title bar shows the script version with compact Sync buttons.</li></ul>
+            </details>
+            <details>
               <summary>v2.9.1 - Stock settings persistence</summary>
               <ul><li>Major changes: Stock card restock toggles, warning thresholds, warning modes, and restock quantities now save to a dedicated stock settings map.</li><li>Major changes: Stock settings now update the 24-hour sync cache immediately on input/change, so fast Torn page switches and refreshes keep the latest values.</li><li>Minor changes: Stock sync, stock import/export, and legacy migration now preserve the stock settings map instead of falling back to default row values.</li></ul>
             </details>
@@ -12607,7 +12706,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
       const syncId = 'stock';
       UI.captureSettingsInputs(UI.currentRoot());
       UI.readStockSettings(UI.currentRoot());
-      UI.beginSync(syncId, 'Sync services sold and stock');
+      UI.beginSync(syncId, 'Sync stock snapshot and services sold');
       try {
         UI.syncStep(syncId, 'Requesting stock data from Torn API V2.', 18);
         const data = await ApiClient.companyStock(UI.state.settings.apiKey);
