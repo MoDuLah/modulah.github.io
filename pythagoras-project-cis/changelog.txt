@@ -1,5 +1,15 @@
 # Pythagoras Project - CIS Changelog
 
+## v2.9.2 - Balance sync stability
+
+- Advertising budget history now records Torn API V2 profile values as explicit dated rows and ignores older unmarked zero rows in Balance.
+- The Pythagoras API now returns ad-budget raw metadata and rejects unmarked zero ad-budget rows, while still allowing future explicit zeroes from updated clients.
+- Balance wages now use current synced employee wages and saved wage history only; wage estimates are no longer included in Balance profit.
+- Notification hide/dismiss choices now persist locally until the next 18:10 TCT business reset, even after a page refresh.
+- Weekly operating performance graphs now use adaptive Y-axis tick spacing so weekly labels do not overcrowd.
+- Services Sold now explains that Torn's stock endpoint does not specify whether `sold_amount` is daily, weekly, monthly, or lifetime.
+- The title bar now shows the userscript version and compact Sync buttons beside it.
+
 ## v2.9.1 - Stock settings persistence
 
 - Stock card restock toggles, warning thresholds, warning modes, and restock quantities now save to a dedicated stock settings map.
