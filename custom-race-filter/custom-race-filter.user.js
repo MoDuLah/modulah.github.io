@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         MoDuL's: Custom Race Filter
 // @namespace    modul.torn.racing
-// @version      2.4.7
+// @version      2.4.8
 // @description  Custom Race filter. (OG Car Names & PDA Compatible)
 // @author       MoDuL
 // @copyright    2026 MoDuL. All rights reserved.
@@ -31,7 +31,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
 (function () {
   "use strict";
 
-var VERSION = "2.4.7";
+var VERSION = "2.4.8";
   var TAG = "[MoDuL's: Custom Race Filter v" + VERSION + "]";
   try { console.log(TAG, "Loaded ✅"); } catch (e) {}
 
@@ -1725,7 +1725,35 @@ var VERSION = "2.4.7";
     if (typeof e.stopImmediatePropagation === "function") e.stopImmediatePropagation();
   }
 
+  let raceJoinFallbackBound = false;
+
+  function getRaceJoinRowFromEvent(e) {
+    const target = e?.target;
+    const link = target?.closest?.(".custom-events-wrap .acc-body li.join > a");
+    if (!link) return null;
+
+    const href = String(link.getAttribute("href") || "").trim();
+    if (href && href !== "#") return null;
+
+    return link.closest(".custom-events-wrap .events-list > li");
+  }
+
+  function ensureRaceJoinFallbackHandler() {
+    if (raceJoinFallbackBound) return;
+    raceJoinFallbackBound = true;
+
+    document.addEventListener("click", (e) => {
+      const row = getRaceJoinRowFromEvent(e);
+      if (!row || !getJoinNotice(row)) return;
+
+      stopRaceJoinEvent(e);
+      row.dataset.rfJoinDismissed = "0";
+      setRaceJoinNoticeOpen(row, true);
+    }, true);
+  }
+
   function enhanceRaceJoinControls(items) {
+    ensureRaceJoinFallbackHandler();
     const rows = items || getItems();
 
     for (const row of rows) {
@@ -1757,6 +1785,10 @@ var VERSION = "2.4.7";
         }, true);
       }
     }
+  }
+
+  function hydrateRaceRowsAfterContentChange() {
+    enhanceRaceJoinControls(getItems());
   }
 
   let applyToken = 0;
@@ -2071,6 +2103,7 @@ var VERSION = "2.4.7";
       const currentContainer = document.querySelector("#racingAdditionalContainer");
       if (currentContainer) {
         currentContainer.innerHTML = content.html;
+        hydrateRaceRowsAfterContentChange();
         return true;
       }
     }
@@ -2082,6 +2115,7 @@ var VERSION = "2.4.7";
       const nextWrap = temp.querySelector(".custom-events-wrap");
       if (!nextWrap) return false;
       currentWrap.parentNode.replaceChild(nextWrap, currentWrap);
+      hydrateRaceRowsAfterContentChange();
       return true;
     }
 

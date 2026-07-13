@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.4.8
+
+- Fixed join controls after using `Refresh races` by binding a local fallback to the refreshed race rows immediately after the HTML replacement
+- Prevented refreshed `href="#"` join icons from jumping to the top of the page when Torn's native row handler is not attached
+- Kept Torn's existing join confirmation, long-race warning, and password panels visible after manual race refreshes
+
 ## 2.4.7
 
 - Fixed Torn join icons with `href="#"` jumping to the top of the page when Torn's native join handler is not attached
