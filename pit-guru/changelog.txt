@@ -1,10 +1,11 @@
 MoDuL's Pit Guru Changelog
 ==========================
 
-Project status (2026-07-09)
+Project status (2026-07-13)
 ---------------------------
 - MoDuL's Pit Guru is now the public-facing successor project to Lap Recorder on MoDuL's Hub.
-- The live supporter userscript build is v2.1.2 at https://modulah.github.io/pit-guru/pit-guru.user.js.
+- The live supporter userscript build is v2.1.3 at https://modulah.github.io/pit-guru/pit-guru.user.js.
+- v2.1.3 starts the phased performance rewrite with render/build profiling, bounded race-data caches, coalesced rendering, an incremental live overtake counter, and a worker-backed heavy-race aggregate path for lead history and sector wins.
 - v2.1.2 updates the api connection to the latest dns.
 - v2.1.1 removes the advanced Hosted API & Player controls from public Settings while keeping transient retry recovery, short TTL read caching, and legacy hosted-session key cleanup.
 - v2.0.9 fixes the Predictions renderer crash after racingData is captured, when the shared render loop passes elapsed-time arguments instead of a prediction driver set.
@@ -26,6 +27,16 @@ Project status (2026-07-09)
 - Removed license serials from every Discord-facing activation message; purchases, admin grants, test purchases, and raffle prizes now confirm account-linked access and show the exact expiry with live time remaining.
 - Removed the obsolete `/licensecheck` serial-entry command.
 - Changed purchase payment references to the compact `!#PRODUCT-ORDERID` format while retaining verification support for existing pending orders using the legacy spaced format.
+
+v2.1.3
+------
+- Added Phase 0 diagnostics for render time, analysis-build time, aggregate worker state, and cache sizes, visible in Advanced diagnostics and through `pgPerfStats()`, `pgPerfReset()`, `pgPhaseRewriteFlags()`, and `pgPhaseCacheStats()`.
+- Added bounded in-memory race-data and processed-summary caches so large racingData payloads do not accumulate unbounded for the life of the tab.
+- Render scheduling now coalesces bursts before the next animation frame, reducing duplicate redraw pressure from polling, cache writes, and async status updates.
+- Live overtake counting now advances incrementally during replay/live playback instead of recalculating from race start on every display bucket.
+- Heavy-race sector-win and lead-history aggregates now build in a Web Worker where available, with pending UI states and synchronous fallback if a worker is unavailable or fails.
+- Final save/export paths now wait for heavy-race aggregate readiness instead of preserving placeholder lead or sector values.
+- Report/tutorial resize and scroll listeners now use passive listeners where safe, and report chart resize debounce increased to 150 ms.
 
 v2.1.1
 ------
