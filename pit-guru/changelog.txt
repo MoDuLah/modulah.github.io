@@ -4,7 +4,8 @@ MoDuL's Pit Guru Changelog
 Project status (2026-07-13)
 ---------------------------
 - MoDuL's Pit Guru is now the public-facing successor project to Lap Recorder on MoDuL's Hub.
-- The live supporter userscript build is v2.1.6 at https://modulah.github.io/pit-guru/pit-guru.user.js.
+- The live supporter userscript build is v2.1.7 at https://modulah.github.io/pit-guru/pit-guru.user.js.
+- v2.1.7 disables HTML report export until the live race has finished or the page is a replay, then builds a richer completed-race report with overview cards, full per-driver data, start/finish deltas, final gaps, sectors, lead stats, speed, G, and consistency.
 - v2.1.6 adds same-race warm restore after page refresh: cached heavy-race raw/summary data can hydrate the UI immediately, but the restored state remains unverified until fresh Torn racingData confirms the same static signature or replaces it with newer race data.
 - v2.1.5 completes the performance rewrite release pass with bounded persistent Driver Intel/history storage, capped heavy-race IndexedDB cleanup, lifecycle cleanup on race changes and page lifecycle events, and refreshed hosted install artifacts.
 - v2.1.4 advances the phased performance rewrite with normalized race indexes, cached replay frame rows, cached live telemetry prefixes, sector snapshots, and renderers that reuse shared frame state instead of recalculating every visible table.
@@ -29,6 +30,13 @@ Project status (2026-07-13)
 - Removed license serials from every Discord-facing activation message; purchases, admin grants, test purchases, and raffle prizes now confirm account-linked access and show the exact expiry with live time remaining.
 - Removed the obsolete `/licensecheck` serial-entry command.
 - Changed purchase payment references to the compact `!#PRODUCT-ORDERID` format while retaining verification support for existing pending orders using the legacy spaced format.
+
+v2.1.7
+------
+- Disabled the HTML report button while a live race is still in progress, with the export handler also blocking direct calls until the visible race has finished or the page is a replay.
+- Added a completed-race Race Overview section to exported reports with winner, race duration, field finish count, race distance, fastest lap, top speed, lead-time, sector, closest-finish, and decoded-data highlights.
+- Added a Full Race Data section with per-driver finish/start delta, completed laps, distance, finish time, final gaps, best lap, average lap, ideal lap, best sectors, sectors won, laps led, lead time, top speed, average speed, G, and consistency.
+- Extended the exported leaderboard with starting position and position gain/loss.
 
 v2.1.6
 ------

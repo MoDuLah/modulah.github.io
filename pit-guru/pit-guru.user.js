@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         MoDuL's Pit Guru
 // @namespace    modul.torn.racing
-// @version      2.1.6
+// @version      2.1.7
 // @description  Live Torn race timing, gaps, sectors, speed and estimated telemetry analysis
 // @author       MoDuL
 // @copyright    2026 MoDuL. All rights reserved.
@@ -555,7 +555,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
     unsafeWindow.pgPitGuruClearApiCache = pgClearApiResponseCache_;
     unsafeWindow.pgPitGuruHealthTest = unsafeWindow.pgLocalHealthTest;
 
-    const MPG_VERSION = "2.1.6";
+    const MPG_VERSION = "2.1.7";
     var TAG = "[MoDuL's Pit Guru v" + MPG_VERSION + "]";
 
     const PitGuruRaceEngine = (() => {
@@ -5391,6 +5391,19 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         return false;
     }
 
+    function htmlReportCanExport_() {
+        if (!analysis?.drivers?.length) return false;
+        if (getRaceContext_() === "replay") return true;
+        const visual = visualRaceProgressState_();
+        return !!(visual.hasProgress && visual.finished);
+    }
+
+    function htmlReportLockedReason_() {
+        if (!analysis?.drivers?.length) return "HTML report unlocks after Pit Guru has race data.";
+        if (getRaceContext_() === "replay") return "HTML report is ready.";
+        return "HTML report unlocks when the race has finished.";
+    }
+
     function getVisualElapsed_() {
         if (!analysis) return 0;
         if (shouldRenderReplayMoment_()) return getRawVisualElapsed_();
@@ -9345,6 +9358,56 @@ img.carIcon{
         return { text: car || "--", html };
     }
 
+    function reportFiniteNumber_(value) {
+        const n = Number(value);
+        return Number.isFinite(n) ? n : NaN;
+    }
+
+    function reportPositionChangeText_(start, finish) {
+        const s = reportFiniteNumber_(start);
+        const f = reportFiniteNumber_(finish);
+        if (!Number.isFinite(s) || !Number.isFinite(f)) return "--";
+        const delta = Math.round(s - f);
+        if (delta > 0) return `+${delta}`;
+        return String(delta);
+    }
+
+    function reportPositionChangeCell_(start, finish) {
+        const text = reportPositionChangeText_(start, finish);
+        const delta = Number(text);
+        const cls = Number.isFinite(delta) ? (delta > 0 ? "gap-neg" : (delta < 0 ? "gap-pos" : "gap-zero")) : "";
+        return { text, sort: Number.isFinite(delta) ? delta : "", className: cls };
+    }
+
+    function reportCompletedLaps_(d) {
+        const completed = reportFiniteNumber_(d?.completedFullLaps);
+        if (Number.isFinite(completed) && completed >= 0) return Math.round(completed);
+        const valid = Array.isArray(d?.validLapTimes) ? d.validLapTimes.length : 0;
+        if (valid > 0) return valid;
+        return d?.crashed ? 0 : (Number(analysis?.laps) || 0);
+    }
+
+    function reportDriverDistanceKm_(d) {
+        const dists = d?.cumulativeDistances || [];
+        const meters = dists.length ? Number(dists[dists.length - 1]) : (Number(analysis?.lapMeters || 0) * reportCompletedLaps_(d));
+        return Number.isFinite(meters) && meters > 0 ? meters / 1000 : NaN;
+    }
+
+    function reportAvgSpeedForDriver_(d) {
+        const distanceKm = reportDriverDistanceKm_(d);
+        const finalTime = reportFiniteNumber_(d?.finalTime);
+        if (!Number.isFinite(distanceKm) || !Number.isFinite(finalTime) || finalTime <= 0) return NaN;
+        return (distanceKm * 1000) / finalTime;
+    }
+
+    function reportBestSectorText_(d, sector) {
+        const vals = (d?.sectorTimes || [])
+            .filter(s => Number(s.sector) === Number(sector))
+            .map(s => Number(s.seconds))
+            .filter(Number.isFinite);
+        return vals.length ? formatTimeSeconds_(Math.min(...vals)) : "--";
+    }
+
     function reportThemeCssVars_(themeKey) {
         const map = {
             classic: "--bg:#2a2a2a;--panel:#2f2f2f;--panel2:#343434;--text:#f5f5f5;--muted:#d0d0d0;--line:#4a4a4a;--accent:#ffc83d;--green:#00ff00;--red:#ff6b6b;--blue:#74b7ff;--pill:#3a3a3a;",
@@ -9502,6 +9565,159 @@ img.carIcon{
         return charts ? `<section class="chart-grid" aria-label="Race charts">${charts}</section>` : "";
     }
 
+    function reportKpiGridHtml_(items) {
+        const cards = (items || []).map(item => {
+            const label = item?.label == null ? "" : String(item.label);
+            const value = item?.value == null || item.value === "" ? "--" : String(item.value);
+            const note = item?.note == null || item.note === "" ? "" : String(item.note);
+            return `<div class="kpi"><b>${esc_(label)}</b><strong>${esc_(value)}</strong>${note ? `<span>${esc_(note)}</span>` : ""}</div>`;
+        }).join("");
+        return cards ? `<div class="kpi-grid">${cards}</div>` : "";
+    }
+
+    function buildRaceOverviewReportHtml_() {
+        if (!analysis?.drivers?.length) return "";
+        const ordered = getLiveOrder_(Infinity, true);
+        const finishers = ordered.filter(x => !x.driver?.crashed && Number.isFinite(Number(x.driver?.finalTime))).length;
+        const dnfs = Math.max(0, ordered.length - finishers);
+        const winner = ordered.find(x => !x.driver?.crashed && Number.isFinite(Number(x.driver?.finalTime)))?.driver || ordered[0]?.driver || null;
+        const totalDistanceKm = Number(analysis.lapMeters || 0) * Number(analysis.laps || 0) / 1000;
+        const maxFinal = maxAnalysisFinalTime_();
+
+        const bestLap = analysis.drivers
+            .map(d => ({ d, seconds: reportFiniteNumber_(d.bestLapSeconds) }))
+            .filter(x => Number.isFinite(x.seconds))
+            .sort((a, b) => a.seconds - b.seconds)[0];
+        const topSpeed = analysis.drivers
+            .map(d => ({ d, stats: driverTelemetryStats_(d, Infinity, true) }))
+            .map(x => ({ d: x.d, speed: reportFiniteNumber_(x.stats?.topSpeedMps) }))
+            .filter(x => Number.isFinite(x.speed))
+            .sort((a, b) => b.speed - a.speed)[0];
+        const mostLead = analysis.drivers
+            .map(d => ({ d, seconds: reportFiniteNumber_(d.timeInLeadSeconds) }))
+            .filter(x => Number.isFinite(x.seconds) && x.seconds > 0)
+            .sort((a, b) => b.seconds - a.seconds)[0];
+        const sectorKing = analysis.drivers
+            .map(d => ({ d, count: reportFiniteNumber_(d.sectorsWon) }))
+            .filter(x => Number.isFinite(x.count) && x.count > 0)
+            .sort((a, b) => b.count - a.count)[0];
+
+        let closest = null;
+        for (let i = 1; i < ordered.length; i++) {
+            const cur = ordered[i]?.driver;
+            const ahead = ordered[i - 1]?.driver;
+            if (!cur || !ahead || cur.crashed || ahead.crashed) continue;
+            const gap = reportFiniteNumber_(cur.finalTime) - reportFiniteNumber_(ahead.finalTime);
+            if (!Number.isFinite(gap) || gap < 0) continue;
+            if (!closest || gap < closest.gap) closest = { gap, cur, ahead };
+        }
+
+        const segmentRows = analysis.drivers.reduce((sum, d) => sum + (Array.isArray(d.segmentTimes) ? d.segmentTimes.length : 0), 0);
+        const lapRows = analysis.drivers.reduce((sum, d) => sum + (Array.isArray(d.validLapTimes) ? d.validLapTimes.length : 0), 0);
+        const kpis = [
+            { label: "Winner", value: winner?.name || "--", note: winner?.car ? toOgCarName_(winner.car) : "" },
+            { label: "Race Duration", value: formatTimeSeconds_(maxFinal), note: maxFinal > 0 ? "leader-to-last finisher window" : "" },
+            { label: "Field", value: `${finishers}/${ordered.length} finished`, note: dnfs ? `${dnfs} DNF` : "No DNFs" },
+            { label: "Race Distance", value: formatDistanceKm_(totalDistanceKm), note: `${analysis.laps || "--"} laps` },
+            { label: "Fastest Lap", value: bestLap ? formatTimeSeconds_(bestLap.seconds) : "--", note: bestLap?.d?.name || "" },
+            { label: "Top Speed", value: topSpeed ? formatSpeed_(topSpeed.speed) : "--", note: topSpeed?.d?.name || "" },
+            { label: "Most Lead Time", value: mostLead ? formatLeadTime_(mostLead.seconds) : "--", note: mostLead?.d?.name || "" },
+            { label: "Sectors Won", value: sectorKing ? String(sectorKing.count) : "--", note: sectorKing?.d?.name || "" },
+            { label: "Closest Finish", value: closest ? formatRaceGapSeconds_(closest.gap) : "--", note: closest ? `${closest.ahead.name} / ${closest.cur.name}` : "" },
+            { label: "Decoded Data", value: `${segmentRows.toLocaleString()} segments`, note: `${lapRows.toLocaleString()} lap totals` }
+        ];
+
+        const leadRows = analysis.drivers
+            .slice()
+            .sort((a, b) => (b.timeInLeadSeconds || 0) - (a.timeInLeadSeconds || 0))
+            .slice(0, Math.min(8, analysis.drivers.length))
+            .map(d => [
+                reportDriverCell_(d),
+                formatLeadTime_(d.timeInLeadSeconds),
+                d.lapsLed || 0,
+                d.segmentsLed || 0,
+                formatLeadTime_(d.longestLeadStintSeconds),
+                Math.max(0, (d.leadChanges || 0) - 1)
+            ]);
+        return `${reportKpiGridHtml_(kpis)}<h3>Lead Snapshot</h3>${reportTableHtml_(["Driver", "Time in Lead", "Laps Led", "Segments Led", "Longest Stint", "Lead Changes"], leadRows, { empty: "No lead data decoded." })}`;
+    }
+
+    function buildFullRaceDataReportHtml_() {
+        if (!analysis?.drivers?.length) return "";
+        const ordered = getLiveOrder_(Infinity, true);
+        const leaderTime = ordered.find(x => !x.driver?.crashed && Number.isFinite(Number(x.driver?.finalTime)))?.driver?.finalTime || ordered[0]?.driver?.finalTime || NaN;
+        const rows = ordered.map((x, i) => {
+            const d = x.driver;
+            const ahead = ordered[i - 1]?.driver || null;
+            const stats = driverTelemetryStats_(d, Infinity, true);
+            const start = reportFiniteNumber_(d.startPosition);
+            const finish = i + 1;
+            const completedLaps = reportCompletedLaps_(d);
+            const distanceKm = reportDriverDistanceKm_(d);
+            const avgSpeed = reportAvgSpeedForDriver_(d);
+            const gapLeader = i === 0
+                ? "Leader"
+                : (d.crashed ? "DNF" : formatRaceGapSeconds_(reportFiniteNumber_(d.finalTime) - reportFiniteNumber_(leaderTime)));
+            const gapAhead = !ahead
+                ? ""
+                : (d.crashed || ahead.crashed ? "DNF" : formatRaceGapSeconds_(reportFiniteNumber_(d.finalTime) - reportFiniteNumber_(ahead.finalTime)));
+            return [
+                finish,
+                Number.isFinite(start) ? Math.round(start) : "--",
+                reportPositionChangeCell_(start, finish),
+                reportCarCell_(d),
+                reportDriverCell_(d),
+                driverRsCell_(d),
+                d.crashed ? "DNF / Crashed" : "Finished",
+                completedLaps ? `${completedLaps}/${analysis.laps || completedLaps}` : "--",
+                formatDistanceKm_(distanceKm),
+                d.crashed ? "DNF" : formatTimeSeconds_(d.finalTime),
+                gapLeader,
+                gapAhead,
+                formatTimeSeconds_(d.bestLapSeconds),
+                formatTimeSeconds_(d.averageLapSeconds),
+                formatTimeSeconds_(d.idealLapSeconds),
+                reportBestSectorText_(d, 1),
+                reportBestSectorText_(d, 2),
+                reportBestSectorText_(d, 3),
+                d.sectorsWon || 0,
+                d.lapsLed || 0,
+                formatLeadTime_(d.timeInLeadSeconds),
+                formatSpeed_(stats.topSpeedMps),
+                formatSpeed_(avgSpeed),
+                formatG_(stats.highestG),
+                d.consistencyScore != null ? Number(d.consistencyScore).toFixed(1) : "--"
+            ];
+        });
+        return reportTableHtml_([
+            "Finish",
+            "Start",
+            "+/-",
+            "Car",
+            "Driver",
+            "RS",
+            "Status",
+            "Laps",
+            "Distance",
+            "Finish Time",
+            "Gap Leader",
+            "Gap Ahead",
+            "Best Lap",
+            "Average Lap",
+            "Ideal Lap",
+            "Best S1",
+            "Best S2",
+            "Best S3",
+            "Sectors Won",
+            "Laps Led",
+            "Time in Lead",
+            "Top Speed",
+            "Avg Speed",
+            "Highest Est. G",
+            "Consistency"
+        ], rows, { className: "full-data-table" });
+    }
+
     function buildLapRecordingReportHtml_() {
         const data = lapRecordingData_(Infinity, true);
         return reportTableHtml_(data.headers, data.rows.map(row => {
@@ -9511,18 +9727,22 @@ img.carIcon{
     }
 
     function buildGapsReportHtml_() {
-        if (!analysis?.drivers?.length) return reportTableHtml_(["Pos", "Car", "Driver (RS)", "Gap (Prev lap gap)", "Gap Ahead (Prev lap gap)", "Finish Time"], []);
+        if (!analysis?.drivers?.length) return reportTableHtml_(["Pos", "Start", "+/-", "Car", "Driver (RS)", "Gap (Prev lap gap)", "Gap Ahead (Prev lap gap)", "Finish Time"], []);
         const ordered = getLiveOrder_(Infinity, true);
         const leaderTime = ordered[0]?.driver?.finalTime || 0;
         const rows = ordered.map((x, i) => {
             const ahead = ordered[i - 1];
             const d = x.driver;
+            const start = reportFiniteNumber_(d.startPosition);
+            const finish = i + 1;
             const currentGap = i === 0 ? 0 : (d.crashed ? NaN : (d.finalTime || 0) - leaderTime);
             const aheadGap = !ahead ? 0 : (d.crashed || ahead.driver.crashed ? NaN : (d.finalTime || 0) - (ahead.driver.finalTime || 0));
             const prev = previousLapGapInfo_(d, x.state, currentGap);
             const aheadPrevRaw = ahead ? previousLapGapSeconds_(d, x.state) - previousLapGapSeconds_(ahead.driver, ahead.state) : NaN;
             return [
-                i + 1,
+                finish,
+                Number.isFinite(start) ? Math.round(start) : "--",
+                reportPositionChangeCell_(start, finish),
                 reportCarCell_(d),
                 { text: d.name, html: `${esc_(d.name || "--")} (${driverRsCell_(d)})` },
                 i === 0 ? "" : (d.crashed ? "DNF" : `${formatRaceGapSeconds_(currentGap)} (${prev.text})`),
@@ -9530,7 +9750,7 @@ img.carIcon{
                 d.crashed ? "DNF" : formatTimeSeconds_(d.finalTime)
             ];
         });
-        return reportTableHtml_(["Pos", "Car", "Driver (RS)", "Gap (Prev lap gap)", "Gap Ahead (Prev lap gap)", "Finish Time"], rows);
+        return reportTableHtml_(["Pos", "Start", "+/-", "Car", "Driver (RS)", "Gap (Prev lap gap)", "Gap Ahead (Prev lap gap)", "Finish Time"], rows);
     }
 
     function buildSectorsReportHtml_() {
@@ -9646,6 +9866,9 @@ img.carIcon{
             applyDriverIntelToModel_();
             ensureAnalysisAggregates_({ sectors: true, leads: true });
         } catch { }
+        if (!htmlReportCanExport_()) {
+            throw new Error(htmlReportLockedReason_());
+        }
 
         const info = raceMeta?.replayInfo || {};
         const rid = String(analysis?.raceId || raceMeta?.raceId || getRaceId_() || "").trim();
@@ -9663,6 +9886,8 @@ img.carIcon{
         const generated = reportDateText_(new Date().toISOString());
 
         const sections = [
+            ["overview", "🏁 Race Overview", "Completed-race highlights from the full decoded racingData payload.", buildRaceOverviewReportHtml_()],
+            ["full-data", "🧬 Full Race Data", "Per-driver metrics derived from the completed race: timing, gaps, sectors, lead stats, telemetry, and consistency.", buildFullRaceDataReportHtml_()],
             ["leaderboard", "🏁 Leaderboard", "Final gaps, previous checkpoint gaps, and finish times.", buildGapsReportHtml_()],
             ["lap-recording", "🧾 Lap Recording", "Lap-by-lap matrix for the whole grid.", buildLapRecordingReportHtml_()],
             ["sectors", "📍 Sectors", "Best sectors and per-driver sector pace.", buildSectorsReportHtml_()],
@@ -9718,6 +9943,7 @@ h1{margin:0;font-size:28px;letter-spacing:.2px}.sub{color:var(--muted);margin-to
 .nav a{color:var(--text);text-decoration:none;border:1px solid var(--line);background:var(--pill);padding:8px 10px;border-radius:9px;font-weight:800}.nav a:hover{border-color:var(--accent);color:var(--accent)}
 .meta-table-wrap{overflow:auto;border:1px solid var(--line);border-radius:12px;margin-top:16px}.meta-table{width:100%;border-collapse:separate;border-spacing:0}.meta-table th,.meta-table td{padding:10px 12px;text-align:center;border-right:1px solid var(--line);white-space:nowrap}.meta-table th{background:var(--panel2);color:var(--muted);font-size:12px}.meta-table td{background:rgba(255,255,255,.035);font-weight:800}.meta-table th:last-child,.meta-table td:last-child{border-right:0}
 a{color:var(--blue)}.report-section{margin-top:18px;border:1px solid var(--line);background:var(--panel);border-radius:14px;overflow:hidden}.section-head{padding:16px 18px;border-bottom:1px solid var(--line);background:var(--panel2)}.section-head h2{margin:0;font-size:20px}.section-head p{margin:4px 0 0;color:var(--muted)}
+.kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;padding:16px 18px}.kpi{border:1px solid var(--line);background:rgba(255,255,255,.035);border-radius:10px;padding:10px 12px;min-width:0}.kpi b{display:block;color:var(--muted);font-size:12px}.kpi strong{display:block;margin-top:3px;font-size:18px;line-height:1.15}.kpi span{display:block;margin-top:4px;color:var(--muted);font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh}table{width:100%;border-collapse:separate;border-spacing:0}th,td{padding:10px 12px;border-bottom:1px solid var(--line);text-align:center;white-space:nowrap}th{position:sticky;top:0;z-index:3;background:var(--panel2);color:var(--text);cursor:pointer;user-select:none}th.sort-asc::after{content:" ▲";color:var(--accent)}th.sort-desc::after{content:" ▼";color:var(--accent)}tbody tr:hover td{background:rgba(255,255,255,.045)}.muted{color:var(--muted)}.mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}.gap-neg{color:var(--green);font-weight:900}.gap-pos{color:var(--accent);font-weight:900}.gap-zero{color:var(--muted)}.mpg-driver-cell{font-weight:900}.carIcon{height:22px;min-width:46px;object-fit:contain;vertical-align:middle;border-radius:8px;background:rgba(255,255,255,.08);border:1px solid var(--line);margin-right:6px}.mpg-note{margin:12px 18px;color:var(--muted)}
 .chart-grid{display:grid;grid-template-columns:minmax(280px,420px) minmax(0,1fr);gap:14px;margin-top:16px}.chart-card{border:1px solid var(--line);border-radius:12px;background:rgba(255,255,255,.035);padding:14px;min-width:0}.chart-card.wide{grid-column:1/-1}.chart-card h3{margin:0 0 12px;font-size:14px}.pie-wrap{display:grid;grid-template-columns:120px minmax(0,1fr);gap:14px;align-items:center}.pie{width:118px;height:118px;border-radius:50%;border:1px solid var(--line);box-shadow:inset 0 0 0 18px rgba(0,0,0,.08)}.legend{display:grid;gap:6px}.legend-row{display:grid;grid-template-columns:14px minmax(0,1fr) auto;gap:8px;align-items:center}.legend-row span{width:12px;height:12px;border-radius:3px}.legend-row b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.legend-row em{font-style:normal;color:var(--muted)}.line-chart{min-height:300px;border:1px solid var(--line);border-radius:10px;background:rgba(0,0,0,.18);overflow:hidden}.line-chart svg{display:block;width:100%;height:320px}.chart-axis{stroke:var(--line);stroke-width:1}.chart-gridline{stroke:var(--line);stroke-width:1;opacity:.55}.chart-label{fill:var(--muted);font-size:11px}.chart-legend{display:flex;flex-wrap:wrap;gap:7px;margin-top:10px;max-height:92px;overflow:auto}.legend-chip{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);border-radius:999px;padding:4px 8px;background:rgba(255,255,255,.04);font-size:12px;font-weight:800}.legend-chip span{width:10px;height:10px;border-radius:999px}.telemetry-controls{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:10px}.telemetry-controls label{display:flex;align-items:center;gap:8px;color:var(--muted);font-weight:800}.telemetry-controls select,.telemetry-controls input{background:var(--pill);color:var(--text);border:1px solid var(--line);border-radius:8px;padding:7px 9px}.telemetry-chart svg{height:300px}
 @media(max-width:900px){.chart-grid{grid-template-columns:1fr}.pie-wrap{grid-template-columns:1fr}}
@@ -9891,6 +10117,14 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
             ensureRaceMeta_();
             // ensure we export with the currently selected theme
             if (raceMeta) { raceMeta.theme = theme; saveRaceMeta_(raceMeta); }
+            if (!analysis) {
+                const payload = findLatestRaceDataPayload_();
+                if (payload) buildAnalysisFromRaceData_(payload);
+            }
+            if (!htmlReportCanExport_()) {
+                toast_(htmlReportLockedReason_());
+                return;
+            }
             if (analysis?.heavyRace && !ensureAnalysisAggregates_({ sectors: true, leads: true })) {
                 toast_("Pit Guru is still calculating heavy-race aggregate stats. Try export again in a moment.");
                 return;
@@ -9928,6 +10162,10 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
             // Export complete.
         } catch (e) {
             if (debugEnabled) console.warn(TAG, "exportHtml_ failed", e);
+            if (e?.message && /^HTML report /.test(String(e.message))) {
+                toast_(String(e.message));
+                return;
+            }
             toast_("HTML export failed — check console.");
         }
     }
@@ -14055,7 +14293,7 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
             <button id="mpgGarageBtn" class="pill" title="My Garage">
               <span>🏎️</span><span>My Garage</span>
             </button>
-            <button id="rtExportHtml" class="pill" title="Export HTML">
+            <button id="rtExportHtml" class="pill" title="HTML report unlocks when the race has finished." disabled>
               <span>🧾</span><span>HTML</span>
             </button>
             <button id="rtImportHtml" class="pill" title="Import Pit Guru or legacy HTML exports into Records">
@@ -14504,6 +14742,7 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
         const recordsBtn = document.getElementById("rtToggleRecords");
         const autoClearText = document.getElementById("rtAutoClearText");
         const playerBtn = document.getElementById("rtLocalPlayer");
+        const exportBtn = document.getElementById("rtExportHtml");
 
         const trackEl = document.getElementById("rtTrack");
         const lapsEl = document.getElementById("mpgLaps");
@@ -14550,6 +14789,11 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
             playerBtn.title = playerReady
                 ? "Open this race in the hosted Player"
                 : "Player unlocks when replay-ready racingData is available";
+        }
+        if (exportBtn) {
+            const htmlReady = htmlReportCanExport_();
+            exportBtn.disabled = !htmlReady;
+            exportBtn.title = htmlReady ? "Export completed-race HTML report" : htmlReportLockedReason_();
         }
         updateHeaderCompact_(document.getElementById("rtLapWin"));
         const headerTrackName = raceMeta?.track || analysis?.trackName || "";
