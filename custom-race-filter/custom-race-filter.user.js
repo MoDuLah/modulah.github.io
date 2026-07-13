@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         MoDuL's: Custom Race Filter
 // @namespace    modul.torn.racing
-// @version      2.4.9
+// @version      2.5.0
 // @description  Custom Race filter. (OG Car Names & PDA Compatible)
 // @author       MoDuL
 // @copyright    2026 MoDuL. All rights reserved.
@@ -31,7 +31,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
 (function () {
   "use strict";
 
-var VERSION = "2.4.9";
+var VERSION = "2.5.0";
   var TAG = "[MoDuL's: Custom Race Filter v" + VERSION + "]";
   try { console.log(TAG, "Loaded ✅"); } catch (e) {}
 
@@ -1734,6 +1734,46 @@ var VERSION = "2.4.9";
     return String(row?.querySelector?.(".acc-body li.name")?.textContent || "").replace(/\s+/g, " ").trim();
   }
 
+  function getCookieValue(name) {
+    const encoded = String(name || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const match = document.cookie.match(new RegExp("(?:^|;\\s*)" + encoded + "=([^;]*)"));
+    return match ? decodeURIComponent(match[1]) : "";
+  }
+
+  function getTornRfc() {
+    const rfc = String(getCookieValue("rfc_v") || "").trim();
+    if (!rfc || ["null", "undefined", "false", "0"].indexOf(rfc.toLowerCase()) !== -1) return "";
+    return rfc;
+  }
+
+  function addTornRfcToUrl(href) {
+    const rfc = getTornRfc();
+    if (!href || !rfc) return href;
+
+    try {
+      const url = new URL(href, window.location.origin);
+      url.searchParams.set("rfcv", rfc);
+      return url.href;
+    } catch (_) {
+      const joiner = String(href).indexOf("?") === -1 ? "?" : "&";
+      return String(href) + joiner + "rfcv=" + encodeURIComponent(rfc);
+    }
+  }
+
+  function refreshPasswordFormRfc(form) {
+    const rfc = getTornRfc();
+    if (!rfc || !form) return;
+
+    let rfcInput = form.querySelector('input[name="rfcv"]');
+    if (!rfcInput) {
+      rfcInput = document.createElement("input");
+      rfcInput.type = "hidden";
+      rfcInput.name = "rfcv";
+      form.appendChild(rfcInput);
+    }
+    rfcInput.value = rfc;
+  }
+
   function copyJoinLinkToVisibleButton(row, iconLink) {
     const joinLink = getDirectRaceJoinLink(row);
     if (!joinLink || !iconLink) return false;
@@ -1741,7 +1781,7 @@ var VERSION = "2.4.9";
     const href = joinLink.getAttribute("href");
     if (!href || href === "#") return false;
 
-    iconLink.href = href;
+    iconLink.href = addTornRfcToUrl(href);
     iconLink.dataset.rfJoinMode = "direct";
     iconLink.title = "Join this race";
 
@@ -1766,6 +1806,7 @@ var VERSION = "2.4.9";
     if (!trimmed) return true;
 
     passInput.value = trimmed;
+    refreshPasswordFormRfc(form);
 
     const submit = form.querySelector('input[type="submit"], button[type="submit"]');
     if (typeof form.requestSubmit === "function") {
@@ -1813,7 +1854,7 @@ var VERSION = "2.4.9";
       const joinLink = getDirectRaceJoinLink(row);
       const href = joinLink?.getAttribute?.("href");
       if (href && href !== "#") {
-        window.location.assign(new URL(href, window.location.origin).href);
+        window.location.assign(addTornRfcToUrl(href));
         return;
       }
 

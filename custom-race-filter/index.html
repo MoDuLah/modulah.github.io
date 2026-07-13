@@ -102,10 +102,21 @@
       <section class="content-card changelog-card" id="changelog" aria-label="Changelog">
         <p class="section-kicker">Release history</p>
         <h2>Changelog</h2>
-        <p>The current supporter build is v2.4.9, updated on July 13, 2026.</p>
+        <p>The current supporter build is v2.5.0, updated on July 14, 2026.</p>
 
         <div class="changelog-tree" role="tree">
           <details class="changelog-version" role="treeitem" open>
+            <summary class="changelog-summary">v2.5.0 - July 14, 2026</summary>
+            <div class="changelog-content">
+              <ul class="changelog-list">
+                <li>Fixed Wrong RFC errors from compact join shortcuts by appending Torn's current rfcv token from the rfc_v cookie.</li>
+                <li>Password-protected race joins now refresh the hidden rfcv field before submitting Torn's existing password form.</li>
+                <li>Kept refreshed race rows compact without bypassing Torn's RFC validation.</li>
+              </ul>
+            </div>
+          </details>
+
+          <details class="changelog-version" role="treeitem">
             <summary class="changelog-summary">v2.4.9 - July 13, 2026</summary>
             <div class="changelog-content">
               <ul class="changelog-list">

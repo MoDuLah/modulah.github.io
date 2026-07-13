@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.5.0
+
+- Fixed `Wrong RFC` errors from compact join shortcuts by appending Torn's current `rfcv` token from the `rfc_v` cookie
+- Password-protected race joins now refresh the hidden `rfcv` field before submitting Torn's existing password form
+- Kept refreshed race rows compact without bypassing Torn's RFC validation
+
 ## 2.4.9
 
 - Stopped opening every join confirmation panel after using `Refresh races`
