@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         MoDuL's Pit Guru
 // @namespace    modul.torn.racing
-// @version      2.2.1
+// @version      2.2.2
 // @description  Live Torn race timing, gaps, sectors, speed and estimated telemetry analysis
 // @author       MoDuL
 // @copyright    2026 MoDuL. All rights reserved.
@@ -554,8 +554,17 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
     unsafeWindow.pgPitGuruPlayerBase = pgPlayerBase_;
     unsafeWindow.pgPitGuruClearApiCache = pgClearApiResponseCache_;
     unsafeWindow.pgPitGuruHealthTest = unsafeWindow.pgLocalHealthTest;
+    unsafeWindow.pgPitGuruSafeMode = function (enabled) {
+        if (arguments.length) {
+            bigRaceSafeMode = !!enabled;
+            saveBoolSetting_(STORE_BIG_RACE_SAFE_MODE_KEY, bigRaceSafeMode);
+            markDirty_({ status: true, layout: true });
+            scheduleRender_();
+        }
+        return bigRaceSafeModeStatus_();
+    };
 
-    const MPG_VERSION = "2.2.1";
+    const MPG_VERSION = "2.2.2";
     var TAG = "[MoDuL's Pit Guru v" + MPG_VERSION + "]";
 
     const PitGuruRaceEngine = (() => {
@@ -895,8 +904,6 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
     const STORE_FUEL_STYLE_KEY = "RT_TORN_RA_FUEL_STYLE";
     const STORE_HEADER_BUTTON_ORDER_KEY = "RT_TORN_RA_HEADER_BUTTON_ORDER";
     const STORE_GARAGE_SHOW_DELISTED_KEY = "RT_TORN_RA_GARAGE_SHOW_DELISTED";
-    const STORE_COMMENTARY_ENABLED_KEY = "RT_TORN_RA_COMMENTARY_ENABLED";
-    const STORE_PIT_CREW_ENABLED_KEY = "RT_TORN_RA_PIT_CREW_ENABLED";
     const STORE_EXPERIMENTAL_GYRO_TRACE_KEY = "RT_TORN_RA_GYRO_TRACE";
     const STORE_PERFORMANCE_PRESET_KEY = "RT_TORN_RA_PERF_PRESET";
     const STORE_VISIBLE_RACE_SCAN_MS_KEY = "RT_TORN_RA_VISIBLE_RACE_SCAN_MS";
@@ -908,6 +915,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
     const STORE_DIRECT_FETCH_LEASE_KEY = "RT_TORN_RA_DIRECT_FETCH_LEASE_V1";
     const STORE_ONBOARDING_COMPLETE_KEY = "RT_TORN_RA_ONBOARDING_COMPLETE_V1";
     const STORE_HOSTED_TRACK_INTERVALS_KEY = "RT_TORN_MPG_HOSTED_TRACK_INTERVALS_V1";
+    const STORE_BIG_RACE_SAFE_MODE_KEY = "RT_TORN_MPG_BIG_RACE_SAFE_MODE";
     const BIG_RACE_DB_NAME = "MoDuLsPitGuruBigRaceCache";
     const BIG_RACE_DB_VERSION = 1;
     const BIG_RACE_RAW_STORE = "rawRaceJson";
@@ -1184,6 +1192,8 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
     let heavyRaceOverrideRaceKey = "";
     let heavyRaceShowAllDrivers = false;
     let heavyRaceFullCardsEnabled = false;
+    let bigRaceSafeMode = true;
+    let bigRaceSafeModeSkips = { driverIntel: 0, hostedUpload: 0, localDbSync: 0, aggregate: 0 };
     let pgPlayerCacheActive = false;
     let pgPlayerCacheLastKey = "";
     let pgPlayerCacheLastAt = 0;
@@ -1221,8 +1231,6 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
     let lastAnalysisBodyKey = "";
     let fuelEnabled = false;
     let fuelDisplayStyle = "l100km";
-    let liveCommentaryEnabled = true;
-    let pitCrewEnabled = true;
     let experimentalGyroTrace = true;
     let performancePreset = "balanced";
     let visibleRaceScanMs = PERFORMANCE_PRESETS.balanced.visibleRaceScanMs;
@@ -1231,12 +1239,6 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
     let driverIntelSettleMs = PERFORMANCE_PRESETS.balanced.driverIntelSettleMs;
     let participantScanRepeat = PERFORMANCE_PRESETS.balanced.participantScanRepeat;
     let focusedRowWindowEachSide = 5;
-    let lastCommentaryAtMs = 0;
-    let lastCommentaryText = "";
-    let lastCommentaryKey = "";
-    let lastTeamRadioAtMs = 0;
-    let lastTeamRadioText = "";
-    let lastTeamRadioKey = "";
     let fuelSessionCache = { key: "", liters: 0, levelPct: 100 };
     let fuelLifetimeCache = { key: "", fetchedAt: 0, data: null, loading: false, error: "" };
     let liveOrderCache = { key: "", value: [] };
@@ -1428,6 +1430,12 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         if (recordsLoaded) return true;
         records = perfMeasure_("startup.loadRecords", () => loadRecords_(), { reason }) || [];
         recordsLoaded = true;
+        const before = records.length;
+        records = pruneRecordsToTopBuckets_(records);
+        if (records.length !== before) {
+            saveJson_(STORE_RECORDS_KEY, records);
+            perfRecord_("startup.compactRecords", 0, { before, after: records.length, reason });
+        }
         invalidateRecordsIndex_();
         return true;
     }
@@ -1714,6 +1722,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
             driverIntelEntries: driverIntelCacheLoaded ? countObjectKeys_(driverIntelCache) : 0,
             driverHistoryLoaded,
             driverHistoryEntries: driverHistoryLoaded ? countObjectKeys_(driverHistory) : 0,
+            safeMode: bigRaceSafeModeStatus_(),
             lifecycleCleanup: { ...lifecycleCleanupStats },
             warmRestore: { ...raceDataWarmRestoreState },
             aggregateWorker: {
@@ -2144,6 +2153,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         heavyRaceOverrideRaceKey = "";
         heavyRaceShowAllDrivers = false;
         heavyRaceFullCardsEnabled = false;
+        bigRaceSafeModeSkips = { driverIntel: 0, hostedUpload: 0, localDbSync: 0, aggregate: 0 };
         directCurrentRaceId = "";
         preRaceParticipants = [];
         directRacingDataParticipants = [];
@@ -3698,6 +3708,12 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         const p = getRacePayload_(payload) || payload || {};
         if (!p || !p.cars) return Promise.resolve(null);
         const autoNotify = !/^manual/i.test(String(source || ""));
+        if (!opts.force && bigRaceSafeModeActive_()) {
+            recordBigRaceSafeModeSkip_("hostedUpload");
+            pgPlayerCacheStatus = "Big Race Safe Mode: hosted player auto-cache paused. Use Player manually when ready.";
+            if (debugEnabled) console.debug(TAG, pgPlayerCacheStatus, source);
+            return Promise.resolve({ ok: false, skipped: true, safeMode: true, error: pgPlayerCacheStatus });
+        }
         if (!pgPlayerPayloadHasDecodableIntervals_(p)) {
             const message = "Hosted player cache skipped: racingData does not include replay intervals yet.";
             if (opts.force) {
@@ -4252,6 +4268,30 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         return !!heavyRaceStats_().heavyRace;
     }
 
+    function bigRaceSafeModeActive_() {
+        return !!bigRaceSafeMode && heavyRaceMode_();
+    }
+
+    function recordBigRaceSafeModeSkip_(key) {
+        const k = String(key || "").trim();
+        if (!k) return;
+        bigRaceSafeModeSkips[k] = (Number(bigRaceSafeModeSkips[k] || 0) || 0) + 1;
+    }
+
+    function bigRaceSafeModeStatus_() {
+        const heavy = heavyRaceStats_();
+        return {
+            enabled: !!bigRaceSafeMode,
+            active: bigRaceSafeModeActive_(),
+            heavyRace: !!heavy.heavyRace,
+            drivers: Number(heavy.drivers || 0),
+            laps: Number(heavy.laps || 0),
+            estimatedPoints: Number(heavy.estimatedPoints || 0),
+            skips: { ...bigRaceSafeModeSkips },
+            note: "Safe Mode limits Pit Guru background work on big races; it cannot disable Torn or other userscripts."
+        };
+    }
+
     function heavyRaceOverrideKey_() {
         return String(analysis?.raceId || directRaceIdFromPayload_(latestRaceDataPayload) || directCurrentRaceId || raceMeta?.raceId || raceDataPayloadKey_(latestRaceDataPayload || analysis?.payload || {}) || "current");
     }
@@ -4275,7 +4315,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
     }
 
     function analysisImagesEnabled_() {
-        return !heavyRaceLightweightMode_();
+        return !bigRaceSafeModeActive_() && !heavyRaceLightweightMode_();
     }
 
     function cachedOptionalImageUrl_(kind, key, url) {
@@ -4291,7 +4331,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
 
     function profileImageForRender_(url) {
         const raw = String(url || "").trim();
-        if (!raw || heavyRaceLightweightMode_() || isAnimatedProfileImageUrl_(raw)) return "";
+        if (!raw || bigRaceSafeModeActive_() || heavyRaceLightweightMode_() || isAnimatedProfileImageUrl_(raw)) return "";
         return cachedOptionalImageUrl_("profile", raw, raw);
     }
 
@@ -6070,6 +6110,12 @@ self.onmessage=event=>{try{self.postMessage({ok:true,result:aggregate(event.data
         const needsSectors = wantsSectors && !analysis.sectorWinsReady;
         const needsLeads = wantsLeads && !analysis.leadStatsReady;
         if (!needsSectors && !needsLeads) return true;
+        if (analysis.heavyRace && bigRaceSafeModeActive_() && !options.allowSafeMode) {
+            aggregateWorkerLastStatus = "safe-paused";
+            aggregateWorkerLastError = "";
+            recordBigRaceSafeModeSkip_("aggregate");
+            return false;
+        }
         const aggregateKey = analysisAggregateKey_(analysis);
         if (analysis.heavyRace && aggregateWorkerFailedKey !== aggregateKey && scheduleAnalysisAggregateWorker_(analysis, {
             sectors: needsSectors,
@@ -6149,6 +6195,12 @@ self.onmessage=event=>{try{self.postMessage({ok:true,result:aggregate(event.data
                 recordsUpdatedForAnalysisRaceId = raceRecordKey;
             }
 
+            if (bigRaceSafeModeActive_() && !options.allowSafeModeLocalSync) {
+                localSyncReady = false;
+                recordBigRaceSafeModeSkip_("localDbSync");
+                if (debugEnabled) console.debug(TAG, "Big Race Safe Mode: local DB auto-sync paused");
+            }
+
             if (localSyncReady && localDbSyncedForAnalysisRaceId !== raceRecordKey) {
                 localDbSyncedForAnalysisRaceId = raceRecordKey;
                 pgLocalSyncCurrentRace_(true).catch(e => {
@@ -6156,7 +6208,9 @@ self.onmessage=event=>{try{self.postMessage({ok:true,result:aggregate(event.data
                     if (debugEnabled) console.warn(TAG, "local DB auto-sync skipped", e);
                 });
             } else if (!localSyncReady && debugEnabled) {
-                console.debug(TAG, "local DB auto-sync deferred until heavy-race aggregates are requested");
+                console.debug(TAG, bigRaceSafeModeActive_()
+                    ? "local DB auto-sync paused by Big Race Safe Mode"
+                    : "local DB auto-sync deferred until heavy-race aggregates are requested");
             }
         } catch (e) {
             if (debugEnabled) console.warn(TAG, "analysis records update failed", e);
@@ -7256,7 +7310,7 @@ self.onmessage=event=>{try{self.postMessage({ok:true,result:aggregate(event.data
         if (!analysis?.drivers?.length) {
             throw new Error('No Pit Guru analysis drivers available');
         }
-        if (!ensureAnalysisAggregates_({ sectors: true, leads: true })) {
+        if (!ensureAnalysisAggregates_({ sectors: true, leads: true, allowSafeMode: true })) {
             throw new Error("Pit Guru is still calculating final aggregate stats. Try again in a moment.");
         }
         if (!hugeFieldMode_()) ensureFullTelemetryStats_();
@@ -7712,6 +7766,15 @@ return {
     function maybeAutoFetchDriverIntel_() {
         if (!apiKey || driverIntelFetchActive) return;
         if (!isReplayPage_() && !canScanTornPage_()) return;
+        if (bigRaceSafeModeActive_()) {
+            const msg = "Big Race Safe Mode: automatic Driver Intel refresh is paused. Use row Fetch for individual drivers.";
+            recordBigRaceSafeModeSkip_("driverIntel");
+            if (driverIntelStatus !== msg) {
+                driverIntelStatus = msg;
+                uiDirty = true; scheduleRender_();
+            }
+            return;
+        }
         if (liveRaceHasWorkingAnalysis_() && largeFieldMode_()) return;
         if (!driverIntelCacheLoaded) {
             scheduleDeferredStartupCaches_("driver-intel-auto");
@@ -8938,11 +9001,6 @@ img.carIcon{
 .mpg-current-slow,.mpg-analysis .mpg-current-slow,.mpg-analysis .mono.mpg-current-slow{color:#ff5a5f !important;font-weight:900}
 .mpg-race-stage{display:grid;gap:8px;margin:8px 0 10px}
 .mpg-stage-status{font-weight:900;color:var(--text);padding:8px 10px;border:1px solid var(--border);border-radius:10px;background:var(--panel)}
-.mpg-stage-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-.mpg-stage-grid.single{grid-template-columns:1fr}
-.mpg-stage-box{border:1px solid var(--border);border-radius:10px;background:var(--panel);min-width:0;padding:8px 10px}
-.mpg-stage-title{font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);font-weight:900;margin-bottom:4px}
-.mpg-stage-text{font-size:12px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .mpg-separator{height:2px;background:linear-gradient(90deg,transparent,var(--accent),transparent);opacity:.75;margin:8px 0 10px}
 .mpg-driver-cell{display:inline-flex;align-items:center;justify-content:center;gap:4px;font-weight:900;color:var(--text);border-radius:999px;padding:2px 8px;cursor:help}
 .mpg-driver-cell:hover{background:rgba(255,255,255,.08)}
@@ -8984,8 +9042,6 @@ img.carIcon{
 .mpg-fuel-panel{margin:8px 12px 12px;border:1px solid var(--border);border-radius:10px;background:var(--panel);padding:10px;display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px}
 .mpg-fuel-stat{background:var(--pill);border:1px solid var(--border);border-radius:8px;padding:8px 10px;text-align:center}
 .mpg-fuel-stat span{display:block;color:var(--muted);font-size:11px}.mpg-fuel-stat b{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace}
-.mpg-commentary{margin-top:6px;border:1px solid var(--border);background:var(--panel);border-radius:10px;padding:8px 10px;color:var(--text);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-#mpgCommentaryTicker{display:none !important}
 #mpgDriverHoverCard{position:fixed;display:none;z-index:2147483646;width:320px;max-width:calc(100vw - 24px);border:1px solid var(--border);border-radius:12px;background:var(--bg);color:var(--text);box-shadow:0 18px 44px rgba(0,0,0,.55);padding:10px;pointer-events:none;font:12px system-ui}
 #mpgDriverHoverCard .mpg-driver-card-head{display:grid;grid-template-columns:58px minmax(0,1fr);gap:10px;align-items:center;margin-bottom:8px}
 #mpgDriverHoverCard img{width:58px;height:58px;border-radius:10px;object-fit:cover;border:1px solid var(--border);background:var(--pill)}
@@ -10054,7 +10110,7 @@ img.carIcon{
                 if (payload) buildAnalysisFromRaceData_(payload);
             }
             applyDriverIntelToModel_();
-            ensureAnalysisAggregates_({ sectors: true, leads: true });
+            ensureAnalysisAggregates_({ sectors: true, leads: true, allowSafeMode: true });
         } catch { }
         if (!htmlReportCanExport_()) {
             throw new Error(htmlReportLockedReason_());
@@ -10315,7 +10371,7 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
                 toast_(htmlReportLockedReason_());
                 return;
             }
-            if (analysis?.heavyRace && !ensureAnalysisAggregates_({ sectors: true, leads: true })) {
+            if (analysis?.heavyRace && !ensureAnalysisAggregates_({ sectors: true, leads: true, allowSafeMode: true })) {
                 toast_("Pit Guru is still calculating heavy-race aggregate stats. Try export again in a moment.");
                 return;
             }
@@ -11071,6 +11127,7 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
         heavyRaceOverrideRaceKey = "";
         heavyRaceShowAllDrivers = false;
         heavyRaceFullCardsEnabled = false;
+        bigRaceSafeModeSkips = { driverIntel: 0, hostedUpload: 0, localDbSync: 0, aggregate: 0 };
         liveOrderCache = { key: "", value: [] };
         raceDataReceivedPerfMs = 0;
         raceDataCurrentTimeAtReceive = NaN;
@@ -11081,12 +11138,6 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
         recordsUpdatedForAnalysisRaceId = "";
         localDbSyncedForAnalysisRaceId = "";
         driverIntelAutoRaceKey = "";
-        lastCommentaryAtMs = 0;
-        lastCommentaryText = "";
-        lastCommentaryKey = "";
-        lastTeamRadioAtMs = 0;
-        lastTeamRadioText = "";
-        lastTeamRadioKey = "";
         liveOrderCache = { key: "", value: [] };
         replayStateCache = { key: "", value: null };
         aggregateWorkerInFlightKey = "";
@@ -11167,7 +11218,8 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
             apiKey ? maskApiKey_(apiKey) : "nokey", apiKeyVisible ? 1 : 0, apiKeyCheckActive ? 1 : 0,
             JSON.stringify(apiKeyInfo || {}), apiKeyStatus, driverIntelFetchActive ? 1 : 0, driverIntelStatus,
             recordsOpen ? 1 : 0, recordsDetached ? 1 : 0, clearOnRaceChange ? 1 : 0,
-            fuelEnabled ? 1 : 0, fuelDisplayStyle, liveCommentaryEnabled ? 1 : 0, pitCrewEnabled ? 1 : 0, experimentalGyroTrace ? 1 : 0,
+            fuelEnabled ? 1 : 0, fuelDisplayStyle, experimentalGyroTrace ? 1 : 0,
+            bigRaceSafeMode ? 1 : 0, bigRaceSafeModeActive_() ? 1 : 0,
             performancePreset, visibleRaceScanMs, participantScanMs, driverIdLookupMs, driverIntelSettleMs, participantScanRepeat, focusedRowWindowEachSide,
             heavyRaceDebugLine_()
         ].join("|");
@@ -11230,6 +11282,8 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
             <p class="mpg-section-note">When a visible row lacks an ID, Pit Guru searches nearby profile/data attributes by driver name only while focused, then reuses positive or negative results for ${(driverIdLookupMs / 1000).toFixed(2)}s.</p>
             <div class="mpg-setting-row"><label for="mpgDriverIntelSettleMs">Driver Intel settle delay</label><input id="mpgDriverIntelSettleMs" type="number" min="500" max="30000" step="250" value="${driverIntelSettleMs}"></div>
             <p class="mpg-section-note">After the detected profile-ID pool changes, Pit Guru waits ${(driverIntelSettleMs / 1000).toFixed(2)}s before API calls so official/custom grids can finish joining.</p>
+            <label class="mpg-checkline"><input id="mpgBigRaceSafeMode" type="checkbox"${bigRaceSafeMode ? " checked" : ""}> Big Race Safe Mode</label>
+            <p class="mpg-section-note">For heavy races only, pauses Pit Guru background uploads, local DB auto-sync, automatic Driver Intel, optional images, and non-manual aggregate workers. This cannot disable Torn or other userscripts.</p>
           </section>
 
           <section class="mpg-settings-section">
@@ -11252,13 +11306,6 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
             <label class="mpg-checkline"><input id="mpgFuelEnabled" type="checkbox"${fuelEnabled ? " checked" : ""}> Fuel Consumption: ${fuelEnabled ? "Enabled" : "Disabled"}</label>
             <div class="mpg-setting-row"><label for="mpgFuelStyle">Fuel display</label><select id="mpgFuelStyle"><option value="l100km"${fuelDisplayStyle === "l100km" ? " selected" : ""}>L/100km</option><option value="mpg_uk"${fuelDisplayStyle === "mpg_uk" ? " selected" : ""}>mpg UK</option><option value="mpg_us"${fuelDisplayStyle === "mpg_us" ? " selected" : ""}>mpg US</option></select></div>
             <p class="mpg-section-note">Fuel uses approximate real-model baselines with a racing load multiplier, so treat it as flavour telemetry.</p>
-          </section>
-
-          <section class="mpg-settings-section">
-            <div class="mpg-section-head"><h3>Fun</h3><p>Race-day flavour for the overlay.</p></div>
-            <label class="mpg-checkline"><input id="mpgLiveCommentary" type="checkbox"${liveCommentaryEnabled ? " checked" : ""}> TV commentary</label>
-            <label class="mpg-checkline"><input id="mpgPitCrew" type="checkbox"${pitCrewEnabled ? " checked" : ""}> Pit crew strategy messages</label>
-            <p class="mpg-section-note">Commentary has a minimum 5-second cooldown and uses current replay/live positions.</p>
           </section>
         `;
         panel.querySelector("#mpgThemeSelect").onchange = e => { theme = String(e.target.value || "classic"); saveTheme_(); applyTheme_(); uiDirty = true; scheduleRender_(); };
@@ -11292,6 +11339,14 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
         panel.querySelector("#mpgFocusWindowEachSide").onchange = e => { focusedRowWindowEachSide = Math.round(clamp_(Number(e.target.value) || DEFAULT_FOCUSED_ROW_WINDOW_EACH_SIDE, 1, 25)); saveIntSetting_(STORE_FOCUSED_ROW_WINDOW_EACH_SIDE_KEY, focusedRowWindowEachSide); markPerfCustom(); };
         panel.querySelector("#mpgDriverIdLookupMs").onchange = e => { driverIdLookupMs = Math.round(clamp_(Number(e.target.value) || driverIdLookupMs, 1000, 120000)); saveIntSetting_(STORE_DRIVER_ID_LOOKUP_MS_KEY, driverIdLookupMs); markPerfCustom(); };
         panel.querySelector("#mpgDriverIntelSettleMs").onchange = e => { driverIntelSettleMs = Math.round(clamp_(Number(e.target.value) || driverIntelSettleMs, 500, 30000)); saveIntSetting_(STORE_DRIVER_INTEL_SETTLE_MS_KEY, driverIntelSettleMs); markPerfCustom(); };
+        panel.querySelector("#mpgBigRaceSafeMode").onchange = e => {
+            bigRaceSafeMode = !!e.target.checked;
+            saveBoolSetting_(STORE_BIG_RACE_SAFE_MODE_KEY, bigRaceSafeMode);
+            if (bigRaceSafeModeActive_()) aggregateWorkerLastStatus = "safe-paused";
+            else if (aggregateWorkerLastStatus === "safe-paused") aggregateWorkerLastStatus = "";
+            markDirty_({ status: true, layout: true });
+            scheduleRender_();
+        };
         panel.querySelector("#mpgParticipantScanRepeat").onchange = e => {
             participantScanRepeat = String(e.target.value || "continuous");
             if (!["continuous", "twice", "once"].includes(participantScanRepeat)) participantScanRepeat = "continuous";
@@ -11344,28 +11399,6 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
         panel.querySelector("#mpgExperimentalGyroTrace").onchange = e => { experimentalGyroTrace = !!e.target.checked; saveBoolSetting_(STORE_EXPERIMENTAL_GYRO_TRACE_KEY, experimentalGyroTrace); uiDirty = true; scheduleRender_(); };
         panel.querySelector("#mpgFuelEnabled").onchange = e => { fuelEnabled = !!e.target.checked; saveBoolSetting_(STORE_FUEL_ENABLED_KEY, fuelEnabled); uiDirty = true; scheduleRender_(); };
         panel.querySelector("#mpgFuelStyle").onchange = e => { fuelDisplayStyle = String(e.target.value || "l100km"); saveFuelStyle_(); uiDirty = true; scheduleRender_(); };
-        panel.querySelector("#mpgLiveCommentary").onchange = e => {
-            liveCommentaryEnabled = !!e.target.checked;
-            if (!liveCommentaryEnabled) {
-                lastCommentaryText = "";
-                lastCommentaryKey = "";
-                lastCommentaryAtMs = 0;
-            }
-            saveBoolSetting_(STORE_COMMENTARY_ENABLED_KEY, liveCommentaryEnabled);
-            uiDirty = true;
-            scheduleRender_();
-        };
-        panel.querySelector("#mpgPitCrew").onchange = e => {
-            pitCrewEnabled = !!e.target.checked;
-            if (!pitCrewEnabled) {
-                lastTeamRadioText = "";
-                lastTeamRadioKey = "";
-                lastTeamRadioAtMs = 0;
-            }
-            saveBoolSetting_(STORE_PIT_CREW_ENABLED_KEY, pitCrewEnabled);
-            uiDirty = true;
-            scheduleRender_();
-        };
         focusFirstRunApiKey_();
         if (tutorialActive) requestAnimationFrame(positionTutorial_);
     }
@@ -12539,106 +12572,6 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
         scheduleRender_();
     }
 
-    function commentaryGapToLeader_(entry, leader, elapsed, canFull, index) {
-        if (!entry || !leader || index === 0) return 0;
-        if (canFull) return entry.driver?.crashed ? NaN : Math.max(0, (entry.driver.finalTime || 0) - (leader.driver.finalTime || 0));
-        return Math.max(0, driverReachTimeForDistance_(entry.driver, leader.state.distance || 0) - elapsed);
-    }
-
-    function orderTickerText_(ordered, elapsed, canFull) {
-        const leader = ordered[0];
-        return ordered.slice(0, 8).map((x, i) => {
-            const gap = commentaryGapToLeader_(x, leader, elapsed, canFull, i);
-            return `${i + 1}. ${x.driver.name}${i ? ` (${formatRaceGapSeconds_(gap)})` : ""}`;
-        }).join(" | ");
-    }
-
-    function updateCommentary_(elapsed, canFull) {
-        const el = document.getElementById("mpgCommentaryTicker");
-        if (!el) return;
-        if (!analysis || !liveCommentaryEnabled) {
-            el.style.display = "none";
-            el.textContent = "";
-            lastCommentaryText = "";
-            return;
-        }
-        const ordered = currentFrameRows_(elapsed, canFull).rows;
-        if (!ordered.length) {
-            el.style.display = "none";
-            return;
-        }
-        el.style.display = "block";
-        const now = Date.now();
-        if (lastCommentaryText && now - lastCommentaryAtMs < 5000) {
-            el.textContent = lastCommentaryText;
-            return;
-        }
-        const leader = ordered[0];
-        const second = ordered[1];
-        const leaderGapSecond = second ? commentaryGapToLeader_(second, leader, elapsed, canFull, 1) : NaN;
-        const lapText = currentLapDisplay_();
-        const choices = [];
-        choices.push({ key: "ticker", text: `Running order: ${orderTickerText_(ordered, elapsed, canFull)}` });
-        choices.push({ key: "leader", text: `${leader.driver.name} controls the race on lap ${lapText}.` });
-        choices.push({ key: "pace", text: `Timing screens are alive: ${leader.driver.name} is setting the reference pace, everyone else is chasing tenths.` });
-        choices.push({ key: "sector", text: `Sector rhythm matters here; one messy split can turn a small gap into a very long afternoon.` });
-        choices.push({ key: "traffic", text: `The field is stretching out, but the next checkpoint can still shuffle the order.` });
-        choices.push({ key: "pressure", text: `Pressure is building through the pack; the timing tower is starting to look interesting.` });
-        choices.push({ key: "smooth", text: `Smooth inputs, clean exits, and no drama. That is the recipe the stopwatch likes.` });
-        choices.push({ key: "hunt", text: `The chase is on, and every finish-line checkpoint tells us who is gaining.` });
-        choices.push({ key: "data", text: `Pit Guru has the ruler out: gaps, lap deltas, and just enough judgement to be dangerous.` });
-        choices.push({ key: "late", text: `There is still time for a late swing if someone finds speed in the final sectors.` });
-        choices.push({ key: "finish", text: canFull ? `Race complete. ${leader.driver.name} is the benchmark, and the history book has fresh ink.` : `Still live. Final order stays hidden until the race gives us the flag.` });
-        if (Number.isFinite(leaderGapSecond) && leaderGapSecond < 1) choices.push({ key: "closelead", text: `${second.driver.name} is right with ${leader.driver.name}; less than a second covers the lead fight.` });
-        if (Number.isFinite(leaderGapSecond) && leaderGapSecond > 5) choices.push({ key: "leadgap", text: `${leader.driver.name} has opened breathing room at the front.` });
-        if (!choices.length) {
-            el.style.display = "none";
-            return;
-        }
-        const pool = choices.filter(x => x.key !== lastCommentaryKey);
-        const pickPool = pool.length ? pool : choices;
-        const pick = pickPool[Math.floor((elapsed + ordered.length * 7) % pickPool.length)] || choices[0];
-        lastCommentaryKey = pick?.key || "";
-        lastCommentaryText = pick?.text || "";
-        lastCommentaryAtMs = now;
-        el.textContent = lastCommentaryText;
-    }
-
-    function updateTeamRadio_(ordered, elapsed, canFull) {
-        if (!analysis || !pitCrewEnabled || !ordered?.length) {
-            lastTeamRadioText = pitCrewEnabled ? "Radio check pending." : "";
-            return lastTeamRadioText;
-        }
-        const now = Date.now();
-        if (lastTeamRadioText && now - lastTeamRadioAtMs < 5000) return lastTeamRadioText;
-        const userIndex = ordered.findIndex(x => isUserDriver_(x.driver));
-        const user = userIndex >= 0 ? ordered[userIndex] : ordered[0];
-        const ahead = userIndex > 0 ? ordered[userIndex - 1] : null;
-        const behind = userIndex >= 0 && userIndex < ordered.length - 1 ? ordered[userIndex + 1] : null;
-        const leader = ordered[0];
-        const userGap = userIndex > 0 ? commentaryGapToLeader_(user, leader, elapsed, canFull, userIndex) : 0;
-        const aheadGap = ahead ? Math.max(0, driverReachTimeForDistance_(user.driver, ahead.state.distance || 0) - elapsed) : 0;
-        const behindGap = behind ? Math.max(0, driverReachTimeForDistance_(behind.driver, user.state.distance || 0) - elapsed) : NaN;
-        const crash = canFull ? ordered.find(x => x.driver?.crashed) : null;
-        const choices = [
-            { key: "steady", text: `${user.driver.name}: keep it clean, the clock is the target.` },
-            { key: "weather", text: "Track report: conditions stable, grip looks predictable through the next split." },
-            { key: "focus", text: "Brake markers, exit speed, no wasted inputs." }
-        ];
-        if (userIndex === 0) choices.push({ key: "lead", text: `${user.driver.name}: leading the road. Manage the gap and keep sectors tidy.` });
-        if (Number.isFinite(userGap) && userGap > 0) choices.push({ key: "leadergap", text: `${user.driver.name}: gap to leader ${formatRaceGapSeconds_(userGap)}.` });
-        if (ahead && Number.isFinite(aheadGap)) choices.push({ key: "ahead", text: `${user.driver.name}: car ahead ${ahead.driver.name}, gap ${formatRaceGapSeconds_(aheadGap)}.` });
-        if (behind && Number.isFinite(behindGap)) choices.push({ key: "behind", text: `${user.driver.name}: ${behind.driver.name} behind at ${formatRaceGapSeconds_(behindGap)}.` });
-        if (crash) choices.push({ key: "crash", text: `Incident report: ${crash.driver.name} is marked DNF/crashed.` });
-        const pool = choices.filter(x => x.key !== lastTeamRadioKey);
-        const pickPool = pool.length ? pool : choices;
-        const pick = pickPool[Math.floor((elapsed + ordered.length * 3) % pickPool.length)] || choices[0];
-        lastTeamRadioKey = pick.key;
-        lastTeamRadioText = pick.text;
-        lastTeamRadioAtMs = now;
-        return lastTeamRadioText;
-    }
-
     function liveTimerText_(elapsed, canFull) {
         if (!analysis) return "";
         if (canFull || raceIsFinished_()) {
@@ -12666,30 +12599,11 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
     function updateAnalysisStageStatus_(body, elapsed, canFull) {
         const status = body?.querySelector?.(".mpg-stage-status");
         if (status) status.textContent = analysisStatusLine_(elapsed, canFull);
-        const replayState = analysis ? currentReplayState_(elapsed, canFull) : null;
-        const ordered = replayState?.ordered || [];
-        const tv = body?.querySelector?.('[data-stage-text="tv"]');
-        if (tv) tv.textContent = lastCommentaryText || (analysis ? "Timing screens are live." : "Commentary will begin when race data is available.");
-        const radio = body?.querySelector?.('[data-stage-text="radio"]');
-        if (radio) radio.textContent = updateTeamRadio_(ordered, elapsed, canFull) || "Radio check pending.";
     }
 
     function analysisStageHtml_(elapsed, canFull) {
-        const replayState = analysis ? currentReplayState_(elapsed, canFull) : null;
-        const ordered = replayState?.ordered || [];
-        const boxes = [];
-        if (liveCommentaryEnabled) {
-            const tv = lastCommentaryText || (analysis ? "Timing screens are live." : "Commentary will begin when race data is available.");
-            boxes.push(`<div class="mpg-stage-box"><div class="mpg-stage-title">TV</div><div class="mpg-stage-text" data-stage-text="tv">${esc_(tv)}</div></div>`);
-        }
-        if (pitCrewEnabled) {
-            const radio = updateTeamRadio_(ordered, elapsed, canFull);
-            boxes.push(`<div class="mpg-stage-box"><div class="mpg-stage-title">Team Radio</div><div class="mpg-stage-text" data-stage-text="radio">${esc_(radio || "Radio check pending.")}</div></div>`);
-        }
-        const stageGrid = boxes.length ? `<div class="mpg-stage-grid ${boxes.length === 1 ? "single" : ""}">${boxes.join("")}</div>` : "";
         return `<div class="mpg-race-stage">
           <div class="mpg-stage-status">${esc_(analysisStatusLine_(elapsed, canFull))}</div>
-          ${stageGrid}
           <div class="mpg-separator"></div>
         </div>`;
     }
@@ -12733,11 +12647,10 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
         if (!analysis) {
             body.style.display = "block";
             if (status) status.style.display = "";
-            updateCommentary_(0, false);
             if (analysisMode === "predictions") {
                 const set = predictionDriverSet_();
                 if (status) status.textContent = set.drivers.length ? "PREDICTIONS · Pre-race grid" : "PREDICTIONS · Waiting for driver list";
-                const predKey = `pre-race-predictions|${theme}|${liveCommentaryEnabled ? 1 : 0}|${pitCrewEnabled ? 1 : 0}|${useApiPredictions ? 1 : 0}|${useHistoryPredictions ? 1 : 0}|${driverIntelStatus}|${preRaceParticipantsKey}|${pgLocalTrackHistoryRenderKey_(set.trackName)}|focus:${analysisFocusMode}:${analysisFocusDriverId}:${analysisFocusDriverName}|heavy:${heavyRaceMode_() ? 1 : 0}:${heavyRaceShowAllDrivers ? 1 : 0}:${heavyRaceFullCardsEnabled ? 1 : 0}`;
+                const predKey = `pre-race-predictions|${theme}|${useApiPredictions ? 1 : 0}|${useHistoryPredictions ? 1 : 0}|${driverIntelStatus}|${preRaceParticipantsKey}|${pgLocalTrackHistoryRenderKey_(set.trackName)}|focus:${analysisFocusMode}:${analysisFocusDriverId}:${analysisFocusDriverName}|heavy:${heavyRaceMode_() ? 1 : 0}:${heavyRaceShowAllDrivers ? 1 : 0}:${heavyRaceFullCardsEnabled ? 1 : 0}|safe:${bigRaceSafeModeActive_() ? 1 : 0}`;
                 if (body.dataset.renderKey !== predKey) {
                     body.dataset.renderKey = predKey;
                     body.innerHTML = analysisStageHtml_(0, false) + renderPredictionsMode_(set);
@@ -12749,7 +12662,7 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
                 return true;
             }
             if (status) status.textContent = "WAITING · racingData JSON not captured";
-            const waitingKey = `waiting-json|${analysisMode}|${theme}|${liveCommentaryEnabled ? 1 : 0}|${pitCrewEnabled ? 1 : 0}`;
+            const waitingKey = `waiting-json|${analysisMode}|${theme}`;
             if (body.dataset.renderKey !== waitingKey) {
                 body.dataset.renderKey = waitingKey;
                 body.innerHTML = analysisStageHtml_(0, false) + `<div class="mpg-card"><div class="mpg-empty-title">Waiting for racingData</div><p class="mpg-note">Pit Guru now reads Torn's delivered racingData JSON only. Page leaderboard and lap UI scraping are disabled.</p><p class="mpg-note">Open the race before it starts, or load a replay/log that provides racingData, and this panel will fill automatically.</p></div>`;
@@ -12783,7 +12696,6 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
                             ? "READY · Race data captured, waiting for visible start"
                             : "LIVE · Final results hidden until finish";
         }
-        updateCommentary_(elapsed, canFull);
         if (statusOnlyRenderPending && body.dataset.renderKey && !dataDirty && !layoutDirty && !selectionDirty) {
             statusOnlyRenderPending = false;
             updateAnalysisStageStatus_(body, elapsed, canFull);
@@ -12802,8 +12714,6 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
             fuelEnabled ? 1 : 0,
             fuelDisplayStyle,
             experimentalGyroTrace ? 1 : 0,
-            liveCommentaryEnabled ? 1 : 0,
-            pitCrewEnabled ? 1 : 0,
             telemetryActive ? 1 : 0,
             useApiPredictions ? 1 : 0,
             useHistoryPredictions ? 1 : 0,
@@ -12813,6 +12723,7 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
             body.dataset.gyroDriver || "",
             `focus:${analysisFocusMode}:${analysisFocusDriverId}:${analysisFocusDriverName}`,
             `heavy:${heavyRaceMode_() ? 1 : 0}:${heavyRaceShowAllDrivers ? 1 : 0}:${heavyRaceFullCardsEnabled ? 1 : 0}`,
+            `safe:${bigRaceSafeModeActive_() ? 1 : 0}`,
             `agg:${analysis.sectorWinsReady ? 1 : 0}:${analysis.leadStatsReady ? 1 : 0}:${aggregatesReady ? 1 : 0}:${aggregateWorkerLastStatus}`
         ].join("|");
         if (body.dataset.renderKey === renderKey) {
@@ -13161,8 +13072,9 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
         const prefix = heavyRaceMode_()
             ? `Heavy mode: ${heavyRaceLightweightMode_() ? "ON" : "OVERRIDDEN"} (${Math.round(heavyStats.estimatedPoints || 0).toLocaleString()} estimated points).`
             : "Large field view:";
+        const safeText = bigRaceSafeModeActive_() ? " Safe Mode is pausing background uploads, auto-sync, auto Driver Intel, optional images, and non-manual aggregates." : "";
         const rangeText = win.windowed ? `rendering positions ${win.start + 1}-${win.end}` : `rendering all ${win.total} drivers`;
-        return `<div class="mpg-note mpg-focus-note"><span>${prefix} ${focusName}, ${rangeText}. Source: ${esc_(source)}. ${win.windowed ? "Sorting is disabled for this windowed table." : ""}</span>${selector}${action}${heavyControls}</div>`;
+        return `<div class="mpg-note mpg-focus-note"><span>${prefix}${esc_(safeText)} ${focusName}, ${rangeText}. Source: ${esc_(source)}. ${win.windowed ? "Sorting is disabled for this windowed table." : ""}</span>${selector}${action}${heavyControls}</div>`;
     }
 
     function lookupDriver_(driverId, driverName) {
@@ -13181,6 +13093,10 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
         const cached = getCachedDriverIntel_(id) || getCachedDriverIntelByName_(driverName);
         if (!force && cached && String(cached.avatar || "").trim()) return cached;
         if (!force && cached && !driverIntelNeedsProfileRefresh_(id, driverName)) return cached;
+        if (!force && bigRaceSafeModeActive_()) {
+            recordBigRaceSafeModeSkip_("driverIntel");
+            return cached || null;
+        }
         if (!force) {
             try {
                 const model = lookupDriver_(id, driverName) || findPredictionDriver_(id, driverName) || {};
@@ -14543,7 +14459,6 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
           </div>
           <div id="mpgModeBar" class="mpg-modebar"></div>
           <div id="mpgStatusBadge" class="mpg-status muted"></div>
-          <div id="mpgCommentaryTicker" class="mpg-commentary" style="display:none"></div>
           <div id="rtCalcNote" class="muted" style="font-size:11px;opacity:.85;display:none">Calc uses replay speed: <b id="rtSpeedLabel">1×</b>.</div>
           <div id="rtEvents" class="mono muted" style="font-size:11px;opacity:.9;max-height:78px;overflow:auto;display:none;margin-top:6px"></div>
 
@@ -14894,7 +14809,8 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
         const aggregate = aggregateWorkerLastStatus ? ` Aggregate worker: ${aggregateWorkerLastStatus}${aggregateWorkerLastMs ? ` ${aggregateWorkerLastMs}ms` : ""}${aggregateWorkerLastError ? ` (${aggregateWorkerLastError})` : ""}.` : "";
         const cache = phaseCacheStats_();
         const warm = cache.warmRestore?.restoredKey ? `, warm restore ${cache.warmRestore.verifiedAt ? "verified" : "pending"}` : "";
-        return `Heavy mode: ${heavyRaceLightweightMode_() ? "ON" : "OFF"}, estimated points: ${Math.round(heavy.estimatedPoints || 0).toLocaleString()}, racingData fetches: ${stats.fetches || 0}, duplicate payloads skipped: ${stats.duplicatePayloadsSkipped || 0}, rendered rows: ${rendered}/${total}. Big Race cache: raw ${rawState}, summary ${summaryState}${worker}${pruned}${error}${warm}. Perf: render ${renderPerf.lastMs || 0}/${renderPerf.maxMs || 0}ms, build ${buildPerf.lastMs || 0}/${buildPerf.maxMs || 0}ms. Memory caches: payloads ${cache.payloads}/${RACE_DATA_PAYLOAD_CACHE_MAX}, states ${cache.acceptedStates}/${RACE_DATA_META_CACHE_MAX}, summaries ${cache.bigRaceSummaries}/${BIG_RACE_SUMMARY_MEMORY_MAX}, frames ${cache.frameRows}/${FRAME_ROWS_CACHE_MAX}, telemetry ${cache.telemetryStats}/${TELEMETRY_STATS_CACHE_MAX}, sectors ${cache.sectorSnapshots}/${SECTOR_SNAPSHOT_CACHE_MAX}, images ${cache.optionalImages}/${OPTIONAL_IMAGE_CACHE_MAX}, ids ${cache.driverIdLookups}/${DRIVER_ID_LOOKUP_CACHE_MAX}, intel ${cache.driverIntelEntries}/${DRIVER_INTEL_CACHE_MAX}, history ${cache.driverHistoryEntries}/${DRIVER_HISTORY_CACHE_MAX}, cleanup ${cache.lifecycleCleanup.runs || 0}.${aggregate}`;
+        const safe = bigRaceSafeModeActive_() ? ` Safe Mode: active, skips ${JSON.stringify(bigRaceSafeModeSkips)}.` : ` Safe Mode: ${bigRaceSafeMode ? "armed" : "off"}.`;
+        return `Heavy mode: ${heavyRaceLightweightMode_() ? "ON" : "OFF"}, estimated points: ${Math.round(heavy.estimatedPoints || 0).toLocaleString()}, racingData fetches: ${stats.fetches || 0}, duplicate payloads skipped: ${stats.duplicatePayloadsSkipped || 0}, rendered rows: ${rendered}/${total}.${safe} Big Race cache: raw ${rawState}, summary ${summaryState}${worker}${pruned}${error}${warm}. Perf: render ${renderPerf.lastMs || 0}/${renderPerf.maxMs || 0}ms, build ${buildPerf.lastMs || 0}/${buildPerf.maxMs || 0}ms. Memory caches: payloads ${cache.payloads}/${RACE_DATA_PAYLOAD_CACHE_MAX}, states ${cache.acceptedStates}/${RACE_DATA_META_CACHE_MAX}, summaries ${cache.bigRaceSummaries}/${BIG_RACE_SUMMARY_MEMORY_MAX}, frames ${cache.frameRows}/${FRAME_ROWS_CACHE_MAX}, telemetry ${cache.telemetryStats}/${TELEMETRY_STATS_CACHE_MAX}, sectors ${cache.sectorSnapshots}/${SECTOR_SNAPSHOT_CACHE_MAX}, images ${cache.optionalImages}/${OPTIONAL_IMAGE_CACHE_MAX}, ids ${cache.driverIdLookups}/${DRIVER_ID_LOOKUP_CACHE_MAX}, intel ${cache.driverIntelEntries}/${DRIVER_INTEL_CACHE_MAX}, history ${cache.driverHistoryEntries}/${DRIVER_HISTORY_CACHE_MAX}, cleanup ${cache.lifecycleCleanup.runs || 0}.${aggregate}`;
     }
 
     function scheduleRender_(dirty = null) {
@@ -15437,9 +15353,8 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
         fuelEnabled = loadBoolSetting_(STORE_FUEL_ENABLED_KEY, false);
         fuelDisplayStyle = loadFuelStyle_();
         garageShowDelisted = loadBoolSetting_(STORE_GARAGE_SHOW_DELISTED_KEY, false);
-        liveCommentaryEnabled = loadBoolSetting_(STORE_COMMENTARY_ENABLED_KEY, true);
-        pitCrewEnabled = loadBoolSetting_(STORE_PIT_CREW_ENABLED_KEY, true);
         experimentalGyroTrace = loadBoolSetting_(STORE_EXPERIMENTAL_GYRO_TRACE_KEY, true);
+        bigRaceSafeMode = loadBoolSetting_(STORE_BIG_RACE_SAFE_MODE_KEY, true);
         onboardingRequired = !loadBoolSetting_(STORE_ONBOARDING_COMPLETE_KEY, false);
         loadPerformanceTuning_();
         hookRaceDataObservers_();
