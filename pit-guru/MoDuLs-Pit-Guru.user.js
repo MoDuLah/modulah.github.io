@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         MoDuL's Pit Guru
 // @namespace    modul.torn.racing
-// @version      2.1.8
+// @version      2.1.9
 // @description  Live Torn race timing, gaps, sectors, speed and estimated telemetry analysis
 // @author       MoDuL
 // @copyright    2026 MoDuL. All rights reserved.
@@ -555,7 +555,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
     unsafeWindow.pgPitGuruClearApiCache = pgClearApiResponseCache_;
     unsafeWindow.pgPitGuruHealthTest = unsafeWindow.pgLocalHealthTest;
 
-    const MPG_VERSION = "2.1.8";
+    const MPG_VERSION = "2.1.9";
     var TAG = "[MoDuL's Pit Guru v" + MPG_VERSION + "]";
 
     const PitGuruRaceEngine = (() => {
@@ -1235,9 +1235,6 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
     let lastTeamRadioAtMs = 0;
     let lastTeamRadioText = "";
     let lastTeamRadioKey = "";
-    let raceOvertakesCache = { key: "", value: 0 };
-    let raceOvertakesFloorCache = { key: "", value: 0 };
-    let raceOvertakesTimelineCache = { key: "", samples: [], count: 0 };
     let fuelSessionCache = { key: "", liters: 0, levelPct: 100 };
     let fuelLifetimeCache = { key: "", fetchedAt: 0, data: null, loading: false, error: "" };
     let liveOrderCache = { key: "", value: [] };
@@ -1603,9 +1600,6 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         frameRowsCache.clear();
         telemetryStatsCache.clear();
         sectorSnapshotCache.clear();
-        raceOvertakesCache = { key: "", value: 0 };
-        raceOvertakesFloorCache = { key: "", value: 0 };
-        raceOvertakesTimelineCache = { key: "", samples: [], count: 0 };
     }
 
     function activeRaceIdForCleanup_() {
@@ -2159,9 +2153,6 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         finalAnalysisNotifiedForRaceId = "";
         recordsUpdatedForAnalysisRaceId = "";
         pgPlayerCachedRaceKeys = new Set();
-        raceOvertakesCache = { key: "", value: 0 };
-        raceOvertakesFloorCache = { key: "", value: 0 };
-        raceOvertakesTimelineCache = { key: "", samples: [], count: 0 };
         liveOrderCache = { key: "", value: [] };
         replayStateCache = { key: "", value: null };
         aggregateWorkerInFlightKey = "";
@@ -5706,106 +5697,6 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
             trimMapToMax_(frameRowsCache, FRAME_ROWS_CACHE_MAX, cacheKey);
         }
         return frame;
-    }
-
-    function raceOrderPositionMap_(order) {
-        const driverKey = d => String(d.driverId || normalizeDriverName_(d.name || ""));
-        return new Map((order || []).map((x, i) => [driverKey(x.driver), i + 1]));
-    }
-
-    function overtakeDeltaFromMaps_(prev, nextOrder) {
-        let delta = 0;
-        const next = new Map();
-        const driverKey = d => String(d.driverId || normalizeDriverName_(d.name || ""));
-        nextOrder.forEach((x, i) => {
-            const k = driverKey(x.driver);
-            const pos = i + 1;
-            const old = prev.get(k);
-            if (Number.isFinite(old) && pos < old) delta += old - pos;
-            next.set(k, pos);
-        });
-        return { delta, next };
-    }
-
-    function raceOvertakesCountSampled_(limit, canFull, large) {
-        const calc = () => {
-        let count = 0;
-        let prev = raceOrderPositionMap_(getLiveOrder_(0, false));
-        const samples = large
-            ? Math.max(1, Math.min(30, Math.ceil(limit / 10)))
-            : Math.max(1, Math.min(120, Math.ceil(limit / 2)));
-        const step = samples > 0 ? limit / samples : limit;
-        for (let s = 1; s <= samples; s++) {
-            const t = s === samples ? limit : s * step;
-            const nextOrder = getLiveOrder_(t, false);
-            const result = overtakeDeltaFromMaps_(prev, nextOrder);
-            count += result.delta;
-            prev = result.next;
-        }
-        return count;
-        };
-        return perfMeasure_("analysis.overtakes.sampled", calc, {
-            drivers: analysis?.drivers?.length || 0,
-            limit: Math.round(Number(limit) || 0),
-            full: !!canFull,
-            large: !!large
-        });
-    }
-
-    function raceOvertakesCount_(elapsedSeconds = getVisualElapsed_(), canFull = analysisCanShowFullRace_()) {
-        if (!analysis?.drivers?.length) return 0;
-        const limit = canFull ? maxAnalysisFinalTime_() : Math.max(0, Number(elapsedSeconds) || 0);
-        const large = largeFieldMode_();
-        const bucket = canFull ? "full" : (large ? Math.floor(limit / 10) : Math.floor(limit / 2));
-        const key = `${analysis.raceId || analysis.trackName || ""}|${analysis.drivers.length}|${canFull ? 1 : 0}|${bucket}`;
-        if (raceOvertakesCache.key === key) return raceOvertakesCache.value;
-        let count = 0;
-        if (!PHASE_REWRITE_FLAGS.replayStateSnapshots || canFull) {
-            count = raceOvertakesCountSampled_(limit, canFull, large);
-        } else {
-            const stepSeconds = large ? 10 : 2;
-            const targetBucket = Math.max(0, Math.floor(limit / stepSeconds));
-            const baseKey = `${analysis.raceId || analysis.trackName || ""}|${analysis.drivers.length}|${large ? 1 : 0}`;
-            const maxIncrementalBuckets = large ? 90 : 180;
-            if (raceOvertakesTimelineCache.key !== baseKey || !raceOvertakesTimelineCache.prev || targetBucket < (raceOvertakesTimelineCache.bucket || 0)) {
-                raceOvertakesTimelineCache = {
-                    key: baseKey,
-                    bucket: 0,
-                    limit: 0,
-                    prev: raceOrderPositionMap_(getLiveOrder_(0, false)),
-                    count: 0
-                };
-            }
-            if (targetBucket - (raceOvertakesTimelineCache.bucket || 0) > maxIncrementalBuckets) {
-                count = raceOvertakesCountSampled_(limit, canFull, large);
-                raceOvertakesTimelineCache = { key: baseKey, bucket: targetBucket, limit, prev: raceOrderPositionMap_(getLiveOrder_(limit, false)), count };
-            } else {
-                count = raceOvertakesTimelineCache.count || 0;
-                const run = () => {
-                    for (let b = (raceOvertakesTimelineCache.bucket || 0) + 1; b <= targetBucket; b++) {
-                        const t = Math.min(limit, b * stepSeconds);
-                        const result = overtakeDeltaFromMaps_(raceOvertakesTimelineCache.prev || new Map(), getLiveOrder_(t, false));
-                        count += result.delta;
-                        raceOvertakesTimelineCache.prev = result.next;
-                        raceOvertakesTimelineCache.bucket = b;
-                        raceOvertakesTimelineCache.limit = t;
-                    }
-                    raceOvertakesTimelineCache.count = count;
-                    return count;
-                };
-                count = perfMeasure_("analysis.overtakes.incremental", run, {
-                    drivers: analysis?.drivers?.length || 0,
-                    bucket: targetBucket,
-                    large: !!large
-                });
-            }
-        }
-        const floorKey = `${analysis.raceId || analysis.trackName || ""}|${analysis.drivers.length}`;
-        const floor = raceOvertakesFloorCache.key === floorKey ? raceOvertakesFloorCache.value : 0;
-        const stableCount = Math.max(floor, count);
-        raceOvertakesFloorCache = { key: floorKey, value: stableCount };
-        raceOvertakesCache = { key, value: stableCount };
-        return stableCount;
     }
 
     function driverReachTimeForDistance_(driver, meters) {
@@ -11088,9 +10979,6 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
         lastTeamRadioAtMs = 0;
         lastTeamRadioText = "";
         lastTeamRadioKey = "";
-        raceOvertakesCache = { key: "", value: 0 };
-        raceOvertakesFloorCache = { key: "", value: 0 };
-        raceOvertakesTimelineCache = { key: "", samples: [], count: 0 };
         liveOrderCache = { key: "", value: [] };
         replayStateCache = { key: "", value: null };
         aggregateWorkerInFlightKey = "";
@@ -14524,7 +14412,6 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
                   <th>Car</th>
                   <th>Driver</th>
                   <th>Race start time</th>
-                  <th>Race overtakes</th>
                 </tr>
               </thead>
               <tbody>
@@ -14542,7 +14429,6 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
                   </td>
                   <td id="rtDriver">—</td>
                   <td id="rtRaceTime" class="mono">—</td>
-                  <td id="rtRaceOvertakes" class="mono">0</td>
                 </tr>
               </tbody>
             </table>
@@ -14961,7 +14847,6 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
         const driverEl = document.getElementById("rtDriver");
         const raceTimeEl = document.getElementById("rtRaceTime");
         const raceTotalEl = document.getElementById("rtRaceTotal");
-        const raceOvertakesEl = document.getElementById("rtRaceOvertakes");
         const raceIdEl = document.getElementById("rtRaceId");
         const raceIdWrap = document.getElementById("rtRaceIdWrap");
 
@@ -15037,7 +14922,6 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
         }
 
         if (raceTimeEl) raceTimeEl.textContent = raceMeta?.startAtIso ? reportDateText_(raceMeta.startAtIso) : (raceMeta?.detectedAtLocal || "—");
-        if (raceOvertakesEl) raceOvertakesEl.textContent = String(raceOvertakesCount_(getVisualElapsed_(), analysisCanShowFullRace_()));
 
         // Records panel/window (per track)
         if (recWrap) recWrap.style.display = recordsOpen && !recordsDetached ? "" : "none";
