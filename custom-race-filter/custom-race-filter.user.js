@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         MoDuL's: Custom Race Filter
 // @namespace    modul.torn.racing
-// @version      2.5.0
+// @version      2.5.1
 // @description  Custom Race filter. (OG Car Names & PDA Compatible)
 // @author       MoDuL
 // @copyright    2026 MoDuL. All rights reserved.
@@ -19,8 +19,8 @@
 // @connect      modulah.github.io
 // @run-at       document-idle
 // @icon         https://www.google.com/s2/favicons?sz=64&domain=torn.com
-// @downloadURL https://update.greasyfork.org/scripts/562954/MoDuL%27s%3A%20Custom%20Race%20Filter%20%28PDA%20compatible%29.user.js
-// @updateURL https://update.greasyfork.org/scripts/562954/MoDuL%27s%3A%20Custom%20Race%20Filter%20%28PDA%20compatible%29.meta.js
+// @downloadURL https://modulah.github.io/custom-race-filter/custom-race-filter.user.js
+// @updateURL https://modulah.github.io/custom-race-filter/custom-race-filter.user.js
 // ==/UserScript==
 
 /*
@@ -31,7 +31,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
 (function () {
   "use strict";
 
-var VERSION = "2.5.0";
+var VERSION = "2.5.1";
   var TAG = "[MoDuL's: Custom Race Filter v" + VERSION + "]";
   try { console.log(TAG, "Loaded ✅"); } catch (e) {}
 
