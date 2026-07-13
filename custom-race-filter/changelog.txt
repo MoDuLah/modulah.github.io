@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.5.1
+
+- Updated userscript `@downloadURL` and `@updateURL` to use the hosted GitHub Pages script URL
+- Future installs from the hosted script now check `https://modulah.github.io/custom-race-filter/custom-race-filter.user.js` for updates
+
 ## 2.5.0
 
 - Fixed `Wrong RFC` errors from compact join shortcuts by appending Torn's current `rfcv` token from the `rfc_v` cookie
