@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         MoDuL's Pit Guru
 // @namespace    modul.torn.racing
-// @version      2.1.3
+// @version      2.1.4
 // @description  Live Torn race timing, gaps, sectors, speed and estimated telemetry analysis
 // @author       MoDuL
 // @copyright    2026 MoDuL. All rights reserved.
@@ -555,7 +555,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
     unsafeWindow.pgPitGuruClearApiCache = pgClearApiResponseCache_;
     unsafeWindow.pgPitGuruHealthTest = unsafeWindow.pgLocalHealthTest;
 
-    const MPG_VERSION = "2.1.3";
+    const MPG_VERSION = "2.1.4";
     var TAG = "[MoDuL's Pit Guru v" + MPG_VERSION + "]";
 
     const PitGuruRaceEngine = (() => {
@@ -918,12 +918,19 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
     const RACE_DATA_META_CACHE_MAX = 12;
     const BIG_RACE_SUMMARY_MEMORY_MAX = 8;
     const RENDER_COALESCE_MS = 40;
+    const FRAME_ROWS_CACHE_MAX = 80;
+    const TELEMETRY_STATS_CACHE_MAX = 1200;
+    const SECTOR_SNAPSHOT_CACHE_MAX = 120;
     const PHASE_REWRITE_FLAGS = Object.freeze({
         instrumentation: true,
         boundedRaceDataCache: true,
         renderCoalescing: true,
         replayStateSnapshots: true,
-        workerAggregates: true
+        workerAggregates: true,
+        raceIndexes: true,
+        frameRows: true,
+        telemetryStatCache: true,
+        sectorSnapshots: true
     });
     const STORE_RECORDS_MAX = 2500;
     const WIN_DEFAULT_WIDTH = 720;
@@ -1216,6 +1223,9 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
     let fuelLifetimeCache = { key: "", fetchedAt: 0, data: null, loading: false, error: "" };
     let liveOrderCache = { key: "", value: [] };
     let replayStateCache = { key: "", value: null };
+    const frameRowsCache = new Map();
+    const telemetryStatsCache = new Map();
+    const sectorSnapshotCache = new Map();
     const phasePerfStats = {};
     let phasePerfSequence = 0;
     let aggregateWorkerInFlightKey = "";
@@ -1488,6 +1498,17 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         trimMapToMax_(raceDataFetchStatsByRaceId, RACE_DATA_META_CACHE_MAX, activeKey);
     }
 
+    function resetAnalysisRuntimeCaches_() {
+        liveOrderCache = { key: "", value: [] };
+        replayStateCache = { key: "", value: null };
+        frameRowsCache.clear();
+        telemetryStatsCache.clear();
+        sectorSnapshotCache.clear();
+        raceOvertakesCache = { key: "", value: 0 };
+        raceOvertakesFloorCache = { key: "", value: 0 };
+        raceOvertakesTimelineCache = { key: "", samples: [], count: 0 };
+    }
+
     function phaseCacheStats_() {
         return {
             payloads: raceDataPayloadCacheByRaceId.size,
@@ -1497,6 +1518,9 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
             bigRaceSummaries: bigRaceProcessedSummaryCache.size,
             optionalImages: optionalImageUrlCache.size,
             driverIdLookups: driverIdLookupCache.size,
+            frameRows: frameRowsCache.size,
+            telemetryStats: telemetryStatsCache.size,
+            sectorSnapshots: sectorSnapshotCache.size,
             aggregateWorker: {
                 inFlightKey: aggregateWorkerInFlightKey,
                 failedKey: aggregateWorkerFailedKey,
@@ -4616,11 +4640,8 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
             leadStatsReady: false,
             sectorWinsReady: false
         };
-        liveOrderCache = { key: "", value: [] };
-        replayStateCache = { key: "", value: null };
-        raceOvertakesCache = { key: "", value: 0 };
-        raceOvertakesFloorCache = { key: "", value: 0 };
-        raceOvertakesTimelineCache = { key: "", samples: [], count: 0 };
+        buildAnalysisIndexes_(analysis);
+        resetAnalysisRuntimeCaches_();
         applyDriverIntelToModel_();
         syncRaceMetaFromAnalysis_();
         persistBigRaceProcessedSummary_(analysis);
@@ -4660,6 +4681,111 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
             found = true;
         }
         return found ? min : NaN;
+    }
+
+    function analysisRuntimeKey_(model = analysis) {
+        if (!model) return "race";
+        return analysisAggregateKey_(model) || [
+            model.raceId || model.trackName || "race",
+            model.drivers?.length || 0,
+            model.laps || 0,
+            model.segmentsPerLap || 0
+        ].join("|");
+    }
+
+    function analysisDriverKey_(driver, index = 0) {
+        return String(driver?._mpgDriverKey || analysisAggregateDriverKey_(driver, index));
+    }
+
+    function buildAnalysisIndexes_(model) {
+        if (!PHASE_REWRITE_FLAGS.raceIndexes || !model?.drivers?.length) return null;
+        const driverByKey = new Map();
+        const driverById = new Map();
+        const driverByName = new Map();
+        const driverKeys = [];
+        const segmentsPerLap = Math.max(1, Number(model.segmentsPerLap) || 1);
+        const laps = Math.max(0, Number(model.laps) || 0);
+        let fastestRaceLapSeconds = Infinity;
+        let maxFinalTime = 0;
+
+        model.drivers.forEach((driver, index) => {
+            const baseKey = analysisAggregateDriverKey_(driver, index);
+            let key = baseKey;
+            let dupe = 2;
+            while (driverByKey.has(key)) key = `${baseKey}#${dupe++}`;
+            driver._mpgDriverKey = key;
+            driver._mpgOrderIndex = index;
+            driverKeys.push(key);
+            driverByKey.set(key, driver);
+
+            const id = String(driver.driverId || driver.engineKey || "").trim();
+            const name = normalizeDriverName_(driver.name || "");
+            if (id && !driverById.has(id)) driverById.set(id, driver);
+            if (name && !driverByName.has(name)) driverByName.set(name, driver);
+
+            const speedBySegment = [];
+            const longGBySegment = [];
+            const segmentTimes = driver.segmentTimes || [];
+            const segmentDistances = driver.segmentDistancesMeters || [];
+            for (let i = 0; i < segmentTimes.length; i++) {
+                const segSeconds = Number(segmentTimes[i]) || 0;
+                const segMeters = Number(segmentDistances[i]) || 0;
+                const speed = segSeconds > 0 && segMeters > 0 ? segMeters / segSeconds : NaN;
+                speedBySegment[i] = speed;
+                if (i > 0) {
+                    const prevSpeed = speedBySegment[i - 1];
+                    const prevSeconds = Number(segmentTimes[i - 1]) || 0;
+                    const dt = (segSeconds + prevSeconds) / 2;
+                    longGBySegment[i] = calibrateLongitudinalG_(Number.isFinite(speed) && Number.isFinite(prevSpeed) && dt > 0 ? ((speed - prevSpeed) / dt) / 9.80665 : NaN);
+                } else {
+                    longGBySegment[i] = NaN;
+                }
+            }
+            driver._mpgSpeedMpsBySegment = speedBySegment;
+            driver._mpgLongGBySegment = longGBySegment;
+            driver._mpgCurvatureRouteModel = null;
+            driver._mpgCurvatureBySegment = null;
+
+            const lapEndTimes = [];
+            const completedByLap = [];
+            for (let lap = 1; lap <= laps; lap++) {
+                const endIndex = lap * segmentsPerLap - 1;
+                const endTime = driver.cumulativeTimes?.[endIndex];
+                lapEndTimes[lap] = Number.isFinite(endTime) ? endTime : Infinity;
+                completedByLap[lap] = Number.isFinite(endTime);
+            }
+            driver._mpgLapEndTimes = lapEndTimes;
+            driver._mpgCompletedByLap = completedByLap;
+
+            const bestSectors = { 1: NaN, 2: NaN, 3: NaN };
+            for (const sector of driver.sectorTimes || []) {
+                const sec = Number(sector?.sector);
+                const seconds = Number(sector?.seconds);
+                if (![1, 2, 3].includes(sec) || !Number.isFinite(seconds)) continue;
+                if (!Number.isFinite(bestSectors[sec]) || seconds < bestSectors[sec]) bestSectors[sec] = seconds;
+            }
+            driver._mpgBestSectorByNumber = bestSectors;
+
+            for (const item of driver.validLapTimes || []) {
+                const seconds = Number(item?.seconds);
+                if (Number.isFinite(seconds) && seconds < fastestRaceLapSeconds) fastestRaceLapSeconds = seconds;
+            }
+            if (Number.isFinite(driver.finalTime) && driver.finalTime > maxFinalTime) maxFinalTime = driver.finalTime;
+        });
+
+        const lapCount = Math.max(laps, ...model.drivers.map(d => d.validLapTimes?.length || 0));
+        model.indexes = {
+            key: analysisRuntimeKey_(model),
+            driverByKey,
+            driverById,
+            driverByName,
+            driverKeys,
+            lapCount,
+            fastestRaceLapSeconds: fastestRaceLapSeconds < Infinity ? fastestRaceLapSeconds : NaN,
+            maxFinalTime
+        };
+        model._mpgFastestRaceLapSeconds = model.indexes.fastestRaceLapSeconds;
+        return model.indexes;
     }
 
     function syncRaceMetaFromAnalysis_() {
@@ -4962,6 +5088,91 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         };
         replayStateCache = { key, value: state };
         return state;
+    }
+
+    function currentFrameRows_(elapsedSeconds = getVisualElapsed_(), canFull = analysisCanShowFullRace_()) {
+        if (!analysis?.drivers?.length) {
+            return {
+                ready: false,
+                key: "empty",
+                elapsed: 0,
+                canFull: false,
+                rows: [],
+                leaderRow: null,
+                leaderDist: 0,
+                leaderFinalTime: 0,
+                totalMeters: 0,
+                positionsByKey: new Map()
+            };
+        }
+        const full = !!canFull;
+        const elapsed = full ? maxAnalysisFinalTime_() : Math.max(0, Number(elapsedSeconds) || 0);
+        const bucket = replayStateBucket_(elapsed, full);
+        const cacheKey = [
+            analysis.indexes?.key || analysisRuntimeKey_(analysis),
+            analysis.drivers.length,
+            full ? 1 : 0,
+            bucket
+        ].join("|");
+        const cached = PHASE_REWRITE_FLAGS.frameRows ? boundedMapGet_(frameRowsCache, cacheKey) : null;
+        if (cached) return cached;
+
+        const replayState = currentReplayState_(elapsed, full);
+        const ordered = replayState.ordered || [];
+        const totalMeters = (analysis.lapMeters || 0) * (analysis.laps || 0);
+        const leader = ordered[0] || null;
+        const leaderDist = leader?.state?.distance || 0;
+        const leaderFinalTime = leader?.driver?.finalTime || 0;
+        const rows = ordered.map((entry, index) => {
+            const driver = entry.driver;
+            const state = entry.state || currentDistanceAtTime_(driver, full ? driver.finalTime : elapsed);
+            const completed = totalMeters > 0
+                ? clamp_((state.distance || 0) / totalMeters, 0, 1) * 100
+                : Math.max(0, Number(state.completionPct) || 0);
+            const lap = elapsed <= 0.05
+                ? 0
+                : (state.finished && !driver?.crashed ? analysis.laps : clamp_((state.lapIndex || 0) + 1, 1, analysis.laps || 1));
+            return {
+                driver,
+                state,
+                index,
+                pos: index + 1,
+                key: analysisDriverKey_(driver, index),
+                leader,
+                leaderDist,
+                leaderFinalTime,
+                totalMeters,
+                completionPct: completed,
+                lap,
+                finished: !!state.finished,
+                crashed: !!driver?.crashed || !!state.crashed,
+                finishTime: state.finished && !driver?.crashed && Number.isFinite(driver?.finalTime) ? driver.finalTime : NaN
+            };
+        });
+        rows.forEach((row, index) => {
+            row.ahead = index > 0 ? rows[index - 1] : null;
+            row.behind = index < rows.length - 1 ? rows[index + 1] : null;
+        });
+        const positionsByKey = new Map(rows.map(row => [row.key, row.pos]));
+        const frame = {
+            ready: true,
+            key: cacheKey,
+            elapsed,
+            canFull: full,
+            bucket,
+            replayState,
+            rows,
+            leaderRow: rows[0] || null,
+            leaderDist,
+            leaderFinalTime,
+            totalMeters,
+            positionsByKey
+        };
+        if (PHASE_REWRITE_FLAGS.frameRows) {
+            frameRowsCache.set(cacheKey, frame);
+            trimMapToMax_(frameRowsCache, FRAME_ROWS_CACHE_MAX, cacheKey);
+        }
+        return frame;
     }
 
     function raceOrderPositionMap_(order) {
@@ -11515,7 +11726,7 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
             lastCommentaryText = "";
             return;
         }
-        const ordered = getLiveOrder_(elapsed, canFull);
+        const ordered = currentFrameRows_(elapsed, canFull).rows;
         if (!ordered.length) {
             el.style.display = "none";
             return;
@@ -11649,15 +11860,10 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
 
     function sectorStructureKey_(elapsed, canFull) {
         if (canFull) return "full";
-        const order = getLiveOrder_(elapsed, false).map(x => x.driver.driverId || normalizeDriverName_(x.driver.name || "")).join(",");
-        const completed = (analysis?.drivers || []).map(d => {
-            const count = (d.sectorTimes || []).filter(s => {
-                const endIndex = (s.lap - 1) * analysis.segmentsPerLap + analysis.sectorSplitIndexes[s.sector - 1] - 1;
-                return (d.cumulativeTimes?.[endIndex] || Infinity) <= elapsed;
-            }).length;
-            return `${d.driverId || normalizeDriverName_(d.name || "")}:${count}`;
-        }).join(",");
-        return `${order}|${completed}`;
+        const frame = currentFrameRows_(elapsed, false);
+        const order = frame.rows.map(row => row.key).join(",");
+        const snapshot = sectorSnapshot_(elapsed, false);
+        return `${order}|${snapshot.completedKey}`;
     }
 
     function analysisRenderBucket_(elapsed, canFull) {
@@ -12379,38 +12585,41 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
     }
 
     function renderGapsMode_(elapsed, canFull) {
-        const ordered = getLiveOrder_(elapsed, canFull);
+        const frame = currentFrameRows_(elapsed, canFull);
+        const ordered = frame.rows;
         const win = focusedOrderWindow_(ordered);
-        const leaderDist = ordered[0]?.state?.distance || 0;
-        const leaderTime = ordered[0]?.driver?.finalTime || 0;
-        const totalMeters = (analysis?.lapMeters || 0) * (analysis?.laps || 0);
+        const leaderDist = frame.leaderDist || 0;
+        const leaderTime = frame.leaderFinalTime || 0;
+        const totalMeters = frame.totalMeters || 0;
+        const rowByDriver = new Map(ordered.map(row => [row.driver, row]));
         const finishReachTime = d => {
             if (!d) return NaN;
-            const live = currentDistanceAtTime_(d, elapsed);
+            const live = rowByDriver.get(d)?.state || currentDistanceAtTime_(d, elapsed);
             if (live.finished && !d.crashed) return d.finalTime;
             return totalMeters > 0 ? driverReachTimeForDistance_(d, totalMeters) : NaN;
         };
-        const rows = win.items.map(({ row: x, index: i, pos }) => {
-            const ahead = ordered[i - 1];
+        const rows = win.items.map(({ row: x, index, pos }) => {
+            const ahead = ordered[index - 1];
             if (canFull) {
                 const finishText = x.driver.crashed ? "DNF" : formatTimeSeconds_(x.driver.finalTime);
-                const currentGap = i === 0 ? 0 : (x.driver.crashed ? NaN : (x.driver.finalTime || 0) - leaderTime);
+                const currentGap = index === 0 ? 0 : (x.driver.crashed ? NaN : (x.driver.finalTime || 0) - leaderTime);
                 const aheadGapSec = !ahead ? 0 : (x.driver.crashed || ahead.driver.crashed ? NaN : (x.driver.finalTime || 0) - (ahead.driver.finalTime || 0));
                 const prev = previousLapGapInfo_(x.driver, x.state, currentGap);
-                const leaderGap = i === 0 ? "" : (x.driver.crashed ? "DNF" : `${formatRaceGapSeconds_(currentGap)} (${prev.text})`);
+                const leaderGap = index === 0 ? "" : (x.driver.crashed ? "DNF" : `${formatRaceGapSeconds_(currentGap)} (${prev.text})`);
                 const aheadPrevRaw = ahead ? previousLapGapSeconds_(x.driver, x.state) - previousLapGapSeconds_(ahead.driver, ahead.state) : NaN;
-                const aheadGap = i <= 1 ? "" : (x.driver.crashed || ahead?.driver?.crashed ? "DNF" : `${formatRaceGapSeconds_(aheadGapSec)}${Number.isFinite(aheadPrevRaw) ? ` (${formatRaceGapSeconds_(aheadPrevRaw)})` : ""}`);
+                const aheadGap = index <= 1 ? "" : (x.driver.crashed || ahead?.driver?.crashed ? "DNF" : `${formatRaceGapSeconds_(aheadGapSec)}${Number.isFinite(aheadPrevRaw) ? ` (${formatRaceGapSeconds_(aheadPrevRaw)})` : ""}`);
                 return `<tr${focusRowDataAttrs_(x.driver)}><td data-sort="${pos}">${raceEndPositionIcon_(pos, true)}</td><td>${carComboCell_(x.driver)}</td><td>${driverWithRsCell_(x.driver)}</td><td class="mono">${leaderGap}</td><td class="mono">${aheadGap}</td><td class="mono mpg-timecell">${finishText}</td></tr>`;
             }
-            const live = currentDistanceAtTime_(x.driver, elapsed);
-            const leaderLive = ordered[0]?.state || null;
-            const leaderFinished = !!leaderLive?.finished && !ordered[0]?.driver?.crashed;
+            const live = x.state || currentDistanceAtTime_(x.driver, elapsed);
+            const leaderLive = frame.leaderRow?.state || null;
+            const leaderDriver = frame.leaderRow?.driver || null;
+            const leaderFinished = !!leaderLive?.finished && !leaderDriver?.crashed;
             const aheadFinished = !!ahead?.state?.finished && !ahead?.driver?.crashed;
             const driverFinishTime = live.finished && !x.driver.crashed ? x.driver.finalTime : finishReachTime(x.driver);
-            const leaderGap = i === 0
+            const leaderGap = index === 0
                 ? 0
                 : (leaderFinished
-                    ? Math.max(0, driverFinishTime - (ordered[0].driver.finalTime || 0))
+                    ? Math.max(0, driverFinishTime - (leaderDriver?.finalTime || 0))
                     : Math.max(0, driverReachTimeForDistance_(x.driver, leaderDist) - elapsed));
             const aheadGap = !ahead
                 ? 0
@@ -12419,8 +12628,8 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
                     : Math.max(0, driverReachTimeForDistance_(x.driver, ahead.state.distance) - elapsed));
             const prev = previousLapGapInfo_(x.driver, live, leaderGap);
             const aheadPrevRaw = ahead ? previousLapGapSeconds_(x.driver, live) - previousLapGapSeconds_(ahead.driver, ahead.state) : NaN;
-            const leaderGapText = i === 0 ? "" : `${formatRaceGapSeconds_(leaderGap)} (${prev.text})`;
-            const aheadGapText = i <= 1 ? "" : `${formatRaceGapSeconds_(aheadGap)}${Number.isFinite(aheadPrevRaw) ? ` (${formatRaceGapSeconds_(aheadPrevRaw)})` : ""}`;
+            const leaderGapText = index === 0 ? "" : `${formatRaceGapSeconds_(leaderGap)} (${prev.text})`;
+            const aheadGapText = index <= 1 ? "" : `${formatRaceGapSeconds_(aheadGap)}${Number.isFinite(aheadPrevRaw) ? ` (${formatRaceGapSeconds_(aheadPrevRaw)})` : ""}`;
             const finishText = live.finished ? (x.driver.crashed ? "DNF" : formatTimeSeconds_(x.driver.finalTime)) : "--";
             return `<tr${focusRowDataAttrs_(x.driver)}><td data-sort="${pos}">${pos}</td><td>${carComboCell_(x.driver)}</td><td>${driverWithRsCell_(x.driver)}</td><td class="mono">${leaderGapText}</td><td class="mono">${aheadGapText}</td><td class="mono mpg-timecell">${finishText}</td></tr>`;
         });
@@ -12500,9 +12709,10 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
 
     function lapRecordingData_(elapsed = getVisualElapsed_(), canFull = analysisCanShowFullRace_()) {
         if (!analysis?.drivers?.length) return { headers: [], rows: [] };
-        const lapCount = Math.max(analysis.laps || 0, ...analysis.drivers.map(d => d.validLapTimes?.length || 0));
+        const lapCount = analysis.indexes?.lapCount || Math.max(analysis.laps || 0, ...analysis.drivers.map(d => d.validLapTimes?.length || 0));
         const headers = ["Pos.", "Name", "Car", "Total Time", "Fastest Lap"].concat(Array.from({ length: lapCount }, (_, i) => `Lap ${i + 1}`));
-        const rows = getLiveOrder_(canFull ? Infinity : elapsed, canFull).map((x, i) => {
+        const frame = currentFrameRows_(canFull ? Infinity : elapsed, canFull);
+        const rows = frame.rows.map((x, i) => {
             const d = x.driver;
             const lapSeconds = Array.from({ length: lapCount }, (_, idx) => visibleDriverLapTime_(d, idx + 1, elapsed, canFull));
             const completed = lapSeconds.filter(Number.isFinite);
@@ -12534,11 +12744,11 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
 
     function renderLapRecordingMode_(elapsed, canFull) {
         if (!analysis?.drivers?.length) return renderTable_(["Pos", "Car image + Car name", "Driver", "RS", "Current"], [], "Waiting for decoded lap data...", "Lap Recording");
-        const lapCount = Math.max(analysis.laps || 0, ...analysis.drivers.map(d => d.validLapTimes?.length || 0));
+        const lapCount = analysis.indexes?.lapCount || Math.max(analysis.laps || 0, ...analysis.drivers.map(d => d.validLapTimes?.length || 0));
         const visibleLapNumbers = lapRecordingVisibleLapNumbers_(lapCount, elapsed, canFull);
         const isWindowedLaps = visibleLapNumbers.length < lapCount;
-        const ordered = getLiveOrder_(canFull ? Infinity : elapsed, canFull);
-        const rowWin = focusedOrderWindow_(ordered);
+        const frame = currentFrameRows_(canFull ? Infinity : elapsed, canFull);
+        const rowWin = focusedOrderWindow_(frame.rows);
         const fastestRaceLap = fastestRaceLapSeconds_();
         const lapCellClass = (d, v) => {
             if (!Number.isFinite(v)) return "mono mpg-timecell";
@@ -12549,7 +12759,7 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
         const headers = ["Pos", "Car image + Car name", "Driver", "RS", "Current"].concat(visibleLapNumbers.map(n => `Lap ${n}`));
         const rows = rowWin.items.map(({ row: x, pos }) => {
             const d = x.driver;
-            const live = currentDistanceAtTime_(d, canFull ? d.finalTime : elapsed);
+            const live = x.state || currentDistanceAtTime_(d, canFull ? d.finalTime : elapsed);
             const lapStartIndex = Math.floor(live.segmentIndex / Math.max(1, analysis.segmentsPerLap)) * Math.max(1, analysis.segmentsPerLap) - 1;
             const lapStartTime = live.segmentIndex > 0 ? (d.cumulativeTimes?.[lapStartIndex] || 0) : 0;
             const currentLapSeconds = live.finished || canFull ? NaN : Math.max(0, elapsed - lapStartTime);
@@ -12574,8 +12784,41 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
         return `${focusedWindowNote_(rowWin, "Lap Recording")}${lapNote}${renderTable_(headers, rows, "Waiting for decoded lap data...", "Lap Recording", { windowed: rowWin.windowed })}`;
     }
 
-    function currentSpeedAndG_(d, elapsed) {
-        const state = currentDistanceAtTime_(d, elapsed);
+    function driverSegmentSpeedMps_(d, index) {
+        const i = Math.max(0, Number(index) || 0);
+        const cached = d?._mpgSpeedMpsBySegment?.[i];
+        if (Number.isFinite(cached)) return cached;
+        return d?.segmentTimes?.[i] > 0 ? (d.segmentDistancesMeters?.[i] || 0) / d.segmentTimes[i] : NaN;
+    }
+
+    function driverSegmentLongG_(d, index) {
+        const i = Math.max(0, Number(index) || 0);
+        const cached = d?._mpgLongGBySegment?.[i];
+        if (Number.isFinite(cached)) return cached;
+        if (i <= 0) return NaN;
+        const speed = driverSegmentSpeedMps_(d, i);
+        const prev = driverSegmentSpeedMps_(d, i - 1);
+        const dt = ((d?.segmentTimes?.[i] || 0) + (d?.segmentTimes?.[i - 1] || 0)) / 2;
+        return calibrateLongitudinalG_(Number.isFinite(speed) && Number.isFinite(prev) && dt > 0 ? ((speed - prev) / dt) / 9.80665 : NaN);
+    }
+
+    function driverSegmentCurvature_(d, index) {
+        if (!analysis?.routeModel || !d) return NaN;
+        if (d._mpgCurvatureRouteModel !== analysis.routeModel || !Array.isArray(d._mpgCurvatureBySegment)) {
+            d._mpgCurvatureRouteModel = analysis.routeModel;
+            d._mpgCurvatureBySegment = [];
+        }
+        const i = Math.max(0, Number(index) || 0);
+        if (Object.prototype.hasOwnProperty.call(d._mpgCurvatureBySegment, i)) {
+            return d._mpgCurvatureBySegment[i];
+        }
+        const value = routeCurvatureAtMeters_(analysis.routeModel, d.cumulativeDistances?.[i] || 0);
+        d._mpgCurvatureBySegment[i] = value;
+        return value;
+    }
+
+    function currentSpeedAndG_(d, elapsed, providedState = null) {
+        const state = providedState || currentDistanceAtTime_(d, elapsed);
         if (!telemetryCanSample_(elapsed)) {
             return {
                 speed: NaN,
@@ -12592,10 +12835,10 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
         let dist = 0, time = 0;
         for (let j = start; j <= end; j++) { dist += d.segmentDistancesMeters?.[j] || 0; time += d.segmentTimes?.[j] || 0; }
         const speed = time > 0 ? dist / time : NaN;
-        const prevSpeed = i > 0 && d.segmentTimes[i - 1] > 0 ? (d.segmentDistancesMeters[i - 1] || 0) / d.segmentTimes[i - 1] : speed;
+        const prevSpeed = i > 0 ? driverSegmentSpeedMps_(d, i - 1) : speed;
         const dt = i > 0 ? (d.segmentTimes[i] + d.segmentTimes[i - 1]) / 2 : d.segmentTimes[i];
         const g = calibrateLongitudinalG_(dt > 0 ? ((speed - prevSpeed) / dt) / 9.80665 : 0);
-        const curv = analysis?.routeModel ? routeCurvatureAtMeters_(analysis.routeModel, state.distance) : NaN;
+        const curv = analysis?.routeModel ? driverSegmentCurvature_(d, i) : NaN;
         const lateralG = calibrateLateralG_(Number.isFinite(speed) && Number.isFinite(curv) ? (speed * speed * curv) / 9.80665 : NaN);
         const combinedG = Math.sqrt(Math.pow(Number.isFinite(g) ? g : 0, 2) + Math.pow(Number.isFinite(lateralG) ? lateralG : 0, 2));
         return { speed, g, lateralG, combinedG, routeAvailable: !!analysis?.routeModel, state };
@@ -12798,52 +13041,78 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
 
     function renderAccelTable_(elapsed) {
         const active = telemetryCanSample_(elapsed);
-        const ordered = getLiveOrder_(elapsed);
-        const win = focusedOrderWindow_(ordered);
+        const frame = currentFrameRows_(elapsed, analysisCanShowFullRace_() && !shouldRenderReplayMoment_());
+        const win = focusedOrderWindow_(frame.rows);
         const rows = win.items.map(({ row: x, pos }) => {
-            const { g } = currentSpeedAndG_(x.driver, elapsed);
+            const { g } = currentSpeedAndG_(x.driver, elapsed, x.state);
             const state = !active || !Number.isFinite(g) ? "--" : g > 0.03 ? "Accel" : g < -0.03 ? "Brake" : "Coast";
-            const key = String(x.driver.driverId || normalizeDriverName_(x.driver.name || ""));
+            const key = x.key || analysisDriverKey_(x.driver, x.index || 0);
             return `<tr data-mpg-accel-driver="${escAttr_(key)}"${focusRowDataAttrs_(x.driver)}><td data-accel-field="pos">${pos}</td><td>${carComboCell_(x.driver)}</td><td>${driverWithRsCell_(x.driver)}</td><td class="mono" data-accel-field="g">${formatG_(g)}</td><td data-accel-field="state">${state}</td></tr>`;
         });
         return `${focusedWindowNote_(win, "Accel/Brake")}${renderTable_(["Pos", "Car image + Car name", "Driver (RS)", "Current Accel/Brake", "State"], rows, "Waiting for acceleration data...", "Accel/Brake", { windowed: win.windowed })}`;
     }
 
-    function driverTelemetryStats_(d, elapsed, canFull) {
+    function driverTelemetryStats_(d, elapsed, canFull, providedState = null) {
         if (!canFull && !telemetryCanSample_(elapsed)) {
             return { topSpeedMps: NaN, slowestSpeedMps: NaN, highestG: NaN, lowestG: NaN, highestLateralG: NaN };
         }
         if (canFull && d?.fullTelemetryStats) return d.fullTelemetryStats;
-        const limitIndex = canFull ? d.segmentTimes.length - 1 : currentDistanceAtTime_(d, elapsed).segmentIndex;
-        const speeds = [];
-        const gs = [];
-        const lateralGs = [];
-        const combinedGs = [];
+        const limitIndex = canFull ? d.segmentTimes.length - 1 : (providedState || currentDistanceAtTime_(d, elapsed)).segmentIndex;
+        const cacheKey = [
+            analysis.indexes?.key || analysisRuntimeKey_(analysis),
+            analysisDriverKey_(d, d?._mpgOrderIndex || 0),
+            canFull ? 1 : 0,
+            Math.max(0, Number(limitIndex) || 0),
+            analysis?.routeModel ? 1 : 0
+        ].join("|");
+        const cached = PHASE_REWRITE_FLAGS.telemetryStatCache ? boundedMapGet_(telemetryStatsCache, cacheKey) : null;
+        if (cached) return cached;
+
+        let topSpeedMps = -Infinity;
+        let slowestSpeedMps = Infinity;
+        let highestLongG = -Infinity;
+        let lowestG = Infinity;
+        let highestLateralG = -Infinity;
+        let highestCombinedG = -Infinity;
+        let hasSpeed = false;
+        let hasLongG = false;
+        let hasLateral = false;
+        let hasCombined = false;
         for (let i = 0; i <= limitIndex && i < d.segmentTimes.length; i++) {
-            const sp = d.segmentTimes[i] > 0 ? (d.segmentDistancesMeters?.[i] || 0) / d.segmentTimes[i] : NaN;
-            if (Number.isFinite(sp)) speeds.push(sp);
-            let longG = NaN;
-            if (i > 0) {
-                const prev = d.segmentTimes[i - 1] > 0 ? (d.segmentDistancesMeters?.[i - 1] || 0) / d.segmentTimes[i - 1] : NaN;
-                const dt = (d.segmentTimes[i] + d.segmentTimes[i - 1]) / 2;
-                longG = calibrateLongitudinalG_(Number.isFinite(prev) && dt > 0 ? ((sp - prev) / dt) / 9.80665 : NaN);
-                if (Number.isFinite(longG)) gs.push(longG);
+            const sp = driverSegmentSpeedMps_(d, i);
+            if (Number.isFinite(sp)) {
+                if (sp > topSpeedMps) topSpeedMps = sp;
+                if (sp < slowestSpeedMps) slowestSpeedMps = sp;
+                hasSpeed = true;
             }
+            const longG = driverSegmentLongG_(d, i);
+            if (Number.isFinite(longG)) {
+                if (longG > highestLongG) highestLongG = longG;
+                if (longG < lowestG) lowestG = longG;
+                hasLongG = true;
+            }
+            let latG = NaN;
             if (analysis?.routeModel && Number.isFinite(sp)) {
-                const curv = routeCurvatureAtMeters_(analysis.routeModel, d.cumulativeDistances?.[i] || 0);
-                const latG = calibrateLateralG_(Number.isFinite(curv) ? (sp * sp * curv) / 9.80665 : NaN);
-                if (Number.isFinite(latG)) lateralGs.push(Math.abs(latG));
-                if (Number.isFinite(longG) || Number.isFinite(latG)) {
-                    combinedGs.push(Math.sqrt(Math.pow(Number.isFinite(longG) ? longG : 0, 2) + Math.pow(Number.isFinite(latG) ? latG : 0, 2)));
+                const curv = driverSegmentCurvature_(d, i);
+                latG = calibrateLateralG_(Number.isFinite(curv) ? (sp * sp * curv) / 9.80665 : NaN);
+                if (Number.isFinite(latG)) {
+                    const absLat = Math.abs(latG);
+                    if (absLat > highestLateralG) highestLateralG = absLat;
+                    hasLateral = true;
                 }
+            }
+            if (Number.isFinite(longG) || Number.isFinite(latG)) {
+                const combined = Math.sqrt(Math.pow(Number.isFinite(longG) ? longG : 0, 2) + Math.pow(Number.isFinite(latG) ? latG : 0, 2));
+                if (combined > highestCombinedG) highestCombinedG = combined;
+                hasCombined = true;
             }
         }
         const stats = {
-            topSpeedMps: maxFinite_(speeds),
-            slowestSpeedMps: minFinite_(speeds),
-            highestG: maxFinite_(combinedGs.length ? combinedGs : gs),
-            lowestG: minFinite_(gs),
-            highestLateralG: maxFinite_(lateralGs)
+            topSpeedMps: hasSpeed ? topSpeedMps : NaN,
+            slowestSpeedMps: hasSpeed ? slowestSpeedMps : NaN,
+            highestG: hasCombined ? highestCombinedG : (hasLongG ? highestLongG : NaN),
+            lowestG: hasLongG ? lowestG : NaN,
+            highestLateralG: hasLateral ? highestLateralG : NaN
         };
         if (canFull && d) {
             d.fullTelemetryStats = stats;
@@ -12852,6 +13121,10 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
             d.highestG = stats.highestG;
             d.lowestG = stats.lowestG;
             d.highestLateralG = stats.highestLateralG;
+        }
+        if (PHASE_REWRITE_FLAGS.telemetryStatCache) {
+            telemetryStatsCache.set(cacheKey, stats);
+            trimMapToMax_(telemetryStatsCache, TELEMETRY_STATS_CACHE_MAX, cacheKey);
         }
         return stats;
     }
@@ -12873,19 +13146,81 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
         return 3;
     }
 
+    function sectorEndTime_(driver, sectorRow) {
+        if (!driver || !sectorRow || !analysis) return Infinity;
+        const endIndex = (Number(sectorRow.lap) - 1) * Math.max(1, analysis.segmentsPerLap || 1)
+            + (analysis.sectorSplitIndexes?.[Number(sectorRow.sector) - 1] || 0) - 1;
+        const endTime = driver.cumulativeTimes?.[endIndex];
+        return Number.isFinite(endTime) ? endTime : Infinity;
+    }
+
+    function sectorSnapshot_(elapsed, canFull) {
+        if (!analysis?.drivers?.length) {
+            return { key: "empty", bestEntries: {}, bestBySector: {}, driverModels: new Map(), completedKey: "" };
+        }
+        const full = !!canFull;
+        const bucket = full ? "full" : replayStateBucket_(elapsed, false);
+        const key = `${analysis.indexes?.key || analysisRuntimeKey_(analysis)}|${full ? 1 : 0}|${bucket}`;
+        const cached = PHASE_REWRITE_FLAGS.sectorSnapshots ? boundedMapGet_(sectorSnapshotCache, key) : null;
+        if (cached) return cached;
+
+        const bestEntries = {
+            1: { d: null, s: null, seconds: Infinity },
+            2: { d: null, s: null, seconds: Infinity },
+            3: { d: null, s: null, seconds: Infinity }
+        };
+        const driverModels = new Map();
+        const completedParts = [];
+        for (const d of analysis.drivers) {
+            const raw = [NaN, NaN, NaN];
+            let completed = 0;
+            for (const s of d.sectorTimes || []) {
+                const sector = Number(s?.sector);
+                const seconds = Number(s?.seconds);
+                if (![1, 2, 3].includes(sector) || !Number.isFinite(seconds)) continue;
+                if (!full && sectorEndTime_(d, s) > elapsed) continue;
+                completed += 1;
+                if (!Number.isFinite(raw[sector - 1]) || seconds < raw[sector - 1]) raw[sector - 1] = seconds;
+                if (seconds < bestEntries[sector].seconds) bestEntries[sector] = { d, s, seconds };
+            }
+            const theoretical = raw.every(Number.isFinite) ? raw.reduce((a, b) => a + b, 0) : NaN;
+            const diff = Number.isFinite(theoretical) && Number.isFinite(d.bestLapSeconds) ? theoretical - d.bestLapSeconds : NaN;
+            const driverKey = analysisDriverKey_(d, d._mpgOrderIndex ?? 0);
+            driverModels.set(driverKey, { d, raw, theoretical, diff });
+            completedParts.push(`${driverKey}:${completed}`);
+        }
+        const bestBySector = {};
+        for (const sector of [1, 2, 3]) {
+            bestBySector[sector] = Number.isFinite(bestEntries[sector].seconds) ? bestEntries[sector].seconds : NaN;
+        }
+        const snapshot = {
+            key,
+            bestEntries,
+            bestBySector,
+            driverModels,
+            completedKey: completedParts.join(",")
+        };
+        if (PHASE_REWRITE_FLAGS.sectorSnapshots) {
+            sectorSnapshotCache.set(key, snapshot);
+            trimMapToMax_(sectorSnapshotCache, SECTOR_SNAPSHOT_CACHE_MAX, key);
+        }
+        return snapshot;
+    }
+
     function driverSlideEvents_(d, elapsed) {
         if (!d?.segmentTimes?.length || !analysis?.routeModel) return [];
         const full = analysisCanShowFullRace_() && !shouldRenderReplayMoment_();
-        const limitIndex = full ? d.segmentTimes.length - 1 : currentDistanceAtTime_(d, elapsed).segmentIndex;
+        const frameRow = full ? null : currentFrameRows_(elapsed, false).rows.find(row => row.driver === d);
+        const limitIndex = full ? d.segmentTimes.length - 1 : (frameRow?.state || currentDistanceAtTime_(d, elapsed)).segmentIndex;
         const cached = slideEventsCache.get(d);
         if (cached && cached.full === full && cached.limitIndex === limitIndex && cached.routeModel === analysis.routeModel && cached.smoothing === telemetrySmoothing) return cached.events;
         const events = [];
         for (let i = 1; i <= limitIndex && i < d.segmentTimes.length; i++) {
-            const prevSpeed = d.segmentTimes[i - 1] > 0 ? (d.segmentDistancesMeters?.[i - 1] || 0) / d.segmentTimes[i - 1] : NaN;
-            const speed = d.segmentTimes[i] > 0 ? (d.segmentDistancesMeters?.[i] || 0) / d.segmentTimes[i] : NaN;
+            const prevSpeed = driverSegmentSpeedMps_(d, i - 1);
+            const speed = driverSegmentSpeedMps_(d, i);
             if (!Number.isFinite(prevSpeed) || !Number.isFinite(speed)) continue;
             const dropKmh = (prevSpeed - speed) * 3.6;
-            const curv = routeCurvatureAtMeters_(analysis.routeModel, d.cumulativeDistances?.[i] || 0);
+            const curv = driverSegmentCurvature_(d, i);
             const lateral = Math.abs(calibrateLateralG_(Number.isFinite(curv) ? (speed * speed * curv) / 9.80665 : NaN));
             const lap = Math.floor(i / Math.max(1, analysis.segmentsPerLap || 1)) + 1;
             const sector = sectorNumberForSegment_(i);
@@ -12909,13 +13244,13 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
 
     function renderSpeedMode_(elapsed, canFull) {
         if (!analysis.lapMeters) return `<div class="mpg-note">Track distance unknown — speed unavailable.</div>`;
-        const ordered = getLiveOrder_(elapsed);
-        const win = focusedOrderWindow_(ordered);
+        const frame = currentFrameRows_(elapsed, canFull);
+        const win = focusedOrderWindow_(frame.rows);
         const rows = win.items.map(({ row: x, pos }) => {
             const d = x.driver;
-            const { speed } = currentSpeedAndG_(d, elapsed);
-            const stats = driverTelemetryStats_(d, elapsed, canFull);
-            const avgState = currentDistanceAtTime_(d, canFull ? d.finalTime : elapsed);
+            const { speed } = currentSpeedAndG_(d, elapsed, x.state);
+            const stats = driverTelemetryStats_(d, elapsed, canFull, x.state);
+            const avgState = x.state || currentDistanceAtTime_(d, canFull ? d.finalTime : elapsed);
             const avgTime = canFull ? d.finalTime : Math.max(0.001, elapsed);
             const avgSpeed = avgTime > 0 ? (avgState.distance || 0) / avgTime : NaN;
             return `<tr${focusRowDataAttrs_(d)}><td>${pos}</td><td>${carComboCell_(d)}</td><td>${driverWithRsCell_(d)}</td><td class="mono">${formatSpeed_(speed)}</td><td class="mono">${formatSpeed_(stats.topSpeedMps)}</td><td class="mono">${formatSpeed_(avgSpeed)}</td></tr>`;
@@ -12924,31 +13259,20 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
     }
 
     function renderSectorsMode_(elapsed, canFull) {
-        const sectorVisible = (d, s) => {
-            if (canFull) return true;
-            const endIndex = (s.lap - 1) * analysis.segmentsPerLap + analysis.sectorSplitIndexes[s.sector - 1] - 1;
-            return (d.cumulativeTimes?.[endIndex] || Infinity) <= elapsed;
-        };
+        const snapshot = sectorSnapshot_(elapsed, canFull);
         const best = [];
-        const bestBySector = {};
+        const bestBySector = snapshot.bestBySector || {};
         for (const sector of [1, 2, 3]) {
-            const all = analysis.drivers.flatMap(d => (d.sectorTimes || []).filter(s => s.sector === sector && sectorVisible(d, s)).map(s => ({ d, s }))).sort((a, b) => a.s.seconds - b.s.seconds);
-            if (all[0]) {
-                bestBySector[sector] = all[0].s.seconds;
-                best.push(`<tr${focusRowDataAttrs_(all[0].d)}><td>S${sector}</td><td>${carComboCell_(all[0].d)}</td><td>${driverWithRsCell_(all[0].d)}</td><td class="mono mpg-purple">${formatTimeSeconds_(all[0].s.seconds)}</td><td>${all[0].s.lap}</td></tr>`);
+            const entry = snapshot.bestEntries?.[sector];
+            if (entry?.d && entry?.s) {
+                best.push(`<tr${focusRowDataAttrs_(entry.d)}><td>S${sector}</td><td>${carComboCell_(entry.d)}</td><td>${driverWithRsCell_(entry.d)}</td><td class="mono mpg-purple">${formatTimeSeconds_(entry.s.seconds)}</td><td>${entry.s.lap}</td></tr>`);
             }
         }
-        const ordered = getLiveOrder_(canFull ? Infinity : elapsed, canFull);
-        const win = focusedOrderWindow_(ordered);
+        const frame = currentFrameRows_(canFull ? Infinity : elapsed, canFull);
+        const win = focusedOrderWindow_(frame.rows);
         const perDriverModels = win.items.map(({ row: x }) => {
             const d = x.driver;
-            const raw = [1, 2, 3].map(sec => {
-                const vals = (d.sectorTimes || []).filter(s => s.sector === sec && sectorVisible(d, s)).map(s => s.seconds);
-                return vals.length ? Math.min(...vals) : NaN;
-            });
-            const theoretical = raw.every(Number.isFinite) ? raw.reduce((a, b) => a + b, 0) : NaN;
-            const diff = Number.isFinite(theoretical) && Number.isFinite(d.bestLapSeconds) ? theoretical - d.bestLapSeconds : NaN;
-            return { d, raw, theoretical, diff };
+            return snapshot.driverModels.get(analysisDriverKey_(d, d._mpgOrderIndex ?? 0)) || { d, raw: [NaN, NaN, NaN], theoretical: NaN, diff: NaN };
         });
         const bestTheoretical = minFinite_(perDriverModels.map(row => row.theoretical));
         const maxDiff = maxFinite_(perDriverModels.map(row => row.diff).filter(v => Number.isFinite(v) && v > 0));
@@ -12960,7 +13284,7 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
         };
         const ideal = [1, 2, 3].map(sec => bestBySector[sec]).filter(Number.isFinite);
         const idealLap = ideal.length === 3 ? ideal.reduce((a, b) => a + b, 0) : NaN;
-        const fastestRaceLap = minFinite_(analysis.drivers.map(d => d.bestLapSeconds));
+        const fastestRaceLap = fastestRaceLapSeconds_();
         const delta = Number.isFinite(idealLap) && Number.isFinite(fastestRaceLap) ? idealLap - fastestRaceLap : NaN;
         const driverHeaders = ["Metric"].concat(perDriverModels.map(({ d }) => {
             const rs = formatDriverRs_(d.racingSkill).replace(/^RS:\s*/i, "");
@@ -12986,13 +13310,13 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
     }
 
     function renderPaceMode_(elapsed, canFull) {
-        const fastestRaceLap = minFinite_(analysis.drivers.map(d => d.bestLapSeconds));
-        const ordered = getLiveOrder_(elapsed);
-        const win = focusedOrderWindow_(ordered);
+        const fastestRaceLap = fastestRaceLapSeconds_();
+        const frame = currentFrameRows_(elapsed, canFull);
+        const win = focusedOrderWindow_(frame.rows);
         const rows = win.items.map(({ row: x, pos }) => {
             const d = x.driver;
             const effectiveElapsed = canFull ? d.finalTime : elapsed;
-            const live = currentDistanceAtTime_(d, effectiveElapsed);
+            const live = x.state || currentDistanceAtTime_(d, effectiveElapsed);
             const lapStartIndex = Math.floor(live.segmentIndex / Math.max(1, analysis.segmentsPerLap)) * Math.max(1, analysis.segmentsPerLap) - 1;
             const lapStartTime = live.segmentIndex > 0 ? (d.cumulativeTimes?.[lapStartIndex] || 0) : 0;
             const visibleLapTimes = canFull ? d.lapTimes : (d.validLapTimes || []).filter(l => {
@@ -13023,7 +13347,7 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
     function gyroStructureKey_(elapsed, canFull) {
         const d = selectedGyroDriver_();
         if (!d) return "waiting";
-        const order = getLiveOrder_(elapsed, canFull).map(x => x.driver.driverId || normalizeDriverName_(x.driver.name || "")).join(",");
+        const order = currentFrameRows_(elapsed, canFull).rows.map(x => x.key).join(",");
         const events = driverSlideEvents_(d, elapsed).map(e => `${e.lap}:${e.sector}:${e.dropKmh.toFixed(2)}:${Number.isFinite(e.lost) ? e.lost.toFixed(3) : ""}`).join(",");
         return `${d.driverId || normalizeDriverName_(d.name || "")}|${order}|${events}|${analysis?.routeModel ? 1 : 0}|${debugEnabled ? 1 : 0}`;
     }
@@ -13045,18 +13369,19 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
             if (Object.prototype.hasOwnProperty.call(values, key)) el.textContent = values[key];
         });
         const active = telemetryCanSample_(elapsed);
-        const ordered = getLiveOrder_(elapsed);
-        const positions = new Map(ordered.map((x, i) => [String(x.driver.driverId || normalizeDriverName_(x.driver.name || "")), i + 1]));
+        const frame = currentFrameRows_(elapsed, analysisCanShowFullRace_() && !shouldRenderReplayMoment_());
+        const rowsByKey = new Map(frame.rows.map(row => [row.key, row]));
         body.querySelectorAll("[data-mpg-accel-driver]").forEach(row => {
             const key = row.getAttribute("data-mpg-accel-driver") || "";
-            const driver = analysis?.drivers?.find(x => String(x.driverId || normalizeDriverName_(x.name || "")) === key);
+            const frameRow = rowsByKey.get(key);
+            const driver = frameRow?.driver || analysis?.indexes?.driverByKey?.get(key) || analysis?.drivers?.find(x => analysisDriverKey_(x, x._mpgOrderIndex ?? 0) === key);
             if (!driver) return;
-            const { g } = currentSpeedAndG_(driver, elapsed);
+            const { g } = currentSpeedAndG_(driver, elapsed, frameRow?.state || null);
             const state = !active || !Number.isFinite(g) ? "--" : g > 0.03 ? "Accel" : g < -0.03 ? "Brake" : "Coast";
             const pos = row.querySelector('[data-accel-field="pos"]');
             const gCell = row.querySelector('[data-accel-field="g"]');
             const stateCell = row.querySelector('[data-accel-field="state"]');
-            if (pos) pos.textContent = String(positions.get(key) || "--");
+            if (pos) pos.textContent = String(frameRow?.pos || "--");
             if (gCell) gCell.textContent = formatG_(g);
             if (stateCell) stateCell.textContent = state;
         });
@@ -13092,17 +13417,16 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
     function renderSummaryMode_(elapsed = getVisualElapsed_(), canFull = null) {
         const full = canFull == null ? (analysisCanShowFullRace_() && !shouldRenderReplayMoment_()) : !!canFull;
         if (!full && shouldRenderReplayMoment_()) {
-            const ordered = getLiveOrder_(elapsed, false);
-            const win = focusedOrderWindow_(ordered);
-            const leaderDist = ordered[0]?.state?.distance || 0;
-            const totalMeters = (analysis.lapMeters || 0) * (analysis.laps || 0);
+            const frame = currentFrameRows_(elapsed, false);
+            const win = focusedOrderWindow_(frame.rows);
+            const leaderDist = frame.leaderDist || 0;
             const rows = win.items.map(({ row: x, pos }) => {
                 const d = x.driver;
                 const state = x.state || currentDistanceAtTime_(d, elapsed);
-                const lap = elapsed <= 0.05 ? 0 : (state.finished && !d.crashed ? analysis.laps : clamp_((state.lapIndex || 0) + 1, 1, analysis.laps || 1));
-                const pct = totalMeters > 0 ? `${(clamp_(state.distance / totalMeters, 0, 1) * 100).toFixed(1)}%` : "--";
+                const lap = x.lap || (elapsed <= 0.05 ? 0 : (state.finished && !d.crashed ? analysis.laps : clamp_((state.lapIndex || 0) + 1, 1, analysis.laps || 1)));
+                const pct = frame.totalMeters > 0 ? `${(x.completionPct || 0).toFixed(1)}%` : "--";
                 const leaderGap = pos === 1 ? "0.000" : formatGapSeconds_(Math.max(0, driverReachTimeForDistance_(d, leaderDist) - elapsed));
-                const { speed } = currentSpeedAndG_(d, elapsed);
+                const { speed } = currentSpeedAndG_(d, elapsed, state);
                 const status = state.finished ? (d.crashed ? "DNF" : "Finished") : `Lap ${lap}/${analysis.laps || "?"}`;
                 return `<tr${focusRowDataAttrs_(d)}><td>${pos}</td><td>${carComboCell_(d)}</td><td>${driverWithRsCell_(d)}</td><td>${esc_(status)}</td><td>${esc_(pct)}</td><td class="mono">${leaderGap}</td><td class="mono">${formatSpeed_(speed)}</td></tr>`;
             });
@@ -13112,8 +13436,8 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
         if (!full) return `<div class="mpg-note">Post-race summary unlocks when the race finishes. Enable preview in Settings to inspect full delivered race data early.</div>`;
         const aggregatesReady = !!(analysis.sectorWinsReady && analysis.leadStatsReady);
         const aggregateNote = aggregatesReady ? "" : `<div class="mpg-note">Calculating heavy-race lead and sector aggregates${aggregateWorkerLastStatus ? ` (${esc_(aggregateWorkerLastStatus)})` : ""}. Final lead history will update automatically.</div>`;
-        const ordered = getLiveOrder_(Infinity, true);
-        const win = focusedOrderWindow_(ordered);
+        const frame = currentFrameRows_(Infinity, true);
+        const win = focusedOrderWindow_(frame.rows);
         const rows = win.items.map(({ row: x, pos }) => {
             const d = x.driver;
             const stats = driverTelemetryStats_(d, Infinity, true);
@@ -13128,12 +13452,12 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
         canFull = canFull == null ? (analysisCanShowFullRace_() && !shouldRenderReplayMoment_()) : !!canFull;
         pgLocalEnsureTrackHistory_(analysis?.trackName || raceMeta?.track || "").catch(() => {});
         const aggregatesReady = !canFull || !!(analysis.sectorWinsReady && analysis.leadStatsReady);
-        const ordered = getLiveOrder_(canFull ? Infinity : elapsed, canFull);
-        const win = focusedOrderWindow_(ordered);
+        const frame = currentFrameRows_(canFull ? Infinity : elapsed, canFull);
+        const win = focusedOrderWindow_(frame.rows);
         const visibleDrivers = win.items.map(({ row }) => row.driver);
         const rows = win.items.map(({ row: x, pos }) => {
             const d = x.driver;
-            const stats = driverTelemetryStats_(d, elapsed, canFull);
+            const stats = driverTelemetryStats_(d, elapsed, canFull, x.state);
             return `<tr${focusRowDataAttrs_(d)}><td>${pos}</td><td>${carComboCell_(d)}</td><td>${driverWithRsCell_(d)}</td><td>${esc_(d.driverId || "--")}</td><td class="mono">${canFull ? formatTimeSeconds_(d.bestLapSeconds) : "--"}</td><td class="mono">${canFull ? formatTimeSeconds_(d.averageLapSeconds) : "--"}</td><td class="mono">${canFull ? formatTimeSeconds_(d.idealLapSeconds) : "--"}</td><td>${canFull && d.consistencyScore != null ? d.consistencyScore.toFixed(1) : "--"}</td><td>${canFull && aggregatesReady ? (d.sectorsWon || 0) : "--"}</td><td>${canFull && aggregatesReady ? (d.lapsLed || 0) : "--"}</td><td class="mono">${canFull && aggregatesReady ? formatLeadTime_(d.timeInLeadSeconds) : "--"}</td><td class="mono">${formatSpeed_(stats.topSpeedMps)}</td><td class="mono">${formatG_(stats.highestG)}</td></tr>`;
         });
         const note = canFull
@@ -13734,7 +14058,7 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
         const buildPerf = perf["analysis.build"] || {};
         const aggregate = aggregateWorkerLastStatus ? ` Aggregate worker: ${aggregateWorkerLastStatus}${aggregateWorkerLastMs ? ` ${aggregateWorkerLastMs}ms` : ""}${aggregateWorkerLastError ? ` (${aggregateWorkerLastError})` : ""}.` : "";
         const cache = phaseCacheStats_();
-        return `Heavy mode: ${heavyRaceLightweightMode_() ? "ON" : "OFF"}, estimated points: ${Math.round(heavy.estimatedPoints || 0).toLocaleString()}, racingData fetches: ${stats.fetches || 0}, duplicate payloads skipped: ${stats.duplicatePayloadsSkipped || 0}, rendered rows: ${rendered}/${total}. Big Race cache: raw ${rawState}, summary ${summaryState}${worker}${error}. Perf: render ${renderPerf.lastMs || 0}/${renderPerf.maxMs || 0}ms, build ${buildPerf.lastMs || 0}/${buildPerf.maxMs || 0}ms. Memory caches: payloads ${cache.payloads}/${RACE_DATA_PAYLOAD_CACHE_MAX}, states ${cache.acceptedStates}/${RACE_DATA_META_CACHE_MAX}, summaries ${cache.bigRaceSummaries}/${BIG_RACE_SUMMARY_MEMORY_MAX}.${aggregate}`;
+        return `Heavy mode: ${heavyRaceLightweightMode_() ? "ON" : "OFF"}, estimated points: ${Math.round(heavy.estimatedPoints || 0).toLocaleString()}, racingData fetches: ${stats.fetches || 0}, duplicate payloads skipped: ${stats.duplicatePayloadsSkipped || 0}, rendered rows: ${rendered}/${total}. Big Race cache: raw ${rawState}, summary ${summaryState}${worker}${error}. Perf: render ${renderPerf.lastMs || 0}/${renderPerf.maxMs || 0}ms, build ${buildPerf.lastMs || 0}/${buildPerf.maxMs || 0}ms. Memory caches: payloads ${cache.payloads}/${RACE_DATA_PAYLOAD_CACHE_MAX}, states ${cache.acceptedStates}/${RACE_DATA_META_CACHE_MAX}, summaries ${cache.bigRaceSummaries}/${BIG_RACE_SUMMARY_MEMORY_MAX}, frames ${cache.frameRows}/${FRAME_ROWS_CACHE_MAX}, telemetry ${cache.telemetryStats}/${TELEMETRY_STATS_CACHE_MAX}, sectors ${cache.sectorSnapshots}/${SECTOR_SNAPSHOT_CACHE_MAX}.${aggregate}`;
     }
 
     function scheduleRender_(dirty = null) {
