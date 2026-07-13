@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         MoDuL's: Custom Race Filter
 // @namespace    modul.torn.racing
-// @version      2.4.1
+// @version      2.4.6
 // @description  Custom Race filter. (OG Car Names & PDA Compatible)
 // @author       MoDuL
 // @copyright    2026 MoDuL. All rights reserved.
@@ -31,7 +31,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
 (function () {
   "use strict";
 
-var VERSION = "2.4.1";
+var VERSION = "2.4.6";
   var TAG = "[MoDuL's: Custom Race Filter v" + VERSION + "]";
   try { console.log(TAG, "Loaded ✅"); } catch (e) {}
 
@@ -684,10 +684,6 @@ var VERSION = "2.4.1";
     catch (_) { return Object.assign({}, defaults); }
   }
 
-  function loadUiState_() {
-    return parseStoredJson(gmGet(STORE.ui, ""), UI_DEFAULTS);
-  }
-
   async function loadUiStateAsync_() {
     return parseStoredJson(await gmGetAsync(STORE.ui, ""), UI_DEFAULTS);
   }
@@ -699,10 +695,6 @@ var VERSION = "2.4.1";
     const next = Object.assign({}, nextState);
     for (const key of SUPPORTER_SETTING_KEYS) next[key] = DEFAULTS[key];
     return next;
-  }
-
-  function loadSettings() {
-    return parseStoredJson(gmGet(STORE.settings, ""), DEFAULTS);
   }
 
   async function loadSettingsAsync() {
@@ -762,7 +754,7 @@ var VERSION = "2.4.1";
     #modulRFOuter .rfCollapseBtn:hover{ background: rgba(0,0,0,.25); }
 
     #modulRFOuter .rfBtns{
-      display:grid; grid-template-columns: 1fr 1fr;
+      display:grid; grid-template-columns: repeat(3, minmax(0, 1fr));
       gap:10px;
       padding: 0 10px 10px 10px;
     }
@@ -1386,9 +1378,9 @@ var VERSION = "2.4.1";
   }
 
   function getItems() {
-    const list = $(".custom-events-wrap .events-list");
+    const list = $("#racingAdditionalContainer .custom-events-wrap .events-list") || $(".custom-events-wrap .events-list");
     if (!list) return [];
-    return Array.from(list.children).filter(li => li && li.tagName === "LI");
+    return Array.from(list.children).filter(li => li && li.tagName === "LI" && !li.classList.contains("clear"));
   }
 
   function norm(s) { return String(s || "").replace(/\s+/g, " ").trim().toLowerCase(); }
@@ -1962,6 +1954,91 @@ var VERSION = "2.4.1";
     return null;
   }
 
+  let raceContentRefreshBusy = false;
+
+  function customRaceUrl() {
+    return new URL("/page.php?sid=racing&tab=customrace", window.location.origin).href;
+  }
+
+  async function fetchCustomRaceHtml() {
+    if (typeof window.fetch !== "function") throw new Error("Fetch is not available in this browser.");
+    const response = await window.fetch(customRaceUrl(), {
+      method: "GET",
+      credentials: "same-origin",
+      cache: "no-cache",
+      headers: { "Accept": "text/html,application/xhtml+xml,*/*" }
+    });
+    if (!response.ok) throw new Error(`Torn returned HTTP ${response.status}.`);
+    return response.text();
+  }
+
+  function extractCustomRaceContent(html) {
+    const doc = new DOMParser().parseFromString(String(html || ""), "text/html");
+    const nextContainer = doc.querySelector("#racingAdditionalContainer");
+    if (nextContainer) return { mode: "container", html: nextContainer.innerHTML };
+
+    const nextWrap = doc.querySelector(".custom-events-wrap");
+    if (nextWrap) return { mode: "wrap", html: nextWrap.outerHTML };
+
+    return null;
+  }
+
+  function replaceCustomRaceContent(content) {
+    if (!content) return false;
+
+    const oldUi = document.getElementById("modulRFOuter");
+    if (oldUi) oldUi.remove();
+
+    if (content.mode === "container") {
+      const currentContainer = document.querySelector("#racingAdditionalContainer");
+      if (currentContainer) {
+        currentContainer.innerHTML = content.html;
+        return true;
+      }
+    }
+
+    const currentWrap = document.querySelector(".custom-events-wrap");
+    if (currentWrap && currentWrap.parentNode) {
+      const temp = document.createElement("div");
+      temp.innerHTML = content.html;
+      const nextWrap = temp.querySelector(".custom-events-wrap");
+      if (!nextWrap) return false;
+      currentWrap.parentNode.replaceChild(nextWrap, currentWrap);
+      return true;
+    }
+
+    return false;
+  }
+
+  async function refreshCustomRaceContent(button) {
+    if (raceContentRefreshBusy) return;
+    raceContentRefreshBusy = true;
+
+    const oldText = button ? button.textContent : "";
+    if (button) {
+      button.disabled = true;
+      button.textContent = "Refreshing...";
+    }
+
+    try {
+      const html = await fetchCustomRaceHtml();
+      const content = extractCustomRaceContent(html);
+      if (!replaceCustomRaceContent(content)) throw new Error("Could not find custom race content in Torn response.");
+      mountUI();
+      applyNow();
+      schedulePostMountLicenseCheck(0, true);
+    } catch (error) {
+      try { console.warn(TAG, "manual custom race refresh failed", error); } catch (_) {}
+      applyNow();
+    } finally {
+      raceContentRefreshBusy = false;
+      if (button) {
+        button.disabled = false;
+        button.textContent = oldText || "Refresh races";
+      }
+    }
+  }
+
   function mountUI() {
     if (document.getElementById("modulRFOuter")) return true;
 
@@ -2125,7 +2202,18 @@ var VERSION = "2.4.1";
     btnAdv.textContent = supporter.unlocked ? (state.advOpen ? "Advanced ▲" : "Advanced ▼") : "Advanced (Supporter)";
     applyTornBtnClasses(btnAdv);
 
-    btnRow.append(btnFilter, btnAdv);
+    const btnRefreshRaces = document.createElement("button");
+    btnRefreshRaces.type = "button";
+    btnRefreshRaces.textContent = "Refresh races";
+    btnRefreshRaces.title = "Manually fetches Torn's custom-race page and re-applies filters to the returned race rows.";
+    applyTornBtnClasses(btnRefreshRaces);
+    btnRefreshRaces.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      refreshCustomRaceContent(btnRefreshRaces);
+    });
+
+    btnRow.append(btnFilter, btnRefreshRaces, btnAdv);
 
     const grid = document.createElement("div");
     grid.className = "rfGrid";
