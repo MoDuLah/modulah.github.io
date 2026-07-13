@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Pythagoras Project - CIS
 // @namespace    https://torn.com/
-// @version      2.9.2
+// @version      2.9.3
 // @description  Company Intelligence System for Torn company training, staff, analytics, and local reporting.
 // @author       MoDuL [4022159]
 // @match        https://www.torn.com/companies.php*
@@ -43,7 +43,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
     ledgerPendingKey: 'pp_cis_ledger_pending_v2',
     syncCacheKey: 'pp_cis_sync_cache_v1',
     notificationDismissalsKey: 'pp_cis_notification_dismissals_v1',
-    version: '2.9.2',
+    version: '2.9.3',
     popupName: 'pythagoras-cis-popup'
   };
 
@@ -1311,6 +1311,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
       const event = {
         id: row.event_id || meta.id || '',
         eventId: row.event_id || '',
+        sourceEventId: row.event_id || meta.sourceEventId || meta.tornEventId || meta.apiEventId || meta.newsId || meta.id || '',
         timestamp: Utils.int(row.timestamp, 0),
         date: row.timestamp ? Utils.dateShort(row.timestamp) : '',
         reportDate,
@@ -1346,10 +1347,12 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
       if (event.type === 'funds' && event.amount) return `Funds movement: ${Utils.money(event.amount)}.`;
       return [name, event.value, event.position, event.amount ? Utils.money(event.amount) : ''].filter(Boolean).join(' - ') || String(event.type || event.eventType || 'Company event');
     },
-    trainingEventCount(event) {
+    trainingEventCount(event, options) {
       const text = String(event && (event.plainText || event.text || event.message) || '');
       const match = text.match(/\b(\d[\d,]*)\s+trains?\b/i);
-      return Math.max(1, Utils.int(event && (event.displayCount || event.trainCount || event.count || event.trains), 0), match ? Utils.int(match[1], 0) : 0);
+      const rawCount = Utils.int(event && (event.trainCount || event.count || event.trains), 0);
+      const displayCount = options && options.raw ? 0 : Utils.int(event && event.displayCount, 0);
+      return Math.max(1, displayCount, rawCount, match ? Utils.int(match[1], 0) : 0);
     },
     trainingEventText(event) {
       const name = event.playerName || event.name || (event.userId ? `User ${event.userId}` : 'A staff member');
@@ -3554,13 +3557,21 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
     normaliseNews(data) {
       const source = data && (data.news || data.companynews || data.events || data.log || data);
       if (!source) return [];
-      const rows = Array.isArray(source) ? source.map((item, index) => [String(item.id || index), item]) : Object.entries(source);
+      const rows = Array.isArray(source)
+        ? source.map((item) => {
+          const id = item && item.id ? String(item.id) : '';
+          return { id, sourceEventId: id, item };
+        })
+        : Object.entries(source).map(([key, item]) => {
+          const id = item && item.id ? String(item.id) : String(key || '');
+          return { id, sourceEventId: id, item };
+        });
       return rows
-        .map(([id, item]) => {
+        .map(({ id, sourceEventId, item }) => {
           const text = item.news || item.text || item.message || item.event || '';
           const timestamp = Utils.int(item.timestamp || item.time || item.date, 0);
           const action = item.action || item.category || item.type || item.title || '';
-          return text ? Timeline.parseEvent({ id: String(id), text: String(text), timestamp, action: String(action) }) : null;
+          return text ? Timeline.parseEvent({ id: String(id || ''), sourceEventId: String(sourceEventId || ''), text: String(text), timestamp, action: String(action) }) : null;
         })
         .filter(Boolean)
         .sort((a, b) => b.timestamp - a.timestamp);
@@ -3571,7 +3582,8 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
       const anchors = Timeline.anchors(text);
       const linkedPlayer = anchors[0] ? anchors[0].text : '';
       const event = {
-        id: item.id || Utils.id('event'),
+        id: item.id || item.sourceEventId || Utils.id('event'),
+        sourceEventId: item.sourceEventId || item.id || '',
         timestamp: item.timestamp || 0,
         type: Timeline.typeFromAction(item.action, plainText),
         action: item.action || '',
@@ -4061,7 +4073,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
     },
     isAggregateTrainingEvent(event) {
       if (Timeline.displayType(event) !== 'training') return false;
-      return Store.trainingEventCount(event) > 1 || /\breceived\s+\d[\d,]*\s+trains?\b/i.test(Timeline.timelineText(event));
+      return Store.trainingEventCount(event, { raw: true }) > 1 || /\breceived\s+\d[\d,]*\s+trains?\b/i.test(Timeline.timelineText(event));
     },
     trainingMinute(event) {
       const timestamp = Utils.int(event && event.timestamp, 0);
@@ -4072,7 +4084,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
       const day = Utils.dayKey(event && event.timestamp);
       const minute = Timeline.trainingMinute(event);
       const position = Company.nameKey(event && (event.position || event.role));
-      const count = Store.trainingEventCount(event);
+      const count = Store.trainingEventCount(event, { raw: true });
       if (!day || !minute || !count) return '';
       return [day, minute, position, count].join('|');
     },
@@ -4085,6 +4097,24 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
       if (!day || !identity) return '';
       return [day, identity, position].join('|');
     },
+    trainingDedupeKey(event) {
+      if (Timeline.displayType(event) !== 'training') return '';
+      const minute = Timeline.trainingMinute(event);
+      const count = Store.trainingEventCount(event, { raw: true });
+      const specific = Timeline.trainingSpecificKey(event);
+      if (specific && minute && count) return `training:${specific}:${minute}:${count}`;
+      const fallback = Timeline.trainingFallbackKey(event);
+      return fallback ? `training-generic:${fallback}` : '';
+    },
+    isLocalEventId(id) {
+      return /^event_[a-z0-9]+_[a-z0-9]+$/i.test(String(id || '')) || /^daily:/i.test(String(id || ''));
+    },
+    sourceEventId(event) {
+      const direct = String(event && (event.sourceEventId || event.tornEventId || event.apiEventId || event.newsId || event.news_id) || '').trim();
+      if (direct && !Timeline.isLocalEventId(direct)) return direct;
+      const id = String(event && (event.id || event.eventId) || '').trim();
+      return id && !Timeline.isLocalEventId(id) ? id : '';
+    },
     reportDedupeKey(event) {
       const reportDate = Utils.dateInput(event && (event.reportDate || event.report_date || event.date)) || Utils.dayKey(event && event.timestamp);
       const values = Timeline.reportValues(event || {});
@@ -4093,11 +4123,12 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
     eventDedupeKey(event) {
       const displayType = Timeline.displayType(event);
       const id = String(event && (event.id || event.eventId) || '').trim();
+      const sourceEventId = Timeline.sourceEventId(event);
+      if (sourceEventId) return `source:${sourceEventId}`;
       if (displayType === 'daily_report') return Timeline.reportDedupeKey(event) || (id ? `id:${id}` : '');
-      if (displayType === 'training' && Timeline.isAggregateTrainingEvent(event)) {
-        const specific = Timeline.trainingSpecificKey(event);
-        const fallback = Timeline.trainingFallbackKey(event);
-        return specific ? `training-aggregate:${specific}:${Timeline.trainingMinute(event)}:${Store.trainingEventCount(event)}` : (fallback ? `training-aggregate-generic:${fallback}` : '');
+      if (displayType === 'training') {
+        const trainingKey = Timeline.trainingDedupeKey(event);
+        if (trainingKey) return trainingKey;
       }
       if (id) return `id:${id}`;
       return [displayType, Utils.int(event && event.timestamp, 0), Timeline.timelineText(event)].join('|');
@@ -4145,7 +4176,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
       Timeline.dedupeEvents(events || []).forEach((event) => {
         const displayType = Timeline.displayType(event);
         const timestamp = Utils.int(event && event.timestamp, 0);
-        const eventTrainCount = displayType === 'training' ? Store.trainingEventCount(event) : 1;
+        const eventTrainCount = displayType === 'training' ? Store.trainingEventCount(event, { raw: true }) : 1;
         const base = Object.assign({}, event, {
           displayType,
           displayCount: eventTrainCount,
@@ -4160,8 +4191,8 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         }
         const key = Timeline.trainingCollapseKey(event);
         const fallbackKey = Timeline.trainingFallbackKey(event);
-        const fallbackMatch = fallbackKey ? fallbackGrouped.get(fallbackKey) : null;
-        if (fallbackMatch && (!key || fallbackMatch !== grouped.get(key))) {
+        const fallbackMatch = !key && fallbackKey ? fallbackGrouped.get(fallbackKey) : null;
+        if (fallbackMatch) {
           const existing = fallbackMatch;
           existing.displayRawCount += eventTrainCount <= 1 ? 1 : 0;
           existing.displayExplicitCount = Math.max(existing.displayExplicitCount || 0, eventTrainCount > 1 ? eventTrainCount : 0);
@@ -4187,14 +4218,13 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         const existing = grouped.get(key);
         if (!existing) {
           grouped.set(key, base);
-          if (fallbackKey) fallbackGrouped.set(fallbackKey, base);
           rows.push(base);
           return;
         }
         existing.displayRawCount += eventTrainCount <= 1 ? 1 : 0;
         existing.displayExplicitCount = Math.max(existing.displayExplicitCount || 0, eventTrainCount > 1 ? eventTrainCount : 0);
         existing.displayCount = Math.max(1, existing.displayRawCount, existing.displayExplicitCount);
-        if (eventTrainCount > Store.trainingEventCount(existing) || Timeline.eventQuality(event) > Timeline.eventQuality(existing)) {
+        if (eventTrainCount > Store.trainingEventCount(existing, { raw: true }) || Timeline.eventQuality(event) > Timeline.eventQuality(existing)) {
           existing.playerName = event.playerName || existing.playerName;
           existing.name = event.name || existing.name;
           existing.position = event.position || existing.position;
@@ -4211,6 +4241,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
     reclassify(events) {
       return Timeline.dedupeEvents(events.map((event) => Object.assign({}, event, Timeline.parseEvent({
         id: event.id,
+        sourceEventId: event.sourceEventId || event.tornEventId || event.apiEventId || event.newsId || event.news_id || '',
         text: event.text || event.plainText || '',
         timestamp: event.timestamp || 0,
         action: event.action || event.type || ''
@@ -10365,6 +10396,10 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         <div class="pp-content">
           <div class="pp-changelog">
             <details open>
+              <summary>v2.9.3 - Training news grouping fix</summary>
+              <ul><li>Major changes: Grouped timeline training rows now collapse named employees only by their own identity, not by same-minute role/count fallback buckets.</li><li>Major changes: Torn company-news event IDs are now the source of truth for training dedupe; employee/minute/count matching is only used for legacy or generated rows with no source event ID.</li><li>Minor changes: Same-timestamp one-train events for different employees now stay as separate grouped rows instead of being summed under the first matching role.</li></ul>
+            </details>
+            <details>
               <summary>v2.9.2 - Balance sync stability</summary>
               <ul><li>Major changes: Advertising budget history now records Torn V2 profile values as explicit dated rows and ignores older unmarked zero rows in Balance.</li><li>Major changes: Balance wages now use current synced employee wages and saved wage history only; wage estimates are no longer included in Balance profit.</li><li>Major changes: Notification hides now persist locally until the next 18:10 TCT business reset, even after page refresh.</li><li>Minor changes: Weekly performance graphs now use adaptive Y-axis tick spacing, Services Sold explains that Torn does not specify the sold_amount period, and the title bar shows the script version with compact Sync buttons.</li></ul>
             </details>
@@ -12042,10 +12077,10 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
     latestNewsDelta(incoming) {
       const marks = UI.state.company.syncWatermarks || {};
       const latestStored = Utils.int(marks.events && marks.events.latestTimestamp, 0) || Utils.int(UI.state.company.newsSync.latestTimestamp, 0);
-      const existingIds = new Set((UI.state.staff.timeline || []).map((event) => String(event.id || event.eventId || '')).filter(Boolean));
+      const existingIds = new Set((UI.state.staff.timeline || []).map((event) => Timeline.sourceEventId(event)).filter(Boolean));
       return (incoming || []).filter((event) => {
         const timestamp = Utils.int(event.timestamp, 0);
-        const eventId = String(event.id || event.eventId || '').trim();
+        const eventId = Timeline.sourceEventId(event);
         if (!timestamp) return false;
         if (timestamp > latestStored) return true;
         return timestamp === latestStored && eventId && !existingIds.has(eventId);

@@ -1,5 +1,11 @@
 # Pythagoras Project - CIS Changelog
 
+## v2.9.3 - Training news grouping fix
+
+- Grouped timeline training rows now collapse named employees only by their own identity, not by same-minute role/count fallback buckets.
+- Same-timestamp one-train events for different employees now stay as separate grouped rows instead of being summed under the first matching role.
+- Torn company-news event IDs are now the source of truth for training dedupe; employee/minute/count matching is only used for legacy or generated rows with no source event ID.
+
 ## v2.9.2 - Balance sync stability
 
 - Advertising budget history now records Torn API V2 profile values as explicit dated rows and ignores older unmarked zero rows in Balance.

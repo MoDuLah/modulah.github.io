@@ -112,6 +112,19 @@
 
         <div class="changelog-tree" role="tree">
           <details class="changelog-version" role="treeitem" open>
+            <summary class="changelog-summary">v2.9.3 - Training news grouping fix</summary>
+            <div class="changelog-content">
+              <ul class="changelog-list">
+                <li>Torn company-news event IDs are now the source of truth for training dedupe.</li>
+                <li>Duplicate copies of the same Torn news event count once, while different Torn news IDs for the same employee can still count as real multiple training events.</li>
+                <li>Legacy or generated training rows with no source event ID still use employee, position, visible minute, and raw train count as a cleanup fallback.</li>
+                <li>Grouped Timeline no longer merges named employees into the first matching same-minute role/count bucket.</li>
+                <li>Same-minute one-train events for different employees now stay as separate grouped rows.</li>
+              </ul>
+            </div>
+          </details>
+
+          <details class="changelog-version" role="treeitem">
             <summary class="changelog-summary">v2.9.2 - Balance sync stability</summary>
             <div class="changelog-content">
               <ul class="changelog-list">
