@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         MoDuL's Pit Guru
 // @namespace    modul.torn.racing
-// @version      2.2.0
+// @version      2.2.1
 // @description  Live Torn race timing, gaps, sectors, speed and estimated telemetry analysis
 // @author       MoDuL
 // @copyright    2026 MoDuL. All rights reserved.
@@ -555,7 +555,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
     unsafeWindow.pgPitGuruClearApiCache = pgClearApiResponseCache_;
     unsafeWindow.pgPitGuruHealthTest = unsafeWindow.pgLocalHealthTest;
 
-    const MPG_VERSION = "2.2.0";
+    const MPG_VERSION = "2.2.1";
     var TAG = "[MoDuL's Pit Guru v" + MPG_VERSION + "]";
 
     const PitGuruRaceEngine = (() => {
@@ -2372,6 +2372,27 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         const atIso = String(candidate.atIso || "").trim();
         const rowAtIso = String(row.atIso || "").trim();
         return !!(atIso && rowAtIso === atIso && driverName && rowDriverName === driverName);
+    }
+
+    function visibleBestRecordRows_(rows, mode, fallbackTrack = "", fallbackRaceType = "official") {
+        const bestByBucket = new Map();
+        const wantedMode = String(mode || "").trim().toLowerCase();
+        for (const row of Array.isArray(rows) ? rows : []) {
+            if (!row) continue;
+            const rowMode = String(row.mode || wantedMode || "lap").trim().toLowerCase();
+            if (wantedMode && rowMode !== wantedMode) continue;
+            if (rowMode !== "lap" && rowMode !== "race") continue;
+            const track = getRecordTrackScopeFromRow_(row, rowMode) || getRecordTrackScope_(rowMode, fallbackTrack) || normalizeTrackLabel_(fallbackTrack);
+            const car = toOgCarName_(row.car || "").trim();
+            const ms = recordMsValue_(row);
+            if (!track || !car || !ms) continue;
+            const rowRaceType = String(row.raceType || row.race_type || row.type || "").trim();
+            const raceType = rowMode === "race" ? getRecordRaceTypeFromRow_(rowRaceType ? row : { raceType: fallbackRaceType }) : "";
+            const key = `${rowMode}|${raceType}|${track}|${car}`;
+            const prev = bestByBucket.get(key);
+            if (!prev || compareRecordRows_(row, prev) < 0) bestByBucket.set(key, row);
+        }
+        return Array.from(bestByBucket.values()).sort(compareRecordRows_);
     }
 
     function recordIsMine_(row) {
@@ -15060,27 +15081,15 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
             const localReady = track && pgLocalRecordsMatch_(mode, track) && !pgLocalRecordsCache.loading && !pgLocalRecordsCache.error;
             let top = [];
             if (localReady) {
-                top = (pgLocalRecordsCache.rows || [])
-                    .slice()
-                    .sort((a, b) => (a.ms || 0) - (b.ms || 0));
+                top = visibleBestRecordRows_(pgLocalRecordsCache.rows || [], mode, track, recordsRaceType);
             } else {
                 const rows = records
                 .filter(r => r && r.mode === mode && getRecordTrackScopeFromRow_(r, mode) === track)
                 .filter(r => mode === "lap" || getRecordRaceTypeFromRow_(r) === recordsRaceType)
                 .filter(r => !recordsMineOnly || recordIsMine_(r))
-                .slice()
-                .sort((a, b) => (a.ms || 0) - (b.ms || 0));
+                .slice();
 
-                const bestByCar = new Map();
-                for (const r of rows) {
-                    const k = toOgCarName_(r.car || "").trim();
-                    if (!k) continue;
-                    const prev = bestByCar.get(k);
-                    if (!prev || (r.ms || 0) < (prev.ms || 0)) bestByCar.set(k, r);
-                }
-
-                top = Array.from(bestByCar.values())
-                    .sort((a, b) => (a.ms || 0) - (b.ms || 0));
+                top = visibleBestRecordRows_(rows, mode, track, recordsRaceType);
             }
             if (!top.length) {
                 const msg = pgLocalRecordsCache.loading && pgLocalRecordsMatch_(mode, track)
