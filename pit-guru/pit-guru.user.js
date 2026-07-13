@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         MoDuL's Pit Guru
 // @namespace    modul.torn.racing
-// @version      2.1.4
+// @version      2.1.5
 // @description  Live Torn race timing, gaps, sectors, speed and estimated telemetry analysis
 // @author       MoDuL
 // @copyright    2026 MoDuL. All rights reserved.
@@ -555,7 +555,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
     unsafeWindow.pgPitGuruClearApiCache = pgClearApiResponseCache_;
     unsafeWindow.pgPitGuruHealthTest = unsafeWindow.pgLocalHealthTest;
 
-    const MPG_VERSION = "2.1.4";
+    const MPG_VERSION = "2.1.5";
     var TAG = "[MoDuL's Pit Guru v" + MPG_VERSION + "]";
 
     const PitGuruRaceEngine = (() => {
@@ -917,10 +917,18 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
     const RACE_DATA_PAYLOAD_CACHE_MAX = 6;
     const RACE_DATA_META_CACHE_MAX = 12;
     const BIG_RACE_SUMMARY_MEMORY_MAX = 8;
+    const BIG_RACE_RAW_STORE_MAX = 4;
+    const BIG_RACE_SUMMARY_STORE_MAX = 8;
     const RENDER_COALESCE_MS = 40;
     const FRAME_ROWS_CACHE_MAX = 80;
     const TELEMETRY_STATS_CACHE_MAX = 1200;
     const SECTOR_SNAPSHOT_CACHE_MAX = 120;
+    const OPTIONAL_IMAGE_CACHE_MAX = 350;
+    const DRIVER_ID_LOOKUP_CACHE_MAX = 500;
+    const DRIVER_ID_LOOKUP_MAX_AGE_MS = 10 * 60 * 1000;
+    const DRIVER_INTEL_CACHE_MAX = 800;
+    const DRIVER_HISTORY_CACHE_MAX = 900;
+    const LIFECYCLE_CLEANUP_INTERVAL_MS = 5 * 60 * 1000;
     const PHASE_REWRITE_FLAGS = Object.freeze({
         instrumentation: true,
         boundedRaceDataCache: true,
@@ -930,7 +938,9 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         raceIndexes: true,
         frameRows: true,
         telemetryStatCache: true,
-        sectorSnapshots: true
+        sectorSnapshots: true,
+        boundedPersistentCaches: true,
+        lifecycleCleanup: true
     });
     const STORE_RECORDS_MAX = 2500;
     const WIN_DEFAULT_WIDTH = 720;
@@ -1159,7 +1169,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
     const bigRaceSummaryInFlightKeys = new Set();
     const bigRaceProcessedSummaryCache = new Map();
     let bigRaceDbPromise = null;
-    let bigRaceCacheStatus = { rawStored: 0, summaryStored: 0, workerUsed: false, lastError: "" };
+    let bigRaceCacheStatus = { rawStored: 0, summaryStored: 0, pruned: 0, workerUsed: false, lastError: "" };
     let lastHeavyRaceStats = { heavyRace: false, estimatedPoints: 0, drivers: 0, laps: 0, intervals: 0 };
     let heavyRaceOverrideRaceKey = "";
     let heavyRaceShowAllDrivers = false;
@@ -1238,6 +1248,9 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
     let analysisFocusDriverName = "";
     let liveLoopLastAt = 0;
     let maintenanceLoopLastAt = 0;
+    let liveLoopTimer = 0;
+    let maintenanceLoopTimer = 0;
+    let lifecycleCleanupTimer = 0;
     let pendingRaceChangeId = "";
     let pendingRaceChangeAt = 0;
     let joinRaceObserver = null;
@@ -1249,6 +1262,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
     const resizePersistTimers = new Map();
     const gyroTraceByDriver = new Map();
     let slideEventsCache = new WeakMap();
+    let lifecycleCleanupStats = { runs: 0, lastAt: 0, lastReason: "", removed: 0, intelEntries: 0, historyEntries: 0 };
     const LARGE_FIELD_THRESHOLD = 30;
     const HUGE_FIELD_THRESHOLD = 45;
     const DEFAULT_FOCUSED_ROW_WINDOW_EACH_SIDE = 10;
@@ -1509,6 +1523,95 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         raceOvertakesTimelineCache = { key: "", samples: [], count: 0 };
     }
 
+    function activeRaceIdForCleanup_() {
+        return String(analysis?.raceId || directRaceIdFromPayload_(latestRaceDataPayload) || directCurrentRaceId || raceMeta?.raceId || urlRaceId_() || visibleRaceId_() || "").trim();
+    }
+
+    function pruneDriverIdLookupCache_(keepKey = "") {
+        const now = Date.now();
+        for (const [key, value] of driverIdLookupCache.entries()) {
+            if (!value || now - Number(value.at || 0) > DRIVER_ID_LOOKUP_MAX_AGE_MS) driverIdLookupCache.delete(key);
+        }
+        trimMapToMax_(driverIdLookupCache, DRIVER_ID_LOOKUP_CACHE_MAX, keepKey);
+    }
+
+    function cacheDriverIdLookup_(cacheKey, id) {
+        const key = String(cacheKey || "");
+        if (!key) return;
+        driverIdLookupCache.set(key, { id: String(id || ""), at: Date.now() });
+        pruneDriverIdLookupCache_(key);
+    }
+
+    function clearPendingRender_() {
+        if (renderCoalesceTimer) {
+            clearTimeout(renderCoalesceTimer);
+            renderCoalesceTimer = 0;
+        }
+        renderScheduled = false;
+    }
+
+    function cleanupRaceLifecycle_(reason = "maintenance", options = {}) {
+        const activeRaceId = String(options.activeRaceId || activeRaceIdForCleanup_() || "").trim();
+        const activeKey = activeRaceId ? raceDataFetchRaceKey_(activeRaceId) : "";
+        const activePayload = latestRaceDataPayload || analysis?.payload || null;
+        let activeBigRaceKey = String(analysis?.bigRaceCacheKey || "");
+        if (!activeBigRaceKey && activePayload) {
+            try { activeBigRaceKey = bigRaceCacheIdentity_(activePayload).key || ""; } catch {}
+        }
+        const before =
+              raceDataPayloadCacheByRaceId.size +
+              raceDataAcceptedStateByRaceId.size +
+              raceDataFetchStatsByRaceId.size +
+              bigRaceProcessedSummaryCache.size +
+              optionalImageUrlCache.size +
+              driverIdLookupCache.size +
+              frameRowsCache.size +
+              telemetryStatsCache.size +
+              sectorSnapshotCache.size +
+              countObjectKeys_(driverIntelCache) +
+              countObjectKeys_(driverHistory);
+
+        trimRaceDataCaches_(activeRaceId);
+        trimMapToMax_(bigRaceProcessedSummaryCache, BIG_RACE_SUMMARY_MEMORY_MAX, activeBigRaceKey);
+        trimMapToMax_(optionalImageUrlCache, OPTIONAL_IMAGE_CACHE_MAX);
+        pruneDriverIdLookupCache_();
+        driverIntelCache = pruneDriverIntelCache_(driverIntelCache || {});
+        driverHistory = pruneDriverHistory_(driverHistory || {});
+
+        if (options.hard) {
+            clearPendingRender_();
+            resetAnalysisRuntimeCaches_();
+            gyroTraceByDriver.clear();
+            slideEventsCache = new WeakMap();
+        }
+
+        const after =
+              raceDataPayloadCacheByRaceId.size +
+              raceDataAcceptedStateByRaceId.size +
+              raceDataFetchStatsByRaceId.size +
+              bigRaceProcessedSummaryCache.size +
+              optionalImageUrlCache.size +
+              driverIdLookupCache.size +
+              frameRowsCache.size +
+              telemetryStatsCache.size +
+              sectorSnapshotCache.size +
+              countObjectKeys_(driverIntelCache) +
+              countObjectKeys_(driverHistory);
+        lifecycleCleanupStats = {
+            runs: (lifecycleCleanupStats.runs || 0) + 1,
+            lastAt: Date.now(),
+            lastReason: String(reason || "maintenance"),
+            removed: Math.max(0, before - after),
+            intelEntries: countObjectKeys_(driverIntelCache),
+            historyEntries: countObjectKeys_(driverHistory)
+        };
+        if (options.persist !== false) {
+            saveJson_(STORE_DRIVER_INTEL_CACHE_KEY, driverIntelCache || {});
+            saveJson_(STORE_DRIVER_HISTORY_KEY, driverHistory || {});
+        }
+        if (options.pruneIndexedDb !== false) pruneBigRaceIdbCaches_(activeBigRaceKey || activeKey).catch(() => {});
+    }
+
     function phaseCacheStats_() {
         return {
             payloads: raceDataPayloadCacheByRaceId.size,
@@ -1521,6 +1624,9 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
             frameRows: frameRowsCache.size,
             telemetryStats: telemetryStatsCache.size,
             sectorSnapshots: sectorSnapshotCache.size,
+            driverIntelEntries: countObjectKeys_(driverIntelCache),
+            driverHistoryEntries: countObjectKeys_(driverHistory),
+            lifecycleCleanup: { ...lifecycleCleanupStats },
             aggregateWorker: {
                 inFlightKey: aggregateWorkerInFlightKey,
                 failedKey: aggregateWorkerFailedKey,
@@ -1597,6 +1703,58 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
                 resolve(null);
             }
         });
+    }
+
+    async function bigRaceIdbPruneStore_(storeName, maxEntries, keepKey = "") {
+        const db = await openBigRaceDb_();
+        if (!db) return 0;
+        const keep = String(keepKey || "");
+        const max = Math.max(1, Number(maxEntries) || 1);
+        return await new Promise(resolve => {
+            try {
+                const tx = db.transaction(storeName, "readwrite");
+                const store = tx.objectStore(storeName);
+                const req = store.openCursor();
+                const rows = [];
+                let removed = 0;
+                req.onsuccess = event => {
+                    const cursor = event.target?.result || null;
+                    if (cursor) {
+                        const row = cursor.value || {};
+                        if (row.key) rows.push({ key: row.key, storedAt: row.storedAt || 0 });
+                        cursor.continue();
+                        return;
+                    }
+                    if (rows.length <= max) return;
+                    const sorted = rows
+                        .filter(row => row?.key && (!keep || row.key !== keep))
+                        .sort((a, b) => Number(a.storedAt || 0) - Number(b.storedAt || 0));
+                    const removeCount = Math.max(0, rows.length - max);
+                    sorted.slice(0, removeCount).forEach(row => {
+                        try {
+                            store.delete(row.key);
+                            removed += 1;
+                            if (storeName === BIG_RACE_RAW_STORE) bigRaceRawStoredKeys.delete(row.key);
+                            if (storeName === BIG_RACE_SUMMARY_STORE) bigRaceSummaryStoredKeys.delete(row.key);
+                        } catch {}
+                    });
+                };
+                req.onerror = () => resolve(0);
+                tx.oncomplete = () => resolve(removed);
+                tx.onerror = () => resolve(removed);
+            } catch (error) {
+                bigRaceCacheStatus.lastError = String(error?.message || error || "IndexedDB prune failed");
+                resolve(0);
+            }
+        });
+    }
+
+    async function pruneBigRaceIdbCaches_(keepKey = "") {
+        const rawRemoved = await bigRaceIdbPruneStore_(BIG_RACE_RAW_STORE, BIG_RACE_RAW_STORE_MAX, keepKey);
+        const summaryRemoved = await bigRaceIdbPruneStore_(BIG_RACE_SUMMARY_STORE, BIG_RACE_SUMMARY_STORE_MAX, keepKey);
+        const removed = rawRemoved + summaryRemoved;
+        if (removed) bigRaceCacheStatus.pruned = (bigRaceCacheStatus.pruned || 0) + removed;
+        return removed;
     }
 
     function markDirty_(flags = {}) {
@@ -1737,17 +1895,20 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
     function saveApiKeyInfo_() { saveJson_(STORE_API_KEY_INFO_KEY, apiKeyInfo || {}); }
     function loadDriverIntelCache_() {
         const data = loadJson_(STORE_DRIVER_INTEL_CACHE_KEY, {});
-        return normalizeDriverIntelCache_(data && typeof data === "object" && !Array.isArray(data) ? data : {});
+        return pruneDriverIntelCache_(data && typeof data === "object" && !Array.isArray(data) ? data : {});
     }
     function saveDriverIntelCache_() {
-        driverIntelCache = normalizeDriverIntelCache_(driverIntelCache || {});
+        driverIntelCache = pruneDriverIntelCache_(driverIntelCache || {});
         saveJson_(STORE_DRIVER_INTEL_CACHE_KEY, driverIntelCache || {});
     }
     function loadDriverHistory_() {
         const data = loadJson_(STORE_DRIVER_HISTORY_KEY, {});
-        return data && typeof data === "object" && !Array.isArray(data) ? data : {};
+        return pruneDriverHistory_(data && typeof data === "object" && !Array.isArray(data) ? data : {});
     }
-    function saveDriverHistory_() { saveJson_(STORE_DRIVER_HISTORY_KEY, driverHistory || {}); }
+    function saveDriverHistory_() {
+        driverHistory = pruneDriverHistory_(driverHistory || {});
+        saveJson_(STORE_DRIVER_HISTORY_KEY, driverHistory || {});
+    }
     function loadFuelStyle_() {
         const v = String(GM_getValue(STORE_FUEL_STYLE_KEY, "l100km") || "l100km");
         return ["l100km", "mpg_us", "mpg_uk"].includes(v) ? v : "l100km";
@@ -1823,7 +1984,9 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         return true;
     }
     function resetForRaceChange_(newRaceId) {
+        const previousRaceId = activeRaceIdForCleanup_();
         disconnectJoinRaceObserver_();
+        cleanupRaceLifecycle_("race-change", { activeRaceId: previousRaceId, hard: true });
         prepareNewRaceUi_();
         const nextRaceId = String(newRaceId || "").trim();
         const priorMeta = raceMeta ? { ...raceMeta, replayInfo: { ...(raceMeta.replayInfo || {}) } } : null;
@@ -2294,6 +2457,124 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         return normalized;
     }
 
+    function countObjectKeys_(obj) {
+        return obj && typeof obj === "object" && !Array.isArray(obj) ? Object.keys(obj).length : 0;
+    }
+
+    function driverIntelEntryStamp_(entry) {
+        if (!entry || typeof entry !== "object") return 0;
+        return Math.max(Number(entry.fetchedAt || 0), Number(entry.avatarCheckedAt || 0), Date.parse(entry.updatedAt || entry.lastSeenAt || "") || 0);
+    }
+
+    function activeDriverIntelKeepKeys_() {
+        const keep = new Set();
+        const addId = id => {
+            const raw = String(id || "").trim();
+            if (raw) keep.add(raw);
+        };
+        const addName = name => {
+            const key = driverIntelNameKey_(name);
+            if (key) keep.add(key);
+        };
+        addId(playerId);
+        addId(currentDriverId_());
+        addId(raceMeta?.driverId);
+        addName(playerName);
+        addName(currentDriverName_());
+        addName(raceMeta?.driver);
+        (analysis?.drivers || []).forEach(d => {
+            addId(d?.driverId);
+            addName(d?.name);
+        });
+        (preRaceParticipants || []).forEach(d => {
+            addId(d?.driverId);
+            addName(d?.name);
+        });
+        return keep;
+    }
+
+    function pruneDriverIntelCache_(cache) {
+        const normalized = normalizeDriverIntelCache_(cache || {});
+        const activeKeys = activeDriverIntelKeepKeys_();
+        const canonicalRows = [];
+        const aliasRows = [];
+        for (const [key, value] of Object.entries(normalized)) {
+            if (!value || typeof value !== "object") continue;
+            if (value.__mpgAlias) {
+                aliasRows.push([key, value]);
+                continue;
+            }
+            const active = activeKeys.has(key) || activeKeys.has(driverIntelNameKey_(value.name));
+            canonicalRows.push({ key, value, active, stamp: driverIntelEntryStamp_(value) });
+        }
+        canonicalRows.sort((a, b) => {
+            if (a.active !== b.active) return a.active ? -1 : 1;
+            return b.stamp - a.stamp;
+        });
+        const keep = new Set();
+        const pruned = {};
+        for (const row of canonicalRows) {
+            if (keep.size < DRIVER_INTEL_CACHE_MAX || row.active) {
+                keep.add(row.key);
+                pruned[row.key] = row.value;
+            }
+        }
+        for (const row of canonicalRows) {
+            if (!keep.has(row.key)) continue;
+            const nameKey = driverIntelNameKey_(row.value?.name);
+            if (nameKey && nameKey !== row.key) pruned[nameKey] = driverIntelAlias_(row.key);
+        }
+        for (const [key, value] of aliasRows) {
+            const target = String(value.__mpgAlias || "").trim();
+            if (target && keep.has(target) && key !== target) pruned[key] = driverIntelAlias_(target);
+        }
+        return pruned;
+    }
+
+    function driverHistoryEntryStamp_(entry) {
+        if (!entry || typeof entry !== "object") return 0;
+        return Date.parse(entry.lastRaceAtIso || entry.updatedAt || entry.createdAt || "") || 0;
+    }
+
+    function pruneDriverHistoryEntry_(entry) {
+        const row = entry && typeof entry === "object" ? { ...entry } : {};
+        if (Array.isArray(row.notes)) row.notes = row.notes.slice(0, 8);
+        if (Array.isArray(row.raceKeys)) row.raceKeys = row.raceKeys.map(String).filter(Boolean).slice(0, 50);
+        if (row.cars && typeof row.cars === "object" && !Array.isArray(row.cars)) {
+            row.cars = Object.fromEntries(Object.entries(row.cars)
+                .sort((a, b) => Number(b[1] || 0) - Number(a[1] || 0))
+                .slice(0, 25));
+        }
+        return row;
+    }
+
+    function pruneDriverHistory_(history) {
+        const source = history && typeof history === "object" && !Array.isArray(history) ? history : {};
+        const activeNames = new Set((analysis?.drivers || []).map(d => normalizeDriverName_(d?.name)).filter(Boolean));
+        const activeIds = new Set((analysis?.drivers || []).map(d => String(d?.driverId || "").trim()).filter(Boolean));
+        const rows = Object.entries(source)
+            .filter(([, value]) => value && typeof value === "object")
+            .map(([key, value]) => {
+                const row = pruneDriverHistoryEntry_(value);
+                const active = activeIds.has(String(row.driverId || "").trim()) || activeNames.has(normalizeDriverName_(row.driverName || ""));
+                return { key, value: row, active, stamp: driverHistoryEntryStamp_(row), races: Number(row.races || 0) };
+            })
+            .sort((a, b) => {
+                if (a.active !== b.active) return a.active ? -1 : 1;
+                if (b.stamp !== a.stamp) return b.stamp - a.stamp;
+                return b.races - a.races;
+            });
+        const pruned = {};
+        let kept = 0;
+        for (const row of rows) {
+            if (kept < DRIVER_HISTORY_CACHE_MAX || row.active) {
+                pruned[row.key] = row.value;
+                kept += 1;
+            }
+        }
+        return pruned;
+    }
+
     function getCachedDriverIntel_(driverId, maxAgeHours = 24 * 7) {
         const id = String(driverId || "").trim();
         if (!id) return null;
@@ -2546,6 +2827,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         })().then(ok => {
             if (ok) {
                 bigRaceCacheStatus.rawStored += 1;
+                pruneBigRaceIdbCaches_(identity.key).catch(() => {});
                 if (bigRaceObservationShouldPause_()) disconnectJoinRaceObserver_();
             } else {
                 bigRaceRawStoredKeys.delete(identity.key);
@@ -2786,6 +3068,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
             if (ok) {
                 bigRaceSummaryStoredKeys.add(identity.key);
                 bigRaceCacheStatus.summaryStored += 1;
+                pruneBigRaceIdbCaches_(identity.key).catch(() => {});
             }
         })().catch(error => {
             bigRaceCacheStatus.lastError = String(error?.message || error || "summary cache failed");
@@ -3684,8 +3967,8 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
     function cachedOptionalImageUrl_(kind, key, url) {
         const id = `${kind || "image"}:${String(key || url || "").trim()}`;
         if (!id || id === `${kind || "image"}:`) return String(url || "").trim();
-        if (!optionalImageUrlCache.has(id)) optionalImageUrlCache.set(id, String(url || "").trim());
-        return optionalImageUrlCache.get(id) || "";
+        if (!optionalImageUrlCache.has(id)) boundedMapSet_(optionalImageUrlCache, id, String(url || "").trim(), OPTIONAL_IMAGE_CACHE_MAX);
+        return boundedMapGet_(optionalImageUrlCache, id) || "";
     }
 
     function isAnimatedProfileImageUrl_(url) {
@@ -5759,7 +6042,7 @@ self.onmessage=event=>{try{self.postMessage({ok:true,result:aggregate(event.data
         if (!nn) return "";
         const raceKey = getRaceId_() || raceMeta?.raceId || "";
         const cacheKey = `${raceKey}|${nn}`;
-        const cached = driverIdLookupCache.get(cacheKey);
+        const cached = boundedMapGet_(driverIdLookupCache, cacheKey);
         if (cached && Date.now() - cached.at < driverIdLookupMs) return cached.id || "";
         if (!canScanTornPage_()) return "";
         const idFrom = el => extractDriverIdFromElement_(el);
@@ -5783,12 +6066,12 @@ self.onmessage=event=>{try{self.postMessage({ok:true,result:aggregate(event.data
                 if (txt && !txt.includes(nn)) continue;
                 const id = idFrom(row);
                 if (id) {
-                    driverIdLookupCache.set(cacheKey, { id, at: Date.now() });
+                    cacheDriverIdLookup_(cacheKey, id);
                     return id;
                 }
             }
         }
-        driverIdLookupCache.set(cacheKey, { id: "", at: Date.now() });
+        cacheDriverIdLookup_(cacheKey, "");
         return "";
     }
 
@@ -10223,6 +10506,7 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
 
 
     function clearView_(opts = {}) {
+        cleanupRaceLifecycle_("clear-view", { activeRaceId: activeRaceIdForCleanup_(), hard: true });
         const currentPayload = latestRaceDataPayload || analysis?.payload || null;
         if (!opts.keepAnalysis && currentPayload) clearedRaceDataKey = raceDataPayloadKey_(currentPayload);
         latestRaceDataPayload = null;
@@ -14052,13 +14336,14 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
         const rawState = cacheKey && bigRaceRawStoredKeys.has(cacheKey) ? "stored" : "pending";
         const summaryState = cacheKey && (bigRaceSummaryStoredKeys.has(cacheKey) || bigRaceProcessedSummaryCache.has(cacheKey)) ? "stored" : (cacheKey && bigRaceSummaryInFlightKeys.has(cacheKey) ? "building" : "pending");
         const worker = bigRaceCacheStatus.workerUsed ? ", worker: used" : "";
+        const pruned = bigRaceCacheStatus.pruned ? `, pruned ${bigRaceCacheStatus.pruned}` : "";
         const error = bigRaceCacheStatus.lastError ? `, cache note: ${bigRaceCacheStatus.lastError}` : "";
         const perf = perfStatsSnapshot_();
         const renderPerf = perf["render.analysis"] || perf["render.total"] || {};
         const buildPerf = perf["analysis.build"] || {};
         const aggregate = aggregateWorkerLastStatus ? ` Aggregate worker: ${aggregateWorkerLastStatus}${aggregateWorkerLastMs ? ` ${aggregateWorkerLastMs}ms` : ""}${aggregateWorkerLastError ? ` (${aggregateWorkerLastError})` : ""}.` : "";
         const cache = phaseCacheStats_();
-        return `Heavy mode: ${heavyRaceLightweightMode_() ? "ON" : "OFF"}, estimated points: ${Math.round(heavy.estimatedPoints || 0).toLocaleString()}, racingData fetches: ${stats.fetches || 0}, duplicate payloads skipped: ${stats.duplicatePayloadsSkipped || 0}, rendered rows: ${rendered}/${total}. Big Race cache: raw ${rawState}, summary ${summaryState}${worker}${error}. Perf: render ${renderPerf.lastMs || 0}/${renderPerf.maxMs || 0}ms, build ${buildPerf.lastMs || 0}/${buildPerf.maxMs || 0}ms. Memory caches: payloads ${cache.payloads}/${RACE_DATA_PAYLOAD_CACHE_MAX}, states ${cache.acceptedStates}/${RACE_DATA_META_CACHE_MAX}, summaries ${cache.bigRaceSummaries}/${BIG_RACE_SUMMARY_MEMORY_MAX}, frames ${cache.frameRows}/${FRAME_ROWS_CACHE_MAX}, telemetry ${cache.telemetryStats}/${TELEMETRY_STATS_CACHE_MAX}, sectors ${cache.sectorSnapshots}/${SECTOR_SNAPSHOT_CACHE_MAX}.${aggregate}`;
+        return `Heavy mode: ${heavyRaceLightweightMode_() ? "ON" : "OFF"}, estimated points: ${Math.round(heavy.estimatedPoints || 0).toLocaleString()}, racingData fetches: ${stats.fetches || 0}, duplicate payloads skipped: ${stats.duplicatePayloadsSkipped || 0}, rendered rows: ${rendered}/${total}. Big Race cache: raw ${rawState}, summary ${summaryState}${worker}${pruned}${error}. Perf: render ${renderPerf.lastMs || 0}/${renderPerf.maxMs || 0}ms, build ${buildPerf.lastMs || 0}/${buildPerf.maxMs || 0}ms. Memory caches: payloads ${cache.payloads}/${RACE_DATA_PAYLOAD_CACHE_MAX}, states ${cache.acceptedStates}/${RACE_DATA_META_CACHE_MAX}, summaries ${cache.bigRaceSummaries}/${BIG_RACE_SUMMARY_MEMORY_MAX}, frames ${cache.frameRows}/${FRAME_ROWS_CACHE_MAX}, telemetry ${cache.telemetryStats}/${TELEMETRY_STATS_CACHE_MAX}, sectors ${cache.sectorSnapshots}/${SECTOR_SNAPSHOT_CACHE_MAX}, images ${cache.optionalImages}/${OPTIONAL_IMAGE_CACHE_MAX}, ids ${cache.driverIdLookups}/${DRIVER_ID_LOOKUP_CACHE_MAX}, intel ${cache.driverIntelEntries}/${DRIVER_INTEL_CACHE_MAX}, history ${cache.driverHistoryEntries}/${DRIVER_HISTORY_CACHE_MAX}, cleanup ${cache.lifecycleCleanup.runs || 0}.${aggregate}`;
     }
 
     function scheduleRender_(dirty = null) {
@@ -14637,10 +14922,15 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
             uiDirty = true;
             scheduleRender_();
         };
-        document.addEventListener("visibilitychange", resumeFocusedWork);
+        document.addEventListener("visibilitychange", () => {
+            if (document.hidden) cleanupRaceLifecycle_("hidden", { activeRaceId: activeRaceIdForCleanup_(), persist: false });
+            resumeFocusedWork();
+        });
         window.addEventListener("focus", resumeFocusedWork);
+        window.addEventListener("pagehide", () => cleanupRaceLifecycle_("pagehide", { activeRaceId: activeRaceIdForCleanup_() }));
 
-        setInterval(() => {
+        if (liveLoopTimer) clearInterval(liveLoopTimer);
+        liveLoopTimer = setInterval(() => {
             if (!canScanTornPage_()) return;
             const now = Date.now();
             const delay = liveLoopDelayMs_();
@@ -14654,7 +14944,8 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
             }
         }, 250);
 
-        setInterval(() => {
+        if (maintenanceLoopTimer) clearInterval(maintenanceLoopTimer);
+        maintenanceLoopTimer = setInterval(() => {
             if (!canScanTornPage_()) return;
             const now = Date.now();
             const delay = maintenanceLoopDelayMs_();
@@ -14674,6 +14965,11 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
                 scheduleRender_();
             }
         }, 1000);
+
+        if (lifecycleCleanupTimer) clearInterval(lifecycleCleanupTimer);
+        lifecycleCleanupTimer = setInterval(() => {
+            cleanupRaceLifecycle_("periodic", { activeRaceId: activeRaceIdForCleanup_() });
+        }, LIFECYCLE_CLEANUP_INTERVAL_MS);
     }
 
     hookRaceDataObservers_();
