@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         MoDuL's Pit Guru
 // @namespace    modul.torn.racing
-// @version      2.1.5
+// @version      2.1.6
 // @description  Live Torn race timing, gaps, sectors, speed and estimated telemetry analysis
 // @author       MoDuL
 // @copyright    2026 MoDuL. All rights reserved.
@@ -555,7 +555,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
     unsafeWindow.pgPitGuruClearApiCache = pgClearApiResponseCache_;
     unsafeWindow.pgPitGuruHealthTest = unsafeWindow.pgLocalHealthTest;
 
-    const MPG_VERSION = "2.1.5";
+    const MPG_VERSION = "2.1.6";
     var TAG = "[MoDuL's Pit Guru v" + MPG_VERSION + "]";
 
     const PitGuruRaceEngine = (() => {
@@ -940,7 +940,8 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         telemetryStatCache: true,
         sectorSnapshots: true,
         boundedPersistentCaches: true,
-        lifecycleCleanup: true
+        lifecycleCleanup: true,
+        sameRaceWarmRestore: true
     });
     const STORE_RECORDS_MAX = 2500;
     const WIN_DEFAULT_WIDTH = 720;
@@ -1251,6 +1252,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
     let liveLoopTimer = 0;
     let maintenanceLoopTimer = 0;
     let lifecycleCleanupTimer = 0;
+    let raceDataWarmRestoreState = { active: false, attemptedRaceId: "", restoredKey: "", restoredAt: 0, verifiedAt: 0, lastError: "" };
     let pendingRaceChangeId = "";
     let pendingRaceChangeAt = 0;
     let joinRaceObserver = null;
@@ -1627,6 +1629,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
             driverIntelEntries: countObjectKeys_(driverIntelCache),
             driverHistoryEntries: countObjectKeys_(driverHistory),
             lifecycleCleanup: { ...lifecycleCleanupStats },
+            warmRestore: { ...raceDataWarmRestoreState },
             aggregateWorker: {
                 inFlightKey: aggregateWorkerInFlightKey,
                 failedKey: aggregateWorkerFailedKey,
@@ -1699,6 +1702,39 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
                 const req = tx.objectStore(storeName).get(key);
                 req.onsuccess = () => resolve(req.result || null);
                 req.onerror = () => resolve(null);
+            } catch {
+                resolve(null);
+            }
+        });
+    }
+
+    async function bigRaceIdbFindLatestByRaceId_(storeName, raceId) {
+        const rid = String(raceId || "").trim();
+        if (!rid) return null;
+        const db = await openBigRaceDb_();
+        if (!db) return null;
+        return await new Promise(resolve => {
+            try {
+                const tx = db.transaction(storeName, "readonly");
+                const store = tx.objectStore(storeName);
+                const prefix = `${rid}:`;
+                const range = typeof IDBKeyRange !== "undefined" ? IDBKeyRange.bound(prefix, `${prefix}\uffff`) : null;
+                const req = range ? store.openCursor(range) : store.openCursor();
+                let best = null;
+                req.onsuccess = event => {
+                    const cursor = event.target?.result || null;
+                    if (!cursor) return;
+                    const row = cursor.value || {};
+                    const key = String(row.key || cursor.key || "");
+                    const rowRaceId = String(row.raceId || "").trim();
+                    if (rowRaceId === rid || key.startsWith(prefix)) {
+                        if (!best || Number(row.storedAt || 0) > Number(best.storedAt || 0)) best = row;
+                    }
+                    cursor.continue();
+                };
+                req.onerror = () => resolve(null);
+                tx.oncomplete = () => resolve(best);
+                tx.onerror = () => resolve(best);
             } catch {
                 resolve(null);
             }
@@ -3129,7 +3165,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         const key = raceDataFetchRaceKey_(raceId);
         let state = raceDataAcceptedStateByRaceId.get(key);
         if (!state && create) {
-            state = { raceId: key, signature: "", accepted: false, complete: false, payload: null, duplicatePayloadsSkipped: 0 };
+            state = { raceId: key, signature: "", accepted: false, complete: false, payload: null, duplicatePayloadsSkipped: 0, warmRestored: false, verifiedAt: 0 };
             raceDataAcceptedStateByRaceId.set(key, state);
         }
         return state;
@@ -3147,6 +3183,9 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
             if (state.payload) latestRaceDataPayload = state.payload;
             raceDataReceivedPerfMs = performance.now();
             raceDataCurrentTimeAtReceive = Number((state.payload || payload)?.timeData?.currentTime);
+            state.warmRestored = false;
+            state.verifiedAt = Date.now();
+            raceDataWarmRestoreState.verifiedAt = state.verifiedAt;
             statusDirty = true;
             statusOnlyRenderPending = true;
             if (debugEnabled) console.debug(TAG, "raceData duplicate static payload skipped", key, signature);
@@ -3156,6 +3195,9 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         state.accepted = true;
         state.complete = raceDataUsableForAnalysis_(payload) || raceDataStatusFinished_(payload);
         state.payload = payload;
+        state.warmRestored = false;
+        state.verifiedAt = Date.now();
+        raceDataWarmRestoreState.verifiedAt = state.verifiedAt;
         if (key) boundedMapSet_(raceDataPayloadCacheByRaceId, key, payload, RACE_DATA_PAYLOAD_CACHE_MAX);
         trimRaceDataCaches_(key);
         return false;
@@ -3163,7 +3205,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
 
     function directRaceDataFetchComplete_(raceId) {
         const state = raceDataAcceptedState_(raceId, false);
-        return !!(state?.accepted && state.complete);
+        return !!(state?.accepted && state.complete && !state.warmRestored);
     }
 
     function bigRaceObservationShouldPause_() {
@@ -3176,6 +3218,87 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
             || directRaceDataFetchComplete_(fetchKey)
             || pgPlayerCachedRaceKeys.has(payloadKey)
             || bigRaceRawStoredKeys.has(cacheKey);
+    }
+
+    function currentVisibleRaceIdForRestore_() {
+        const explicit = String(urlRaceId_() || visibleRaceId_() || "").trim();
+        if (explicit) return explicit;
+        const metaRaceId = String(raceMeta?.raceId || "").trim();
+        const storedRaceId = loadLastRaceId_();
+        if (metaRaceId && storedRaceId && metaRaceId === storedRaceId && !hasJoinRacingEventAction_() && !isGenericRacingLanding_()) {
+            return metaRaceId;
+        }
+        return "";
+    }
+
+    async function maybeWarmRestoreRaceDataForCurrentRace_() {
+        if (!PHASE_REWRITE_FLAGS.sameRaceWarmRestore) return false;
+        if (raceDataWarmRestoreState.active) return false;
+        if (analysis || latestRaceDataPayload) return false;
+        const raceId = currentVisibleRaceIdForRestore_();
+        if (!raceId) return false;
+        if (raceDataWarmRestoreState.attemptedRaceId === raceId) return false;
+
+        raceDataWarmRestoreState = {
+            ...raceDataWarmRestoreState,
+            active: true,
+            attemptedRaceId: raceId,
+            lastError: ""
+        };
+        try {
+            const rawRecord = await bigRaceIdbFindLatestByRaceId_(BIG_RACE_RAW_STORE, raceId);
+            const rawPayload = rawRecord?.payload || null;
+            const payload = getRacePayload_(rawPayload);
+            if (!payload?.cars) return false;
+            const payloadRaceId = directRaceIdFromPayload_(payload) || extractRaceIdFromPayloadOrUrl_(payload);
+            if (payloadRaceId && payloadRaceId !== raceId) return false;
+
+            const identity = bigRaceCacheIdentity_(payload);
+            if (rawRecord?.signature && identity.signature && String(rawRecord.signature) !== String(identity.signature)) return false;
+
+            const summaryRecord = await bigRaceIdbGet_(BIG_RACE_SUMMARY_STORE, identity.key)
+                || await bigRaceIdbFindLatestByRaceId_(BIG_RACE_SUMMARY_STORE, raceId);
+            if (summaryRecord?.summary && (!summaryRecord.signature || String(summaryRecord.signature) === String(identity.signature))) {
+                boundedMapSet_(bigRaceProcessedSummaryCache, identity.key, summaryRecord.summary, BIG_RACE_SUMMARY_MEMORY_MAX);
+                bigRaceSummaryStoredKeys.add(identity.key);
+            }
+
+            latestRaceDataPayload = payload;
+            raceDataReceivedPerfMs = 0;
+            raceDataCurrentTimeAtReceive = Number(payload?.timeData?.currentTime);
+            clearedRaceDataKey = "";
+            bigRaceRawStoredKeys.add(identity.key);
+
+            const acceptedKey = raceDataFetchRaceKey_(raceId, payload);
+            const state = raceDataAcceptedState_(acceptedKey);
+            state.signature = identity.signature;
+            state.accepted = true;
+            state.complete = raceDataUsableForAnalysis_(payload) || raceDataStatusFinished_(payload);
+            state.payload = payload;
+            state.warmRestored = true;
+            state.verifiedAt = 0;
+            boundedMapSet_(raceDataPayloadCacheByRaceId, acceptedKey, payload, RACE_DATA_PAYLOAD_CACHE_MAX);
+            trimRaceDataCaches_(acceptedKey);
+
+            buildAnalysisFromRaceData_(payload);
+            maybeSwitchReplayAnalysisMode_(payload, "same-race-warm-restore");
+            markPlayerRaceDataAvailable_();
+            raceDataWarmRestoreState = {
+                ...raceDataWarmRestoreState,
+                restoredKey: identity.key,
+                restoredAt: Date.now()
+            };
+            markDirty_({ data: true, layout: true, status: true, selection: true });
+            scheduleRender_();
+            if (debugEnabled) console.debug(TAG, "raceData warm-restored from same-race cache", raceId, identity.key);
+            return true;
+        } catch (error) {
+            raceDataWarmRestoreState.lastError = String(error?.message || error || "warm restore failed");
+            if (debugEnabled) console.warn(TAG, "raceData warm restore failed", error);
+            return false;
+        } finally {
+            raceDataWarmRestoreState.active = false;
+        }
     }
 
     function pgPlayerDecodedIntervalsPreview_(value) {
@@ -3801,6 +3924,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         const explicitRaceId = replay ? (urlRaceId_() || visibleRaceId_() || raceMeta?.raceId || "") : "";
         if (replay && !explicitRaceId) return false;
 
+        if (!analysis && !latestRaceDataPayload) await maybeWarmRestoreRaceDataForCurrentRace_();
         const currentPayload = latestRaceDataPayload || analysis?.payload || null;
         const hasRaceData = !!(currentPayload && analysis?.drivers?.length);
         const resolvedRaceKey = raceDataFetchRaceKey_(explicitRaceId, currentPayload);
@@ -14343,7 +14467,8 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
         const buildPerf = perf["analysis.build"] || {};
         const aggregate = aggregateWorkerLastStatus ? ` Aggregate worker: ${aggregateWorkerLastStatus}${aggregateWorkerLastMs ? ` ${aggregateWorkerLastMs}ms` : ""}${aggregateWorkerLastError ? ` (${aggregateWorkerLastError})` : ""}.` : "";
         const cache = phaseCacheStats_();
-        return `Heavy mode: ${heavyRaceLightweightMode_() ? "ON" : "OFF"}, estimated points: ${Math.round(heavy.estimatedPoints || 0).toLocaleString()}, racingData fetches: ${stats.fetches || 0}, duplicate payloads skipped: ${stats.duplicatePayloadsSkipped || 0}, rendered rows: ${rendered}/${total}. Big Race cache: raw ${rawState}, summary ${summaryState}${worker}${pruned}${error}. Perf: render ${renderPerf.lastMs || 0}/${renderPerf.maxMs || 0}ms, build ${buildPerf.lastMs || 0}/${buildPerf.maxMs || 0}ms. Memory caches: payloads ${cache.payloads}/${RACE_DATA_PAYLOAD_CACHE_MAX}, states ${cache.acceptedStates}/${RACE_DATA_META_CACHE_MAX}, summaries ${cache.bigRaceSummaries}/${BIG_RACE_SUMMARY_MEMORY_MAX}, frames ${cache.frameRows}/${FRAME_ROWS_CACHE_MAX}, telemetry ${cache.telemetryStats}/${TELEMETRY_STATS_CACHE_MAX}, sectors ${cache.sectorSnapshots}/${SECTOR_SNAPSHOT_CACHE_MAX}, images ${cache.optionalImages}/${OPTIONAL_IMAGE_CACHE_MAX}, ids ${cache.driverIdLookups}/${DRIVER_ID_LOOKUP_CACHE_MAX}, intel ${cache.driverIntelEntries}/${DRIVER_INTEL_CACHE_MAX}, history ${cache.driverHistoryEntries}/${DRIVER_HISTORY_CACHE_MAX}, cleanup ${cache.lifecycleCleanup.runs || 0}.${aggregate}`;
+        const warm = cache.warmRestore?.restoredKey ? `, warm restore ${cache.warmRestore.verifiedAt ? "verified" : "pending"}` : "";
+        return `Heavy mode: ${heavyRaceLightweightMode_() ? "ON" : "OFF"}, estimated points: ${Math.round(heavy.estimatedPoints || 0).toLocaleString()}, racingData fetches: ${stats.fetches || 0}, duplicate payloads skipped: ${stats.duplicatePayloadsSkipped || 0}, rendered rows: ${rendered}/${total}. Big Race cache: raw ${rawState}, summary ${summaryState}${worker}${pruned}${error}${warm}. Perf: render ${renderPerf.lastMs || 0}/${renderPerf.maxMs || 0}ms, build ${buildPerf.lastMs || 0}/${buildPerf.maxMs || 0}ms. Memory caches: payloads ${cache.payloads}/${RACE_DATA_PAYLOAD_CACHE_MAX}, states ${cache.acceptedStates}/${RACE_DATA_META_CACHE_MAX}, summaries ${cache.bigRaceSummaries}/${BIG_RACE_SUMMARY_MEMORY_MAX}, frames ${cache.frameRows}/${FRAME_ROWS_CACHE_MAX}, telemetry ${cache.telemetryStats}/${TELEMETRY_STATS_CACHE_MAX}, sectors ${cache.sectorSnapshots}/${SECTOR_SNAPSHOT_CACHE_MAX}, images ${cache.optionalImages}/${OPTIONAL_IMAGE_CACHE_MAX}, ids ${cache.driverIdLookups}/${DRIVER_ID_LOOKUP_CACHE_MAX}, intel ${cache.driverIntelEntries}/${DRIVER_INTEL_CACHE_MAX}, history ${cache.driverHistoryEntries}/${DRIVER_HISTORY_CACHE_MAX}, cleanup ${cache.lifecycleCleanup.runs || 0}.${aggregate}`;
     }
 
     function scheduleRender_(dirty = null) {
