@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         MoDuL's: Custom Race Filter
 // @namespace    modul.torn.racing
-// @version      2.4.6
+// @version      2.4.7
 // @description  Custom Race filter. (OG Car Names & PDA Compatible)
 // @author       MoDuL
 // @copyright    2026 MoDuL. All rights reserved.
@@ -31,7 +31,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
 (function () {
   "use strict";
 
-var VERSION = "2.4.6";
+var VERSION = "2.4.7";
   var TAG = "[MoDuL's: Custom Race Filter v" + VERSION + "]";
   try { console.log(TAG, "Loaded ✅"); } catch (e) {}
 
@@ -1081,6 +1081,18 @@ var VERSION = "2.4.6";
       transition:none;
     }
 
+    .custom-events-wrap .notification-wrap.rfJoinOpen{
+      display:block !important;
+      visibility:visible !important;
+    }
+
+    .custom-events-wrap .notification-wrap.rfJoinOpen .race-confidence,
+    .custom-events-wrap .notification-wrap.rfJoinOpen .race-warning,
+    .custom-events-wrap .notification-wrap.rfJoinOpen .race-password{
+      display:block !important;
+      visibility:visible !important;
+    }
+
     @media (max-width:540px){
       #modulRFOuter .rfInfoBar{ flex-direction:column; }
       #modulRFOuter .rfInfoLeft{ min-height:32px; }
@@ -1682,9 +1694,75 @@ var VERSION = "2.4.6";
     return true;
   }
 
+  function getJoinNotice(row) {
+    return row?.querySelector?.(".acc-body .notification-wrap") || null;
+  }
+
+  function getJoinNoticePanels(wrap) {
+    if (!wrap) return [];
+    return Array.from(wrap.querySelectorAll(".race-confidence, .race-warning, .race-password"));
+  }
+
+  function setRaceJoinNoticeOpen(row, open) {
+    const wrap = getJoinNotice(row);
+    if (!wrap) return false;
+
+    wrap.classList.toggle("rfJoinOpen", !!open);
+    wrap.style.display = open ? "block" : "none";
+    wrap.style.visibility = open ? "visible" : "";
+
+    for (const panel of getJoinNoticePanels(wrap)) {
+      panel.style.display = open ? "block" : "none";
+      panel.style.visibility = open ? "visible" : "";
+    }
+
+    return true;
+  }
+
+  function stopRaceJoinEvent(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    if (typeof e.stopImmediatePropagation === "function") e.stopImmediatePropagation();
+  }
+
+  function enhanceRaceJoinControls(items) {
+    const rows = items || getItems();
+
+    for (const row of rows) {
+      const wrap = getJoinNotice(row);
+      const panels = getJoinNoticePanels(wrap);
+      if (!wrap || !panels.length) continue;
+
+      if (row.dataset.rfJoinDismissed !== "1") {
+        setRaceJoinNoticeOpen(row, true);
+      }
+
+      const iconLink = row.querySelector('.acc-body li.join > a[href="#"]');
+      if (iconLink && iconLink.dataset.rfJoinBound !== "1") {
+        iconLink.dataset.rfJoinBound = "1";
+        iconLink.addEventListener("click", (e) => {
+          stopRaceJoinEvent(e);
+          row.dataset.rfJoinDismissed = "0";
+          setRaceJoinNoticeOpen(row, true);
+        }, true);
+      }
+
+      const cancel = wrap.querySelector(".cancel");
+      if (cancel && cancel.dataset.rfJoinBound !== "1") {
+        cancel.dataset.rfJoinBound = "1";
+        cancel.addEventListener("click", (e) => {
+          stopRaceJoinEvent(e);
+          row.dataset.rfJoinDismissed = "1";
+          setRaceJoinNoticeOpen(row, false);
+        }, true);
+      }
+    }
+  }
+
   let applyToken = 0;
   function applyBatched() {
     const items = getItems();
+    enhanceRaceJoinControls(items);
     refreshExternalRealCarNames(items);
     if (!items.length) return;
 
