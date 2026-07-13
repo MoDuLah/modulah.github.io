@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.4.9
+
+- Stopped opening every join confirmation panel after using `Refresh races`
+- Copied Torn's real join URL onto the visible join icon for normal and long custom races so rows stay compact
+- Password-protected races now prompt for the passcode and submit Torn's existing password form instead of expanding every password panel
+
 ## 2.4.8
 
 - Fixed join controls after using `Refresh races` by binding a local fallback to the refreshed race rows immediately after the HTML replacement
