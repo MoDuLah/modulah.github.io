@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         MoDuL's: Custom Race Filter
 // @namespace    modul.torn.racing
-// @version      2.4.8
+// @version      2.4.9
 // @description  Custom Race filter. (OG Car Names & PDA Compatible)
 // @author       MoDuL
 // @copyright    2026 MoDuL. All rights reserved.
@@ -31,7 +31,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
 (function () {
   "use strict";
 
-var VERSION = "2.4.8";
+var VERSION = "2.4.9";
   var TAG = "[MoDuL's: Custom Race Filter v" + VERSION + "]";
   try { console.log(TAG, "Loaded ✅"); } catch (e) {}
 
@@ -1719,6 +1719,68 @@ var VERSION = "2.4.8";
     return true;
   }
 
+  function getDirectRaceJoinLink(row) {
+    return row?.querySelector?.(
+      ".acc-body .notification-wrap .race-confidence .join-wrap a[href], " +
+      ".acc-body .notification-wrap .race-warning .join-wrap a[href]"
+    ) || null;
+  }
+
+  function getPasswordRaceForm(row) {
+    return row?.querySelector?.(".acc-body .notification-wrap .race-password form") || null;
+  }
+
+  function getRaceName(row) {
+    return String(row?.querySelector?.(".acc-body li.name")?.textContent || "").replace(/\s+/g, " ").trim();
+  }
+
+  function copyJoinLinkToVisibleButton(row, iconLink) {
+    const joinLink = getDirectRaceJoinLink(row);
+    if (!joinLink || !iconLink) return false;
+
+    const href = joinLink.getAttribute("href");
+    if (!href || href === "#") return false;
+
+    iconLink.href = href;
+    iconLink.dataset.rfJoinMode = "direct";
+    iconLink.title = "Join this race";
+
+    ["tab-value", "section-value", "step-value", "id-value"].forEach(attr => {
+      const value = joinLink.getAttribute(attr);
+      if (value != null) iconLink.setAttribute(attr, value);
+    });
+
+    return true;
+  }
+
+  function submitPasswordRaceJoin(row) {
+    const form = getPasswordRaceForm(row);
+    const passInput = form?.querySelector?.('input[name="password"]');
+    if (!form || !passInput) return false;
+
+    const label = getRaceName(row);
+    const pass = window.prompt(label ? `Enter passcode for ${label}:` : "Enter race passcode:");
+    if (pass == null) return true;
+
+    const trimmed = String(pass).trim();
+    if (!trimmed) return true;
+
+    passInput.value = trimmed;
+
+    const submit = form.querySelector('input[type="submit"], button[type="submit"]');
+    if (typeof form.requestSubmit === "function") {
+      form.requestSubmit(submit || undefined);
+    } else if (submit && typeof submit.click === "function") {
+      submit.click();
+    } else if (window.HTMLFormElement?.prototype?.submit) {
+      window.HTMLFormElement.prototype.submit.call(form);
+    } else if (typeof form.submit === "function") {
+      form.submit();
+    }
+
+    return true;
+  }
+
   function stopRaceJoinEvent(e) {
     e.preventDefault();
     e.stopPropagation();
@@ -1747,7 +1809,16 @@ var VERSION = "2.4.8";
       if (!row || !getJoinNotice(row)) return;
 
       stopRaceJoinEvent(e);
-      row.dataset.rfJoinDismissed = "0";
+
+      const joinLink = getDirectRaceJoinLink(row);
+      const href = joinLink?.getAttribute?.("href");
+      if (href && href !== "#") {
+        window.location.assign(new URL(href, window.location.origin).href);
+        return;
+      }
+
+      if (submitPasswordRaceJoin(row)) return;
+
       setRaceJoinNoticeOpen(row, true);
     }, true);
   }
@@ -1761,16 +1832,18 @@ var VERSION = "2.4.8";
       const panels = getJoinNoticePanels(wrap);
       if (!wrap || !panels.length) continue;
 
-      if (row.dataset.rfJoinDismissed !== "1") {
-        setRaceJoinNoticeOpen(row, true);
-      }
+      const iconLink = row.querySelector(".acc-body li.join > a");
+      setRaceJoinNoticeOpen(row, false);
+      copyJoinLinkToVisibleButton(row, iconLink);
 
-      const iconLink = row.querySelector('.acc-body li.join > a[href="#"]');
       if (iconLink && iconLink.dataset.rfJoinBound !== "1") {
         iconLink.dataset.rfJoinBound = "1";
         iconLink.addEventListener("click", (e) => {
+          const href = String(iconLink.getAttribute("href") || "").trim();
+          if (href && href !== "#" && iconLink.dataset.rfJoinMode === "direct") return;
+
           stopRaceJoinEvent(e);
-          row.dataset.rfJoinDismissed = "0";
+          if (submitPasswordRaceJoin(row)) return;
           setRaceJoinNoticeOpen(row, true);
         }, true);
       }
@@ -1780,7 +1853,6 @@ var VERSION = "2.4.8";
         cancel.dataset.rfJoinBound = "1";
         cancel.addEventListener("click", (e) => {
           stopRaceJoinEvent(e);
-          row.dataset.rfJoinDismissed = "1";
           setRaceJoinNoticeOpen(row, false);
         }, true);
       }
