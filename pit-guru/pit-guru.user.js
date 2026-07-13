@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         MoDuL's Pit Guru
 // @namespace    modul.torn.racing
-// @version      2.1.9
+// @version      2.2.0
 // @description  Live Torn race timing, gaps, sectors, speed and estimated telemetry analysis
 // @author       MoDuL
 // @copyright    2026 MoDuL. All rights reserved.
@@ -555,7 +555,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
     unsafeWindow.pgPitGuruClearApiCache = pgClearApiResponseCache_;
     unsafeWindow.pgPitGuruHealthTest = unsafeWindow.pgLocalHealthTest;
 
-    const MPG_VERSION = "2.1.9";
+    const MPG_VERSION = "2.2.0";
     var TAG = "[MoDuL's Pit Guru v" + MPG_VERSION + "]";
 
     const PitGuruRaceEngine = (() => {
@@ -944,6 +944,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         sameRaceWarmRestore: true
     });
     const STORE_RECORDS_MAX = 2500;
+    const STORE_RECORDS_PER_BUCKET_MAX = 10;
     const WIN_DEFAULT_WIDTH = 720;
     const WIN_DEFAULT_HEIGHT = 740;
     const WIN_MIN_WIDTH = 550;
@@ -1214,6 +1215,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
     let raceDataCurrentTimeAtReceive = NaN;
     let finalAnalysisNotifiedForRaceId = "";
     let recordsUpdatedForAnalysisRaceId = "";
+    let localDbSyncedForAnalysisRaceId = "";
     let lastSettingsRenderKey = "";
     let lastModeBarRenderKey = "";
     let lastAnalysisBodyKey = "";
@@ -1909,6 +1911,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
                 records = Array.from(byId.values());
             }
         }
+        records = pruneRecordsToTopBuckets_(records);
         if (records.length > STORE_RECORDS_MAX) records = records.slice(records.length - STORE_RECORDS_MAX);
         invalidateRecordsIndex_();
         saveJson_(STORE_RECORDS_KEY, records);
@@ -2152,6 +2155,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         clearedRaceDataKey = "";
         finalAnalysisNotifiedForRaceId = "";
         recordsUpdatedForAnalysisRaceId = "";
+        localDbSyncedForAnalysisRaceId = "";
         pgPlayerCachedRaceKeys = new Set();
         liveOrderCache = { key: "", value: [] };
         replayStateCache = { key: "", value: null };
@@ -2306,6 +2310,68 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
     function getRecordRaceTypeFromRow_(row) {
         const value = String(row?.raceType || row?.race_type || row?.type || "").trim().toLowerCase();
         return value === "custom" ? "custom" : "official";
+    }
+
+    function recordBucketKey_(row, fallbackMode) {
+        if (!row) return "";
+        const mode = String(row.mode || fallbackMode || "").trim().toLowerCase();
+        if (mode !== "lap" && mode !== "race") return "";
+        const track = getRecordTrackScopeFromRow_(row, mode);
+        const car = toOgCarName_(row.car || "").trim();
+        if (!track || !car) return "";
+        const raceType = mode === "race" ? getRecordRaceTypeFromRow_(row) : "";
+        return `${mode}|${raceType}|${track}|${car}`;
+    }
+
+    function recordMsValue_(row) {
+        const ms = Number(row?.ms);
+        return Number.isFinite(ms) && ms > 0 ? ms : 0;
+    }
+
+    function compareRecordRows_(a, b) {
+        const byTime = recordMsValue_(a) - recordMsValue_(b);
+        if (byTime) return byTime;
+        return String(a?.atIso || a?.at || "").localeCompare(String(b?.atIso || b?.at || ""));
+    }
+
+    function pruneRecordsToTopBuckets_(rows, limit = STORE_RECORDS_PER_BUCKET_MAX) {
+        const source = Array.isArray(rows) ? rows.filter(Boolean) : [];
+        const grouped = new Map();
+        const passthrough = [];
+        for (const row of source) {
+            const key = recordBucketKey_(row);
+            if (!key || !recordMsValue_(row)) {
+                passthrough.push(row);
+                continue;
+            }
+            const bucket = grouped.get(key) || [];
+            bucket.push(row);
+            grouped.set(key, bucket);
+        }
+        const capped = [];
+        for (const bucket of grouped.values()) {
+            capped.push(...bucket.slice().sort(compareRecordRows_).slice(0, limit));
+        }
+        return passthrough.concat(capped);
+    }
+
+    function recordSubmissionMatches_(row, candidate) {
+        if (!row || !candidate) return false;
+        if (row.id && candidate.id && String(row.id) === String(candidate.id)) return true;
+        if (recordBucketKey_(row) !== recordBucketKey_(candidate)) return false;
+        const raceId = String(candidate.raceId || "").trim();
+        const rowRaceId = String(row.raceId || "").trim();
+        const driverId = String(candidate.driverId || "").trim();
+        const rowDriverId = String(row.driverId || "").trim();
+        const driverName = normalizeDriverName_(candidate.driverName || "");
+        const rowDriverName = normalizeDriverName_(row.driverName || "");
+        if (raceId && rowRaceId === raceId) {
+            if (driverId && rowDriverId === driverId) return true;
+            if (driverName && rowDriverName === driverName) return true;
+        }
+        const atIso = String(candidate.atIso || "").trim();
+        const rowAtIso = String(row.atIso || "").trim();
+        return !!(atIso && rowAtIso === atIso && driverName && rowDriverName === driverName);
     }
 
     function recordIsMine_(row) {
@@ -3170,7 +3236,6 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
     function persistBigRaceProcessedSummary_(model) {
         if (!model?.heavyRace || !model?.drivers?.length) return false;
         if (!model.leadStatsReady || !model.sectorWinsReady) {
-            if (!ensureAnalysisAggregates_({ sectors: true, leads: true })) return false;
             return false;
         }
         const identity = model.bigRaceCacheKey
@@ -5835,6 +5900,9 @@ self.onmessage=event=>{try{self.postMessage({ok:true,result:aggregate(event.data
         if (body) body.dataset.renderKey = "";
         markDirty_({ data: true, status: true });
         if (model.heavyRace && model.leadStatsReady && model.sectorWinsReady) persistBigRaceProcessedSummary_(model);
+        if (model === analysis && shouldPopulateFinalAnalysisNow_()) {
+            setTimeout(() => updateRecordsFromAnalysis_({ allowHeavyAggregateStart: false }), 0);
+        }
         scheduleRender_();
         return true;
     }
@@ -6005,51 +6073,70 @@ self.onmessage=event=>{try{self.postMessage({ok:true,result:aggregate(event.data
         return true;
     }
 
-    function updateRecordsFromAnalysis_() {
+    function updateRecordsFromAnalysis_(options = {}) {
         try {
             if (!analysis || !shouldPopulateFinalAnalysisNow_()) return;
-            if (!ensureAnalysisAggregates_({ sectors: true, leads: true })) return;
-            ensureRecordsLoaded_("updateRecordsFromAnalysis");
             const raceId = String(analysis.raceId || raceMeta?.raceId || getRaceId_() || "").trim();
             const raceRecordKey = raceId || `${analysis.trackName}:${analysis.drivers.map(d => d.finalTime).join(",")}`;
-            if (recordsUpdatedForAnalysisRaceId === raceRecordKey) return;
-            const sourceTrack = analysis.trackName || "UnknownTrack";
-            const lapTrack = getRecordTrackScope_("lap", sourceTrack) || "UnknownTrack";
-            const raceTrack = getRecordTrackScope_("race", formatRaceTrackLabel_(sourceTrack, analysis.laps)) || "UnknownTrack";
-            const atIso = raceMeta?.detectedAtIso || nowIso_();
-            const meta = raceMetaFromPayload_(analysis.payload || {}, false);
-            const raceType = String(meta.type || raceMeta?.replayInfo?.type || "Official").toLowerCase() === "custom" ? "custom" : "official";
-            const analysisDriverNames = new Set(analysis.drivers.map(d => normalizeDriverName_(d.name)).filter(Boolean));
-            records = records.filter(r => {
-                if (!r || (r.mode !== "lap" && r.mode !== "race")) return true;
-                const rowDriver = normalizeDriverName_(r.driverName || "");
-                if (!analysisDriverNames.has(rowDriver)) return true;
-                const rowTrack = getRecordTrackScopeFromRow_(r, r.mode);
-                const targetTrack = r.mode === "lap" ? lapTrack : raceTrack;
-                if (rowTrack !== targetTrack) return true;
-                const sameRace = raceId && String(r.raceId || "").trim() === raceId;
-                const sameStart = atIso && String(r.atIso || "").trim() === atIso;
-                return !(sameRace || sameStart);
-            });
-            for (const d of analysis.drivers) {
-                if (d.bestLapSeconds && d.car) {
-                    const id = makeRecId_("lap", lapTrack, d.car, `${atIso}_${d.name}`);
-                    records = records.filter(r => r.id !== id);
-                    records.push({ id, track: lapTrack, trackKey: lapTrack, trackLabel: lapTrack, sourceTrack, mode: "lap", raceType, car: toOgCarName_(d.car), carImg: d.carImg, driverName: d.name, driverId: d.driverId, racingSkill: d.racingSkill, raceId, timeText: formatTimeSeconds_(d.bestLapSeconds), ms: Math.round(d.bestLapSeconds * 1000), atIso });
-                }
-                if (!d.crashed && d.finalTime && d.car) {
-                    const id = makeRecId_("race", raceTrack, d.car, `${atIso}_${d.name}`);
-                    records = records.filter(r => r.id !== id);
-                    records.push({ id, track: raceTrack, trackKey: raceTrack, trackLabel: raceTrack, sourceTrack, mode: "race", raceType, car: toOgCarName_(d.car), carImg: d.carImg, driverName: d.name, driverId: d.driverId, racingSkill: d.racingSkill, raceId, timeText: formatTimeSeconds_(d.finalTime), ms: Math.round(d.finalTime * 1000), atIso });
+            let localSyncReady = true;
+            if (!analysis.sectorWinsReady || !analysis.leadStatsReady) {
+                if (analysis.heavyRace && !options.allowHeavyAggregateStart) {
+                    localSyncReady = false;
+                } else {
+                    localSyncReady = ensureAnalysisAggregates_({ sectors: true, leads: true });
                 }
             }
-            invalidateRecordsIndex_();
-            saveRecords_();
-            updateDriverHistoryFromAnalysis_();
-            pgLocalSyncCurrentRace_(true).catch(e => {
-                if (debugEnabled) console.warn(TAG, "local DB auto-sync skipped", e);
-            });
-            recordsUpdatedForAnalysisRaceId = raceRecordKey;
+
+            if (recordsUpdatedForAnalysisRaceId !== raceRecordKey) {
+                ensureRecordsLoaded_("updateRecordsFromAnalysis");
+                const sourceTrack = analysis.trackName || "UnknownTrack";
+                const lapTrack = getRecordTrackScope_("lap", sourceTrack) || "UnknownTrack";
+                const raceTrack = getRecordTrackScope_("race", formatRaceTrackLabel_(sourceTrack, analysis.laps)) || "UnknownTrack";
+                const atIso = raceMeta?.detectedAtIso || nowIso_();
+                const meta = raceMetaFromPayload_(analysis.payload || {}, false);
+                const raceType = String(meta.type || raceMeta?.replayInfo?.type || "Official").toLowerCase() === "custom" ? "custom" : "official";
+                const analysisDriverNames = new Set(analysis.drivers.map(d => normalizeDriverName_(d.name)).filter(Boolean));
+                records = records.filter(r => {
+                    if (!r || (r.mode !== "lap" && r.mode !== "race")) return true;
+                    const rowDriver = normalizeDriverName_(r.driverName || "");
+                    if (!analysisDriverNames.has(rowDriver)) return true;
+                    const rowTrack = getRecordTrackScopeFromRow_(r, r.mode);
+                    const targetTrack = r.mode === "lap" ? lapTrack : raceTrack;
+                    if (rowTrack !== targetTrack) return true;
+                    const sameRace = raceId && String(r.raceId || "").trim() === raceId;
+                    const sameStart = atIso && String(r.atIso || "").trim() === atIso;
+                    return !(sameRace || sameStart);
+                });
+                for (const d of analysis.drivers) {
+                    const car = toOgCarName_(d.car);
+                    if (d.bestLapSeconds && car) {
+                        const id = makeRecId_("lap", lapTrack, car, `${atIso}_${d.name}`);
+                        const candidate = { id, track: lapTrack, trackKey: lapTrack, trackLabel: lapTrack, sourceTrack, mode: "lap", raceType, car, carImg: d.carImg, driverName: d.name, driverId: d.driverId, racingSkill: d.racingSkill, raceId, timeText: formatTimeSeconds_(d.bestLapSeconds), ms: Math.round(d.bestLapSeconds * 1000), atIso };
+                        records = records.filter(r => !recordSubmissionMatches_(r, candidate));
+                        records.push(candidate);
+                    }
+                    if (!d.crashed && d.finalTime && car) {
+                        const id = makeRecId_("race", raceTrack, car, `${atIso}_${d.name}`);
+                        const candidate = { id, track: raceTrack, trackKey: raceTrack, trackLabel: raceTrack, sourceTrack, mode: "race", raceType, car, carImg: d.carImg, driverName: d.name, driverId: d.driverId, racingSkill: d.racingSkill, raceId, timeText: formatTimeSeconds_(d.finalTime), ms: Math.round(d.finalTime * 1000), atIso };
+                        records = records.filter(r => !recordSubmissionMatches_(r, candidate));
+                        records.push(candidate);
+                    }
+                }
+                invalidateRecordsIndex_();
+                saveRecords_();
+                updateDriverHistoryFromAnalysis_();
+                recordsUpdatedForAnalysisRaceId = raceRecordKey;
+            }
+
+            if (localSyncReady && localDbSyncedForAnalysisRaceId !== raceRecordKey) {
+                localDbSyncedForAnalysisRaceId = raceRecordKey;
+                pgLocalSyncCurrentRace_(true).catch(e => {
+                    if (localDbSyncedForAnalysisRaceId === raceRecordKey) localDbSyncedForAnalysisRaceId = "";
+                    if (debugEnabled) console.warn(TAG, "local DB auto-sync skipped", e);
+                });
+            } else if (!localSyncReady && debugEnabled) {
+                console.debug(TAG, "local DB auto-sync deferred until heavy-race aggregates are requested");
+            }
         } catch (e) {
             if (debugEnabled) console.warn(TAG, "analysis records update failed", e);
         }
@@ -10312,10 +10399,6 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
         return (h >>> 0).toString(16).padStart(8, '0');
     }
 
-    function makeBestRecId_(mode, track, car) {
-        return `best:${mode}:${hash32_(track)}:${hash32_(car)}`;
-    }
-
     function updateBestRecord_(mode, track, car, ms, timeText, extra) {
         if (!mode || !track || !car) return false;
         if (!(typeof ms === 'number' && isFinite(ms) && ms > 0)) return false;
@@ -10325,31 +10408,34 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
         const scopedTrack = getRecordTrackScope_(mode, sourceTrack || track);
         if (!scopedTrack) return false;
 
-        const id = makeBestRecId_(mode, scopedTrack, car);
-        const prev = records.find(r => r && r.id === id);
-        if (prev && (prev.ms || 0) <= ms) return false; // existing is better or equal
-
-        // remove any older entries for this tuple (including legacy ids)
-        records = records.filter(r => !(r && r.mode === mode && getRecordTrackScopeFromRow_(r, mode) === scopedTrack && r.car === car));
-
         const atIso = (extra && extra.atIso) ? extra.atIso : bestRaceAtIso_();
-        records.push({
+        const normalizedCar = toOgCarName_(car);
+        if (!normalizedCar) return false;
+        const id = makeRecId_(mode, scopedTrack, normalizedCar, `${atIso}_${extra?.driverId || extra?.driverName || extra?.raceId || ms}`);
+        const candidate = {
             id,
             track: scopedTrack,
             trackKey: scopedTrack,
             trackLabel: scopedTrack,
             sourceTrack,
             mode,
-                car: toOgCarName_(car),
+            raceType: (extra && extra.raceType) ? extra.raceType : "official",
+            car: normalizedCar,
             carImg: (extra && extra.carImg) ? extra.carImg : '',
             carClass: (extra && extra.carClass) ? extra.carClass : '',
             driverName: (extra && extra.driverName) ? extra.driverName : '',
             driverId: (extra && extra.driverId) ? extra.driverId : '',
+            racingSkill: (extra && extra.racingSkill) ? extra.racingSkill : '',
             raceId: (extra && extra.raceId) ? extra.raceId : (raceMeta?.raceId || ""),
             timeText: timeText || msToTimeText_(ms, mode),
             ms,
             atIso
-        });
+        };
+        records = records.filter(r => !recordSubmissionMatches_(r, candidate));
+        records.push(candidate);
+        records = pruneRecordsToTopBuckets_(records);
+        const kept = records.some(r => String(r?.id || "") === id);
+        if (!kept) return false;
         invalidateRecordsIndex_();
 
         return true;
@@ -10972,6 +11058,7 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
         resetScanCaches_();
         finalAnalysisNotifiedForRaceId = "";
         recordsUpdatedForAnalysisRaceId = "";
+        localDbSyncedForAnalysisRaceId = "";
         driverIntelAutoRaceKey = "";
         lastCommentaryAtMs = 0;
         lastCommentaryText = "";
