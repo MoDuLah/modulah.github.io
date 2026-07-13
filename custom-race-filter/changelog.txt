@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.4.7
+
+- Fixed Torn join icons with `href="#"` jumping to the top of the page when Torn's native join handler is not attached
+- Join confirmation, long-race warning, and password panels now open by default when available in expanded race rows
+- Added a local fallback handler so clicking the join icon reveals Torn's existing join panel instead of relying only on Torn's page script
+
 ## 2.4.6
 
 - Added a manual `Refresh races` button that fetches Torn's custom-race page only when clicked
