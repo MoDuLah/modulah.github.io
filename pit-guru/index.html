@@ -33,11 +33,11 @@
         <div class="hero-copy">
           <p class="section-kicker">Supporter Racing Analysis Tool</p>
           <h1 class="hero-title">MoDuL's Pit Guru</h1>
-          <p class="hero-text">A next-generation Torn racing analysis workspace built from Lap Recorder's lessons, with a public race player, PostgreSQL-backed history, and the live v2.1.6 userscript restoring same-race cache data after refresh without skipping fresh validation.</p>
+          <p class="hero-text">A next-generation Torn racing analysis workspace built from Lap Recorder's lessons, with a public race player, PostgreSQL-backed history, and the live v2.1.7 userscript locking HTML reports until the race has finished while improving completed-race report detail.</p>
 
           <div class="hero-actions">
             <a class="cta-button" href="https://pp-api.sokin.xyz/pit-guru/" target="_blank" rel="noopener noreferrer">Open Public Race Player</a>
-            <a class="cta-button" href="pit-guru.user.js">Install v2.1.6</a>
+            <a class="cta-button" href="pit-guru.user.js">Install v2.1.7</a>
             <a class="ghost-button" href="https://discord.gg/JP8FQBATMV" target="_blank" rel="noopener noreferrer">Join Pit Guru Discord</a>
             <a class="ghost-button" href="../index.html#supporter-scripts">Back to Supporter Scripts</a>
           </div>
@@ -72,8 +72,8 @@
               <p>The hosted API and player now persist Pit Guru data in PostgreSQL, with pooled connections and backend-aware health checks.</p>
             </div>
             <div class="feature-block">
-              <h3>Performance rewrite</h3>
-              <p>The v2.1.6 userscript adds same-race warm restore after page refresh, hydrating cached raw/summary race data immediately and then checking fresh Torn racingData before treating the cache as verified.</p>
+              <h3>Completed-race reports</h3>
+              <p>The v2.1.7 userscript disables HTML report export until a live race has finished or a replay is open, then exports richer overview and full-data driver tables from the completed race.</p>
             </div>
             <div class="feature-block">
               <h3>Large race performance</h3>
@@ -118,7 +118,7 @@
 
         <article class="content-card content-card-full">
           <h2>Supporter Access</h2>
-          <p><a href="pit-guru.user.js">Install Pit Guru v2.1.6</a>, then follow the first-run guided setup to verify your Torn account using a public Torn API key. The key is used only for verification and is never saved in the Pit Guru database.</p>
+          <p><a href="pit-guru.user.js">Install Pit Guru v2.1.7</a>, then follow the first-run guided setup to verify your Torn account using a public Torn API key. The key is used only for verification and is never saved in the Pit Guru database.</p>
           <p>Race external player:</p>
           <p>Every verified account can analyse one race as a demo.<br> For supporter licensing, <a href="https://discord.gg/JP8FQBATMV" target="_blank" rel="noopener noreferrer">join the MoDuL's Hub Discord</a> and run <code>/buylicense</code> in any server channel.</p>
         </article>
@@ -177,7 +177,9 @@
                 <li>Hosted session storage is standardized on RT_TORN_MPG_HOSTED_SESSION, with legacy RT_TORN_LTL_HOSTED_SESSION cleanup.</li>
                 <li>The pre-race countdown now occupies the racingData status line, while Past Races uses a scoped title and compact help button.</li>
                 <li>The public proxy now accepts full racingData analysis payloads, and destructive Records deletion requires an admin token.</li>
-                <li>The v2.1.6 userscript is publicly installable, verifies users without storing their API key, and includes first-run setup plus a replayable guided tour.</li>
+                <li>The v2.1.7 userscript is publicly installable, verifies users without storing their API key, and includes first-run setup plus a replayable guided tour.</li>
+                <li>HTML report export now stays disabled until the live race has finished or the page is a replay, preventing early full-result report generation.</li>
+                <li>Completed-race HTML reports now include a Race Overview, Full Race Data table, start/finish deltas, final gaps, sector summaries, lead stats, speed, G, and consistency.</li>
                 <li>Same-race page refresh now warm-restores cached heavy-race data and then validates fresh Torn racingData before suppressing expensive rebuilds.</li>
                 <li>Phase 6-7 adds bounded persistent cache cleanup, capped heavy-race IndexedDB storage, page lifecycle cleanup, final validation, and refreshed hosted install artifacts.</li>
                 <li>Phase 3-5 of the performance rewrite adds normalized race indexes, cached replay frame rows, bounded telemetry prefix stats, sector snapshots, and shared frame-state render paths.</li>
