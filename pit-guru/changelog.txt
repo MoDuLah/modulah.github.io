@@ -4,9 +4,9 @@ MoDuL's Pit Guru Changelog
 Project status (2026-07-13)
 ---------------------------
 - MoDuL's Pit Guru is now the public-facing successor project to Lap Recorder on MoDuL's Hub.
-- The live supporter userscript build is v2.1.3 at https://modulah.github.io/pit-guru/pit-guru.user.js.
+- The live supporter userscript build is v2.1.4 at https://modulah.github.io/pit-guru/pit-guru.user.js.
+- v2.1.4 advances the phased performance rewrite with normalized race indexes, cached replay frame rows, cached live telemetry prefixes, sector snapshots, and renderers that reuse shared frame state instead of recalculating every visible table.
 - v2.1.3 starts the phased performance rewrite with render/build profiling, bounded race-data caches, coalesced rendering, an incremental live overtake counter, and a worker-backed heavy-race aggregate path for lead history and sector wins.
-- v2.1.2 updates the api connection to the latest dns.
 - v2.1.1 removes the advanced Hosted API & Player controls from public Settings while keeping transient retry recovery, short TTL read caching, and legacy hosted-session key cleanup.
 - v2.0.9 fixes the Predictions renderer crash after racingData is captured, when the shared render loop passes elapsed-time arguments instead of a prediction driver set.
 - v2.0.8 extends Big Race Mode with IndexedDB raw/summary cache layers, driver/profile dedupe by driverId, Web Worker summary generation where available, and observer shutdown after finished/cached big races.
@@ -27,6 +27,14 @@ Project status (2026-07-13)
 - Removed license serials from every Discord-facing activation message; purchases, admin grants, test purchases, and raffle prizes now confirm account-linked access and show the exact expiry with live time remaining.
 - Removed the obsolete `/licensecheck` serial-entry command.
 - Changed purchase payment references to the compact `!#PRODUCT-ORDERID` format while retaining verification support for existing pending orders using the legacy spaced format.
+
+v2.1.4
+------
+- Added Phase 3 normalized race indexes with stable driver keys, lap end markers, segment speed arrays, longitudinal-G arrays, and best-sector lookup data built once per decoded race.
+- Added Phase 4 cached replay frame rows so Leaderboard, Lap Recording, Speed, Pace, Sectors, Summary, Driver Stats, Commentary, and Gyro/Accel views share the same per-frame order/state snapshot.
+- Added Phase 5 bounded telemetry and sector snapshot caches, replacing repeated live prefix scans, route-curvature calls, sector flatMaps, and sector sorts during playback.
+- Speed, Pace, Summary, Driver Stats, Gyro/Accel, and live commentary now pass cached state through their render paths instead of repeatedly resolving each driver's current distance.
+- Heavy-mode diagnostics now report frame, telemetry, and sector cache sizes alongside the existing render/build timings.
 
 v2.1.3
 ------
