@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         MoDuL's Pit Guru
 // @namespace    modul.torn.racing
-// @version      2.2.2
+// @version      2.2.3
 // @description  Live Torn race timing, gaps, sectors, speed and estimated telemetry analysis
 // @author       MoDuL
 // @copyright    2026 MoDuL. All rights reserved.
@@ -564,7 +564,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         return bigRaceSafeModeStatus_();
     };
 
-    const MPG_VERSION = "2.2.2";
+    const MPG_VERSION = "2.2.3";
     var TAG = "[MoDuL's Pit Guru v" + MPG_VERSION + "]";
 
     const PitGuruRaceEngine = (() => {
@@ -670,7 +670,10 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
             const expectedSegments = trackPieces * laps;
             const trackLength = trackIntervals.reduce((sum, v) => sum + v, 0);
             const carInfo = raceData.carInfo || {};
-            const decoded = decodeDriverIntervals(raceData.cars || {});
+            const suppliedIntervals = options.decodedIntervals;
+            const decoded = suppliedIntervals && typeof suppliedIntervals === "object"
+                ? suppliedIntervals
+                : decodeDriverIntervals(raceData.cars || {});
             const drivers = Object.entries(decoded).map(([playername, intervals], index) => {
                 const info = carInfo[playername] || {};
                 const finalSeconds = intervals.reduce((sum, v) => sum + v, 0);
@@ -949,7 +952,11 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         sectorSnapshots: true,
         boundedPersistentCaches: true,
         lifecycleCleanup: true,
-        sameRaceWarmRestore: true
+        sameRaceWarmRestore: true,
+        singleRaceDataCapturePath: true,
+        usableAnalysisBuildGate: true,
+        lazyHeavyRouteModel: true,
+        bucketedLiveRenderLoop: true
     });
     const STORE_RECORDS_MAX = 2500;
     const STORE_RECORDS_PER_BUCKET_MAX = 10;
@@ -1177,6 +1184,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
     let raceDataDirectFetchAt = 0;
     let raceDataDirectFetchActive = false;
     let raceDataDirectFetchLastKey = "";
+    const raceDataCaptureSuppressedFetchOptions = new WeakSet();
     const raceDataPayloadCacheByRaceId = new Map();
     const raceDataInFlightByRaceId = new Map();
     const raceDataAcceptedStateByRaceId = new Map();
@@ -1257,6 +1265,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
     let analysisFocusDriverId = "";
     let analysisFocusDriverName = "";
     let liveLoopLastAt = 0;
+    let liveLoopRenderKey = "";
     let maintenanceLoopLastAt = 0;
     let liveLoopTimer = 0;
     let maintenanceLoopTimer = 0;
@@ -2146,6 +2155,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         raceDataReceivedPerfMs = 0;
         raceDataCurrentTimeAtReceive = NaN;
         analysis = null;
+        liveLoopRenderKey = "";
         analysisFocusMode = "auto";
         analysisFocusDriverId = "";
         analysisFocusDriverName = "";
@@ -3346,6 +3356,17 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         return !!((getRacePayload_(payload) || payload || {})?.cars) && pgPlayerPayloadHasDecodableIntervals_(payload);
     }
 
+    function maybeBuildAnalysisFromRaceData_(payload, source = "") {
+        const p = getRacePayload_(payload) || payload || null;
+        if (!p?.cars) return null;
+        if (analysis?.payload === p) return analysis;
+        if (!raceDataUsableForAnalysis_(p)) {
+            if (debugEnabled) console.debug(TAG, "analysis build deferred until timing intervals are available", source || "");
+            return null;
+        }
+        return buildAnalysisFromRaceData_(p);
+    }
+
     function updateRaceDataLightweightFields_(target, source) {
         if (!target || !source) return false;
         let changed = false;
@@ -3480,7 +3501,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
             boundedMapSet_(raceDataPayloadCacheByRaceId, acceptedKey, payload, RACE_DATA_PAYLOAD_CACHE_MAX);
             trimRaceDataCaches_(acceptedKey);
 
-            buildAnalysisFromRaceData_(payload);
+            maybeBuildAnalysisFromRaceData_(payload, "same-race-warm-restore");
             maybeSwitchReplayAnalysisMode_(payload, "same-race-warm-restore");
             markPlayerRaceDataAvailable_();
             raceDataWarmRestoreState = {
@@ -3834,7 +3855,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         const rid = String(raceId || "").trim();
         if (!rid) throw new Error("Missing Race ID");
         const url = racingDataUrl_(rid);
-        const resp = await fetch(url, {
+        const resp = await fetchWithoutRaceDataCapture_(url, {
             credentials: "include",
             cache: "no-store",
             headers: {
@@ -4072,6 +4093,12 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         return u.toString();
     }
 
+    function fetchWithoutRaceDataCapture_(url, options = {}) {
+        const requestOptions = { ...options };
+        raceDataCaptureSuppressedFetchOptions.add(requestOptions);
+        return fetch(url, requestOptions);
+    }
+
     async function fetchDirectRaceData_(raceId = "", source = "direct-racingData") {
         const requestKey = raceDataFetchRaceKey_(raceId);
         if (directRaceDataFetchComplete_(requestKey)) {
@@ -4082,7 +4109,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         const url = racingDataUrl_(raceId);
         const run = (async () => {
             raceDataFetchStats_(requestKey).fetches += 1;
-            const resp = await fetch(url, {
+            const resp = await fetchWithoutRaceDataCapture_(url, {
                 credentials: "include",
                 cache: "no-store",
                 headers: {
@@ -4665,6 +4692,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
     }
 
     function maybeAcceptRaceDataPayload_(raw, source, url = "") {
+        const acceptPerfStart = perfNow_();
         try {
             const payload = getRacePayload_(raw);
             if (!payload || !payload.cars) return false;
@@ -4697,12 +4725,13 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
                 scheduleRender_();
                 return true;
             }
+            const usableForAnalysis = raceDataUsableForAnalysis_(payload);
             latestRaceDataPayload = payload;
-            persistBigRaceRawPayload_(payload);
+            if (usableForAnalysis) persistBigRaceRawPayload_(payload);
             raceDataReceivedPerfMs = performance.now();
             raceDataCurrentTimeAtReceive = Number(payload?.timeData?.currentTime);
             clearedRaceDataKey = "";
-            buildAnalysisFromRaceData_(payload);
+            if (usableForAnalysis) maybeBuildAnalysisFromRaceData_(payload, source || "captured-racingData");
             maybeSwitchReplayAnalysisMode_(payload, source);
             markPlayerRaceDataAvailable_();
             if (debugEnabled) console.log(TAG, "raceData captured", source || "", analysis);
@@ -4724,6 +4753,8 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         } catch (e) {
             if (debugEnabled) console.warn(TAG, "raceData parse failed", source, e);
             return false;
+        } finally {
+            perfRecord_("capture.accept", perfNow_() - acceptPerfStart, { source: String(source || "") });
         }
     }
 
@@ -4751,6 +4782,14 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
                 if (window.__mpgPitGuruRaceDataBridge) return;
                 window.__mpgPitGuruRaceDataBridge = true;
                 const EVENT = "${eventName}";
+                const isRacingDataUrl = url => {
+                    try {
+                        const parsed = new URL(String(url || ""), location.origin);
+                        return (parsed.searchParams.get("sid") || "").toLowerCase() === "racingdata";
+                    } catch {
+                        return /[?&]sid=racingData(?:[&#]|$)/i.test(String(url || ""));
+                    }
+                };
                 const looksUseful = data => {
                     try {
                         const p = data && (data.raceData || data);
@@ -4773,7 +4812,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
                             p.then(resp => {
                                 try {
                                     const url = String((resp && resp.url) || (args[0] && args[0].url) || args[0] || "");
-                                    if (!/race|racing/i.test(url)) return;
+                                    if (!isRacingDataUrl(url)) return;
                                     resp.clone().json().then(json => emit(json, "page-fetch", url)).catch(() => {});
                                 } catch {}
                             }).catch(() => {});
@@ -4794,7 +4833,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
                             this.addEventListener("load", function() {
                                 try {
                                     const url = String(this.__mpgPitGuruUrl || this.responseURL || "");
-                                    if (!/race|racing/i.test(url)) return;
+                                    if (!isRacingDataUrl(url)) return;
                                     if (this.response && typeof this.response === "object") {
                                         emit(this.response, "page-xhr-object", url);
                                         return;
@@ -4817,22 +4856,33 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
     function hookRaceDataObservers_() {
         if (analysisHooked) return;
         analysisHooked = true;
-        installPageRaceDataBridge_();
         const hookWindow = (typeof unsafeWindow !== "undefined" && unsafeWindow) ? unsafeWindow : window;
+        let fetchHooked = false;
+        let xhrHooked = false;
         try {
             const nativeFetch = hookWindow.fetch;
             if (typeof nativeFetch === "function") {
                 hookWindow.fetch = function (...args) {
+                    const suppressCapture = !!args[1] && raceDataCaptureSuppressedFetchOptions.has(args[1]);
+                    if (suppressCapture) raceDataCaptureSuppressedFetchOptions.delete(args[1]);
                     const p = nativeFetch.apply(this, args);
+                    if (suppressCapture) return p;
                     p.then(resp => {
                         try {
                             const url = String(resp?.url || args[0]?.url || args[0] || "");
-                            if (!/race|racing/i.test(url)) return;
-                            resp.clone().json().then(json => maybeAcceptRaceDataPayload_(json, "fetch", url)).catch(() => {});
+                            if (!isRacingDataUrl_(url)) return;
+                            const parseStarted = perfNow_();
+                            resp.clone().json().then(json => {
+                                perfRecord_("capture.fetch.parse", perfNow_() - parseStarted, {
+                                    bytes: Number(resp.headers?.get?.("content-length") || 0) || 0
+                                });
+                                maybeAcceptRaceDataPayload_(json, "fetch", url);
+                            }).catch(() => {});
                         } catch {}
                     }).catch(() => {});
                     return p;
                 };
+                fetchHooked = true;
             }
         } catch {}
         try {
@@ -4847,22 +4897,30 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
                 NativeXHR.prototype.send = function () {
                     this.addEventListener("load", () => {
                         try {
-                            if (!/race|racing/i.test(this.__mpgUrl || "")) return;
+                            if (!isRacingDataUrl_(this.__mpgUrl || this.responseURL || "")) return;
                             const ct = String(this.getResponseHeader?.("content-type") || "");
                             if (ct && !/json|javascript|text/i.test(ct)) return;
+                            const parseStarted = perfNow_();
                             if (this.response && typeof this.response === "object") {
+                                perfRecord_("capture.xhr.parse", perfNow_() - parseStarted, {
+                                    responseType: String(this.responseType || "object")
+                                });
                                 maybeAcceptRaceDataPayload_(this.response, "xhr-object", this.__mpgUrl || this.responseURL || "");
                                 return;
                             }
                             const txt = String(this.responseText || "");
                             if (!txt || !/(trackData|raceData|cars)/.test(txt)) return;
-                            maybeAcceptRaceDataPayload_(JSON.parse(txt), "xhr", this.__mpgUrl || this.responseURL || "");
+                            const parsed = JSON.parse(txt);
+                            perfRecord_("capture.xhr.parse", perfNow_() - parseStarted, { bytes: txt.length });
+                            maybeAcceptRaceDataPayload_(parsed, "xhr", this.__mpgUrl || this.responseURL || "");
                         } catch {}
                     });
                     return send.apply(this, arguments);
                 };
+                xhrHooked = true;
             }
         } catch {}
+        if (!fetchHooked && !xhrHooked) installPageRaceDataBridge_();
     }
 
     function decodeRaceCars_(payload) {
@@ -4898,6 +4956,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
             const racer = findRacer(name, index);
             const isCurrentUser = normalizeDriverName_(payload?.user?.playername) === normalizeDriverName_(name);
             return {
+                raceDataKey: String(name || ""),
                 name: String(racer.playername || racer.playerName || racer.name || name || `Driver ${index + 1}`),
                 racingSkill: safeNum_(racer.racingSkill ?? racer.racing_skill ?? racer.skill ?? (isCurrentUser ? payload?.user?.racinglevel : NaN), NaN),
                 itemID: racer.itemID || racer.itemId || racer.item_id || racer.imteID || racer.carItemID || racer.carItemId || "",
@@ -5167,7 +5226,9 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
     function buildAnalysisFromRaceData_(payload) {
         const analysisPerfStart = perfNow_();
         try {
+        let stagePerfStart = perfNow_();
         const decoded = decodeRaceCars_(payload);
+        perfRecord_("analysis.build.decode", perfNow_() - stagePerfStart, { drivers: decoded.length });
         if (!decoded.length) return null;
         const trackName = extractTrackNameFromPayloadOrMeta_(payload);
         const trackKey = makeTrackLookupKey_(trackName);
@@ -5178,11 +5239,14 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         lastHeavyRaceStats = heavyStats;
         if (heavyStats.heavyRace) persistBigRaceRawPayload_(payload);
         let engineModel = null;
+        stagePerfStart = perfNow_();
         try {
-            engineModel = PitGuruRaceEngine.parseRaceData(payload, { laps });
+            const decodedIntervals = Object.fromEntries(decoded.map(driver => [driver.raceDataKey || driver.name, driver.segmentTimes]));
+            engineModel = PitGuruRaceEngine.parseRaceData(payload, { laps, decodedIntervals });
         } catch (e) {
             if (debugEnabled) console.warn(TAG, "race engine parse failed", e);
         }
+        perfRecord_("analysis.build.engine", perfNow_() - stagePerfStart, { drivers: engineModel?.drivers?.length || 0 });
         const engineByName = new Map();
         const engineById = new Map();
         for (const ed of engineModel?.drivers || []) {
@@ -5193,26 +5257,31 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         const maxSegments = Math.max(...decoded.map(d => d.segmentTimes.length));
         const segmentsPerLap = Math.max(1, Math.round(maxSegments / Math.max(1, laps)));
         const lapMeters = trackMeta ? trackMeta.lapKm * 1000 : 0;
+        stagePerfStart = perfNow_();
         const baseSegmentDistances = lapMeters > 0 ? extractSegmentDistances_(payload, segmentsPerLap, lapMeters) : [];
-        const routeModel = lapMeters > 0 ? buildRouteModelFromPayload_(payload, lapMeters, trackName) : null;
+        const routeModel = lapMeters > 0 && !heavyStats.heavyRace ? buildRouteModelFromPayload_(payload, lapMeters, trackName) : null;
         maybePersistTrackRouteFromPayload_(payload, trackName, routeModel);
+        perfRecord_("analysis.build.geometry", perfNow_() - stagePerfStart, { deferredRoute: heavyStats.heavyRace && lapMeters > 0 });
         const sectorSplitIndexes = makeSectorSplitIndexes_(segmentsPerLap);
         const expectedSegments = segmentsPerLap * laps;
+        stagePerfStart = perfNow_();
         const drivers = decoded.map(d => {
             const engineDriver = engineById.get(String(d.driverId || "")) || engineByName.get(normalizeDriverName_(d.name)) || null;
-            const repeatedDistances = d.segmentTimes.map((_, i) => baseSegmentDistances.length ? baseSegmentDistances[i % segmentsPerLap] : 0);
-            const cumulativeTimes = cumulative_(d.segmentTimes);
+            const segmentTimes = engineDriver?.intervalsSeconds || d.segmentTimes;
+            const timingDriver = segmentTimes === d.segmentTimes ? d : { ...d, segmentTimes };
+            const repeatedDistances = segmentTimes.map((_, i) => baseSegmentDistances.length ? baseSegmentDistances[i % segmentsPerLap] : 0);
+            const cumulativeTimes = engineDriver?.cumulativeSeconds || cumulative_(segmentTimes);
             const cumulativeDistances = cumulative_(repeatedDistances);
-            const validLapTimes = getValidLapTimes_(d, segmentsPerLap);
+            const validLapTimes = engineDriver?.lapTimes?.filter(item => item?.valid !== false) || getValidLapTimes_(timingDriver, segmentsPerLap);
             const lapTimes = validLapTimes.map(x => x.seconds);
-            const finalTime = cumulativeTimes[cumulativeTimes.length - 1] || 0;
-            const speeds = d.segmentTimes.map((t, i) => repeatedDistances[i] > 0 ? repeatedDistances[i] / t : NaN);
-            const sectorTimes = [];
-            for (let lap = 0; lap < getCompletedFullLaps_(d, segmentsPerLap); lap++) {
+            const finalTime = engineDriver?.finalSeconds || cumulativeTimes[cumulativeTimes.length - 1] || 0;
+            const speeds = segmentTimes.map((t, i) => repeatedDistances[i] > 0 ? repeatedDistances[i] / t : NaN);
+            const sectorTimes = engineDriver?.sectorTimes ? engineDriver.sectorTimes.slice() : [];
+            for (let lap = sectorTimes.length ? getCompletedFullLaps_(timingDriver, segmentsPerLap) : 0; lap < getCompletedFullLaps_(timingDriver, segmentsPerLap); lap++) {
                 let start = lap * segmentsPerLap;
                 for (let s = 0; s < 3; s++) {
                     const end = lap * segmentsPerLap + sectorSplitIndexes[s];
-                    if (d.segmentTimes.length >= end) {
+                    if (segmentTimes.length >= end) {
                         const endTime = cumulativeTimes[end - 1] || 0;
                         const startTime = start > 0 ? (cumulativeTimes[start - 1] || 0) : 0;
                         sectorTimes.push({ sector: s + 1, lap: lap + 1, seconds: endTime - startTime });
@@ -5220,12 +5289,13 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
                     start = end;
                 }
             }
-            const crashed = d.segmentTimes.length < expectedSegments;
+            const crashed = segmentTimes.length < expectedSegments;
             const bestLap = lapTimes.length ? Math.min(...lapTimes) : null;
             const avgLap = lapTimes.length ? lapTimes.reduce((a, b) => a + b, 0) / lapTimes.length : null;
             const idealLap = [1, 2, 3].map(sec => Math.min(...sectorTimes.filter(x => x.sector === sec).map(x => x.seconds))).filter(Number.isFinite).reduce((a, b) => a + b, 0);
             return {
                 ...d,
+                segmentTimes,
                 driverId: d.driverId || engineDriver?.userID || "",
                 engineKey: engineDriver?.key || "",
                 engineDriver,
@@ -5237,7 +5307,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
                 sectorTimes,
                 finalTime,
                 crashed,
-                completedFullLaps: getCompletedFullLaps_(d, segmentsPerLap),
+                completedFullLaps: engineDriver?.completedLaps ?? getCompletedFullLaps_(timingDriver, segmentsPerLap),
                 bestLapSeconds: bestLap,
                 averageLapSeconds: avgLap,
                 idealLapSeconds: idealLap || null,
@@ -5255,6 +5325,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
                 leadChanges: 0
             };
         });
+        perfRecord_("analysis.build.drivers", perfNow_() - stagePerfStart, { drivers: drivers.length, points: heavyStats.estimatedPoints });
         analysis = {
             raceId: extractRaceIdFromPayloadOrUrl_(payload),
             trackName,
@@ -5277,11 +5348,16 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
             leadStatsReady: false,
             sectorWinsReady: false
         };
+        stagePerfStart = perfNow_();
         buildAnalysisIndexes_(analysis);
         resetAnalysisRuntimeCaches_();
+        perfRecord_("analysis.build.indexes", perfNow_() - stagePerfStart, { drivers: drivers.length });
+        stagePerfStart = perfNow_();
         applyDriverIntelToModel_();
         syncRaceMetaFromAnalysis_();
         persistBigRaceProcessedSummary_(analysis);
+        if (heavyStats.heavyRace) scheduleAnalysisRouteModel_(analysis, 1200);
+        perfRecord_("analysis.build.enrich", perfNow_() - stagePerfStart, { drivers: drivers.length });
         return analysis;
         } finally {
             perfRecord_("analysis.build", perfNow_() - analysisPerfStart, {
@@ -5289,6 +5365,28 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
                 laps: analysis?.laps || 0,
                 heavy: !!analysis?.heavyRace
             });
+        }
+    }
+
+    function scheduleAnalysisRouteModel_(model, delayMs = 250) {
+        if (!model?.payload || !(model.lapMeters > 0) || model.routeModel) return;
+        idleStartupWork_("analysis.build.route.deferred", () => {
+            if (analysis !== model || model.routeModel) return;
+            const routeModel = buildRouteModelFromPayload_(model.payload, model.lapMeters, model.trackName);
+            if (!routeModel || analysis !== model) return;
+            model.routeModel = routeModel;
+            maybePersistTrackRouteFromPayload_(model.payload, model.trackName, routeModel);
+            markDirty_({ data: true, status: true });
+            scheduleRender_();
+        }, delayMs);
+    }
+
+    function isRacingDataUrl_(url) {
+        try {
+            const u = new URL(String(url || ""), location.origin);
+            return (u.searchParams.get("sid") || "").toLowerCase() === "racingdata";
+        } catch {
+            return /[?&]sid=racingData(?:[&#]|$)/i.test(String(url || ""));
         }
     }
 
@@ -6883,7 +6981,7 @@ self.onmessage=event=>{try{self.postMessage({ok:true,result:aggregate(event.data
                 error: ""
             };
             if (analysis && !analysis.routeModel && latestRaceDataPayload && localTrackRouteText_(analysis.trackName || raceMeta?.track || "")) {
-                buildAnalysisFromRaceData_(latestRaceDataPayload);
+                scheduleAnalysisRouteModel_(analysis, 250);
             }
             uiDirty = true;
             scheduleRender_();
@@ -10107,7 +10205,7 @@ img.carIcon{
         try {
             if (!analysis) {
                 const payload = findLatestRaceDataPayload_();
-                if (payload) buildAnalysisFromRaceData_(payload);
+                if (payload) maybeBuildAnalysisFromRaceData_(payload, "html-report");
             }
             applyDriverIntelToModel_();
             ensureAnalysisAggregates_({ sectors: true, leads: true, allowSafeMode: true });
@@ -10365,7 +10463,7 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
             if (raceMeta) { raceMeta.theme = theme; saveRaceMeta_(raceMeta); }
             if (!analysis) {
                 const payload = findLatestRaceDataPayload_();
-                if (payload) buildAnalysisFromRaceData_(payload);
+                if (payload) maybeBuildAnalysisFromRaceData_(payload, "html-export");
             }
             if (!htmlReportCanExport_()) {
                 toast_(htmlReportLockedReason_());
@@ -12643,7 +12741,7 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
         const status = document.getElementById("mpgStatusBadge");
         if (!body) return false;
         const payload = findLatestRaceDataPayload_();
-        if (payload && !analysis) buildAnalysisFromRaceData_(payload);
+        if (payload && !analysis) maybeBuildAnalysisFromRaceData_(payload, "render");
         if (!analysis) {
             body.style.display = "block";
             if (status) status.style.display = "";
@@ -14834,6 +14932,30 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
             run();
         }
     }
+
+    function scheduleLiveLoopRender_() {
+        if (!analysis) return false;
+        const elapsed = getVisualElapsed_();
+        const replayMoment = shouldRenderReplayMoment_();
+        const replayAtEnd = replayMoment && maxAnalysisFinalTime_() > 0 && elapsed >= maxAnalysisFinalTime_() - 0.05;
+        const canFull = analysisCanShowFullRace_() && (!replayMoment || replayAtEnd);
+        const key = [
+            analysis.raceId || analysis.trackName || "race",
+            analysisMode,
+            analysisRenderBucket_(elapsed, canFull),
+            canFull ? 1 : 0,
+            allowPreFinishPreview ? 1 : 0,
+            analysisFocusMode,
+            analysisFocusDriverId,
+            analysisFocusDriverName
+        ].join("|");
+        if (key === liveLoopRenderKey) return false;
+        liveLoopRenderKey = key;
+        markDirty_({ status: true });
+        scheduleRender_();
+        return true;
+    }
+
     function render_() {
         ensureRaceMeta_();
         applyTheme_();
@@ -15402,11 +15524,12 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
             const delay = liveLoopDelayMs_();
             if (now - liveLoopLastAt < delay) return;
             liveLoopLastAt = now;
-            if (findLatestRaceDataPayload_() && !analysis) buildAnalysisFromRaceData_(findLatestRaceDataPayload_());
+            const payload = findLatestRaceDataPayload_();
+            if (payload && !analysis) maybeBuildAnalysisFromRaceData_(payload, "live-loop");
             if (analysis) {
                 if (shouldPopulateFinalAnalysisNow_() && !recordsUpdatedForAnalysisRaceId) updateRecordsFromAnalysis_();
                 if (!liveRaceHasWorkingAnalysis_() || !largeFieldMode_()) maybeAutoFetchDriverIntel_();
-                renderAnalysis_();
+                scheduleLiveLoopRender_();
             }
         }, 250);
 
