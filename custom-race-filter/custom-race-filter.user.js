@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         MoDuL's: Custom Race Filter
 // @namespace    modul.torn.racing
-// @version      2.5.1
+// @version      2.5.2
 // @description  Custom Race filter. (OG Car Names & PDA Compatible)
 // @author       MoDuL
 // @copyright    2026 MoDuL. All rights reserved.
@@ -31,7 +31,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
 (function () {
   "use strict";
 
-var VERSION = "2.5.1";
+var VERSION = "2.5.2";
   var TAG = "[MoDuL's: Custom Race Filter v" + VERSION + "]";
   try { console.log(TAG, "Loaded ✅"); } catch (e) {}
 
@@ -1836,7 +1836,7 @@ var VERSION = "2.5.1";
     if (!link) return null;
 
     const href = String(link.getAttribute("href") || "").trim();
-    if (href && href !== "#") return null;
+    if (href && href !== "#" && link.dataset.rfJoinMode !== "direct") return null;
 
     return link.closest(".custom-events-wrap .events-list > li");
   }
@@ -1881,9 +1881,12 @@ var VERSION = "2.5.1";
         iconLink.dataset.rfJoinBound = "1";
         iconLink.addEventListener("click", (e) => {
           const href = String(iconLink.getAttribute("href") || "").trim();
-          if (href && href !== "#" && iconLink.dataset.rfJoinMode === "direct") return;
-
           stopRaceJoinEvent(e);
+          if (href && href !== "#" && iconLink.dataset.rfJoinMode === "direct") {
+            window.location.assign(addTornRfcToUrl(href));
+            return;
+          }
+
           if (submitPasswordRaceJoin(row)) return;
           setRaceJoinNoticeOpen(row, true);
         }, true);
