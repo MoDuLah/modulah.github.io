@@ -1,13 +1,16 @@
 MoDuL's Pit Guru Changelog
 ==========================
 
-Project status (2026-07-13)
+Project status (2026-07-14)
 ---------------------------
 - MoDuL's Pit Guru is now the public-facing successor project to Lap Recorder on MoDuL's Hub.
-- The live supporter userscript build is v2.1.7 at https://modulah.github.io/pit-guru/pit-guru.user.js.
-- v2.1.7 disables HTML report export until the live race has finished or the page is a replay, then builds a richer completed-race report with overview cards, full per-driver data, start/finish deltas, final gaps, sectors, lead stats, speed, G, and consistency.
-- v2.1.6 adds same-race warm restore after page refresh: cached heavy-race raw/summary data can hydrate the UI immediately, but the restored state remains unverified until fresh Torn racingData confirms the same static signature or replaces it with newer race data.
-- v2.1.5 completes the performance rewrite release pass with bounded persistent Driver Intel/history storage, capped heavy-race IndexedDB cleanup, lifecycle cleanup on race changes and page lifecycle events, and refreshed hosted install artifacts.
+- The live supporter userscript build is v2.2.3 at https://modulah.github.io/pit-guru/pit-guru.user.js.
+- v2.2.3 removes duplicate racingData interception, ignores unrelated racing endpoints, prevents pre-race payloads from repeatedly entering the analysis builder, decodes timing intervals once, defers heavy-race route geometry, and replaces the direct live render call with bucketed scheduled updates.
+- v2.2.2 adds Big Race Safe Mode for heavy races, removes Torn-overlay commentary/team radio, and compacts old local Records caches on load.
+- v2.2.1 keeps the Records UI to one visible best row per car/map bucket while retaining the next 9 stored rows in the background as backups.
+- v2.2.0 caps saved Records to the fastest 10 rows per lap/race + track + car bucket, and defers heavy local DB sync until aggregate stats are explicitly needed or already ready.
+- v2.1.9 removes the Race overtakes total from the Pit Guru header and deletes its expensive counting path.
+- v2.1.8 reduces 100-racer page-load pressure by deferring persisted Records, Driver Intel, and driver-history cache hydration until after startup, indexing local history/records lookups, and delaying the forced racingData fetch.
 - v2.1.4 advances the phased performance rewrite with normalized race indexes, cached replay frame rows, cached live telemetry prefixes, sector snapshots, and renderers that reuse shared frame state instead of recalculating every visible table.
 - v2.1.3 starts the phased performance rewrite with render/build profiling, bounded race-data caches, coalesced rendering, an incremental live overtake counter, and a worker-backed heavy-race aggregate path for lead history and sector wins.
 - v2.1.1 removes the advanced Hosted API & Player controls from public Settings while keeping transient retry recovery, short TTL read caching, and legacy hosted-session key cleanup.
@@ -31,27 +34,48 @@ Project status (2026-07-13)
 - Removed the obsolete `/licensecheck` serial-entry command.
 - Changed purchase payment references to the compact `!#PRODUCT-ORDERID` format while retaining verification support for existing pending orders using the legacy spaced format.
 
-v2.1.7
+v2.2.3
 ------
-- Disabled the HTML report button while a live race is still in progress, with the export handler also blocking direct calls until the visible race has finished or the page is a replay.
-- Added a completed-race Race Overview section to exported reports with winner, race duration, field finish count, race distance, fastest lap, top speed, lead-time, sector, closest-finish, and decoded-data highlights.
-- Added a Full Race Data section with per-driver finish/start delta, completed laps, distance, finish time, final gaps, best lap, average lap, ideal lap, best sectors, sectors won, laps led, lead time, top speed, average speed, G, and consistency.
-- Extended the exported leaderboard with starting position and position gain/loss.
+- Replaced the two simultaneous racingData interception paths with one direct fetch/XHR hook and a serialized page bridge used only as a fallback.
+- Restricted interception to the exact `sid=racingData` endpoint so unrelated Torn racing responses are not cloned or parsed by Pit Guru.
+- Prevented pre-race payloads without decodable timing intervals from entering the analysis builder on every live/render tick.
+- Reused decoded timing intervals in the race engine instead of decoding every driver twice.
+- Deferred SVG route geometry preparation for heavy races until browser idle time, after initial analysis is available.
+- Replaced the live loop's direct full analysis render call with coalesced, bucket-aware scheduled rendering.
+- Added capture and analysis-stage diagnostics plus permanent 100-driver HAR regression harnesses.
 
-v2.1.6
+v2.2.2
 ------
-- Added same-race warm restore from the heavy-race IndexedDB raw payload cache when the page reloads on the same visible race ID.
-- Restored matching processed summaries before rebuilding analysis so large-race refreshes can avoid redoing summary work when the race signature still matches.
-- Marked warm-restored raceData as pending verification, forcing one fresh Torn racingData check before `directRaceDataFetchComplete` can suppress further fetches.
-- Added warm-restore state to `pgPhaseCacheStats()` and the heavy-mode diagnostics line.
+- Added Big Race Safe Mode, enabled by default for heavy races only. It pauses Pit Guru background uploads, local DB auto-sync, automatic Driver Intel, optional images, and non-manual aggregate workers while leaving normal races unchanged.
+- Added a Settings switch under Performance & Scan Timers plus the `pgPitGuruSafeMode()` console helper for checking or changing Safe Mode.
+- Manual Player caching, manual Driver Intel fetches, HTML export, and manual local DB sync still work when intentionally requested.
+- Oversized old local Records caches now compact to the top-10-per-bucket format when Records load, so historical 1000+ entry caches shrink without waiting for another completed race save.
+- Removed the Torn-overlay TV commentary and Team Radio widgets/settings. Commentary remains available in the external Pit Guru Player.
 
-v2.1.5
+v2.2.1
 ------
-- Added Phase 6 bounded persistent Driver Intel and driver-history pruning, keeping active race drivers while limiting long-running storage growth.
-- Added lifecycle cleanup on race changes, manual clears, hidden tabs, page unloads, and periodic maintenance.
-- Added capped heavy-race IndexedDB pruning for raw payload and processed-summary stores, using a cursor-based pass to avoid loading old raw payloads into memory.
-- Extended heavy-mode diagnostics with image, driver-ID, Driver Intel, history, and lifecycle cleanup counters.
-- Built and published the Phase 7 v2.1.5 userscript artifacts for the hosted installer.
+- The Records panel now shows only the fastest visible row per car/map bucket, matching the intended "best Honda NSX", "best Subaru Impreza WRX", etc. display.
+- The 9 immediately slower Records remain stored in the background, so deleting the fastest cheated/bugged row reveals the next backup instead of leaving no fallback.
+- The same visible best-per-bucket reducer is used for both local-storage Records and local DB Records.
+
+v2.2.0
+------
+- Saved Records now keep only the fastest 10 entries per car/track bucket, with race records also scoped by official/custom race type and lap-count track labels.
+- Completed large races no longer use Records/history saving to start the heavy aggregate worker; local DB/report sync waits until heavy-race aggregate stats are already ready or explicitly requested.
+- Manual HTML report imports use the same top-10 Records bucket behavior, so deleting the fastest row can reveal the next stored backup without keeping thousands of old rows.
+
+v2.1.9
+------
+- Removed the Race overtakes column from the Pit Guru metadata header.
+- Deleted the total-overtakes counting functions and caches so renders no longer run the expensive overtake scanner on large races.
+
+v2.1.8
+------
+- Deferred heavy persisted cache parsing for Records, Driver Intel, and driver history so Torn can paint the racing page before Pit Guru hydrates local data.
+- Added loaded-state guards so lifecycle cleanup cannot overwrite unloaded caches with empty objects.
+- Replaced repeated full-cache participant enrichment scans with driver-id/name indexes for local history and records.
+- Delayed the startup racingData fetch and exposed startup cache timings through the existing `pgPerfStats()` / `pgPhaseCacheStats()` diagnostics.
+- Published both userscript update filenames so existing installs using `pit-guru.user.js` and current release copies receive v2.1.8.
 
 v2.1.4
 ------
