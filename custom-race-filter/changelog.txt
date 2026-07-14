@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.5.2
+
+- Fixed compact join links showing the correct URL in the browser status bar but not responding to clicks
+- CRF now handles compact join icon clicks in capture phase and navigates to the RFC-safe join URL directly
+- Prevented Torn's stale delegated click handlers from swallowing refreshed join clicks
+
 ## 2.5.1
 
 - Updated userscript `@downloadURL` and `@updateURL` to use the hosted GitHub Pages script URL

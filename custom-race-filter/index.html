@@ -102,10 +102,21 @@
       <section class="content-card changelog-card" id="changelog" aria-label="Changelog">
         <p class="section-kicker">Release history</p>
         <h2>Changelog</h2>
-        <p>The current supporter build is v2.5.1, updated on July 14, 2026.</p>
+        <p>The current supporter build is v2.5.2, updated on July 14, 2026.</p>
 
         <div class="changelog-tree" role="tree">
           <details class="changelog-version" role="treeitem" open>
+            <summary class="changelog-summary">v2.5.2 - July 14, 2026</summary>
+            <div class="changelog-content">
+              <ul class="changelog-list">
+                <li>Fixed compact join links showing the correct URL in the browser status bar but not responding to clicks.</li>
+                <li>CRF now handles compact join icon clicks in capture phase and navigates to the RFC-safe join URL directly.</li>
+                <li>Prevented Torn's stale delegated click handlers from swallowing refreshed join clicks.</li>
+              </ul>
+            </div>
+          </details>
+
+          <details class="changelog-version" role="treeitem">
             <summary class="changelog-summary">v2.5.1 - July 14, 2026</summary>
             <div class="changelog-content">
               <ul class="changelog-list">
