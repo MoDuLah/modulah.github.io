@@ -33,11 +33,11 @@
         <div class="hero-copy">
           <p class="section-kicker">Supporter Racing Analysis Tool</p>
           <h1 class="hero-title">MoDuL's Pit Guru</h1>
-          <p class="hero-text">A next-generation Torn racing analysis workspace built from Lap Recorder's lessons, with a public race player, PostgreSQL-backed history, and a v2.2.3 userscript tuned to keep 100-driver race loading and live analysis responsive.</p>
+          <p class="hero-text">A next-generation Torn racing analysis workspace built from Lap Recorder's lessons, with a public race player, PostgreSQL-backed history, and a v2.2.4 userscript tuned for reproducible 100-driver performance testing.</p>
 
           <div class="hero-actions">
             <a class="cta-button" href="https://pp-api.sokin.xyz/pit-guru/" target="_blank" rel="noopener noreferrer">Open Public Race Player</a>
-            <a class="cta-button" href="pit-guru.user.js">Install v2.2.3</a>
+            <a class="cta-button" href="pit-guru.user.js">Install v2.2.4</a>
             <a class="ghost-button" href="https://discord.gg/JP8FQBATMV" target="_blank" rel="noopener noreferrer">Join Pit Guru Discord</a>
             <a class="ghost-button" href="../index.html#supporter-scripts">Back to Supporter Scripts</a>
           </div>
@@ -73,7 +73,7 @@
             </div>
             <div class="feature-block">
               <h3>Big-race capture pipeline</h3>
-              <p>v2.2.3 captures only the exact racingData response once, blocks empty pre-race analysis builds, reuses decoded timing, and defers optional route geometry until browser idle time.</p>
+              <p>v2.2.4 adds a scoped clean-slate diagnostic command while retaining exact racingData capture, gated analysis builds, reused timing, and deferred route geometry.</p>
             </div>
             <div class="feature-block">
               <h3>Large race performance</h3>
@@ -118,7 +118,7 @@
 
         <article class="content-card content-card-full">
           <h2>Supporter Access</h2>
-          <p><a href="pit-guru.user.js">Install Pit Guru v2.2.3</a>, then follow the first-run guided setup to verify your Torn account using a public Torn API key. The key is used only for verification and is never saved in the Pit Guru database.</p>
+          <p><a href="pit-guru.user.js">Install Pit Guru v2.2.4</a>, then follow the first-run guided setup to verify your Torn account using a public Torn API key. The key is used only for verification and is never saved in the Pit Guru database.</p>
           <p>Race external player:</p>
           <p>Every verified account can analyse one race as a demo.<br> For supporter licensing, <a href="https://discord.gg/JP8FQBATMV" target="_blank" rel="noopener noreferrer">join the MoDuL's Hub Discord</a> and run <code>/buylicense</code> in any server channel.</p>
         </article>
@@ -177,7 +177,8 @@
                 <li>Hosted session storage is standardized on RT_TORN_MPG_HOSTED_SESSION, with legacy RT_TORN_LTL_HOSTED_SESSION cleanup.</li>
                 <li>The pre-race countdown now occupies the racingData status line, while Past Races uses a scoped title and compact help button.</li>
                 <li>The public proxy now accepts full racingData analysis payloads, and destructive Records deletion requires an admin token.</li>
-                <li>The v2.2.3 userscript is publicly installable and fixes duplicate racingData capture, repeated empty pre-race builds, duplicate interval decoding, and direct timer-driven full rendering.</li>
+                <li>The v2.2.4 userscript is publicly installable and adds <code>pgPerformanceCleanSlate()</code> for reproducible cold-cache tests without deleting credentials, licence/session state, settings, or layout.</li>
+                <li>v2.2.3 fixed duplicate racingData capture, repeated empty pre-race builds, duplicate interval decoding, and direct timer-driven full rendering.</li>
                 <li>HTML report export now stays disabled until the live race has finished or the page is a replay, preventing early full-result report generation.</li>
                 <li>Completed-race HTML reports now include a Race Overview, Full Race Data table, start/finish deltas, final gaps, sector summaries, lead stats, speed, G, and consistency.</li>
                 <li>Same-race page refresh now warm-restores cached heavy-race data and then validates fresh Torn racingData before suppressing expensive rebuilds.</li>
