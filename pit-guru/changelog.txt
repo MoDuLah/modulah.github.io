@@ -4,7 +4,8 @@ MoDuL's Pit Guru Changelog
 Project status (2026-07-14)
 ---------------------------
 - MoDuL's Pit Guru is now the public-facing successor project to Lap Recorder on MoDuL's Hub.
-- The live supporter userscript build is v2.2.3 at https://modulah.github.io/pit-guru/pit-guru.user.js.
+- The live supporter userscript build is v2.2.4 at https://modulah.github.io/pit-guru/pit-guru.user.js.
+- v2.2.4 adds `pgPerformanceCleanSlate()`, a scoped diagnostic reset that clears Pit Guru performance caches and IndexedDB while preserving credentials, licence/session state, settings, and layout.
 - v2.2.3 removes duplicate racingData interception, ignores unrelated racing endpoints, prevents pre-race payloads from repeatedly entering the analysis builder, decodes timing intervals once, defers heavy-race route geometry, and replaces the direct live render call with bucketed scheduled updates.
 - v2.2.2 adds Big Race Safe Mode for heavy races, removes Torn-overlay commentary/team radio, and compacts old local Records caches on load.
 - v2.2.1 keeps the Records UI to one visible best row per car/map bucket while retaining the next 9 stored rows in the background as backups.
@@ -33,6 +34,12 @@ Project status (2026-07-14)
 - Removed license serials from every Discord-facing activation message; purchases, admin grants, test purchases, and raffle prizes now confirm account-linked access and show the exact expiry with live time remaining.
 - Removed the obsolete `/licensecheck` serial-entry command.
 - Changed purchase payment references to the compact `!#PRODUCT-ORDERID` format while retaining verification support for existing pending orders using the legacy spaced format.
+
+v2.2.4
+------
+- Added `pgPerformanceCleanSlate()` for reproducible cold-cache performance runs from the Torn developer console.
+- The helper clears saved Records, Driver Intel, driver history, hosted API read cache, same-race warm state, heavy-race IndexedDB data, and in-memory analysis caches.
+- API keys, hosted verification sessions, licence state, settings, and saved UI layout are deliberately preserved.
 
 v2.2.3
 ------

@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         MoDuL's Pit Guru
 // @namespace    modul.torn.racing
-// @version      2.2.3
+// @version      2.2.4
 // @description  Live Torn race timing, gaps, sectors, speed and estimated telemetry analysis
 // @author       MoDuL
 // @copyright    2026 MoDuL. All rights reserved.
@@ -540,6 +540,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
     unsafeWindow.pgLocalFetchUpgrades = pgLocalFetchUpgrades;
     unsafeWindow.pgPerfStats = perfStatsSnapshot_;
     unsafeWindow.pgPerfReset = perfReset_;
+    unsafeWindow.pgPerformanceCleanSlate = clearPerformanceTestCaches_;
     unsafeWindow.pgPhaseRewriteFlags = () => ({ ...PHASE_REWRITE_FLAGS });
     unsafeWindow.pgPhaseCacheStats = phaseCacheStats_;
     unsafeWindow.pgLocalUpsertCars = pgLocalUpsertCars;
@@ -564,7 +565,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         return bigRaceSafeModeStatus_();
     };
 
-    const MPG_VERSION = "2.2.3";
+    const MPG_VERSION = "2.2.4";
     var TAG = "[MoDuL's Pit Guru v" + MPG_VERSION + "]";
 
     const PitGuruRaceEngine = (() => {
@@ -1561,6 +1562,94 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         Object.keys(phasePerfStats).forEach(key => delete phasePerfStats[key]);
         phasePerfSequence = 0;
         return perfStatsSnapshot_();
+    }
+
+    async function clearPerformanceTestCaches_() {
+        const before = phaseCacheStats_();
+        const result = {
+            ok: true,
+            indexedDbCleared: false,
+            reloadRequired: true,
+            preserved: ["API key", "hosted session", "licence", "settings", "layout"]
+        };
+
+        pgClearApiResponseCache_();
+        saveJson_(STORE_RECORDS_KEY, []);
+        saveJson_(STORE_DRIVER_INTEL_CACHE_KEY, {});
+        saveJson_(STORE_DRIVER_HISTORY_KEY, {});
+        saveJson_(STORE_HOSTED_TRACK_INTERVALS_KEY, {});
+        GM_setValue(STORE_LAST_RACE_ID_KEY, "");
+        GM_setValue(STORE_DIRECT_FETCH_LEASE_KEY, "");
+
+        try {
+            const db = await openBigRaceDb_();
+            if (db) {
+                result.indexedDbCleared = await new Promise(resolve => {
+                    try {
+                        const tx = db.transaction([BIG_RACE_RAW_STORE, BIG_RACE_SUMMARY_STORE], "readwrite");
+                        tx.objectStore(BIG_RACE_RAW_STORE).clear();
+                        tx.objectStore(BIG_RACE_SUMMARY_STORE).clear();
+                        tx.oncomplete = () => resolve(true);
+                        tx.onerror = () => resolve(false);
+                        tx.onabort = () => resolve(false);
+                    } catch {
+                        resolve(false);
+                    }
+                });
+            }
+        } catch {
+            result.indexedDbCleared = false;
+        }
+
+        records = [];
+        driverIntelCache = {};
+        driverHistory = {};
+        recordsLoaded = false;
+        driverIntelCacheLoaded = false;
+        driverHistoryLoaded = false;
+        driverHistoryIndexDirty = true;
+        recordsIndexDirty = true;
+        driverHistoryByDriverIndex = new Map();
+        recordsByDriverIndex = new Map();
+
+        raceDataPayloadCacheByRaceId.clear();
+        raceDataInFlightByRaceId.clear();
+        raceDataAcceptedStateByRaceId.clear();
+        raceDataFetchStatsByRaceId.clear();
+        optionalImageUrlCache.clear();
+        driverIdLookupCache.clear();
+        bigRaceRawStoredKeys.clear();
+        bigRaceSummaryStoredKeys.clear();
+        bigRaceSummaryInFlightKeys.clear();
+        bigRaceProcessedSummaryCache.clear();
+
+        pgPlayerCachedRaceKeys = new Set();
+        pgPlayerCacheNotificationKeys = new Set();
+        pgLocalTrackRouteSavedKeys = new Set();
+        pgLocalRaceIntelCache = null;
+        pgLocalTrackHistoryCache = { track: "", rows: [], fetchedAt: 0, loading: false, error: "" };
+        pgLocalTrackHistoryCacheByTrack = {};
+        pgLocalTracksCache = { rows: [], recordTracks: { lap: [], race: [] }, fetchedAt: 0, loading: false, error: "" };
+        pgLocalRecordsCache = { key: "", rows: [], fetchedAt: 0, loading: false, error: "" };
+
+        latestRaceDataPayload = null;
+        analysis = null;
+        directCurrentRaceId = "";
+        preRaceParticipants = [];
+        directRacingDataParticipants = [];
+        directRacingDataParticipantsKey = "";
+        preRaceParticipantsKey = "";
+        bigRaceCacheStatus = { rawStored: 0, summaryStored: 0, pruned: 0, workerUsed: false, lastError: "" };
+        lastHeavyRaceStats = { heavyRace: false, estimatedPoints: 0, drivers: 0, laps: 0, intervals: 0 };
+        bigRaceSafeModeSkips = { driverIntel: 0, hostedUpload: 0, localDbSync: 0, aggregate: 0 };
+        resetScanCaches_();
+        resetAnalysisRuntimeCaches_();
+        perfReset_();
+
+        result.before = before;
+        result.after = phaseCacheStats_();
+        console.info(TAG, "performance caches cleared; reload the page before starting the run", result);
+        return result;
     }
 
     function boundedMapSet_(map, key, value, maxEntries) {
