@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         MoDuL's Pit Guru
 // @namespace    modul.torn.racing
-// @version      2.2.4
+// @version      2.2.5
 // @description  Live Torn race timing, gaps, sectors, speed and estimated telemetry analysis
 // @author       MoDuL
 // @copyright    2026 MoDuL. All rights reserved.
@@ -565,7 +565,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         return bigRaceSafeModeStatus_();
     };
 
-    const MPG_VERSION = "2.2.4";
+    const MPG_VERSION = "2.2.5";
     var TAG = "[MoDuL's Pit Guru v" + MPG_VERSION + "]";
 
     const PitGuruRaceEngine = (() => {
@@ -921,11 +921,14 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
     const STORE_HOSTED_TRACK_INTERVALS_KEY = "RT_TORN_MPG_HOSTED_TRACK_INTERVALS_V1";
     const STORE_BIG_RACE_SAFE_MODE_KEY = "RT_TORN_MPG_BIG_RACE_SAFE_MODE";
     const BIG_RACE_DB_NAME = "MoDuLsPitGuruBigRaceCache";
-    const BIG_RACE_DB_VERSION = 1;
+    const BIG_RACE_DB_VERSION = 2;
     const BIG_RACE_RAW_STORE = "rawRaceJson";
     const BIG_RACE_SUMMARY_STORE = "processedSummaries";
+    const BIG_RACE_STORED_AT_INDEX = "storedAt";
     const PERF_SAMPLE_MAX = 80;
     const PERF_SLOW_MS = 32;
+    const LONG_TASK_THRESHOLD_MS = 50;
+    const MAIN_THREAD_YIELD_BUDGET_MS = 16;
     const RACE_DATA_PAYLOAD_CACHE_MAX = 6;
     const RACE_DATA_META_CACHE_MAX = 12;
     const BIG_RACE_SUMMARY_MEMORY_MAX = 8;
@@ -957,7 +960,13 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         singleRaceDataCapturePath: true,
         usableAnalysisBuildGate: true,
         lazyHeavyRouteModel: true,
-        bucketedLiveRenderLoop: true
+        bucketedLiveRenderLoop: true,
+        longTaskYielding: true,
+        browserLongTaskObserver: true,
+        preRaceCaptureGate: true,
+        boundedPayloadFingerprint: true,
+        indexedDbTimestampPruning: true,
+        chunkedLargeGridPredictions: true
     });
     const STORE_RECORDS_MAX = 2500;
     const STORE_RECORDS_PER_BUCKET_MAX = 10;
@@ -1197,6 +1206,14 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
     const bigRaceProcessedSummaryCache = new Map();
     let bigRaceDbPromise = null;
     let bigRaceCacheStatus = { rawStored: 0, summaryStored: 0, pruned: 0, workerUsed: false, lastError: "" };
+    let browserLongTaskObserver = null;
+    let preRaceCaptureSkips = 0;
+    let predictionRenderModel = { key: "", scored: [] };
+    let predictionRenderBuildKey = "";
+    let predictionRenderBuildToken = 0;
+    let storageJsonWorker = null;
+    let storageJsonWorkerSequence = 0;
+    const storageJsonWorkerPending = new Map();
     let lastHeavyRaceStats = { heavyRace: false, estimatedPoints: 0, drivers: 0, laps: 0, intervals: 0 };
     let heavyRaceOverrideRaceKey = "";
     let heavyRaceShowAllDrivers = false;
@@ -1412,8 +1429,63 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
     }
     function saveJson_(key, obj) { GM_setValue(key, JSON.stringify(obj)); }
 
+    function storageJsonWorker_() {
+        if (storageJsonWorker) return storageJsonWorker;
+        try {
+            if (typeof Worker !== "function" || typeof Blob !== "function" || typeof URL?.createObjectURL !== "function") return null;
+            const source = `"use strict";self.onmessage=event=>{const id=event.data&&event.data.id;try{const value=JSON.parse(String(event.data&&event.data.raw||""));self.postMessage({id,ok:true,value});}catch(error){self.postMessage({id,ok:false,error:String(error&&error.message||error||"JSON parse failed")});}};`;
+            const url = URL.createObjectURL(new Blob([source], { type: "text/javascript" }));
+            storageJsonWorker = new Worker(url);
+            URL.revokeObjectURL(url);
+            storageJsonWorker.onmessage = event => {
+                const message = event?.data || {};
+                const pending = storageJsonWorkerPending.get(message.id);
+                if (!pending) return;
+                storageJsonWorkerPending.delete(message.id);
+                if (message.ok) pending.resolve(message.value);
+                else pending.reject(new Error(message.error || "JSON parse failed"));
+            };
+            storageJsonWorker.onerror = () => {
+                for (const pending of storageJsonWorkerPending.values()) pending.reject(new Error("Storage JSON worker failed"));
+                storageJsonWorkerPending.clear();
+                try { storageJsonWorker?.terminate(); } catch {}
+                storageJsonWorker = null;
+            };
+            return storageJsonWorker;
+        } catch {
+            storageJsonWorker = null;
+            return null;
+        }
+    }
+
+    async function loadJsonOffMain_(key, fallback) {
+        let raw = "";
+        try { raw = GM_getValue(key, ""); } catch { return fallback; }
+        if (!raw) return fallback;
+        if (typeof raw !== "string") return raw ?? fallback;
+        const worker = storageJsonWorker_();
+        if (!worker) {
+            await yieldToMain_();
+            try { return JSON.parse(raw) ?? fallback; } catch { return fallback; }
+        }
+        const id = ++storageJsonWorkerSequence;
+        try {
+            const value = await new Promise((resolve, reject) => {
+                storageJsonWorkerPending.set(id, { resolve, reject });
+                worker.postMessage({ id, raw });
+            });
+            return value ?? fallback;
+        } catch {
+            await yieldToMain_();
+            try { return JSON.parse(raw) ?? fallback; } catch { return fallback; }
+        }
+    }
+
     function idleStartupWork_(name, fn, timeoutMs = 4000) {
-        const run = () => perfMeasure_(name, fn);
+        const run = async () => {
+            await yieldToMain_();
+            await perfMeasureAsync_(name, fn);
+        };
         const delay = Math.max(250, timeoutMs || 1000);
         setTimeout(() => {
             try {
@@ -1465,22 +1537,61 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         return true;
     }
 
+    async function ensureRecordsLoadedOffMain_(reason = "deferred") {
+        if (recordsLoaded) return true;
+        const data = await loadJsonOffMain_(STORE_RECORDS_KEY, []);
+        if (recordsLoaded) return true;
+        records = Array.isArray(data) ? data : [];
+        recordsLoaded = true;
+        if (records.length > STORE_RECORDS_MAX) {
+            const before = records.length;
+            records = pruneRecordsToTopBuckets_(records).slice(-STORE_RECORDS_MAX);
+            saveJson_(STORE_RECORDS_KEY, records);
+            perfRecord_("startup.compactRecords", 0, { before, after: records.length, reason });
+        }
+        invalidateRecordsIndex_();
+        return true;
+    }
+
+    async function ensureDriverIntelCacheLoadedOffMain_(reason = "deferred") {
+        if (driverIntelCacheLoaded) return true;
+        const data = await loadJsonOffMain_(STORE_DRIVER_INTEL_CACHE_KEY, {});
+        if (driverIntelCacheLoaded) return true;
+        const loaded = data && typeof data === "object" && !Array.isArray(data) ? data : {};
+        driverIntelCache = countObjectKeys_(loaded) > DRIVER_INTEL_CACHE_MAX * 3 ? pruneDriverIntelCache_(loaded) : loaded;
+        driverIntelCacheLoaded = true;
+        perfRecord_("startup.loadDriverIntelCache.offMain", 0, { reason, entries: countObjectKeys_(driverIntelCache) });
+        return true;
+    }
+
+    async function ensureDriverHistoryLoadedOffMain_(reason = "deferred") {
+        if (driverHistoryLoaded) return true;
+        const data = await loadJsonOffMain_(STORE_DRIVER_HISTORY_KEY, {});
+        if (driverHistoryLoaded) return true;
+        const loaded = data && typeof data === "object" && !Array.isArray(data) ? data : {};
+        driverHistory = countObjectKeys_(loaded) > DRIVER_HISTORY_CACHE_MAX ? pruneDriverHistory_(loaded) : loaded;
+        driverHistoryLoaded = true;
+        invalidateDriverHistoryIndex_();
+        perfRecord_("startup.loadDriverHistory.offMain", 0, { reason, entries: countObjectKeys_(driverHistory) });
+        return true;
+    }
+
     function scheduleDeferredStartupCaches_(reason = "startup") {
         if (deferredStartupCachesScheduled) return;
         deferredStartupCachesScheduled = true;
-        idleStartupWork_("startup.deferDriverIntelCache", () => {
-            ensureDriverIntelCacheLoaded_(reason);
-            pgLocalSyncDriverIntelCache_();
+        idleStartupWork_("startup.deferDriverIntelCache", async () => {
+            await ensureDriverIntelCacheLoadedOffMain_(reason);
+            await pgLocalSyncDriverIntelCache_();
             markDirty_({ status: true });
             scheduleRender_();
         }, 4500);
-        idleStartupWork_("startup.deferDriverHistory", () => {
-            ensureDriverHistoryLoaded_(reason);
+        idleStartupWork_("startup.deferDriverHistory", async () => {
+            await ensureDriverHistoryLoadedOffMain_(reason);
             markDirty_({ data: true });
             scheduleRender_();
         }, 6500);
-        idleStartupWork_("startup.deferRecords", () => {
-            ensureRecordsLoaded_(reason);
+        idleStartupWork_("startup.deferRecords", async () => {
+            await ensureRecordsLoadedOffMain_(reason);
             markDirty_({ data: true });
             scheduleRender_();
         }, 7500);
@@ -1498,6 +1609,32 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
             if (typeof performance !== "undefined" && typeof performance.now === "function") return performance.now();
         } catch {}
         return Date.now();
+    }
+
+    function yieldToMain_() {
+        try {
+            if (globalThis.scheduler && typeof globalThis.scheduler.yield === "function") {
+                return globalThis.scheduler.yield();
+            }
+        } catch {}
+        return new Promise(resolve => setTimeout(resolve, 0));
+    }
+
+    function shouldYieldToMain_(startedAt, budgetMs = MAIN_THREAD_YIELD_BUDGET_MS) {
+        return perfNow_() - Number(startedAt || 0) >= Math.max(4, Number(budgetMs) || MAIN_THREAD_YIELD_BUDGET_MS);
+    }
+
+    async function runBatched_(items, visit, budgetMs = MAIN_THREAD_YIELD_BUDGET_MS) {
+        const rows = Array.isArray(items) ? items : Array.from(items || []);
+        let sliceStarted = perfNow_();
+        for (let index = 0; index < rows.length; index++) {
+            visit(rows[index], index);
+            if (index < rows.length - 1 && shouldYieldToMain_(sliceStarted, budgetMs)) {
+                await yieldToMain_();
+                sliceStarted = perfNow_();
+            }
+        }
+        return rows.length;
     }
 
     function perfRecord_(name, ms, meta = {}) {
@@ -1539,6 +1676,40 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
             return fn();
         } finally {
             perfRecord_(name, perfNow_() - start, typeof meta === "function" ? meta() : meta);
+        }
+    }
+
+    async function perfMeasureAsync_(name, fn, meta = {}) {
+        const start = perfNow_();
+        try {
+            return await fn();
+        } finally {
+            perfRecord_(name, perfNow_() - start, typeof meta === "function" ? meta() : meta);
+        }
+    }
+
+    function installBrowserLongTaskObserver_() {
+        if (browserLongTaskObserver || !PHASE_REWRITE_FLAGS.browserLongTaskObserver) return false;
+        try {
+            if (typeof PerformanceObserver !== "function") return false;
+            const supported = PerformanceObserver.supportedEntryTypes || [];
+            if (!supported.includes("longtask")) return false;
+            browserLongTaskObserver = new PerformanceObserver(list => {
+                for (const entry of list.getEntries()) {
+                    const duration = Number(entry?.duration || 0);
+                    if (duration < LONG_TASK_THRESHOLD_MS) continue;
+                    const attribution = Array.from(entry?.attribution || []).map(item => String(item?.name || item?.containerName || "")).filter(Boolean).slice(0, 4);
+                    perfRecord_("browser.longtask", duration, {
+                        blockingMs: Math.max(0, Math.round((duration - LONG_TASK_THRESHOLD_MS) * 100) / 100),
+                        attribution
+                    });
+                }
+            });
+            browserLongTaskObserver.observe({ type: "longtask", buffered: true });
+            return true;
+        } catch {
+            browserLongTaskObserver = null;
+            return false;
         }
     }
 
@@ -1642,6 +1813,10 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         bigRaceCacheStatus = { rawStored: 0, summaryStored: 0, pruned: 0, workerUsed: false, lastError: "" };
         lastHeavyRaceStats = { heavyRace: false, estimatedPoints: 0, drivers: 0, laps: 0, intervals: 0 };
         bigRaceSafeModeSkips = { driverIntel: 0, hostedUpload: 0, localDbSync: 0, aggregate: 0 };
+        preRaceCaptureSkips = 0;
+        predictionRenderModel = { key: "", scored: [] };
+        predictionRenderBuildKey = "";
+        predictionRenderBuildToken += 1;
         resetScanCaches_();
         resetAnalysisRuntimeCaches_();
         perfReset_();
@@ -1820,6 +1995,13 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
             driverIntelEntries: driverIntelCacheLoaded ? countObjectKeys_(driverIntelCache) : 0,
             driverHistoryLoaded,
             driverHistoryEntries: driverHistoryLoaded ? countObjectKeys_(driverHistory) : 0,
+            preRaceCaptureSkips,
+            longTaskStandard: {
+                thresholdMs: LONG_TASK_THRESHOLD_MS,
+                yieldBudgetMs: MAIN_THREAD_YIELD_BUDGET_MS,
+                schedulerYield: !!(globalThis.scheduler && typeof globalThis.scheduler.yield === "function"),
+                observerActive: !!browserLongTaskObserver
+            },
             safeMode: bigRaceSafeModeStatus_(),
             lifecycleCleanup: { ...lifecycleCleanupStats },
             warmRestore: { ...raceDataWarmRestoreState },
@@ -1845,11 +2027,13 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
                 const req = indexedDB.open(BIG_RACE_DB_NAME, BIG_RACE_DB_VERSION);
                 req.onupgradeneeded = () => {
                     const db = req.result;
-                    if (!db.objectStoreNames.contains(BIG_RACE_RAW_STORE)) {
-                        db.createObjectStore(BIG_RACE_RAW_STORE, { keyPath: "key" });
-                    }
-                    if (!db.objectStoreNames.contains(BIG_RACE_SUMMARY_STORE)) {
-                        db.createObjectStore(BIG_RACE_SUMMARY_STORE, { keyPath: "key" });
+                    for (const storeName of [BIG_RACE_RAW_STORE, BIG_RACE_SUMMARY_STORE]) {
+                        const store = db.objectStoreNames.contains(storeName)
+                            ? req.transaction.objectStore(storeName)
+                            : db.createObjectStore(storeName, { keyPath: "key" });
+                        if (!store.indexNames.contains(BIG_RACE_STORED_AT_INDEX)) {
+                            store.createIndex(BIG_RACE_STORED_AT_INDEX, "storedAt", { unique: false });
+                        }
                     }
                 };
                 req.onsuccess = () => resolve(req.result);
@@ -1943,32 +2127,31 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
             try {
                 const tx = db.transaction(storeName, "readwrite");
                 const store = tx.objectStore(storeName);
-                const req = store.openCursor();
-                const rows = [];
                 let removed = 0;
-                req.onsuccess = event => {
-                    const cursor = event.target?.result || null;
-                    if (cursor) {
+                const countReq = store.count();
+                countReq.onsuccess = () => {
+                    let remaining = Math.max(0, Number(countReq.result || 0) - max);
+                    if (!remaining) return;
+                    const source = store.indexNames.contains(BIG_RACE_STORED_AT_INDEX)
+                        ? store.index(BIG_RACE_STORED_AT_INDEX)
+                        : store;
+                    const cursorReq = source.openCursor();
+                    cursorReq.onsuccess = event => {
+                        const cursor = event.target?.result || null;
+                        if (!cursor || remaining <= 0) return;
                         const row = cursor.value || {};
-                        if (row.key) rows.push({ key: row.key, storedAt: row.storedAt || 0 });
-                        cursor.continue();
-                        return;
-                    }
-                    if (rows.length <= max) return;
-                    const sorted = rows
-                        .filter(row => row?.key && (!keep || row.key !== keep))
-                        .sort((a, b) => Number(a.storedAt || 0) - Number(b.storedAt || 0));
-                    const removeCount = Math.max(0, rows.length - max);
-                    sorted.slice(0, removeCount).forEach(row => {
-                        try {
-                            store.delete(row.key);
+                        const key = String(row.key || cursor.primaryKey || cursor.key || "");
+                        if (key && (!keep || key !== keep)) {
+                            cursor.delete();
                             removed += 1;
-                            if (storeName === BIG_RACE_RAW_STORE) bigRaceRawStoredKeys.delete(row.key);
-                            if (storeName === BIG_RACE_SUMMARY_STORE) bigRaceSummaryStoredKeys.delete(row.key);
-                        } catch {}
-                    });
+                            remaining -= 1;
+                            if (storeName === BIG_RACE_RAW_STORE) bigRaceRawStoredKeys.delete(key);
+                            if (storeName === BIG_RACE_SUMMARY_STORE) bigRaceSummaryStoredKeys.delete(key);
+                        }
+                        cursor.continue();
+                    };
                 };
-                req.onerror = () => resolve(0);
+                countReq.onerror = () => resolve(0);
                 tx.oncomplete = () => resolve(removed);
                 tx.onerror = () => resolve(removed);
             } catch (error) {
@@ -3041,17 +3224,17 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         }
     }
 
-    function pgLocalSyncDriverIntelCache_() {
+    async function pgLocalSyncDriverIntelCache_() {
         if (!driverIntelCacheLoaded) return;
         const seen = new Set();
         const profiles = [];
-        for (const intel of Object.values(driverIntelCache || {})) {
+        await runBatched_(Object.values(driverIntelCache || {}), intel => {
             const profile = pgDriverProfilePayloadFromIntel_(intel);
             const id = String(profile?.driverId || "").trim();
-            if (!id || seen.has(id)) continue;
+            if (!id || seen.has(id)) return;
             seen.add(id);
             profiles.push(profile);
-        }
+        });
         if (profiles.length) pgLocalUpsertDriverIntel_(profiles).catch(() => {});
     }
 
@@ -3107,15 +3290,24 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         return `shape:${extractTrackNameFromPayloadOrMeta_(p)}:${extractLapsFromPayloadOrUi_(p)}:${drivers}`;
     }
 
-    function stableSignatureValue_(value) {
-        if (Array.isArray(value)) return value.map(stableSignatureValue_);
-        if (value && typeof value === "object") {
-            return Object.keys(value).sort().reduce((out, key) => {
-                out[key] = stableSignatureValue_(value[key]);
-                return out;
-            }, {});
+    function boundedSignatureValue_(value) {
+        if (typeof value === "string") {
+            const length = value.length;
+            if (length <= 192) return `${length}:${value}`;
+            const middle = Math.max(0, Math.floor(length / 2) - 32);
+            return `${length}:${value.slice(0, 64)}:${value.slice(middle, middle + 64)}:${value.slice(-64)}`;
         }
-        return value;
+        if (Array.isArray(value)) {
+            const length = value.length;
+            if (!length) return "a:0";
+            const indexes = Array.from(new Set([0, 1, Math.floor(length / 2), length - 2, length - 1].filter(index => index >= 0 && index < length)));
+            return `a:${length}:${indexes.map(index => `${index}=${boundedSignatureValue_(value[index])}`).join("|")}`;
+        }
+        if (value && typeof value === "object") {
+            const keys = Object.keys(value).sort();
+            return `o:${keys.length}:${keys.slice(0, 32).map(key => `${key}=${boundedSignatureValue_(value[key])}`).join("|")}`;
+        }
+        return `${typeof value}:${String(value ?? "")}`;
     }
 
     function raceDataStaticSignature_(payload) {
@@ -3123,11 +3315,16 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         const cars = p?.cars || p?.raceData?.cars || {};
         const trackData = p?.trackData || p?.raceData?.trackData || {};
         const laps = extractLapsFromPayloadOrUi_(p);
-        return hash32_(JSON.stringify({
-            laps,
-            trackData: stableSignatureValue_(trackData),
-            cars: stableSignatureValue_(cars)
-        }));
+        const carKeys = Object.keys(cars || {}).sort();
+        const parts = [
+            `laps:${laps}`,
+            `track:${extractTrackNameFromPayloadOrMeta_(p)}`,
+            `trackId:${String(p?.trackID || p?.trackId || "")}`,
+            `trackData:${boundedSignatureValue_(trackData)}`,
+            `cars:${carKeys.length}`
+        ];
+        for (const key of carKeys) parts.push(`${key}:${boundedSignatureValue_(cars[key])}`);
+        return hash32_(parts.join("\n"));
     }
 
     function bigRaceCacheIdentity_(payload) {
@@ -4006,6 +4203,14 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         }
     }
 
+    function shouldSkipPreRaceCapture_(url) {
+        if (!PHASE_REWRITE_FLAGS.preRaceCaptureGate || isReplayPage_() || !isEmptyRaceIdRacingDataUrl_(url)) return false;
+        if (visualRaceHasStarted_()) return false;
+        preRaceCaptureSkips += 1;
+        perfRecord_("capture.preRace.skipped", 0, { emptyRaceId: true });
+        return true;
+    }
+
     function raceDataParticipantRows_(payload) {
         const p = getRacePayload_(payload) || payload || {};
         const info = p.carInfo || p.raceData?.carInfo || {};
@@ -4245,6 +4450,10 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         if (!replay && !canScanTornPage_()) return false;
         const explicitRaceId = replay ? (urlRaceId_() || visibleRaceId_() || raceMeta?.raceId || "") : "";
         if (replay && !explicitRaceId) return false;
+        if (!replay && !visualRaceHasStarted_()) {
+            refreshPreRaceParticipants_(force);
+            return false;
+        }
 
         if (!analysis && !latestRaceDataPayload) await maybeWarmRestoreRaceDataForCurrentRace_();
         const currentPayload = latestRaceDataPayload || analysis?.payload || null;
@@ -4879,6 +5088,17 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
                         return /[?&]sid=racingData(?:[&#]|$)/i.test(String(url || ""));
                     }
                 };
+                const isEmptyRaceIdUrl = url => {
+                    try {
+                        const parsed = new URL(String(url || ""), location.origin);
+                        if ((parsed.searchParams.get("sid") || "").toLowerCase() !== "racingdata") return false;
+                        const names = ["raceID", "raceId", "raceid"];
+                        const key = names.find(name => parsed.searchParams.has(name));
+                        return !!key && !String(parsed.searchParams.get(key) || "").trim();
+                    } catch {
+                        return /[?&]raceID=(?:&|$)/i.test(String(url || ""));
+                    }
+                };
                 const looksUseful = data => {
                     try {
                         const p = data && (data.raceData || data);
@@ -4902,6 +5122,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
                                 try {
                                     const url = String((resp && resp.url) || (args[0] && args[0].url) || args[0] || "");
                                     if (!isRacingDataUrl(url)) return;
+                                    if (isEmptyRaceIdUrl(url)) return;
                                     resp.clone().json().then(json => emit(json, "page-fetch", url)).catch(() => {});
                                 } catch {}
                             }).catch(() => {});
@@ -4923,6 +5144,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
                                 try {
                                     const url = String(this.__mpgPitGuruUrl || this.responseURL || "");
                                     if (!isRacingDataUrl(url)) return;
+                                    if (isEmptyRaceIdUrl(url)) return;
                                     if (this.response && typeof this.response === "object") {
                                         emit(this.response, "page-xhr-object", url);
                                         return;
@@ -4960,6 +5182,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
                         try {
                             const url = String(resp?.url || args[0]?.url || args[0] || "");
                             if (!isRacingDataUrl_(url)) return;
+                            if (shouldSkipPreRaceCapture_(url)) return;
                             const parseStarted = perfNow_();
                             resp.clone().json().then(json => {
                                 perfRecord_("capture.fetch.parse", perfNow_() - parseStarted, {
@@ -4986,7 +5209,9 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
                 NativeXHR.prototype.send = function () {
                     this.addEventListener("load", () => {
                         try {
-                            if (!isRacingDataUrl_(this.__mpgUrl || this.responseURL || "")) return;
+                            const url = this.__mpgUrl || this.responseURL || "";
+                            if (!isRacingDataUrl_(url)) return;
+                            if (shouldSkipPreRaceCapture_(url)) return;
                             const ct = String(this.getResponseHeader?.("content-type") || "");
                             if (ct && !/json|javascript|text/i.test(ct)) return;
                             const parseStarted = perfNow_();
@@ -4994,14 +5219,14 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
                                 perfRecord_("capture.xhr.parse", perfNow_() - parseStarted, {
                                     responseType: String(this.responseType || "object")
                                 });
-                                maybeAcceptRaceDataPayload_(this.response, "xhr-object", this.__mpgUrl || this.responseURL || "");
+                                maybeAcceptRaceDataPayload_(this.response, "xhr-object", url);
                                 return;
                             }
                             const txt = String(this.responseText || "");
                             if (!txt || !/(trackData|raceData|cars)/.test(txt)) return;
                             const parsed = JSON.parse(txt);
                             perfRecord_("capture.xhr.parse", perfNow_() - parseStarted, { bytes: txt.length });
-                            maybeAcceptRaceDataPayload_(parsed, "xhr", this.__mpgUrl || this.responseURL || "");
+                            maybeAcceptRaceDataPayload_(parsed, "xhr", url);
                         } catch {}
                     });
                     return send.apply(this, arguments);
@@ -12837,7 +13062,9 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
             if (analysisMode === "predictions") {
                 const set = predictionDriverSet_();
                 if (status) status.textContent = set.drivers.length ? "PREDICTIONS · Pre-race grid" : "PREDICTIONS · Waiting for driver list";
-                const predKey = `pre-race-predictions|${theme}|${useApiPredictions ? 1 : 0}|${useHistoryPredictions ? 1 : 0}|${driverIntelStatus}|${preRaceParticipantsKey}|${pgLocalTrackHistoryRenderKey_(set.trackName)}|focus:${analysisFocusMode}:${analysisFocusDriverId}:${analysisFocusDriverName}|heavy:${heavyRaceMode_() ? 1 : 0}:${heavyRaceShowAllDrivers ? 1 : 0}:${heavyRaceFullCardsEnabled ? 1 : 0}|safe:${bigRaceSafeModeActive_() ? 1 : 0}`;
+                const modelKey = set.drivers.length >= LARGE_FIELD_THRESHOLD ? predictionRenderModelKey_(set) : "";
+                const modelState = modelKey && predictionRenderModel.key === modelKey ? modelKey : "pending";
+                const predKey = `pre-race-predictions|${theme}|${useApiPredictions ? 1 : 0}|${useHistoryPredictions ? 1 : 0}|${driverIntelStatus}|${preRaceParticipantsKey}|${pgLocalTrackHistoryRenderKey_(set.trackName)}|model:${modelState}|focus:${analysisFocusMode}:${analysisFocusDriverId}:${analysisFocusDriverName}|heavy:${heavyRaceMode_() ? 1 : 0}:${heavyRaceShowAllDrivers ? 1 : 0}:${heavyRaceFullCardsEnabled ? 1 : 0}|safe:${bigRaceSafeModeActive_() ? 1 : 0}`;
                 if (body.dataset.renderKey !== predKey) {
                     body.dataset.renderKey = predKey;
                     body.innerHTML = analysisStageHtml_(0, false) + renderPredictionsMode_(set);
@@ -12905,6 +13132,7 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
             useApiPredictions ? 1 : 0,
             useHistoryPredictions ? 1 : 0,
             analysisMode === "predictions" ? driverIntelStatus : "",
+            analysisMode === "predictions" && fieldSize_() >= LARGE_FIELD_THRESHOLD ? predictionRenderModel.key : "",
             (analysisMode === "predictions" || analysisMode === "driver") ? pgLocalTrackHistoryRenderKey_(analysis?.trackName || raceMeta?.track || "") : "",
             analysis?.routeModel ? "route" : "noroute",
             body.dataset.gyroDriver || "",
@@ -14486,6 +14714,53 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
         return `${statusNote}${renderTable_(["Car image + Car name","Driver (RS)","Grid","Races Here","Avg Finish","Wins","Podiums","Crashes","Best Lap","Best Race","Risk","Last Seen"], rows, emptyText, label, { helpText })}`;
     }
 
+    function predictionRenderModelKey_(set) {
+        const drivers = Array.isArray(set?.drivers) ? set.drivers : [];
+        const driverShape = drivers.map(d => `${d?.driverId || ""}:${d?.name || ""}:${d?.car || ""}:${Number.isFinite(Number(d?.racingSkill)) ? Number(d.racingSkill) : ""}`).join("|");
+        return hash32_([
+            set?.trackName || "",
+            driverShape,
+            useApiPredictions ? 1 : 0,
+            useHistoryPredictions ? 1 : 0,
+            driverIntelStatus || "",
+            pgLocalTrackHistoryRenderKey_(set?.trackName || "")
+        ].join("\n"));
+    }
+
+    function schedulePredictionRenderModel_(set, key) {
+        if (!key || predictionRenderBuildKey === key) return;
+        predictionRenderBuildKey = key;
+        const token = ++predictionRenderBuildToken;
+        const drivers = Array.isArray(set?.drivers) ? set.drivers.slice() : [];
+        const trackName = String(set?.trackName || "");
+        (async () => {
+            const started = perfNow_();
+            const ranked = [];
+            await runBatched_(drivers, d => {
+                ranked.push({ d, score: predictionScoreForDriver_(d, drivers, trackName) });
+            });
+            ranked.sort((a, b) => b.score - a.score);
+            ranked.forEach((row, index) => { row.predictedPos = index + 1; });
+            const scored = [];
+            await runBatched_(ranked, x => {
+                const intel = useApiPredictions ? (x.d.driverIntel || getDriverIntelForDriver_(x.d)) : null;
+                if (intel && !x.d.driverIntel) x.d.driverIntel = intel;
+                const skill = Number.isFinite(x.d.racingSkill) ? x.d.racingSkill : intel?.racingSkill;
+                const history = useHistoryPredictions ? getDriverTrackHistory_(x.d.driverId, x.d.name, trackName) : null;
+                scored.push(Object.assign({}, x, { intel, skill, history, displayScore: Math.max(0.01, x.score) }));
+            });
+            if (token !== predictionRenderBuildToken || key !== predictionRenderBuildKey) return;
+            predictionRenderModel = { key, scored };
+            predictionRenderBuildKey = "";
+            perfRecord_("predictions.largeGrid.build", perfNow_() - started, { drivers: drivers.length, yielded: true });
+            markDirty_({ data: true });
+            scheduleRender_();
+        })().catch(error => {
+            if (token === predictionRenderBuildToken) predictionRenderBuildKey = "";
+            if (debugEnabled) console.warn(TAG, "large-grid prediction build failed", error);
+        });
+    }
+
     function renderPredictionsMode_(providedSet = null) {
         if (!enablePredictions) return `<div class="mpg-note">Pre-race predictions are disabled in Settings.</div>`;
         const rawSet = providedSet && typeof providedSet === "object" && Array.isArray(providedSet.drivers)
@@ -14499,13 +14774,23 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
         if (!set.drivers.length) {
             return `<div class="mpg-note">Waiting for the race driver list. Predictions appear as soon as Pit Guru can see participants, before the race starts.</div>`;
         }
-        const scored = rankedPredictionDrivers_(set.drivers, set.trackName).map(x => {
-            const intel = useApiPredictions ? (x.d.driverIntel || getDriverIntelForDriver_(x.d)) : null;
-            if (intel && !x.d.driverIntel) x.d.driverIntel = intel;
-            const skill = Number.isFinite(x.d.racingSkill) ? x.d.racingSkill : intel?.racingSkill;
-            const history = useHistoryPredictions ? getDriverTrackHistory_(x.d.driverId, x.d.name, set.trackName || "") : null;
-            return Object.assign({}, x, { intel, skill, history, displayScore: Math.max(0.01, x.score) });
-        });
+        let scored = [];
+        if (set.drivers.length >= LARGE_FIELD_THRESHOLD && PHASE_REWRITE_FLAGS.chunkedLargeGridPredictions) {
+            const modelKey = predictionRenderModelKey_(set);
+            if (predictionRenderModel.key !== modelKey) {
+                schedulePredictionRenderModel_(set, modelKey);
+                return `<div class="mpg-note">Calculating large-grid predictions...</div>`;
+            }
+            scored = predictionRenderModel.scored || [];
+        } else {
+            scored = rankedPredictionDrivers_(set.drivers, set.trackName).map(x => {
+                const intel = useApiPredictions ? (x.d.driverIntel || getDriverIntelForDriver_(x.d)) : null;
+                if (intel && !x.d.driverIntel) x.d.driverIntel = intel;
+                const skill = Number.isFinite(x.d.racingSkill) ? x.d.racingSkill : intel?.racingSkill;
+                const history = useHistoryPredictions ? getDriverTrackHistory_(x.d.driverId, x.d.name, set.trackName || "") : null;
+                return Object.assign({}, x, { intel, skill, history, displayScore: Math.max(0.01, x.score) });
+            });
+        }
         const total = scored.reduce((s, x) => s + x.displayScore, 0) || 1;
         const predWin = focusedOrderWindow_(scored, { force: largeFieldMode_() });
         const rows = predWin.items.map(({ row: x, index: i }) => {
@@ -15568,6 +15853,7 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
         bigRaceSafeMode = loadBoolSetting_(STORE_BIG_RACE_SAFE_MODE_KEY, true);
         onboardingRequired = !loadBoolSetting_(STORE_ONBOARDING_COMPLETE_KEY, false);
         loadPerformanceTuning_();
+        installBrowserLongTaskObserver_();
         hookRaceDataObservers_();
         pgLocalEnsureTracks_().catch(() => { });
         pgLocalEnsureCarCatalog_().catch(() => { });
