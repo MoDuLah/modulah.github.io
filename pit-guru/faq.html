@@ -38,7 +38,7 @@
           <ul class="feature-list">
             <li class="feature-item"><span class="feature-dot" aria-hidden="true"></span><span>Live timing, gaps, sectors, and speed-focused analysis</span></li>
             <li class="feature-item"><span class="feature-dot" aria-hidden="true"></span><span>Current-page data only, with result preview controls</span></li>
-            <li class="feature-item"><span class="feature-dot" aria-hidden="true"></span><span>Public race player, PostgreSQL history, and v2.2.4 userscript live</span></li>
+            <li class="feature-item"><span class="feature-dot" aria-hidden="true"></span><span>Public race player, PostgreSQL history, and v2.2.5 userscript live</span></li>
           </ul>
         </aside>
       </section>
@@ -119,7 +119,8 @@
           <details id="release">
             <summary>Can I install it right now?</summary>
             <div class="answer">
-              <p>Yes. Install <a href="pit-guru.user.js">Pit Guru v2.2.4</a>. On first run, Settings opens with the public Torn API-key field focused and a short guided tour. Its update and download routes point to the same hosted build.</p>
+              <p>Yes. Install <a href="pit-guru.user.js">Pit Guru v2.2.5</a>. On first run, Settings opens with the public Torn API-key field focused and a short guided tour. Its update and download routes point to the same hosted build.</p>
+              <p>v2.2.5 applies a 50 ms long-task standard, skips repeated empty-race-ID parsing before the visible start, computes large-grid Predictions outside animation-frame renders, and uses indexed oldest-first cache pruning.</p>
               <p>For a reproducible cold-cache performance run, v2.2.4 exposes <code>pgPerformanceCleanSlate()</code>. It clears Pit Guru performance data while preserving credentials, licence/session state, settings, and layout.</p>
               <p>v2.2.3 fixes the remaining 100-driver loading and freezing path by capturing racingData once, blocking empty pre-race builds, decoding timing once, deferring heavy route geometry, and scheduling live updates by render bucket.</p>
               <p>v2.1.7 keeps HTML report export disabled until the live race has finished or the page is a replay, then exports richer completed-race overview and full-data driver tables.</p>

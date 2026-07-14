@@ -4,7 +4,8 @@ MoDuL's Pit Guru Changelog
 Project status (2026-07-14)
 ---------------------------
 - MoDuL's Pit Guru is now the public-facing successor project to Lap Recorder on MoDuL's Hub.
-- The live supporter userscript build is v2.2.4 at https://modulah.github.io/pit-guru/pit-guru.user.js.
+- The live supporter userscript build is v2.2.5 at https://modulah.github.io/pit-guru/pit-guru.user.js.
+- v2.2.5 applies a formal 50 ms long-task standard, stops parsing empty-race-ID payloads before the visible start, moves large-grid prediction scoring out of animation frames, parses deferred JSON caches in a Worker, and prunes IndexedDB by timestamp index.
 - v2.2.4 adds `pgPerformanceCleanSlate()`, a scoped diagnostic reset that clears Pit Guru performance caches and IndexedDB while preserving credentials, licence/session state, settings, and layout.
 - v2.2.3 removes duplicate racingData interception, ignores unrelated racing endpoints, prevents pre-race payloads from repeatedly entering the analysis builder, decodes timing intervals once, defers heavy-race route geometry, and replaces the direct live render call with bucketed scheduled updates.
 - v2.2.2 adds Big Race Safe Mode for heavy races, removes Torn-overlay commentary/team radio, and compacts old local Records caches on load.
@@ -34,6 +35,15 @@ Project status (2026-07-14)
 - Removed license serials from every Discord-facing activation message; purchases, admin grants, test purchases, and raffle prizes now confirm account-linked access and show the exact expiry with live time remaining.
 - Removed the obsolete `/licensecheck` serial-entry command.
 - Changed purchase payment references to the compact `!#PRODUCT-ORDERID` format while retaining verification support for existing pending orders using the legacy spaced format.
+
+v2.2.5
+------
+- Added a 16 ms cooperative work-slice helper using `scheduler.yield()` with a zero-delay timer fallback and browser `longtask` diagnostics in `pgPerfStats()`.
+- Stopped Pit Guru from cloning/parsing Torn's repeated empty-`raceID` racingData responses before the visible race starts; pre-race Predictions continue from Torn's rendered participant grid.
+- Replaced recursive full-payload signature serialization with a bounded fingerprint of race shape, driver keys, lengths, and sampled values.
+- Moved 30+ driver prediction scoring into cooperative batches outside the animation-frame renderer.
+- Moved deferred persisted-cache JSON parsing to a Web Worker where supported and avoided unnecessary startup pruning for already-bounded caches.
+- Upgraded the big-race IndexedDB cache with a `storedAt` index and cursor-based oldest-first pruning, eliminating the collect-all/sort/delete callback.
 
 v2.2.4
 ------
