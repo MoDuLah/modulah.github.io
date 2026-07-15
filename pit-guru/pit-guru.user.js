@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         MoDuL's Pit Guru
 // @namespace    modul.torn.racing
-// @version      2.2.5
+// @version      2.2.6
 // @description  Live Torn race timing, gaps, sectors, speed and estimated telemetry analysis
 // @author       MoDuL
 // @copyright    2026 MoDuL. All rights reserved.
@@ -565,7 +565,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         return bigRaceSafeModeStatus_();
     };
 
-    const MPG_VERSION = "2.2.5";
+    const MPG_VERSION = "2.2.6";
     var TAG = "[MoDuL's Pit Guru v" + MPG_VERSION + "]";
 
     const PitGuruRaceEngine = (() => {
@@ -963,7 +963,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         bucketedLiveRenderLoop: true,
         longTaskYielding: true,
         browserLongTaskObserver: true,
-        preRaceCaptureGate: true,
+        preRaceSummaryCapture: true,
         boundedPayloadFingerprint: true,
         indexedDbTimestampPruning: true,
         chunkedLargeGridPredictions: true
@@ -1207,13 +1207,17 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
     let bigRaceDbPromise = null;
     let bigRaceCacheStatus = { rawStored: 0, summaryStored: 0, pruned: 0, workerUsed: false, lastError: "" };
     let browserLongTaskObserver = null;
-    let preRaceCaptureSkips = 0;
+    let preRaceSummaryStats = { captures: 0, changes: 0, workerParses: 0, lastDrivers: 0, lastRaceId: "" };
     let predictionRenderModel = { key: "", scored: [] };
     let predictionRenderBuildKey = "";
     let predictionRenderBuildToken = 0;
     let storageJsonWorker = null;
     let storageJsonWorkerSequence = 0;
     const storageJsonWorkerPending = new Map();
+    let preRaceSummaryWorker = null;
+    let preRaceSummaryWorkerSequence = 0;
+    let preRaceSummaryAppliedSequence = 0;
+    const preRaceSummaryWorkerPending = new Map();
     let lastHeavyRaceStats = { heavyRace: false, estimatedPoints: 0, drivers: 0, laps: 0, intervals: 0 };
     let heavyRaceOverrideRaceKey = "";
     let heavyRaceShowAllDrivers = false;
@@ -1234,6 +1238,8 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
     let preRaceParticipants = [];
     let directRacingDataParticipants = [];
     let directRacingDataParticipantsKey = "";
+    let directRacingDataParticipantsById = new Map();
+    let directRacingDataParticipantsByName = new Map();
     let raceDataVisibleMatchCache = { key: "", at: 0, valid: false };
     let preRaceParticipantsKey = "";
     let pgLocalTracksCache = { rows: [], recordTracks: { lap: [], race: [] }, fetchedAt: 0, loading: false, error: "" };
@@ -1248,6 +1254,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
     let pageRaceDataBridgeInstalled = false;
     let clearedRaceDataKey = "";
     let raceDataReceivedPerfMs = 0;
+    let preRaceSummaryReceivedPerfMs = 0;
     let raceDataCurrentTimeAtReceive = NaN;
     let finalAnalysisNotifiedForRaceId = "";
     let recordsUpdatedForAnalysisRaceId = "";
@@ -1362,8 +1369,11 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         driverIntelPoolStableAt = 0;
         raceDataDirectFetchAt = 0;
         raceDataDirectFetchLastKey = "";
+        preRaceSummaryReceivedPerfMs = 0;
         directRacingDataParticipants = [];
         directRacingDataParticipantsKey = "";
+        directRacingDataParticipantsById = new Map();
+        directRacingDataParticipantsByName = new Map();
         raceDataVisibleMatchCache = { key: "", at: 0, valid: false };
     }
 
@@ -1479,6 +1489,121 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
             await yieldToMain_();
             try { return JSON.parse(raw) ?? fallback; } catch { return fallback; }
         }
+    }
+
+    function buildPreRaceSummaryWorkerSource_() {
+        return `"use strict";
+const summarize=root=>{
+  const outer=root&&typeof root==="object"?root:{};
+  const race=outer.raceData&&typeof outer.raceData==="object"?outer.raceData:outer;
+  const carInfo=race.carInfo&&typeof race.carInfo==="object"?race.carInfo:{};
+  const time=outer.timeData&&typeof outer.timeData==="object"?outer.timeData:(race.timeData&&typeof race.timeData==="object"?race.timeData:{});
+  const started=Number(time.timeStarted),current=Number(time.currentTime);
+  const preRace=Number.isFinite(started)&&Number.isFinite(current)?current<started:!/race\\s+(?:started|finished|ended)/i.test(String(outer.info||race.info||""));
+  const entries=Array.isArray(carInfo)?carInfo.map((value,index)=>["",value,index]):Object.entries(carInfo).map(([key,value],index)=>[key,value,index]);
+  const participants=[];
+  for(const [key,value,index] of entries){
+    const row=value&&typeof value==="object"?value:{};
+    const name=String(row.playername||row.playerName||row.name||key||"").trim();
+    const driverId=String(row.userID||row.userId||row.userid||row.user_id||row.driverId||row.id||"").trim();
+    if(!name&&!driverId)continue;
+    participants.push({
+      name:name||("Driver "+(index+1)),driverId,
+      racingSkill:row.racingSkill??row.racing_skill??row.skill??null,
+      itemID:row.itemID||row.itemId||row.item_id||row.imteID||row.carItemID||row.carItemId||"",
+      car:row.carTitle||row.car_title||row.car||"",
+      carImg:row.carImage||row.carImg||row.car_image||""
+    });
+  }
+  return {
+    raceId:String(outer.raceID||outer.raceId||outer.id||race.raceID||race.raceId||race.id||"").trim(),
+    laps:Number(outer.laps??race.laps)||0,
+    info:String(outer.info||race.info||""),
+    trackId:String(outer.trackID||outer.trackId||race.trackID||race.trackId||"").trim(),preRace,
+    participants
+  };
+};
+self.onmessage=event=>{const id=event.data&&event.data.id;try{const root=JSON.parse(String(event.data&&event.data.raw||""));self.postMessage({id,ok:true,summary:summarize(root)});}catch(error){self.postMessage({id,ok:false,error:String(error&&error.message||error||"Pre-race summary parse failed")});}};`;
+    }
+
+    function preRaceSummaryWorker_() {
+        if (preRaceSummaryWorker) return preRaceSummaryWorker;
+        try {
+            if (typeof Worker !== "function" || typeof Blob !== "function" || typeof URL?.createObjectURL !== "function") return null;
+            const url = URL.createObjectURL(new Blob([buildPreRaceSummaryWorkerSource_()], { type: "text/javascript" }));
+            preRaceSummaryWorker = new Worker(url);
+            URL.revokeObjectURL(url);
+            preRaceSummaryWorker.onmessage = event => {
+                const message = event?.data || {};
+                const pending = preRaceSummaryWorkerPending.get(message.id);
+                if (!pending) return;
+                preRaceSummaryWorkerPending.delete(message.id);
+                if (message.ok) pending.resolve(message.summary || {});
+                else pending.reject(new Error(message.error || "Pre-race summary parse failed"));
+            };
+            preRaceSummaryWorker.onerror = () => {
+                for (const pending of preRaceSummaryWorkerPending.values()) pending.reject(new Error("Pre-race summary worker failed"));
+                preRaceSummaryWorkerPending.clear();
+                try { preRaceSummaryWorker?.terminate(); } catch {}
+                preRaceSummaryWorker = null;
+            };
+            return preRaceSummaryWorker;
+        } catch {
+            preRaceSummaryWorker = null;
+            return null;
+        }
+    }
+
+    function preRaceSummaryFromObject_(raw) {
+        const outer = raw && typeof raw === "object" ? raw : {};
+        const race = outer.raceData && typeof outer.raceData === "object" ? outer.raceData : outer;
+        const info = race.carInfo && typeof race.carInfo === "object" ? race.carInfo : {};
+        const time = outer.timeData && typeof outer.timeData === "object" ? outer.timeData : (race.timeData && typeof race.timeData === "object" ? race.timeData : {});
+        const started = Number(time.timeStarted);
+        const current = Number(time.currentTime);
+        const preRace = Number.isFinite(started) && Number.isFinite(current)
+            ? current < started
+            : !/race\s+(?:started|finished|ended)/i.test(String(outer.info || race.info || ""));
+        const entries = Array.isArray(info)
+            ? info.map((value, index) => ["", value, index])
+            : Object.entries(info).map(([key, value], index) => [key, value, index]);
+        const participants = [];
+        for (const [key, value, index] of entries) {
+            const row = value && typeof value === "object" ? value : {};
+            const name = String(row.playername || row.playerName || row.name || key || "").trim();
+            const driverId = String(row.userID || row.userId || row.userid || row.user_id || row.driverId || row.id || "").trim();
+            if (!name && !driverId) continue;
+            participants.push({
+                name: name || `Driver ${index + 1}`,
+                driverId,
+                racingSkill: row.racingSkill ?? row.racing_skill ?? row.skill ?? null,
+                itemID: row.itemID || row.itemId || row.item_id || row.imteID || row.carItemID || row.carItemId || "",
+                car: row.carTitle || row.car_title || row.car || "",
+                carImg: row.carImage || row.carImg || row.car_image || ""
+            });
+        }
+        return {
+            raceId: String(outer.raceID || outer.raceId || outer.id || race.raceID || race.raceId || race.id || "").trim(),
+            laps: Number(outer.laps ?? race.laps) || 0,
+            info: String(outer.info || race.info || ""),
+            trackId: String(outer.trackID || outer.trackId || race.trackID || race.trackId || "").trim(),
+            preRace,
+            participants
+        };
+    }
+
+    async function parsePreRaceSummaryOffMain_(raw) {
+        const worker = preRaceSummaryWorker_();
+        if (!worker) {
+            await yieldToMain_();
+            return preRaceSummaryFromObject_(JSON.parse(String(raw || "")));
+        }
+        const id = ++preRaceSummaryWorkerSequence;
+        preRaceSummaryStats.workerParses += 1;
+        return await new Promise((resolve, reject) => {
+            preRaceSummaryWorkerPending.set(id, { resolve, reject });
+            worker.postMessage({ id, raw: String(raw || "") });
+        });
     }
 
     function idleStartupWork_(name, fn, timeoutMs = 4000) {
@@ -1809,11 +1934,20 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         preRaceParticipants = [];
         directRacingDataParticipants = [];
         directRacingDataParticipantsKey = "";
+        directRacingDataParticipantsById = new Map();
+        directRacingDataParticipantsByName = new Map();
         preRaceParticipantsKey = "";
         bigRaceCacheStatus = { rawStored: 0, summaryStored: 0, pruned: 0, workerUsed: false, lastError: "" };
         lastHeavyRaceStats = { heavyRace: false, estimatedPoints: 0, drivers: 0, laps: 0, intervals: 0 };
         bigRaceSafeModeSkips = { driverIntel: 0, hostedUpload: 0, localDbSync: 0, aggregate: 0 };
-        preRaceCaptureSkips = 0;
+        preRaceSummaryStats = { captures: 0, changes: 0, workerParses: 0, lastDrivers: 0, lastRaceId: "" };
+        preRaceSummaryReceivedPerfMs = 0;
+        for (const pending of preRaceSummaryWorkerPending.values()) pending.reject(new Error("Pre-race summary cache reset"));
+        preRaceSummaryWorkerPending.clear();
+        try { preRaceSummaryWorker?.terminate(); } catch {}
+        preRaceSummaryWorker = null;
+        preRaceSummaryWorkerSequence = 0;
+        preRaceSummaryAppliedSequence = 0;
         predictionRenderModel = { key: "", scored: [] };
         predictionRenderBuildKey = "";
         predictionRenderBuildToken += 1;
@@ -1995,7 +2129,12 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
             driverIntelEntries: driverIntelCacheLoaded ? countObjectKeys_(driverIntelCache) : 0,
             driverHistoryLoaded,
             driverHistoryEntries: driverHistoryLoaded ? countObjectKeys_(driverHistory) : 0,
-            preRaceCaptureSkips,
+            preRaceSummary: {
+                ...preRaceSummaryStats,
+                indexedById: directRacingDataParticipantsById.size,
+                indexedByName: directRacingDataParticipantsByName.size,
+                workerActive: !!preRaceSummaryWorker
+            },
             longTaskStandard: {
                 thresholdMs: LONG_TASK_THRESHOLD_MS,
                 yieldBudgetMs: MAIN_THREAD_YIELD_BUDGET_MS,
@@ -2440,6 +2579,8 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         preRaceParticipants = [];
         directRacingDataParticipants = [];
         directRacingDataParticipantsKey = "";
+        directRacingDataParticipantsById = new Map();
+        directRacingDataParticipantsByName = new Map();
         raceDataVisibleMatchCache = { key: "", at: 0, valid: false };
         preRaceParticipantsKey = "";
         resetScanCaches_();
@@ -4203,12 +4344,11 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         }
     }
 
-    function shouldSkipPreRaceCapture_(url) {
-        if (!PHASE_REWRITE_FLAGS.preRaceCaptureGate || isReplayPage_() || !isEmptyRaceIdRacingDataUrl_(url)) return false;
-        if (visualRaceHasStarted_()) return false;
-        preRaceCaptureSkips += 1;
-        perfRecord_("capture.preRace.skipped", 0, { emptyRaceId: true });
-        return true;
+    function shouldCapturePreRaceSummary_(url) {
+        return !!PHASE_REWRITE_FLAGS.preRaceSummaryCapture
+            && !isReplayPage_()
+            && isEmptyRaceIdRacingDataUrl_(url)
+            && !visualRaceHasStarted_();
     }
 
     function raceDataParticipantRows_(payload) {
@@ -4278,26 +4418,133 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
             }));
     }
 
-    function cacheDirectRacingDataParticipants_(payload) {
-        const rows = raceDataParticipantRows_(payload);
+    function cacheDirectRacingDataParticipantRows_(inputRows) {
+        const rows = Array.isArray(inputRows) ? inputRows : [];
         if (!rows.length) return false;
-        const key = rows.map(d => `${normalizeDriverName_(d.name)}:${d.driverId}:${d.car}`).sort().join("|");
-        if (key !== directRacingDataParticipantsKey) {
-            directRacingDataParticipants = rows;
-            directRacingDataParticipantsKey = key;
-            preRaceParticipantsKey = "";
+        const byDriver = new Map();
+        for (const source of rows) {
+            const row = source && typeof source === "object" ? source : {};
+            const name = String(row.name || "").trim();
+            const driverId = String(row.driverId || "").trim();
+            const normalizedName = normalizeDriverName_(name);
+            if (!driverId && !normalizedName) continue;
+            const key = driverId ? `id:${driverId}` : `name:${normalizedName}`;
+            const previous = byDriver.get(key) || {};
+            byDriver.set(key, {
+                name: name || previous.name || (driverId ? `Driver ${driverId}` : "Driver"),
+                driverId: driverId || previous.driverId || "",
+                racingSkill: row.racingSkill !== null && row.racingSkill !== undefined && row.racingSkill !== "" && Number.isFinite(Number(row.racingSkill))
+                    ? Number(row.racingSkill)
+                    : previous.racingSkill,
+                itemID: row.itemID || previous.itemID || "",
+                car: toOgCarName_(row.car || previous.car || ""),
+                carImg: String(row.carImg || previous.carImg || ""),
+                preRaceOnly: true,
+                source: "racingData.carInfo"
+            });
         }
-        return true;
+        const nextRows = Array.from(byDriver.values());
+        const key = nextRows.map(d => `${normalizeDriverName_(d.name)}:${d.driverId}:${d.itemID}:${d.car}`).sort().join("|");
+        if (key !== directRacingDataParticipantsKey) {
+            const previousById = new Map(preRaceParticipants.map(row => [String(row.driverId || ""), row]).filter(([id]) => id));
+            const previousByName = new Map(preRaceParticipants.map(row => [normalizeDriverName_(row.name), row]).filter(([name]) => name));
+            directRacingDataParticipants = nextRows;
+            directRacingDataParticipantsKey = key;
+            directRacingDataParticipantsById = new Map();
+            directRacingDataParticipantsByName = new Map();
+            for (const row of nextRows) {
+                if (row.driverId) directRacingDataParticipantsById.set(String(row.driverId), row);
+                const normalizedName = normalizeDriverName_(row.name);
+                if (normalizedName) directRacingDataParticipantsByName.set(normalizedName, row);
+            }
+            preRaceParticipants = nextRows.map(row => {
+                const previous = (row.driverId && previousById.get(String(row.driverId))) || previousByName.get(normalizeDriverName_(row.name)) || {};
+                return Object.assign({}, previous, row, {
+                    racingSkill: Number.isFinite(row.racingSkill) ? row.racingSkill : previous.racingSkill,
+                    driverIntel: previous.driverIntel || row.driverIntel
+                });
+            });
+            preRaceParticipantsKey = `racingData:${key}`;
+            return true;
+        }
+        return false;
+    }
+
+    function cacheDirectRacingDataParticipants_(payload) {
+        return cacheDirectRacingDataParticipantRows_(raceDataParticipantRows_(payload));
+    }
+
+    function applyPreRaceSummary_(summary, source = "pre-race", sequence = ++preRaceSummaryWorkerSequence) {
+        if (!summary || typeof summary !== "object" || sequence < preRaceSummaryAppliedSequence) return false;
+        preRaceSummaryAppliedSequence = sequence;
+        preRaceSummaryReceivedPerfMs = performance.now();
+        preRaceSummaryStats.captures += 1;
+        const raceId = String(summary.raceId || "").trim();
+        const raceIdChanged = !!raceId && raceId !== directCurrentRaceId;
+        if (raceId) directCurrentRaceId = raceId;
+        const changed = cacheDirectRacingDataParticipantRows_(summary.participants || []);
+        if (changed) preRaceSummaryStats.changes += 1;
+        preRaceSummaryStats.lastDrivers = Array.isArray(summary.participants) ? summary.participants.length : 0;
+        preRaceSummaryStats.lastRaceId = raceId || preRaceSummaryStats.lastRaceId;
+        const summaryLaps = Math.max(0, Number(summary.laps || 0) || 0);
+        lastHeavyRaceStats = {
+            drivers: preRaceSummaryStats.lastDrivers,
+            laps: summaryLaps,
+            intervals: 0,
+            estimatedPoints: 0,
+            heavyRace: preRaceSummaryStats.lastDrivers >= HEAVY_RACE_DRIVER_THRESHOLD || summaryLaps >= HEAVY_RACE_LAP_THRESHOLD
+        };
+        perfRecord_("capture.preRace.summary", 0, {
+            source: String(source || ""),
+            raceId: raceId || "",
+            drivers: preRaceSummaryStats.lastDrivers,
+            changed
+        });
+        if (changed || raceIdChanged) {
+            raceDataVisibleMatchCache = { key: "", at: 0, valid: false };
+            predictionRenderBuildKey = "";
+            predictionRenderBuildToken += 1;
+            maybeAutoFetchDriverIntel_();
+            markDirty_({ data: true, status: true });
+            scheduleRender_();
+        }
+        return !!(raceId || preRaceSummaryStats.lastDrivers);
+    }
+
+    async function capturePreRaceSummaryText_(text, source, url) {
+        const sequence = ++preRaceSummaryWorkerSequence;
+        const started = perfNow_();
+        try {
+            const summary = await parsePreRaceSummaryOffMain_(text);
+            if (summary?.preRace === false) {
+                await yieldToMain_();
+                return maybeAcceptRaceDataPayload_(JSON.parse(String(text || "")), source, url);
+            }
+            return applyPreRaceSummary_(summary, source, sequence);
+        } catch (error) {
+            if (debugEnabled) console.warn(TAG, "pre-race carInfo summary parse failed", source, error);
+            return false;
+        } finally {
+            perfRecord_("capture.preRace.parse", perfNow_() - started, { source: String(source || ""), bytes: String(text || "").length, url: String(url || "") });
+        }
+    }
+
+    function capturePreRaceSummaryObject_(raw, source, url = "") {
+        const sequence = ++preRaceSummaryWorkerSequence;
+        const summary = preRaceSummaryFromObject_(raw);
+        if (summary.preRace === false) return maybeAcceptRaceDataPayload_(raw, source, url);
+        return applyPreRaceSummary_(summary, source, sequence);
     }
 
     function findDirectRacingDataParticipant_(name) {
         const nn = normalizeDriverName_(name);
         if (!nn) return null;
-        return directRacingDataParticipants.find(d => normalizeDriverName_(d.name) === nn) || null;
+        return directRacingDataParticipantsByName.get(nn) || null;
     }
 
     function mergeDirectRacingDataIntoParticipant_(d) {
-        const direct = findDirectRacingDataParticipant_(d?.name || "");
+        const directId = String(d?.driverId || "").trim();
+        const direct = (directId && directRacingDataParticipantsById.get(directId)) || findDirectRacingDataParticipant_(d?.name || "");
         if (!direct) return d;
         if (!String(d.driverId || "").trim() && direct.driverId) d.driverId = direct.driverId;
         if (!Number.isFinite(d.racingSkill) && Number.isFinite(Number(direct.racingSkill))) d.racingSkill = Number(direct.racingSkill);
@@ -4431,6 +4678,22 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         return run;
     }
 
+    async function fetchDirectPreRaceSummary_(source = "direct-pre-race-summary") {
+        const url = racingDataUrl_("");
+        const resp = await fetchWithoutRaceDataCapture_(url, {
+            credentials: "include",
+            cache: "no-store",
+            headers: {
+                "Accept": "application/json, text/javascript, */*; q=0.01",
+                "X-Requested-With": "XMLHttpRequest"
+            }
+        });
+        if (!resp.ok) return false;
+        const text = await resp.text();
+        if (!text || /^Wrong RFC/i.test(text.trim())) return false;
+        return await capturePreRaceSummaryText_(text, source, url);
+    }
+
     function directFetchLeaseOk_(key, ttlMs) {
         try {
             const now = Date.now();
@@ -4450,19 +4713,18 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         if (!replay && !canScanTornPage_()) return false;
         const explicitRaceId = replay ? (urlRaceId_() || visibleRaceId_() || raceMeta?.raceId || "") : "";
         if (replay && !explicitRaceId) return false;
-        if (!replay && !visualRaceHasStarted_()) {
-            refreshPreRaceParticipants_(force);
-            return false;
-        }
+        const preRace = !replay && !visualRaceHasStarted_();
+        if (preRace) refreshPreRaceParticipants_(force);
 
-        if (!analysis && !latestRaceDataPayload) await maybeWarmRestoreRaceDataForCurrentRace_();
+        if (!preRace && !analysis && !latestRaceDataPayload) await maybeWarmRestoreRaceDataForCurrentRace_();
         const currentPayload = latestRaceDataPayload || analysis?.payload || null;
         const hasRaceData = !!(currentPayload && analysis?.drivers?.length);
         const resolvedRaceKey = raceDataFetchRaceKey_(explicitRaceId, currentPayload);
-        if (directRaceDataFetchComplete_(resolvedRaceKey)) return false;
-        const nativeRecentlyDelivered = raceDataReceivedPerfMs && (performance.now() - raceDataReceivedPerfMs < 8000);
+        if (!preRace && directRaceDataFetchComplete_(resolvedRaceKey)) return false;
+        const latestNativeDelivery = preRace ? preRaceSummaryReceivedPerfMs : raceDataReceivedPerfMs;
+        const nativeRecentlyDelivered = latestNativeDelivery && (performance.now() - latestNativeDelivery < 8000);
         if (!force && !replay && nativeRecentlyDelivered) return false;
-        const intervalMs = replay ? (hasRaceData ? 10000 : 3000) : (hasRaceData ? 30000 : 15000);
+        const intervalMs = preRace ? 10000 : (replay ? (hasRaceData ? 10000 : 3000) : (hasRaceData ? 30000 : 15000));
         const key = `${replay ? `race:${explicitRaceId}` : resolvedRaceKey || "current"}|${currentRfcv_() || "no-rfc"}`;
         const now = Date.now();
         if (!force && raceDataDirectFetchLastKey === key && now - raceDataDirectFetchAt < intervalMs) return false;
@@ -4472,6 +4734,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         raceDataDirectFetchAt = now;
         raceDataDirectFetchActive = true;
         try {
+            if (preRace) return await fetchDirectPreRaceSummary_("direct-current-pre-race");
             const accepted = await fetchDirectRaceData_(explicitRaceId, replay ? "direct-raceID-racingData" : "direct-current-racingData");
             if (accepted) return true;
             const fallbackRaceId = !replay ? (urlRaceId_() || visibleRaceId_() || raceMeta?.raceId || "") : "";
@@ -4999,13 +5262,6 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
             const isCurrentEndpoint = !isReplayPage_() && (sourceText.includes("direct-current-racingData") || isEmptyRaceIdRacingDataUrl_(sourceUrl));
             let payloadRid = directRaceIdFromPayload_(payload);
             if (isCurrentEndpoint) {
-                if (!currentRacingDataMatchesVisibleGridCached_(payload)) {
-                    payload.__mpgIgnoreRaceId = true;
-                    maybeAutoFetchDriverIntel_();
-                    uiDirty = true;
-                    scheduleRender_();
-                    return true;
-                }
                 delete payload.__mpgIgnoreRaceId;
                 payload.__mpgVerifiedCurrentRace = true;
                 payloadRid = directRaceIdFromPayload_(payload);
@@ -5063,6 +5319,10 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         document.addEventListener(eventName, ev => {
             try {
                 const detail = JSON.parse(String(ev.detail || "{}"));
+                if (detail?.summary) {
+                    applyPreRaceSummary_(detail.summary, detail.source || "page-pre-race");
+                    return;
+                }
                 if (detail?.data) maybeAcceptRaceDataPayload_(detail.data, detail.source || "page", detail.url || "");
             } catch {}
         });
@@ -5105,11 +5365,61 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
                         return !!(p && p.trackData && p.cars);
                     } catch { return false; }
                 };
+                const summarizePreRace = data => {
+                    try {
+                        const outer = data && typeof data === "object" ? data : {};
+                        const race = outer.raceData && typeof outer.raceData === "object" ? outer.raceData : outer;
+                        const info = race.carInfo && typeof race.carInfo === "object" ? race.carInfo : {};
+                        const entries = Array.isArray(info)
+                            ? info.map((value, index) => ["", value, index])
+                            : Object.entries(info).map(([key, value], index) => [key, value, index]);
+                        const participants = [];
+                        for (const [key, value, index] of entries) {
+                            const row = value && typeof value === "object" ? value : {};
+                            const name = String(row.playername || row.playerName || row.name || key || "").trim();
+                            const driverId = String(row.userID || row.userId || row.userid || row.user_id || row.driverId || row.id || "").trim();
+                            if (!name && !driverId) continue;
+                            participants.push({
+                                name: name || ("Driver " + (index + 1)), driverId,
+                                racingSkill: row.racingSkill ?? row.racing_skill ?? row.skill ?? null,
+                                itemID: row.itemID || row.itemId || row.item_id || row.imteID || row.carItemID || row.carItemId || "",
+                                car: row.carTitle || row.car_title || row.car || "",
+                                carImg: row.carImage || row.carImg || row.car_image || ""
+                            });
+                        }
+                        return {
+                            raceId: String(outer.raceID || outer.raceId || outer.id || race.raceID || race.raceId || race.id || "").trim(),
+                            laps: Number(outer.laps ?? race.laps) || 0,
+                            info: String(outer.info || race.info || ""),
+                            trackId: String(outer.trackID || outer.trackId || race.trackID || race.trackId || "").trim(),
+                            participants
+                        };
+                    } catch { return null; }
+                };
+                const payloadIsPreRace = data => {
+                    try {
+                        const outer = data && typeof data === "object" ? data : {};
+                        const time = outer.timeData || outer.raceData?.timeData || {};
+                        const started = Number(time.timeStarted);
+                        const current = Number(time.currentTime);
+                        if (Number.isFinite(started) && Number.isFinite(current)) return current < started;
+                        return !/race\\s+(?:started|finished|ended)/i.test(String(outer.info || outer.raceData?.info || ""));
+                    } catch { return true; }
+                };
                 const emit = (data, source, url) => {
                     try {
                         if (!looksUseful(data)) return;
                         document.dispatchEvent(new CustomEvent(EVENT, {
                             detail: JSON.stringify({ source, url: String(url || ""), data })
+                        }));
+                    } catch {}
+                };
+                const emitPreRace = (data, source, url) => {
+                    try {
+                        const summary = summarizePreRace(data);
+                        if (!summary || (!summary.raceId && !summary.participants.length)) return;
+                        document.dispatchEvent(new CustomEvent(EVENT, {
+                            detail: JSON.stringify({ source, url: String(url || ""), summary })
                         }));
                     } catch {}
                 };
@@ -5122,8 +5432,10 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
                                 try {
                                     const url = String((resp && resp.url) || (args[0] && args[0].url) || args[0] || "");
                                     if (!isRacingDataUrl(url)) return;
-                                    if (isEmptyRaceIdUrl(url)) return;
-                                    resp.clone().json().then(json => emit(json, "page-fetch", url)).catch(() => {});
+                                    resp.clone().json().then(json => {
+                                        if (isEmptyRaceIdUrl(url) && payloadIsPreRace(json)) emitPreRace(json, "page-fetch-pre-race", url);
+                                        else emit(json, "page-fetch", url);
+                                    }).catch(() => {});
                                 } catch {}
                             }).catch(() => {});
                             return p;
@@ -5144,14 +5456,16 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
                                 try {
                                     const url = String(this.__mpgPitGuruUrl || this.responseURL || "");
                                     if (!isRacingDataUrl(url)) return;
-                                    if (isEmptyRaceIdUrl(url)) return;
                                     if (this.response && typeof this.response === "object") {
-                                        emit(this.response, "page-xhr-object", url);
+                                        if (isEmptyRaceIdUrl(url) && payloadIsPreRace(this.response)) emitPreRace(this.response, "page-xhr-object-pre-race", url);
+                                        else emit(this.response, "page-xhr-object", url);
                                         return;
                                     }
                                     const txt = String(this.responseText || "");
                                     if (!txt || !/(trackData|raceData|cars)/.test(txt)) return;
-                                    emit(JSON.parse(txt), "page-xhr-text", url);
+                                    const data = JSON.parse(txt);
+                                    if (isEmptyRaceIdUrl(url) && payloadIsPreRace(data)) emitPreRace(data, "page-xhr-text-pre-race", url);
+                                    else emit(data, "page-xhr-text", url);
                                 } catch {}
                             });
                             return send.apply(this, arguments);
@@ -5182,8 +5496,11 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
                         try {
                             const url = String(resp?.url || args[0]?.url || args[0] || "");
                             if (!isRacingDataUrl_(url)) return;
-                            if (shouldSkipPreRaceCapture_(url)) return;
                             const parseStarted = perfNow_();
+                            if (shouldCapturePreRaceSummary_(url)) {
+                                resp.clone().text().then(text => capturePreRaceSummaryText_(text, "fetch-pre-race", url)).catch(() => {});
+                                return;
+                            }
                             resp.clone().json().then(json => {
                                 perfRecord_("capture.fetch.parse", perfNow_() - parseStarted, {
                                     bytes: Number(resp.headers?.get?.("content-length") || 0) || 0
@@ -5211,10 +5528,19 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
                         try {
                             const url = this.__mpgUrl || this.responseURL || "";
                             if (!isRacingDataUrl_(url)) return;
-                            if (shouldSkipPreRaceCapture_(url)) return;
                             const ct = String(this.getResponseHeader?.("content-type") || "");
                             if (ct && !/json|javascript|text/i.test(ct)) return;
                             const parseStarted = perfNow_();
+                            if (shouldCapturePreRaceSummary_(url)) {
+                                if (this.response && typeof this.response === "object") {
+                                    capturePreRaceSummaryObject_(this.response, "xhr-object-pre-race", url);
+                                    perfRecord_("capture.preRace.object", perfNow_() - parseStarted, { responseType: String(this.responseType || "object") });
+                                    return;
+                                }
+                                const preRaceText = String(this.responseText || "");
+                                if (preRaceText) capturePreRaceSummaryText_(preRaceText, "xhr-pre-race", url).catch(() => {});
+                                return;
+                            }
                             if (this.response && typeof this.response === "object") {
                                 perfRecord_("capture.xhr.parse", perfNow_() - parseStarted, {
                                     responseType: String(this.responseType || "object")
@@ -6999,6 +7325,10 @@ self.onmessage=event=>{try{self.postMessage({ok:true,result:aggregate(event.data
     function scrapeVisibleParticipants_() {
         if (!canScanTornPage_()) return (preRaceParticipants || []).slice();
         const byKey = new Map();
+        for (const direct of directRacingDataParticipants) {
+            const key = direct.driverId ? `id:${direct.driverId}` : `name:${normalizeDriverName_(direct.name)}`;
+            if (key && key !== "name:") byKey.set(key, { ...direct });
+        }
         const large = largeLobbyMode_();
         const limit = visibleParticipantCandidateLimit_();
         const trackName = raceMeta?.track || visibleRaceTrackName_();
@@ -7011,12 +7341,13 @@ self.onmessage=event=>{try{self.postMessage({ok:true,result:aggregate(event.data
             if (!text || text.length < 2 || text.length > 220) continue;
             const car = extractCarFromElement_(el);
             const name = extractDriverNameFromElement_(el, car);
-            const id = extractDriverIdFromElement_(el) || (large ? "" : lookupVisibleDriverIdByName_(name, el));
+            const indexed = findDirectRacingDataParticipant_(name);
+            const id = extractDriverIdFromElement_(el) || indexed?.driverId || (large ? "" : lookupVisibleDriverIdByName_(name, el));
             if ((!name && !id) || (name && (/^\d+(?:\.\d+)?%?$/.test(name) || isRejectedVisibleDriverName_(name)))) continue;
             if (!id && !car && !/selected|driver|user|racer/i.test(String(el.className || ""))) continue;
             const key = id ? `id:${id}` : `name:${normalizeDriverName_(name)}`;
             if (!key || key === "name:") continue;
-            const prev = byKey.get(key) || {};
+            const prev = byKey.get(key) || indexed || {};
             byKey.set(key, {
                 name: prev.name || name || "",
                 driverId: id || prev.driverId || (selfName && normalizeDriverName_(name) === selfName ? "self" : ""),

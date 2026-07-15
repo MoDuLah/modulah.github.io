@@ -1,10 +1,11 @@
 MoDuL's Pit Guru Changelog
 ==========================
 
-Project status (2026-07-14)
+Project status (2026-07-15)
 ---------------------------
 - MoDuL's Pit Guru is now the public-facing successor project to Lap Recorder on MoDuL's Hub.
-- The live supporter userscript build is v2.2.5 at https://modulah.github.io/pit-guru/pit-guru.user.js.
+- The live supporter userscript build is v2.2.6 at https://modulah.github.io/pit-guru/pit-guru.user.js.
+- v2.2.6 restores required empty-race-ID pre-race capture through a worker-backed compact `raceID` + `carInfo` summary, refreshes it on every changed poll for late joiners, and indexes racers by user ID and normalized name without retaining timing arrays.
 - v2.2.5 applies a formal 50 ms long-task standard, stops parsing empty-race-ID payloads before the visible start, moves large-grid prediction scoring out of animation frames, parses deferred JSON caches in a Worker, and prunes IndexedDB by timestamp index.
 - v2.2.4 adds `pgPerformanceCleanSlate()`, a scoped diagnostic reset that clears Pit Guru performance caches and IndexedDB while preserving credentials, licence/session state, settings, and layout.
 - v2.2.3 removes duplicate racingData interception, ignores unrelated racing endpoints, prevents pre-race payloads from repeatedly entering the analysis builder, decodes timing intervals once, defers heavy-race route geometry, and replaces the direct live render call with bucketed scheduled updates.
@@ -35,6 +36,15 @@ Project status (2026-07-14)
 - Removed license serials from every Discord-facing activation message; purchases, admin grants, test purchases, and raffle prizes now confirm account-linked access and show the exact expiry with live time remaining.
 - Removed the obsolete `/licensecheck` serial-entry command.
 - Changed purchase payment references to the compact `!#PRODUCT-ORDERID` format while retaining verification support for existing pending orders using the legacy spaced format.
+
+v2.2.6
+------
+- Fixed the v2.2.5 pre-race capture regression that could leave Pit Guru without the current Race ID and prevent the normal race pipeline from starting.
+- Empty-`raceID` responses are now parsed in a Worker during pre-race, but only a compact summary containing the outer Race ID and selected `raceData.carInfo` driver/car fields returns to the main thread.
+- The authoritative pre-race participant snapshot refreshes whenever `carInfo` changes, so racers who join after the first poll are included.
+- Added participant indexes by Torn user ID and normalized driver name, avoiding repeated linear searches while enriching the visible grid and Predictions.
+- Restored a throttled direct pre-race request as a fallback when Pit Guru misses Torn's native request; full timing payload acceptance and analysis still wait until race start.
+- A supplied 6.59 MB 100-racer response produced a 12.9 KB compact summary with Race ID 19930517 and all 100 indexed racers, without returning `cars` or `trackData` to the main thread.
 
 v2.2.5
 ------
