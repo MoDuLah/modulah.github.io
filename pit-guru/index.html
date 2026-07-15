@@ -33,11 +33,11 @@
         <div class="hero-copy">
           <p class="section-kicker">Supporter Racing Analysis Tool</p>
           <h1 class="hero-title">MoDuL's Pit Guru</h1>
-          <p class="hero-text">A next-generation Torn racing analysis workspace built from Lap Recorder's lessons, with a public race player, PostgreSQL-backed history, and a v2.2.5 userscript tuned to keep large-race work off the browser's critical rendering path.</p>
+          <p class="hero-text">A next-generation Torn racing analysis workspace built from Lap Recorder's lessons, with a public race player, PostgreSQL-backed history, and a v2.2.6 userscript that preserves pre-race Race ID and entrant capture without returning full timing data to the main thread.</p>
 
           <div class="hero-actions">
             <a class="cta-button" href="https://pp-api.sokin.xyz/pit-guru/" target="_blank" rel="noopener noreferrer">Open Public Race Player</a>
-            <a class="cta-button" href="pit-guru.user.js">Install v2.2.5</a>
+            <a class="cta-button" href="pit-guru.user.js">Install v2.2.6</a>
             <a class="ghost-button" href="https://discord.gg/JP8FQBATMV" target="_blank" rel="noopener noreferrer">Join Pit Guru Discord</a>
             <a class="ghost-button" href="../index.html#supporter-scripts">Back to Supporter Scripts</a>
           </div>
@@ -73,7 +73,7 @@
             </div>
             <div class="feature-block">
               <h3>Big-race capture pipeline</h3>
-              <p>v2.2.5 applies a formal long-task budget, skips unusable pre-race response parsing, and computes large-grid Predictions outside animation-frame renders.</p>
+              <p>v2.2.6 reduces pre-race responses to a worker-built Race ID and carInfo summary, refreshes late joiners, and indexes racers by user ID and name.</p>
             </div>
             <div class="feature-block">
               <h3>Large race performance</h3>
@@ -118,7 +118,7 @@
 
         <article class="content-card content-card-full">
           <h2>Supporter Access</h2>
-          <p><a href="pit-guru.user.js">Install Pit Guru v2.2.5</a>, then follow the first-run guided setup to verify your Torn account using a public Torn API key. The key is used only for verification and is never saved in the Pit Guru database.</p>
+          <p><a href="pit-guru.user.js">Install Pit Guru v2.2.6</a>, then follow the first-run guided setup to verify your Torn account using a public Torn API key. The key is used only for verification and is never saved in the Pit Guru database.</p>
           <p>Race external player:</p>
           <p>Every verified account can analyse one race as a demo.<br> For supporter licensing, <a href="https://discord.gg/JP8FQBATMV" target="_blank" rel="noopener noreferrer">join the MoDuL's Hub Discord</a> and run <code>/buylicense</code> in any server channel.</p>
         </article>
@@ -177,7 +177,7 @@
                 <li>Hosted session storage is standardized on RT_TORN_MPG_HOSTED_SESSION, with legacy RT_TORN_LTL_HOSTED_SESSION cleanup.</li>
                 <li>The pre-race countdown now occupies the racingData status line, while Past Races uses a scoped title and compact help button.</li>
                 <li>The public proxy now accepts full racingData analysis payloads, and destructive Records deletion requires an admin token.</li>
-                <li>The v2.2.5 userscript applies the 50 ms long-task standard, moves large-grid prediction work outside animation frames, and avoids parsing repeated empty-race-ID responses before race start.</li>
+                <li>The v2.2.6 userscript keeps required pre-race Race ID and entrant updates through a compact worker summary, with full timing analysis still gated until race start.</li>
                 <li>v2.2.4 added <code>pgPerformanceCleanSlate()</code> for reproducible cold-cache tests without deleting credentials, licence/session state, settings, or layout.</li>
                 <li>v2.2.3 fixed duplicate racingData capture, repeated empty pre-race builds, duplicate interval decoding, and direct timer-driven full rendering.</li>
                 <li>HTML report export now stays disabled until the live race has finished or the page is a replay, preventing early full-result report generation.</li>
