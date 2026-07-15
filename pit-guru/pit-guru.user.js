@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         MoDuL's Pit Guru
 // @namespace    modul.torn.racing
-// @version      2.2.6
+// @version      2.2.7
 // @description  Live Torn race timing, gaps, sectors, speed and estimated telemetry analysis
 // @author       MoDuL
 // @copyright    2026 MoDuL. All rights reserved.
@@ -1207,7 +1207,22 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
     let bigRaceDbPromise = null;
     let bigRaceCacheStatus = { rawStored: 0, summaryStored: 0, pruned: 0, workerUsed: false, lastError: "" };
     let browserLongTaskObserver = null;
-    let preRaceSummaryStats = { captures: 0, changes: 0, workerParses: 0, lastDrivers: 0, lastRaceId: "" };
+    let preRaceSummaryStats = newPreRaceSummaryStats_();
+
+    function newPreRaceSummaryStats_() {
+        return {
+            captures: 0,
+            changes: 0,
+            workerParses: 0,
+            lastDrivers: 0,
+            maxDrivers: 0,
+            raceIdCaptured: false,
+            driversComplete: false,
+            timingReady: false,
+            timingAccepted: false,
+            lastRaceId: ""
+        };
+    }
     let predictionRenderModel = { key: "", scored: [] };
     let predictionRenderBuildKey = "";
     let predictionRenderBuildToken = 0;
@@ -1370,10 +1385,6 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         raceDataDirectFetchAt = 0;
         raceDataDirectFetchLastKey = "";
         preRaceSummaryReceivedPerfMs = 0;
-        directRacingDataParticipants = [];
-        directRacingDataParticipantsKey = "";
-        directRacingDataParticipantsById = new Map();
-        directRacingDataParticipantsByName = new Map();
         raceDataVisibleMatchCache = { key: "", at: 0, valid: false };
     }
 
@@ -1493,37 +1504,51 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
 
     function buildPreRaceSummaryWorkerSource_() {
         return `"use strict";
-const summarize=root=>{
+const hasTiming=race=>{
+  const cars=race&&race.cars&&typeof race.cars==="object"?race.cars:{};
+  for(const encoded of Object.values(cars)){
+    if(typeof encoded!=="string"||encoded.length<4)continue;
+    try{
+      const values=atob(encoded).split(",");
+      let positive=0;
+      for(const value of values){if(Number(value)>0&&++positive>1)return true;}
+    }catch{}
+  }
+  return false;
+};
+const summarize=(root,includeParticipants=true)=>{
   const outer=root&&typeof root==="object"?root:{};
   const race=outer.raceData&&typeof outer.raceData==="object"?outer.raceData:outer;
   const carInfo=race.carInfo&&typeof race.carInfo==="object"?race.carInfo:{};
   const time=outer.timeData&&typeof outer.timeData==="object"?outer.timeData:(race.timeData&&typeof race.timeData==="object"?race.timeData:{});
   const started=Number(time.timeStarted),current=Number(time.currentTime);
   const preRace=Number.isFinite(started)&&Number.isFinite(current)?current<started:!/race\\s+(?:started|finished|ended)/i.test(String(outer.info||race.info||""));
-  const entries=Array.isArray(carInfo)?carInfo.map((value,index)=>["",value,index]):Object.entries(carInfo).map(([key,value],index)=>[key,value,index]);
   const participants=[];
-  for(const [key,value,index] of entries){
-    const row=value&&typeof value==="object"?value:{};
-    const name=String(row.playername||row.playerName||row.name||key||"").trim();
-    const driverId=String(row.userID||row.userId||row.userid||row.user_id||row.driverId||row.id||"").trim();
-    if(!name&&!driverId)continue;
-    participants.push({
-      name:name||("Driver "+(index+1)),driverId,
-      racingSkill:row.racingSkill??row.racing_skill??row.skill??null,
-      itemID:row.itemID||row.itemId||row.item_id||row.imteID||row.carItemID||row.carItemId||"",
-      car:row.carTitle||row.car_title||row.car||"",
-      carImg:row.carImage||row.carImg||row.car_image||""
-    });
+  if(includeParticipants){
+    const entries=Array.isArray(carInfo)?carInfo.map((value,index)=>["",value,index]):Object.entries(carInfo).map(([key,value],index)=>[key,value,index]);
+    for(const [key,value,index] of entries){
+      const row=value&&typeof value==="object"?value:{};
+      const name=String(row.playername||row.playerName||row.name||key||"").trim();
+      const driverId=String(row.userID||row.userId||row.userid||row.user_id||row.driverId||row.id||"").trim();
+      if(!name&&!driverId)continue;
+      participants.push({
+        name:name||("Driver "+(index+1)),driverId,
+        racingSkill:row.racingSkill??row.racing_skill??row.skill??null,
+        itemID:row.itemID||row.itemId||row.item_id||row.imteID||row.carItemID||row.carItemId||"",
+        car:row.carTitle||row.car_title||row.car||"",
+        carImg:row.carImage||row.carImg||row.car_image||""
+      });
+    }
   }
   return {
     raceId:String(outer.raceID||outer.raceId||outer.id||race.raceID||race.raceId||race.id||"").trim(),
     laps:Number(outer.laps??race.laps)||0,
     info:String(outer.info||race.info||""),
     trackId:String(outer.trackID||outer.trackId||race.trackID||race.trackId||"").trim(),preRace,
-    participants
+    timingReady:hasTiming(race),driversScanned:!!includeParticipants,participants
   };
 };
-self.onmessage=event=>{const id=event.data&&event.data.id;try{const root=JSON.parse(String(event.data&&event.data.raw||""));self.postMessage({id,ok:true,summary:summarize(root)});}catch(error){self.postMessage({id,ok:false,error:String(error&&error.message||error||"Pre-race summary parse failed")});}};`;
+self.onmessage=event=>{const id=event.data&&event.data.id;try{const root=JSON.parse(String(event.data&&event.data.raw||""));self.postMessage({id,ok:true,summary:summarize(root,event.data&&event.data.includeParticipants!==false)});}catch(error){self.postMessage({id,ok:false,error:String(error&&error.message||error||"Pre-race summary parse failed")});}};`;
     }
 
     function preRaceSummaryWorker_() {
@@ -1554,7 +1579,7 @@ self.onmessage=event=>{const id=event.data&&event.data.id;try{const root=JSON.pa
         }
     }
 
-    function preRaceSummaryFromObject_(raw) {
+    function preRaceSummaryFromObject_(raw, includeParticipants = true) {
         const outer = raw && typeof raw === "object" ? raw : {};
         const race = outer.raceData && typeof outer.raceData === "object" ? outer.raceData : outer;
         const info = race.carInfo && typeof race.carInfo === "object" ? race.carInfo : {};
@@ -1564,23 +1589,25 @@ self.onmessage=event=>{const id=event.data&&event.data.id;try{const root=JSON.pa
         const preRace = Number.isFinite(started) && Number.isFinite(current)
             ? current < started
             : !/race\s+(?:started|finished|ended)/i.test(String(outer.info || race.info || ""));
-        const entries = Array.isArray(info)
-            ? info.map((value, index) => ["", value, index])
-            : Object.entries(info).map(([key, value], index) => [key, value, index]);
         const participants = [];
-        for (const [key, value, index] of entries) {
-            const row = value && typeof value === "object" ? value : {};
-            const name = String(row.playername || row.playerName || row.name || key || "").trim();
-            const driverId = String(row.userID || row.userId || row.userid || row.user_id || row.driverId || row.id || "").trim();
-            if (!name && !driverId) continue;
-            participants.push({
-                name: name || `Driver ${index + 1}`,
-                driverId,
-                racingSkill: row.racingSkill ?? row.racing_skill ?? row.skill ?? null,
-                itemID: row.itemID || row.itemId || row.item_id || row.imteID || row.carItemID || row.carItemId || "",
-                car: row.carTitle || row.car_title || row.car || "",
-                carImg: row.carImage || row.carImg || row.car_image || ""
-            });
+        if (includeParticipants) {
+            const entries = Array.isArray(info)
+                ? info.map((value, index) => ["", value, index])
+                : Object.entries(info).map(([key, value], index) => [key, value, index]);
+            for (const [key, value, index] of entries) {
+                const row = value && typeof value === "object" ? value : {};
+                const name = String(row.playername || row.playerName || row.name || key || "").trim();
+                const driverId = String(row.userID || row.userId || row.userid || row.user_id || row.driverId || row.id || "").trim();
+                if (!name && !driverId) continue;
+                participants.push({
+                    name: name || `Driver ${index + 1}`,
+                    driverId,
+                    racingSkill: row.racingSkill ?? row.racing_skill ?? row.skill ?? null,
+                    itemID: row.itemID || row.itemId || row.item_id || row.imteID || row.carItemID || row.carItemId || "",
+                    car: row.carTitle || row.car_title || row.car || "",
+                    carImg: row.carImage || row.carImg || row.car_image || ""
+                });
+            }
         }
         return {
             raceId: String(outer.raceID || outer.raceId || outer.id || race.raceID || race.raceId || race.id || "").trim(),
@@ -1588,21 +1615,23 @@ self.onmessage=event=>{const id=event.data&&event.data.id;try{const root=JSON.pa
             info: String(outer.info || race.info || ""),
             trackId: String(outer.trackID || outer.trackId || race.trackID || race.trackId || "").trim(),
             preRace,
+            timingReady: pgPlayerPayloadHasDecodableIntervals_(race),
+            driversScanned: !!includeParticipants,
             participants
         };
     }
 
-    async function parsePreRaceSummaryOffMain_(raw) {
+    async function parsePreRaceSummaryOffMain_(raw, includeParticipants = true) {
         const worker = preRaceSummaryWorker_();
         if (!worker) {
             await yieldToMain_();
-            return preRaceSummaryFromObject_(JSON.parse(String(raw || "")));
+            return preRaceSummaryFromObject_(JSON.parse(String(raw || "")), includeParticipants);
         }
         const id = ++preRaceSummaryWorkerSequence;
         preRaceSummaryStats.workerParses += 1;
         return await new Promise((resolve, reject) => {
             preRaceSummaryWorkerPending.set(id, { resolve, reject });
-            worker.postMessage({ id, raw: String(raw || "") });
+            worker.postMessage({ id, raw: String(raw || ""), includeParticipants });
         });
     }
 
@@ -1940,7 +1969,7 @@ self.onmessage=event=>{const id=event.data&&event.data.id;try{const root=JSON.pa
         bigRaceCacheStatus = { rawStored: 0, summaryStored: 0, pruned: 0, workerUsed: false, lastError: "" };
         lastHeavyRaceStats = { heavyRace: false, estimatedPoints: 0, drivers: 0, laps: 0, intervals: 0 };
         bigRaceSafeModeSkips = { driverIntel: 0, hostedUpload: 0, localDbSync: 0, aggregate: 0 };
-        preRaceSummaryStats = { captures: 0, changes: 0, workerParses: 0, lastDrivers: 0, lastRaceId: "" };
+        preRaceSummaryStats = newPreRaceSummaryStats_();
         preRaceSummaryReceivedPerfMs = 0;
         for (const pending of preRaceSummaryWorkerPending.values()) pending.reject(new Error("Pre-race summary cache reset"));
         preRaceSummaryWorkerPending.clear();
@@ -2583,6 +2612,8 @@ self.onmessage=event=>{const id=event.data&&event.data.id;try{const root=JSON.pa
         directRacingDataParticipantsByName = new Map();
         raceDataVisibleMatchCache = { key: "", at: 0, valid: false };
         preRaceParticipantsKey = "";
+        preRaceSummaryStats = newPreRaceSummaryStats_();
+        preRaceSummaryReceivedPerfMs = 0;
         resetScanCaches_();
         driverIntelAutoRaceKey = "";
         clearedRaceDataKey = "";
@@ -4348,7 +4379,20 @@ self.onmessage=event=>{const id=event.data&&event.data.id;try{const root=JSON.pa
         return !!PHASE_REWRITE_FLAGS.preRaceSummaryCapture
             && !isReplayPage_()
             && isEmptyRaceIdRacingDataUrl_(url)
+            && !preRaceSummaryStats.timingAccepted
             && !visualRaceHasStarted_();
+    }
+
+    function preRaceParticipantLimit_() {
+        const visibleTotal = Number(visibleRaceDriverSlots_()?.total);
+        if (Number.isFinite(visibleTotal) && visibleTotal > 0) {
+            const total = Math.floor(visibleTotal);
+            if (total !== preRaceSummaryStats.maxDrivers) {
+                preRaceSummaryStats.maxDrivers = total;
+                preRaceSummaryStats.driversComplete = preRaceSummaryStats.lastDrivers >= total;
+            }
+        }
+        return preRaceSummaryStats.maxDrivers;
     }
 
     function raceDataParticipantRows_(payload) {
@@ -4480,12 +4524,19 @@ self.onmessage=event=>{const id=event.data&&event.data.id;try{const root=JSON.pa
         preRaceSummaryReceivedPerfMs = performance.now();
         preRaceSummaryStats.captures += 1;
         const raceId = String(summary.raceId || "").trim();
-        const raceIdChanged = !!raceId && raceId !== directCurrentRaceId;
-        if (raceId) directCurrentRaceId = raceId;
-        const changed = cacheDirectRacingDataParticipantRows_(summary.participants || []);
+        const raceIdChanged = !directCurrentRaceId && !!raceId;
+        if (!directCurrentRaceId && raceId) directCurrentRaceId = raceId;
+        preRaceSummaryStats.raceIdCaptured = !!directCurrentRaceId;
+        const driversScanned = summary.driversScanned !== false;
+        const changed = driversScanned && !preRaceSummaryStats.driversComplete
+            ? cacheDirectRacingDataParticipantRows_(summary.participants || [])
+            : false;
         if (changed) preRaceSummaryStats.changes += 1;
-        preRaceSummaryStats.lastDrivers = Array.isArray(summary.participants) ? summary.participants.length : 0;
-        preRaceSummaryStats.lastRaceId = raceId || preRaceSummaryStats.lastRaceId;
+        if (driversScanned) preRaceSummaryStats.lastDrivers = directRacingDataParticipants.length;
+        preRaceSummaryStats.lastRaceId = directCurrentRaceId || preRaceSummaryStats.lastRaceId;
+        preRaceSummaryStats.timingReady = preRaceSummaryStats.timingReady || summary.timingReady === true;
+        const maxDrivers = preRaceParticipantLimit_();
+        if (maxDrivers > 0 && preRaceSummaryStats.lastDrivers >= maxDrivers) preRaceSummaryStats.driversComplete = true;
         const summaryLaps = Math.max(0, Number(summary.laps || 0) || 0);
         lastHeavyRaceStats = {
             drivers: preRaceSummaryStats.lastDrivers,
@@ -4498,6 +4549,9 @@ self.onmessage=event=>{const id=event.data&&event.data.id;try{const root=JSON.pa
             source: String(source || ""),
             raceId: raceId || "",
             drivers: preRaceSummaryStats.lastDrivers,
+            maxDrivers,
+            driversComplete: preRaceSummaryStats.driversComplete,
+            timingReady: preRaceSummaryStats.timingReady,
             changed
         });
         if (changed || raceIdChanged) {
@@ -4515,12 +4569,15 @@ self.onmessage=event=>{const id=event.data&&event.data.id;try{const root=JSON.pa
         const sequence = ++preRaceSummaryWorkerSequence;
         const started = perfNow_();
         try {
-            const summary = await parsePreRaceSummaryOffMain_(text);
-            if (summary?.preRace === false) {
+            if (preRaceSummaryStats.timingAccepted) return false;
+            preRaceParticipantLimit_();
+            const summary = await parsePreRaceSummaryOffMain_(text, !preRaceSummaryStats.driversComplete);
+            applyPreRaceSummary_(summary, source, sequence);
+            if (summary?.timingReady === true || summary?.preRace === false) {
                 await yieldToMain_();
                 return maybeAcceptRaceDataPayload_(JSON.parse(String(text || "")), source, url);
             }
-            return applyPreRaceSummary_(summary, source, sequence);
+            return !!(directCurrentRaceId || preRaceSummaryStats.lastDrivers);
         } catch (error) {
             if (debugEnabled) console.warn(TAG, "pre-race carInfo summary parse failed", source, error);
             return false;
@@ -4530,10 +4587,13 @@ self.onmessage=event=>{const id=event.data&&event.data.id;try{const root=JSON.pa
     }
 
     function capturePreRaceSummaryObject_(raw, source, url = "") {
+        if (preRaceSummaryStats.timingAccepted) return false;
         const sequence = ++preRaceSummaryWorkerSequence;
-        const summary = preRaceSummaryFromObject_(raw);
-        if (summary.preRace === false) return maybeAcceptRaceDataPayload_(raw, source, url);
-        return applyPreRaceSummary_(summary, source, sequence);
+        preRaceParticipantLimit_();
+        const summary = preRaceSummaryFromObject_(raw, !preRaceSummaryStats.driversComplete);
+        applyPreRaceSummary_(summary, source, sequence);
+        if (summary.timingReady === true || summary.preRace === false) return maybeAcceptRaceDataPayload_(raw, source, url);
+        return !!(directCurrentRaceId || preRaceSummaryStats.lastDrivers);
     }
 
     function findDirectRacingDataParticipant_(name) {
@@ -4710,6 +4770,7 @@ self.onmessage=event=>{const id=event.data&&event.data.id;try{const root=JSON.pa
     async function maybeFetchRacingDataForCurrentRace_(force = false) {
         if (raceDataDirectFetchActive) return false;
         const replay = isReplayPage_();
+        if (!replay && preRaceSummaryStats.timingAccepted) return false;
         if (!replay && !canScanTornPage_()) return false;
         const explicitRaceId = replay ? (urlRaceId_() || visibleRaceId_() || raceMeta?.raceId || "") : "";
         if (replay && !explicitRaceId) return false;
@@ -5265,21 +5326,31 @@ self.onmessage=event=>{const id=event.data&&event.data.id;try{const root=JSON.pa
                 delete payload.__mpgIgnoreRaceId;
                 payload.__mpgVerifiedCurrentRace = true;
                 payloadRid = directRaceIdFromPayload_(payload);
-                if (payloadRid) directCurrentRaceId = payloadRid;
-                cacheDirectRacingDataParticipants_(payload);
+                if (!directCurrentRaceId && payloadRid) directCurrentRaceId = payloadRid;
+                preRaceSummaryStats.raceIdCaptured = !!directCurrentRaceId;
+                if (!preRaceSummaryStats.driversComplete) {
+                    cacheDirectRacingDataParticipants_(payload);
+                    preRaceSummaryStats.lastDrivers = directRacingDataParticipants.length;
+                    preRaceParticipantLimit_();
+                }
             }
             const pageRid = getRaceId_();
             if (pageRid && payloadRid && pageRid !== payloadRid && !isCurrentEndpoint) return false;
             const payloadKey = raceDataPayloadKey_(payload);
             if (clearedRaceDataKey && payloadKey === clearedRaceDataKey) return false;
             lastHeavyRaceStats = heavyRaceStatsFromPayload_(payload);
+            const usableForAnalysis = raceDataUsableForAnalysis_(payload);
+            if (isCurrentEndpoint && usableForAnalysis) {
+                preRaceSummaryStats.timingReady = true;
+                preRaceSummaryStats.timingAccepted = true;
+                preRaceSummaryStats.driversComplete = true;
+            }
             if (maybeSkipDuplicateRaceDataPayload_(payload, payloadRid || pageRid || directCurrentRaceId)) {
                 if (analysis) syncRaceMetaFromAnalysis_();
                 markDirty_({ status: true });
                 scheduleRender_();
                 return true;
             }
-            const usableForAnalysis = raceDataUsableForAnalysis_(payload);
             latestRaceDataPayload = payload;
             if (usableForAnalysis) persistBigRaceRawPayload_(payload);
             raceDataReceivedPerfMs = performance.now();
@@ -5320,10 +5391,14 @@ self.onmessage=event=>{const id=event.data&&event.data.id;try{const root=JSON.pa
             try {
                 const detail = JSON.parse(String(ev.detail || "{}"));
                 if (detail?.summary) {
+                    if (preRaceSummaryStats.timingAccepted) return;
                     applyPreRaceSummary_(detail.summary, detail.source || "page-pre-race");
                     return;
                 }
-                if (detail?.data) maybeAcceptRaceDataPayload_(detail.data, detail.source || "page", detail.url || "");
+                if (detail?.data) {
+                    if (preRaceSummaryStats.timingAccepted && isEmptyRaceIdRacingDataUrl_(detail.url || "")) return;
+                    maybeAcceptRaceDataPayload_(detail.data, detail.source || "page", detail.url || "");
+                }
             } catch {}
         });
         try {
@@ -5496,6 +5571,7 @@ self.onmessage=event=>{const id=event.data&&event.data.id;try{const root=JSON.pa
                         try {
                             const url = String(resp?.url || args[0]?.url || args[0] || "");
                             if (!isRacingDataUrl_(url)) return;
+                            if (preRaceSummaryStats.timingAccepted && isEmptyRaceIdRacingDataUrl_(url)) return;
                             const parseStarted = perfNow_();
                             if (shouldCapturePreRaceSummary_(url)) {
                                 resp.clone().text().then(text => capturePreRaceSummaryText_(text, "fetch-pre-race", url)).catch(() => {});
@@ -5528,6 +5604,7 @@ self.onmessage=event=>{const id=event.data&&event.data.id;try{const root=JSON.pa
                         try {
                             const url = this.__mpgUrl || this.responseURL || "";
                             if (!isRacingDataUrl_(url)) return;
+                            if (preRaceSummaryStats.timingAccepted && isEmptyRaceIdRacingDataUrl_(url)) return;
                             const ct = String(this.getResponseHeader?.("content-type") || "");
                             if (ct && !/json|javascript|text/i.test(ct)) return;
                             const parseStarted = perfNow_();
@@ -11876,6 +11953,12 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
         raceDataCurrentTimeAtReceive = NaN;
         preRaceParticipants = [];
         preRaceParticipantsKey = "";
+        directCurrentRaceId = "";
+        directRacingDataParticipants = [];
+        directRacingDataParticipantsKey = "";
+        directRacingDataParticipantsById = new Map();
+        directRacingDataParticipantsByName = new Map();
+        preRaceSummaryStats = newPreRaceSummaryStats_();
         resetScanCaches_();
         finalAnalysisNotifiedForRaceId = "";
         recordsUpdatedForAnalysisRaceId = "";
