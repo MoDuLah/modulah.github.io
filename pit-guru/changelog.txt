@@ -4,7 +4,8 @@ MoDuL's Pit Guru Changelog
 Project status (2026-07-15)
 ---------------------------
 - MoDuL's Pit Guru is now the public-facing successor project to Lap Recorder on MoDuL's Hub.
-- The live supporter userscript build is v2.2.8 at https://modulah.github.io/pit-guru/pit-guru.user.js.
+- The live supporter userscript build is v2.2.9 at https://modulah.github.io/pit-guru/pit-guru.user.js.
+- v2.2.9 caps the Predictions Past Races display at 10 relevance-ranked rows and suspends/clears race capture on parts and modification routes so cleared data cannot repopulate away from a race.
 - v2.2.8 restores compact pre-race Track, Lap, Lap Length, Race Length, Car, Driver, start-time, and Past Races context by carrying scalar race metadata and the current user's matched car row into `raceMeta` without returning timing arrays.
 - v2.2.7 latches the current Race ID once, scans and indexes entrants only until Torn's displayed participant capacity is reached, then performs worker-only timing readiness checks until one usable full payload is accepted and all Pit Guru fallback polling stops.
 - v2.2.6 restores required empty-race-ID pre-race capture through a worker-backed compact `raceID` + `carInfo` summary, refreshes it on every changed poll for late joiners, and indexes racers by user ID and normalized name without retaining timing arrays.
@@ -38,6 +39,14 @@ Project status (2026-07-15)
 - Removed license serials from every Discord-facing activation message; purchases, admin grants, test purchases, and raffle prizes now confirm account-linked access and show the exact expiry with live time remaining.
 - Removed the obsolete `/licensecheck` serial-entry command.
 - Changed purchase payment references to the compact `!#PRODUCT-ORDERID` format while retaining verification support for existing pending orders using the legacy spaced format.
+
+v2.2.9
+------
+- Limited the Predictions Past Races table to 10 rows, ranked by current-grid match, same car, nearest current-grid RS, recency, and history volume.
+- Added route-aware capture suspension for Torn parts, statistics, and modification pages.
+- Auto-clear now clears race state when leaving for those non-race routes, regardless of whether the previous race had finished.
+- Direct polling, ambient restoration, fetch/XHR hooks, fallback bridge processing, pre-race workers, and in-flight summary application all reject data while capture is suspended.
+- Route-driven clearing allows the same live race to load again when returning; manual Clear View on an active race still suppresses the current payload as before.
 
 v2.2.8
 ------

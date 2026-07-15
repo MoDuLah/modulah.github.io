@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         MoDuL's Pit Guru
 // @namespace    modul.torn.racing
-// @version      2.2.8
+// @version      2.2.9
 // @description  Live Torn race timing, gaps, sectors, speed and estimated telemetry analysis
 // @author       MoDuL
 // @copyright    2026 MoDuL. All rights reserved.
@@ -565,7 +565,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         return bigRaceSafeModeStatus_();
     };
 
-    const MPG_VERSION = "2.2.8";
+    const MPG_VERSION = "2.2.9";
     var TAG = "[MoDuL's Pit Guru v" + MPG_VERSION + "]";
 
     const PitGuruRaceEngine = (() => {
@@ -1268,6 +1268,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
     let analysisHooked = false;
     let pageRaceDataBridgeInstalled = false;
     let clearedRaceDataKey = "";
+    let raceCaptureRouteAllowedLast = null;
     let raceDataReceivedPerfMs = 0;
     let preRaceSummaryReceivedPerfMs = 0;
     let raceDataCurrentTimeAtReceive = NaN;
@@ -4402,6 +4403,7 @@ self.onmessage=event=>{const id=event.data&&event.data.id;try{const root=JSON.pa
 
     function shouldCapturePreRaceSummary_(url) {
         return !!PHASE_REWRITE_FLAGS.preRaceSummaryCapture
+            && isRaceCaptureRoute_()
             && !isReplayPage_()
             && isEmptyRaceIdRacingDataUrl_(url)
             && !preRaceSummaryStats.timingAccepted
@@ -4583,7 +4585,7 @@ self.onmessage=event=>{const id=event.data&&event.data.id;try{const root=JSON.pa
     }
 
     function applyPreRaceSummary_(summary, source = "pre-race", sequence = ++preRaceSummaryWorkerSequence) {
-        if (!summary || typeof summary !== "object" || sequence < preRaceSummaryAppliedSequence) return false;
+        if (!isRaceCaptureRoute_() || !summary || typeof summary !== "object" || sequence < preRaceSummaryAppliedSequence) return false;
         preRaceSummaryAppliedSequence = sequence;
         preRaceSummaryReceivedPerfMs = performance.now();
         preRaceSummaryStats.captures += 1;
@@ -4632,6 +4634,7 @@ self.onmessage=event=>{const id=event.data&&event.data.id;try{const root=JSON.pa
     }
 
     async function capturePreRaceSummaryText_(text, source, url) {
+        if (!isRaceCaptureRoute_()) return false;
         const sequence = ++preRaceSummaryWorkerSequence;
         const started = perfNow_();
         try {
@@ -4653,6 +4656,7 @@ self.onmessage=event=>{const id=event.data&&event.data.id;try{const root=JSON.pa
     }
 
     function capturePreRaceSummaryObject_(raw, source, url = "") {
+        if (!isRaceCaptureRoute_()) return false;
         if (preRaceSummaryStats.timingAccepted) return false;
         const sequence = ++preRaceSummaryWorkerSequence;
         preRaceParticipantLimit_();
@@ -4835,6 +4839,7 @@ self.onmessage=event=>{const id=event.data&&event.data.id;try{const root=JSON.pa
 
     async function maybeFetchRacingDataForCurrentRace_(force = false) {
         if (raceDataDirectFetchActive) return false;
+        if (!isRaceCaptureRoute_()) return false;
         const replay = isReplayPage_();
         if (!replay && preRaceSummaryStats.timingAccepted) return false;
         if (!replay && !canScanTornPage_()) return false;
@@ -4901,6 +4906,7 @@ self.onmessage=event=>{const id=event.data&&event.data.id;try{const root=JSON.pa
     }
 
     function findLatestRaceDataPayload_() {
+        if (!isRaceCaptureRoute_()) return null;
         if (latestRaceDataPayload) {
             const pageRid = getRaceId_();
             const payloadRid = directRaceIdFromPayload_(latestRaceDataPayload);
@@ -5382,6 +5388,7 @@ self.onmessage=event=>{const id=event.data&&event.data.id;try{const root=JSON.pa
     function maybeAcceptRaceDataPayload_(raw, source, url = "") {
         const acceptPerfStart = perfNow_();
         try {
+            if (!isRaceCaptureRoute_()) return false;
             const payload = getRacePayload_(raw);
             if (!payload || !payload.cars) return false;
             const sourceText = String(source || "");
@@ -5455,6 +5462,7 @@ self.onmessage=event=>{const id=event.data&&event.data.id;try{const root=JSON.pa
         const eventName = "mpg-pit-guru-racedata";
         document.addEventListener(eventName, ev => {
             try {
+                if (!isRaceCaptureRoute_()) return;
                 const detail = JSON.parse(String(ev.detail || "{}"));
                 if (detail?.summary) {
                     if (preRaceSummaryStats.timingAccepted) return;
@@ -5488,6 +5496,20 @@ self.onmessage=event=>{const id=event.data&&event.data.id;try{const root=JSON.pa
                     } catch {
                         return /[?&]sid=racingData(?:[&#]|$)/i.test(String(url || ""));
                     }
+                };
+                const routeAllowsCapture = () => {
+                    try {
+                        const parsed = new URL(location.href);
+                        const sid = String(parsed.searchParams.get("sid") || "").toLowerCase();
+                        if (sid === "racingdata") return !!String(parsed.searchParams.get("raceID") || parsed.searchParams.get("raceId") || parsed.searchParams.get("raceid") || "").trim();
+                        if (sid !== "racing") return false;
+                        const tab = String(parsed.searchParams.get("tab") || "").toLowerCase();
+                        const section = String(parsed.searchParams.get("section") || "").toLowerCase();
+                        const step = String(parsed.searchParams.get("step") || "").toLowerCase();
+                        return !["parts", "statistics", "stats"].includes(tab)
+                            && !/parts?|modifications?/.test(section)
+                            && !/parts?|modifications?/.test(step);
+                    } catch { return false; }
                 };
                 const isEmptyRaceIdUrl = url => {
                     try {
@@ -5585,6 +5607,7 @@ self.onmessage=event=>{const id=event.data&&event.data.id;try{const root=JSON.pa
                                 try {
                                     const url = String((resp && resp.url) || (args[0] && args[0].url) || args[0] || "");
                                     if (!isRacingDataUrl(url)) return;
+                                    if (!routeAllowsCapture()) return;
                                     resp.clone().json().then(json => {
                                         if (isEmptyRaceIdUrl(url) && payloadIsPreRace(json)) emitPreRace(json, "page-fetch-pre-race", url);
                                         else emit(json, "page-fetch", url);
@@ -5609,6 +5632,7 @@ self.onmessage=event=>{const id=event.data&&event.data.id;try{const root=JSON.pa
                                 try {
                                     const url = String(this.__mpgPitGuruUrl || this.responseURL || "");
                                     if (!isRacingDataUrl(url)) return;
+                                    if (!routeAllowsCapture()) return;
                                     if (this.response && typeof this.response === "object") {
                                         if (isEmptyRaceIdUrl(url) && payloadIsPreRace(this.response)) emitPreRace(this.response, "page-xhr-object-pre-race", url);
                                         else emit(this.response, "page-xhr-object", url);
@@ -5649,6 +5673,7 @@ self.onmessage=event=>{const id=event.data&&event.data.id;try{const root=JSON.pa
                         try {
                             const url = String(resp?.url || args[0]?.url || args[0] || "");
                             if (!isRacingDataUrl_(url)) return;
+                            if (!isRaceCaptureRoute_()) return;
                             if (preRaceSummaryStats.timingAccepted && isEmptyRaceIdRacingDataUrl_(url)) return;
                             const parseStarted = perfNow_();
                             if (shouldCapturePreRaceSummary_(url)) {
@@ -5682,6 +5707,7 @@ self.onmessage=event=>{const id=event.data&&event.data.id;try{const root=JSON.pa
                         try {
                             const url = this.__mpgUrl || this.responseURL || "";
                             if (!isRacingDataUrl_(url)) return;
+                            if (!isRaceCaptureRoute_()) return;
                             if (preRaceSummaryStats.timingAccepted && isEmptyRaceIdRacingDataUrl_(url)) return;
                             const ct = String(this.getResponseHeader?.("content-type") || "");
                             if (ct && !/json|javascript|text/i.test(ct)) return;
@@ -10502,6 +10528,44 @@ img.carIcon{
         return { text: car || "--", html };
     }
 
+    function isRaceCaptureRoute_() {
+        try {
+            const u = new URL(location.href);
+            const sid = String(u.searchParams.get("sid") || "").toLowerCase();
+            if (sid === "racingdata") return !!urlRaceId_();
+            if (sid !== "racing") return false;
+            const tab = String(u.searchParams.get("tab") || "").toLowerCase();
+            const section = String(u.searchParams.get("section") || "").toLowerCase();
+            const step = String(u.searchParams.get("step") || "").toLowerCase();
+            if (["parts", "statistics", "stats"].includes(tab)) return false;
+            if (/parts?|modifications?/.test(section) || /parts?|modifications?/.test(step)) return false;
+            return true;
+        } catch {
+            return false;
+        }
+    }
+
+    function syncRaceCaptureRoute_() {
+        const allowed = isRaceCaptureRoute_();
+        const routeChanged = raceCaptureRouteAllowedLast !== null && raceCaptureRouteAllowedLast !== allowed;
+        const hadRaceState = !!(
+            latestRaceDataPayload ||
+            analysis ||
+            directCurrentRaceId ||
+            preRaceParticipants.length ||
+            raceMeta?.raceId
+        );
+        if (!allowed) {
+            disconnectJoinRaceObserver_();
+            if (clearOnRaceChange && hadRaceState) {
+                clearView_({ suppressCurrentPayload: false });
+                perfRecord_("lifecycle.routeClear", 0, { href: String(location.href || ""), routeChanged });
+            }
+        }
+        raceCaptureRouteAllowedLast = allowed;
+        return allowed;
+    }
+
     function reportFiniteNumber_(value) {
         const n = Number(value);
         return Number.isFinite(n) ? n : NaN;
@@ -12015,7 +12079,8 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
     function clearView_(opts = {}) {
         cleanupRaceLifecycle_("clear-view", { activeRaceId: activeRaceIdForCleanup_(), hard: true });
         const currentPayload = latestRaceDataPayload || analysis?.payload || null;
-        if (!opts.keepAnalysis && currentPayload) clearedRaceDataKey = raceDataPayloadKey_(currentPayload);
+        if (!opts.keepAnalysis && opts.suppressCurrentPayload === false) clearedRaceDataKey = "";
+        else if (!opts.keepAnalysis && currentPayload) clearedRaceDataKey = raceDataPayloadKey_(currentPayload);
         latestRaceDataPayload = null;
         analysis = null;
         analysisFocusMode = "auto";
@@ -15159,6 +15224,36 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
             });
     }
 
+    function rankPredictionHistoryRows_(history, currentDrivers, limit = 10) {
+        const drivers = Array.isArray(currentDrivers) ? currentDrivers : [];
+        const currentCars = new Set(drivers.map(d => makeTrackLookupKey_(toOgCarName_(d?.car || ""))).filter(Boolean));
+        const currentSkills = drivers.map(d => Number(d?.racingSkill)).filter(Number.isFinite);
+        return (Array.isArray(history) ? history : [])
+            .map(entry => {
+                const h = entry?.h || {};
+                const carKey = makeTrackLookupKey_(toOgCarName_(h.lastCar || ""));
+                const skill = Number(h.lastRacingSkill);
+                const rsDelta = Number.isFinite(skill) && currentSkills.length
+                    ? Math.min(...currentSkills.map(value => Math.abs(value - skill)))
+                    : Infinity;
+                return {
+                    ...entry,
+                    sameCar: !!carKey && currentCars.has(carKey),
+                    rsDelta
+                };
+            })
+            .sort((a, b) => {
+                if (!!a.onGrid !== !!b.onGrid) return a.onGrid ? -1 : 1;
+                if (!!a.sameCar !== !!b.sameCar) return a.sameCar ? -1 : 1;
+                if (a.rsDelta !== b.rsDelta) return a.rsDelta - b.rsDelta;
+                const ad = String(a.h?.lastRaceAtIso || "");
+                const bd = String(b.h?.lastRaceAtIso || "");
+                if (ad !== bd) return bd.localeCompare(ad);
+                return Number(b.h?.races || 0) - Number(a.h?.races || 0);
+            })
+            .slice(0, Math.max(1, Number(limit) || 10));
+    }
+
     function renderPredictionPastRacesTable_(drivers, trackName) {
         const track = trackName || raceMeta?.track || visibleRaceTrackName_() || "this track";
         const scope = currentRaceHistoryScope_(track);
@@ -15172,7 +15267,7 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
             return keys;
         }));
         const hasSqliteHistory = pgLocalTrackHistoryMatches_(track) && Array.isArray(historyCache?.rows) && historyCache.rows.length;
-        const history = hasSqliteHistory
+        const allHistory = hasSqliteHistory
             ? historyCache.rows.map(row => {
                 const h = pgLocalHistoryToDriverHistory_(row);
                 const keys = [];
@@ -15182,6 +15277,7 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
                 return { h, onGrid: keys.some(k => current.has(k)) };
             })
             : [];
+        const history = rankPredictionHistoryRows_(allHistory, drivers, 10);
         const rows = history.map(({ h, onGrid }) => {
             const driver = { name: h.driverName || h.name || "--", driverId: h.driverId || "", racingSkill: h.lastRacingSkill };
             const car = h.lastCar || "";
@@ -15202,7 +15298,11 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
         const scopeText = `${scope.raceType === "custom" ? "Custom" : "Official"}${scope.laps ? `, ${scope.laps} laps` : ""}`;
         const label = `Past Races on ${track} (${scopeText})`;
         const helpText = "This is matching history from completed races; current-grid drivers are marked in the Grid column.";
-        const statusNote = status ? `<div class="mpg-note">${esc_(status.trim())}</div>` : "";
+        const limitNote = allHistory.length > history.length
+            ? `Showing the 10 most relevant of ${allHistory.length} matching drivers: current grid first, then same car and closest RS.`
+            : "";
+        const statusText = [status.trim(), limitNote].filter(Boolean).join(" ");
+        const statusNote = statusText ? `<div class="mpg-note">${esc_(statusText)}</div>` : "";
         return `${statusNote}${renderTable_(["Car image + Car name","Driver (RS)","Grid","Races Here","Avg Finish","Wins","Podiums","Crashes","Best Lap","Best Race","Risk","Last Seen"], rows, emptyText, label, { helpText })}`;
     }
 
@@ -16350,8 +16450,8 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
         pgLocalEnsureTracks_().catch(() => { });
         pgLocalEnsureCarCatalog_().catch(() => { });
 
-        maybeResetOnRaceIdChange_();
         raceMeta = loadRaceMeta_();
+        if (syncRaceCaptureRoute_()) maybeResetOnRaceIdChange_();
 
         ensureUi_();
         if (onboardingRequired) {
@@ -16372,6 +16472,7 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
         perfRecord_("startup.init.sync", perfNow_() - initStart, { recordsLoaded, driverIntelCacheLoaded, driverHistoryLoaded });
         const resumeFocusedWork = () => {
             if (!canScanTornPage_()) return;
+            if (!syncRaceCaptureRoute_()) return;
             maybeFetchRacingDataForCurrentRace_(true);
             maybeAutoFetchDriverIntel_();
             uiDirty = true;
@@ -16387,6 +16488,7 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
         if (liveLoopTimer) clearInterval(liveLoopTimer);
         liveLoopTimer = setInterval(() => {
             if (!canScanTornPage_()) return;
+            if (!syncRaceCaptureRoute_()) return;
             const now = Date.now();
             const delay = liveLoopDelayMs_();
             if (now - liveLoopLastAt < delay) return;
@@ -16403,6 +16505,7 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
         if (maintenanceLoopTimer) clearInterval(maintenanceLoopTimer);
         maintenanceLoopTimer = setInterval(() => {
             if (!canScanTornPage_()) return;
+            if (!syncRaceCaptureRoute_()) return;
             const now = Date.now();
             const delay = maintenanceLoopDelayMs_();
             if (now - maintenanceLoopLastAt < delay) return;
