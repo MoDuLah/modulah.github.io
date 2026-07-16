@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Pythagoras Project - CIS
 // @namespace    https://torn.com/
-// @version      2.9.5
+// @version      2.9.6
 // @description  Company Intelligence System for Torn company training, staff, analytics, and local reporting.
 // @author       MoDuL [4022159]
 // @match        https://www.torn.com/companies.php*
@@ -45,7 +45,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
     ledgerPendingKey: 'pp_cis_ledger_pending_v2',
     syncCacheKey: 'pp_cis_sync_cache_v1',
     notificationDismissalsKey: 'pp_cis_notification_dismissals_v1',
-    version: '2.9.5',
+    version: '2.9.6',
     popupName: 'pythagoras-cis-popup'
   };
 
@@ -1866,6 +1866,40 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
     }
   };
 
+  function cleanDetectedUserName(value, userId) {
+    const name = String(value || '').replace(/\s+/g, ' ').trim();
+    const id = String(userId || '').trim();
+    if (!name) return '';
+    const key = name.toLowerCase();
+    if (['user', 'profile', 'view profile', 'my profile', 'view my profile'].includes(key)) return '';
+    if (id && (key === id || key === `user ${id}`)) return '';
+    return name;
+  }
+
+  function cookieValue(name) {
+    const wanted = `${encodeURIComponent(name)}=`;
+    const raw = String(document.cookie || '').split(';');
+    for (const part of raw) {
+      const item = part.trim();
+      if (!item.startsWith(wanted)) continue;
+      const value = item.slice(wanted.length).replace(/\+/g, ' ');
+      try { return decodeURIComponent(value); } catch (error) { return value; }
+    }
+    return '';
+  }
+
+  function profileLinkUserName(link, userId) {
+    if (!link) return '';
+    const href = String(link.getAttribute('href') || link.href || '');
+    const match = href.match(/[?&]XID=(\d+)/i);
+    if (userId && match && match[1] !== String(userId)) return '';
+    const aria = String(link.getAttribute('aria-label') || '');
+    const labelMatch = aria.match(/^Name:\s*(.+)$/i);
+    const labelName = labelMatch ? cleanDetectedUserName(labelMatch[1], userId) : '';
+    if (labelName) return labelName;
+    return cleanDetectedUserName(link.textContent || '', userId);
+  }
+
   const PageData = {
     win() {
       try { return typeof unsafeWindow !== 'undefined' ? unsafeWindow : window; } catch (error) { return window; }
@@ -1894,12 +1928,21 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
     },
     userName() {
       const page = PageData.win();
+      const userId = PageData.userId();
       const candidates = [page.userName, page.username, page.User && (page.User.name || page.User.username), page.Torn && page.Torn.user && (page.Torn.user.name || page.Torn.user.username)];
       for (const value of candidates) {
-        if (value) return String(value).trim();
+        const name = cleanDetectedUserName(value, userId);
+        if (name) return name;
       }
-      const link = document.querySelector('a[href*="profiles.php?XID="]');
-      return link ? (link.textContent || '').replace(/\s+/g, ' ').trim() : '';
+      const namedLink = document.querySelector('a[href*="profiles.php?XID="][aria-label^="Name:"]');
+      const namedLinkName = profileLinkUserName(namedLink, userId);
+      if (namedLinkName) return namedLinkName;
+      const links = Array.from(document.querySelectorAll('a[href*="profiles.php?XID="]'));
+      for (const link of links) {
+        const name = profileLinkUserName(link, userId);
+        if (name) return name;
+      }
+      return cleanDetectedUserName(cookieValue('sso_wiki_user'), userId);
     }
   };
 
