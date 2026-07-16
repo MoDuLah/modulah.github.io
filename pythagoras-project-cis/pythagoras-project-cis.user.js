@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Pythagoras Project - CIS
 // @namespace    https://torn.com/
-// @version      2.9.4
+// @version      2.9.5
 // @description  Company Intelligence System for Torn company training, staff, analytics, and local reporting.
 // @author       MoDuL [4022159]
 // @match        https://www.torn.com/companies.php*
@@ -20,6 +20,8 @@
 // @grant        GM.xmlHttpRequest
 // @grant        GM.setClipboard
 // @grant        unsafeWindow
+// @updateURL    https://modulah.github.io/pythagoras-project-cis/pythagoras-project-cis.user.js
+// @downloadURL  https://modulah.github.io/pythagoras-project-cis/pythagoras-project-cis.user.js
 // @connect      api.torn.com
 // @connect      pp-api.sokin.xyz
 // @run-at       document-end
@@ -43,7 +45,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
     ledgerPendingKey: 'pp_cis_ledger_pending_v2',
     syncCacheKey: 'pp_cis_sync_cache_v1',
     notificationDismissalsKey: 'pp_cis_notification_dismissals_v1',
-    version: '2.9.4',
+    version: '2.9.5',
     popupName: 'pythagoras-cis-popup'
   };
 
