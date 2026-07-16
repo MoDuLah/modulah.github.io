@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Pythagoras Project - CIS
 // @namespace    https://torn.com/
-// @version      2.9.3
+// @version      2.9.4
 // @description  Company Intelligence System for Torn company training, staff, analytics, and local reporting.
 // @author       MoDuL [4022159]
 // @match        https://www.torn.com/companies.php*
@@ -43,7 +43,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
     ledgerPendingKey: 'pp_cis_ledger_pending_v2',
     syncCacheKey: 'pp_cis_sync_cache_v1',
     notificationDismissalsKey: 'pp_cis_notification_dismissals_v1',
-    version: '2.9.3',
+    version: '2.9.4',
     popupName: 'pythagoras-cis-popup'
   };
 
@@ -1213,7 +1213,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
       const payload = Object.assign({
         userId,
         companyId,
-        username: String(state.settings.userName || '').trim(),
+        username: String(state.settings.userName || PageData.userName() || '').trim(),
         scriptVersion: APP.version
       }, extra || {});
       payload.apiKey = String(state.settings.apiKey || '').trim();
@@ -1251,7 +1251,9 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
       if (!Store.canUseCloudWorkspace(state)) return null;
       const base = Store.workspaceBaseUrl(state);
       const companyId = String(options && options.companyId || state.settings.companyId || state.company.profile.id || PageData.companyId() || '').trim();
-      const companyName = String(options && options.companyName || state.company.profile.name || state.settings.companyTypeName || '').trim();
+      const detailed = state.company && state.company.detailed || {};
+      const profile = state.company && state.company.profile || {};
+      const companyName = String(options && options.companyName || profile.name || profile.companyName || detailed.name || detailed.companyName || '').trim();
       const payload = Store.workspacePayload(state, {
         companyId,
         companyName,
@@ -1264,8 +1266,20 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
     },
     async saveWorkspaceMirror(state, options) {
       if (!Store.canUseCloudWorkspace(state)) return null;
+      const detailed = state.company && state.company.detailed || {};
+      const profile = state.company && state.company.profile || {};
+      const companyName = String(profile.name || profile.companyName || detailed.name || detailed.companyName || '').trim();
       const result = await Store.cisCompanyApi(state, '/sync/workspace', {
         state: Store.cloudState(state),
+        companyName,
+        company: {
+          id: profile.id || detailed.id || state.settings.companyId || PageData.companyId() || '',
+          name: companyName,
+          companyName,
+          companyTypeId: profile.typeId || detailed.typeId || state.settings.companyTypeId || '',
+          companyTypeName: profile.typeName || detailed.typeName || state.settings.companyTypeName || '',
+          directorId: profile.directorId || detailed.directorId || state.settings.userId || ''
+        },
         scriptVersion: APP.version,
         snapshot: options && options.snapshot === true,
         snapshotReason: options && options.reason || 'autosave'
