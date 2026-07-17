@@ -112,6 +112,19 @@
 
         <div class="changelog-tree" role="tree">
           <details class="changelog-version" role="treeitem" open>
+            <summary class="changelog-summary">v2.9.7 - Training queue standards</summary>
+            <div class="changelog-content">
+              <ul class="changelog-list">
+                <li>Training setup now includes a Queue standard controller for Director chooses, Full staff rotation, Lower stats first, Closest under assigned role, and Role need first.</li>
+                <li>Paid staff with remaining paid trains stay prioritized by default through the Paid orders first toggle.</li>
+                <li>Full staff rotation now cycles eligible sponsored/free staff across generated days before repeating the same people.</li>
+                <li>Director chooses now keeps sponsored/free slots open until the director manually selects staff.</li>
+                <li>Build calendar now saves the generated active queue into planner state, local planner cache, and the cloud workspace mirror path.</li>
+              </ul>
+            </div>
+          </details>
+
+          <details class="changelog-version" role="treeitem">
             <summary class="changelog-summary">v2.9.3 - Training news grouping fix</summary>
             <div class="changelog-content">
               <ul class="changelog-list">

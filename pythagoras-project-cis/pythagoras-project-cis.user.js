@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Pythagoras Project - CIS
 // @namespace    https://torn.com/
-// @version      2.9.6
+// @version      2.9.7
 // @description  Company Intelligence System for Torn company training, staff, analytics, and local reporting.
 // @author       MoDuL [4022159]
 // @match        https://www.torn.com/companies.php*
@@ -45,7 +45,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
     ledgerPendingKey: 'pp_cis_ledger_pending_v2',
     syncCacheKey: 'pp_cis_sync_cache_v1',
     notificationDismissalsKey: 'pp_cis_notification_dismissals_v1',
-    version: '2.9.6',
+    version: '2.9.7',
     popupName: 'pythagoras-cis-popup'
   };
 
@@ -150,6 +150,8 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
       trainerAutoDetect: true,
       trainerAssigned: false,
       plannerPriority: {
+        queuePolicy: 'rotation',
+        paidFirst: true,
         addictionEnabled: true,
         inactivityEnabled: true,
         addictionWeight: 1,
@@ -1139,6 +1141,8 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         if (Array.isArray(trainingLog.trainingLog)) state.trainingLog = trainingLog.trainingLog;
         if (Array.isArray(trainingLog.ledger)) state.ledger = Store.mergeLedgerRows(state.ledger || [], trainingLog.ledger);
       }
+      const planner = cloneSlice('planner');
+      if (planner && planner.planner) state.planner = Store.merge(state.planner || {}, planner.planner);
       Company.dedupeStaff(state);
       Company.removeDirectorsFromStaff(state);
       return state;
@@ -1172,6 +1176,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
       if (kind === 'stock') return { companyStock: Utils.clone(state.company.stock || {}), stockSettings: Utils.clone(state.company.stockSettings || {}), stockHistory: Utils.clone(state.company.stockHistory || []) };
       if (kind === 'news') return { timeline: Utils.clone(state.staff.timeline || []), newsSync: Utils.clone(state.company.newsSync || {}), analytics: Utils.clone(state.analytics || {}) };
       if (kind === 'trainingLog') return { trainingLog: Utils.clone(state.trainingLog || []), ledger: Utils.clone(state.ledger || []) };
+      if (kind === 'planner') return { planner: Utils.clone(state.planner || {}) };
       return {};
     },
     updateSyncCache(state, kinds) {
@@ -1730,6 +1735,9 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
       settings.wageRoleRequirements = settings.wageRoleRequirements || {};
       settings.dateFormat = settings.dateFormat || DEFAULTS.settings.dateFormat;
       settings.customDateFormat = settings.customDateFormat || DEFAULTS.settings.customDateFormat;
+      const queuePolicy = String(settings.plannerPriority.queuePolicy || DEFAULTS.settings.plannerPriority.queuePolicy || 'rotation').trim();
+      settings.plannerPriority.queuePolicy = ['director', 'rotation', 'lowest_stats', 'role_closest', 'role_gap'].includes(queuePolicy) ? queuePolicy : DEFAULTS.settings.plannerPriority.queuePolicy;
+      settings.plannerPriority.paidFirst = settings.plannerPriority.paidFirst !== false;
       if (!settings.companyTypeId && settings.companyTypeName) {
         const typeMatch = Object.entries(Company.typeNames).find(([, name]) => String(name).toLowerCase() === String(settings.companyTypeName).toLowerCase());
         if (typeMatch) settings.companyTypeId = typeMatch[0];
@@ -3143,6 +3151,16 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
     paidCapLimit(settings) {
       return Math.min(8 + (settings.trainerAssigned ? 1 : 0), Planner.dailySupply(settings));
     },
+    queuePolicy(state) {
+      const settings = state && state.settings ? state.settings : {};
+      const priority = settings.plannerPriority || DEFAULTS.settings.plannerPriority;
+      const policy = String(priority.queuePolicy || DEFAULTS.settings.plannerPriority.queuePolicy || 'rotation').trim();
+      return ['director', 'rotation', 'lowest_stats', 'role_closest', 'role_gap'].includes(policy) ? policy : 'rotation';
+    },
+    paidFirstEnabled(state) {
+      const priority = state && state.settings && state.settings.plannerPriority || DEFAULTS.settings.plannerPriority;
+      return priority.paidFirst !== false;
+    },
     trainingHoldDays() {
       return 3;
     },
@@ -3243,13 +3261,21 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
       });
     },
     rotationOrder(state, roster) {
+      const policy = Planner.queuePolicy(state);
       const previous = state && state.planner && state.planner.sponsoredRotation && Array.isArray(state.planner.sponsoredRotation.order)
         ? state.planner.sponsoredRotation.order.map((value) => String(value || '')).filter(Boolean)
         : [];
       const previousIndex = new Map(previous.map((identity, index) => [identity, index]));
-      const ordered = (roster || []).slice().sort((a, b) => Planner.compareSponsored(a, b)
-        || (previousIndex.has(String(a && a.identity || '')) ? previousIndex.get(String(a.identity)) : Number.MAX_SAFE_INTEGER)
-          - (previousIndex.has(String(b && b.identity || '')) ? previousIndex.get(String(b.identity)) : Number.MAX_SAFE_INTEGER));
+      const rotationPosition = (row) => previousIndex.has(String(row && row.identity || '')) ? previousIndex.get(String(row.identity)) : Number.MAX_SAFE_INTEGER;
+      const ordered = (roster || []).slice().sort((a, b) => {
+        if (policy === 'rotation' || policy === 'director') {
+          return rotationPosition(a) - rotationPosition(b)
+            || String(a && a.playerName || '').localeCompare(String(b && b.playerName || ''));
+        }
+        return Planner.compareSponsored(a, b)
+          || rotationPosition(a) - rotationPosition(b);
+      });
+      ordered.forEach((row, index) => { row.rotationIndex = index; });
       if (state && state.planner) {
         state.planner.sponsoredRotation = state.planner.sponsoredRotation || Utils.clone(DEFAULTS.planner.sponsoredRotation);
         state.planner.sponsoredRotation.order = ordered.map((row) => row.identity);
@@ -3373,6 +3399,31 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         summary: `${total.toLocaleString()} total stats`
       };
     },
+    assignedRoleNeed(person, state) {
+      const roleKey = Planner.roleKey(person && person.role);
+      const req = state && state.settings && state.settings.wageRoleRequirements && state.settings.wageRoleRequirements[roleKey]
+        ? state.settings.wageRoleRequirements[roleKey]
+        : {};
+      const man = Utils.num(person && person.man, 0);
+      const int = Utils.num(person && person.int, 0);
+      const end = Utils.num(person && person.end, 0);
+      const reqMan = Utils.num(req.man, 0);
+      const reqInt = Utils.num(req.int, 0);
+      const reqEnd = Utils.num(req.end, 0);
+      const requiredTotal = reqMan + reqInt + reqEnd;
+      const gap = Math.max(0, reqMan - man) + Math.max(0, reqInt - int) + Math.max(0, reqEnd - end);
+      const total = man + int + end;
+      return {
+        roleKey,
+        gap,
+        total,
+        requiredTotal,
+        under: requiredTotal > 0 && gap > 0,
+        summary: requiredTotal > 0
+          ? (gap > 0 ? `${gap.toLocaleString()} stats under ${person && person.role || 'assigned role'}` : `meets ${person && person.role || 'assigned role'} requirements`)
+          : `${total.toLocaleString()} total stats`
+      };
+    },
     rotateSponsoredIdentity(state, identity) {
       const key = String(identity || '').trim();
       if (!key || !state || !state.planner) return;
@@ -3408,7 +3459,10 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
     sponsoredRoster(state, options) {
       const opts = options || {};
       const riskAware = !!opts.riskAware;
-      const priorityMode = Planner.companyRoleTargets(state) ? 'lowest_stats' : 'need';
+      const queuePolicy = Planner.queuePolicy(state);
+      const priorityMode = queuePolicy === 'lowest_stats'
+        ? 'lowest_stats'
+        : (queuePolicy === 'role_closest' ? 'role_closest' : (queuePolicy === 'role_gap' ? 'need' : queuePolicy));
       const identityMaps = Company.identityMaps(state);
       const loggedByIdentity = new Map();
       (Array.isArray(state.trainingLog) ? state.trainingLog : []).forEach((row) => {
@@ -3426,6 +3480,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
           const str = Math.max(Utils.int(loggedByIdentity.get(identity), 0), Utils.int(ledgerUsedByIdentity.get(identity), 0));
           const risk = riskAware ? Planner.trainingRisk(person, state, opts.referenceDate) : { penalty: 0, level: 0, summary: '' };
           const need = Planner.trainingNeed(person, state);
+          const assignedNeed = Planner.assignedRoleNeed(person, state);
           return {
             identity,
             playerId: person.id || '',
@@ -3433,23 +3488,44 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
             role: person.role || 'Employee',
             personRef: person,
             str,
-            virtualStr: str,
+            virtualStr: (priorityMode === 'rotation' || priorityMode === 'director') ? 0 : str,
             needScore: need.score,
             statGap: need.gap,
             statTotal: need.total,
-            statNeedSummary: need.summary,
+            statNeedSummary: priorityMode === 'role_closest' ? assignedNeed.summary : need.summary,
+            assignedGap: assignedNeed.gap,
+            assignedRequiredTotal: assignedNeed.requiredTotal,
+            assignedUnder: assignedNeed.under,
             priorityMode,
             riskPenalty: risk.penalty,
             riskLevel: risk.level,
             riskSummary: risk.summary
           };
         })
-        .sort(Planner.compareSponsored);
+        .sort(priorityMode === 'rotation' || priorityMode === 'director' ? (a, b) => String(a.playerName || '').localeCompare(String(b.playerName || '')) : Planner.compareSponsored);
       const ordered = Planner.rotationOrder(state, roster);
       ordered.cursor = 0;
       return ordered;
     },
     compareSponsored(a, b) {
+      const mode = (a && a.priorityMode) || (b && b.priorityMode) || 'need';
+      if (mode === 'rotation' || mode === 'director') {
+        return Utils.num(a && a.virtualStr, 0) - Utils.num(b && b.virtualStr, 0)
+          || Utils.num(a && a.riskPenalty, 0) - Utils.num(b && b.riskPenalty, 0)
+          || Utils.num(a && a.rotationIndex, 0) - Utils.num(b && b.rotationIndex, 0)
+          || String(a && a.playerName || '').localeCompare(String(b && b.playerName || ''));
+      }
+      if (mode === 'role_closest') {
+        const closestScore = (row) => {
+          const cycle = Utils.num(row && row.virtualStr, 0) * 100000000;
+          const risk = Utils.num(row && row.riskPenalty, 0) * 100000000;
+          if (row && row.assignedUnder) return cycle + risk + Math.max(1, Utils.num(row.assignedGap, 0));
+          const total = Utils.num(row && row.statTotal, 0);
+          return cycle + risk + 100000000000 + (total > 0 ? total : 1000000000);
+        };
+        const closestDelta = closestScore(a) - closestScore(b);
+        if (closestDelta) return closestDelta;
+      }
       if ((a && a.priorityMode) === 'lowest_stats' || (b && b.priorityMode) === 'lowest_stats') {
         const projectedTotal = (row) => {
           const total = Utils.num(row && row.statTotal, 0);
@@ -3563,6 +3639,8 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         role: row.role,
         statGap: row.statGap,
         statTotal: row.statTotal,
+        assignedGap: row.assignedGap,
+        assignedUnder: row.assignedUnder,
         statNeedSummary: row.statNeedSummary,
         riskPenalty: row.riskPenalty,
         riskLevel: row.riskLevel,
@@ -3571,6 +3649,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
     },
     allowedMode(state) {
       const requested = ['auto', 'manual', 'hybrid'].includes(state.planner.mode) ? state.planner.mode : 'auto';
+      if (Planner.queuePolicy(state) === 'director' && requested === 'auto') return 'hybrid';
       return requested;
     },
     build(state) {
@@ -3581,6 +3660,8 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
       const supply = Planner.dailySupply(state.settings);
       const paidCapLimit = Planner.paidCapLimit(state.settings);
       const paidLimit = Utils.clamp(Utils.int(state.settings.maxPaidTrainsPerDay, paidCapLimit), 0, paidCapLimit);
+      const paidFirst = Planner.paidFirstEnabled(state);
+      const autoSponsored = mode === 'auto' && Planner.queuePolicy(state) !== 'director';
       const rosterContext = Planner.currentRosterContext(state);
       const plannerLedger = Array.isArray(state.ledger) ? state.ledger : [];
       const paidQueue = mode === 'manual' ? [] : Planner.queue(plannerLedger, 'paid', state.settings);
@@ -3591,19 +3672,30 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         const slots = [];
         const suggestions = [];
         const picked = new Set();
-        while (slots.length < Math.min(paidLimit, supply) && paidQueue.length) {
-          const next = Planner.nextPaid(paidQueue, state, dayDate, rosterContext);
-          if (!next) break;
-          slots.push(next);
-          picked.add(Company.resolveIdentity({ id: next.playerId, name: next.playerName }, state));
-        }
-        while (slots.length < supply && sponsoredQueue.length) {
-          const sponsored = Planner.nextSponsored(sponsoredQueue, picked, state, dayDate);
-          if (!sponsored) break;
-          if (mode === 'auto') slots.push(sponsored);
-          else suggestions.push(sponsored);
-          picked.add(sponsored.identity || Company.resolveIdentity({ id: sponsored.playerId, name: sponsored.playerName }, state));
-          if (mode !== 'auto' && slots.length + suggestions.length >= supply) break;
+        const fillPaid = () => {
+          while (slots.length < Math.min(paidLimit, supply) && paidQueue.length) {
+            const next = Planner.nextPaid(paidQueue, state, dayDate, rosterContext);
+            if (!next) break;
+            slots.push(next);
+            picked.add(Company.resolveIdentity({ id: next.playerId, name: next.playerName }, state));
+          }
+        };
+        const fillSponsored = () => {
+          while (slots.length < supply && sponsoredQueue.length) {
+            const sponsored = Planner.nextSponsored(sponsoredQueue, picked, state, dayDate);
+            if (!sponsored) break;
+            if (autoSponsored) slots.push(sponsored);
+            else suggestions.push(sponsored);
+            picked.add(sponsored.identity || Company.resolveIdentity({ id: sponsored.playerId, name: sponsored.playerName }, state));
+            if (!autoSponsored && slots.length + suggestions.length >= supply) break;
+          }
+        };
+        if (paidFirst) {
+          fillPaid();
+          fillSponsored();
+        } else {
+          fillSponsored();
+          fillPaid();
         }
         days.push({ date: dayDate, supply, mode, slots, suggestions });
       }
@@ -7801,6 +7893,18 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
       return `<select class="pp-select" data-planner-field="mode">${options.map(([value, label]) => `<option value="${value}" ${mode === value ? 'selected' : ''}>${label}</option>`).join('')}</select>`;
     },
 
+    plannerQueuePolicySelect() {
+      const current = Planner.queuePolicy(UI.state);
+      const options = [
+        ['director', 'Director chooses'],
+        ['rotation', 'Full staff rotation'],
+        ['lowest_stats', 'Lower stats first'],
+        ['role_closest', 'Closest under assigned role'],
+        ['role_gap', 'Role need first']
+      ];
+      return `<select class="pp-select" name="plannerQueuePolicy">${options.map(([value, label]) => `<option value="${Utils.esc(value)}" ${current === value ? 'selected' : ''}>${Utils.esc(label)}</option>`).join('')}</select>`;
+    },
+
     plannerStaffValue(person) {
       return String((person && (person.id || person.playerId || person.name || person.playerName)) || '');
     },
@@ -7876,9 +7980,10 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
       if (mode === 'auto') return slots;
       const open = Math.max(0, Utils.int(day.supply, 0) - slots.length);
       const manualSlots = UI.state.planner.manualSlots || {};
+      const directorChooses = Planner.queuePolicy(UI.state) === 'director';
       for (let index = 0; index < open; index += 1) {
         const key = `${day.date}:${index}`;
-        const suggested = mode === 'hybrid' ? UI.plannerSuggestedSlot(day, index) : null;
+        const suggested = mode === 'hybrid' && !directorChooses ? UI.plannerSuggestedSlot(day, index) : null;
         const hasManual = Object.prototype.hasOwnProperty.call(manualSlots, key);
         const selected = hasManual ? manualSlots[key] : (suggested ? UI.plannerStaffValue(suggested) : '');
         if (!selected) continue;
@@ -7993,10 +8098,11 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         }).join('');
       }
       const manualSlots = UI.state.planner.manualSlots || {};
+      const directorChooses = Planner.queuePolicy(UI.state) === 'director';
       const rows = [];
       for (let index = 0; index < open; index += 1) {
         const key = `${day.date}:${index}`;
-        const suggested = mode === 'hybrid' ? UI.plannerSuggestedSlot(day, index) : null;
+        const suggested = mode === 'hybrid' && !directorChooses ? UI.plannerSuggestedSlot(day, index) : null;
         const hasManual = Object.prototype.hasOwnProperty.call(manualSlots, key);
         const selected = hasManual ? manualSlots[key] : (suggested ? UI.plannerStaffValue(suggested) : '');
         const selectedPerson = UI.resolvePlannerStaff(selected, day.date)
@@ -9006,11 +9112,13 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
             <label class="pp-field"><span class="pp-note">Trainer role</span><span><input type="checkbox" name="trainerAutoDetect" ${state.settings.trainerAutoDetect !== false ? 'checked' : ''}> Auto-Detect</span></label>
             <div class="pp-field span-6"><span class="pp-note">Detected setup: company rating comes from profile sync and Trainer comes from staff sync when Auto-Detect is enabled. Current trainer bonus: ${state.settings.trainerAssigned ? 'yes' : 'no'}.</span></div>
             <div class="pp-form-title">Auto mode priority</div>
+            ${UI.field('Queue standard', UI.plannerQueuePolicySelect(), 'span-2 pp-compact-field')}
+            <label class="pp-field"><span class="pp-note">Paid orders first</span><span><input type="checkbox" name="plannerPaidFirst" ${state.settings.plannerPriority && state.settings.plannerPriority.paidFirst !== false ? 'checked' : ''}> Enabled</span></label>
             <label class="pp-field"><span class="pp-note">Addiction penalty</span><span><input type="checkbox" name="plannerAddictionEnabled" ${state.settings.plannerPriority && state.settings.plannerPriority.addictionEnabled !== false ? 'checked' : ''}> Enabled</span></label>
             ${UI.field('Addiction weight', `<input class="pp-input" name="plannerAddictionWeight" inputmode="decimal" value="${Utils.esc(state.settings.plannerPriority && state.settings.plannerPriority.addictionWeight || 1)}">`, 'pp-compact-field')}
             <label class="pp-field"><span class="pp-note">Inactivity penalty</span><span><input type="checkbox" name="plannerInactivityEnabled" ${state.settings.plannerPriority && state.settings.plannerPriority.inactivityEnabled !== false ? 'checked' : ''}> Enabled</span></label>
             ${UI.field('Inactivity weight', `<input class="pp-input" name="plannerInactivityWeight" inputmode="decimal" value="${Utils.esc(state.settings.plannerPriority && state.settings.plannerPriority.inactivityWeight || 1)}">`, 'pp-compact-field')}
-            <div class="pp-field span-6"><span class="pp-note">Auto mode fills paid orders first, then ranks sponsored/free capacity by role-stat gaps or lowest total working stats. Addiction and inactivity can still lower priority.</span></div>
+            <div class="pp-field span-6"><span class="pp-note">Paid orders first prioritizes paid staff with remaining trains. Queue standard controls sponsored/free capacity: director-selected slots, full rotation, lower stats, assigned-role catch-up, or role need. Addiction and inactivity can still lower priority.</span></div>
           </form>
         </div>
       </section>`;
@@ -10455,6 +10563,10 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         <div class="pp-content">
           <div class="pp-changelog">
             <details open>
+              <summary>v2.9.7 - Training queue standards</summary>
+              <ul><li>Major changes: Training setup now includes a Queue standard controller for Director chooses, Full staff rotation, Lower stats first, Closest under assigned role, and Role need first.</li><li>Major changes: Full staff rotation now cycles eligible sponsored/free staff across generated days before repeating the same people, while paid staff with remaining trains stay prioritized by default.</li><li>Major changes: Build calendar now saves the generated active queue into planner state, local planner cache, and the cloud workspace mirror path.</li></ul>
+            </details>
+            <details>
               <summary>v2.9.3 - Training news grouping fix</summary>
               <ul><li>Major changes: Grouped timeline training rows now collapse named employees only by their own identity, not by same-minute role/count fallback buckets.</li><li>Major changes: Torn company-news event IDs are now the source of truth for training dedupe; employee/minute/count matching is only used for legacy or generated rows with no source event ID.</li><li>Minor changes: Same-timestamp one-train events for different employees now stay as separate grouped rows instead of being summed under the first matching role.</li></ul>
             </details>
@@ -11074,13 +11186,19 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
       if (plannerField) {
         UI.state.planner[plannerField.dataset.plannerField] = plannerField.value;
         Planner.build(UI.state);
-        UI.saveRender('Planner calendar rebuilt.');
+        const prepared = UI.prepareTrainingQueue({ force: true });
+        if (!prepared) UI.state.planner.trainingQueue = null;
+        Store.updateSyncCache(UI.state, 'planner');
+        UI.saveRender(prepared ? `Planner calendar rebuilt and ${prepared.slots.length} train${prepared.slots.length === 1 ? '' : 's'} queued for ${Utils.dateShort(prepared.date)}.` : 'Planner calendar rebuilt.');
         return;
       }
       const plannerManual = event.target.closest('[data-planner-manual]');
       if (plannerManual) {
         UI.state.planner.manualSlots = UI.state.planner.manualSlots || {};
         UI.state.planner.manualSlots[plannerManual.dataset.plannerManual] = plannerManual.value;
+        const prepared = UI.prepareTrainingQueue({ force: true });
+        if (!prepared) UI.state.planner.trainingQueue = null;
+        Store.updateSyncCache(UI.state, 'planner');
         Store.save(UI.state);
         UI.saveRender();
         return;
@@ -11497,9 +11615,13 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
     buildPlanner() {
       const requested = UI.state.planner.mode;
       Planner.build(UI.state);
+      const prepared = UI.prepareTrainingQueue({ force: true });
+      if (!prepared) UI.state.planner.trainingQueue = null;
+      Store.updateSyncCache(UI.state, 'planner');
+      const queuedMessage = prepared ? `Planner calendar rebuilt and ${prepared.slots.length} train${prepared.slots.length === 1 ? '' : 's'} queued for ${Utils.dateShort(prepared.date)}.` : 'Planner calendar rebuilt.';
       UI.saveRender(requested !== UI.state.planner.mode
-        ? 'Auto and Hybrid require Company Boost or Ultimate. Manual schedule rebuilt.'
-        : 'Planner calendar rebuilt.');
+        ? (Planner.queuePolicy(UI.state) === 'director' ? `Director chooses uses Hybrid mode. ${queuedMessage}` : 'Planner mode adjusted and calendar rebuilt.')
+        : queuedMessage);
     },
 
     resetPlannerDay(day) {
@@ -11514,6 +11636,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         UI.state.planner.trainingQueue = null;
         UI.clearTrainingHighlight();
       }
+      Store.updateSyncCache(UI.state, 'planner');
       Store.save(UI.state);
       UI.saveRender(`Reset queue for ${date}.`);
     },
@@ -11527,11 +11650,12 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
       return 'https://www.torn.com/companies.php?step=your&type=1#/train=&option=employees';
     },
 
-    prepareTrainingQueue() {
+    prepareTrainingQueue(options) {
+      const opts = options || {};
       const queue = UI.plannerTrainingQueue();
       if (!queue || !queue.slots.length) return null;
       const oldQueue = UI.state.planner.trainingQueue || {};
-      if (oldQueue.date === queue.date && Array.isArray(oldQueue.slots) && oldQueue.slots.length && !oldQueue.completedAt) {
+      if (!opts.force && oldQueue.date === queue.date && Array.isArray(oldQueue.slots) && oldQueue.slots.length && !oldQueue.completedAt) {
         oldQueue.activeIndex = Utils.clamp(Utils.int(oldQueue.activeIndex, 0), 0, oldQueue.slots.length);
         UI.state.planner.trainingQueue = oldQueue;
         return oldQueue;
@@ -11680,6 +11804,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         return;
       }
       const prepared = UI.prepareTrainingQueue();
+      Store.updateSyncCache(UI.state, 'planner');
       Store.save(UI.state);
       UI.toast(`Prepared ${prepared.slots.length} train${prepared.slots.length === 1 ? '' : 's'} for ${Utils.dateShort(prepared.date)}.`);
       UI.navigateTornTraining(UI.trainingPageUrl());
@@ -11798,6 +11923,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         UI.clearTrainingHighlight();
       }
       UI.state.planner.trainingQueue = prepared;
+      Store.updateSyncCache(UI.state, 'planner');
       return queueComplete;
     },
 
@@ -13200,6 +13326,8 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
       const root = UI.currentRoot();
       const previousApiKey = String(UI.state.settings.apiKey || '').trim();
       const previousKeyInfo = Object.assign({}, UI.state.settings.keyInfo || {});
+      const previousQueuePolicy = Planner.queuePolicy(UI.state);
+      const previousPaidFirst = Planner.paidFirstEnabled(UI.state);
       const settingsContext = UI.settingsFormContext(root);
       const rolesForm = root.querySelector('[data-roles-form]');
       const notificationsForm = root.querySelector('[data-notifications-form]');
@@ -13224,10 +13352,16 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         }
         UI.state.settings.trainerAutoDetect = settingsContext.checked('trainerAutoDetect', UI.state.settings.trainerAutoDetect !== false);
         UI.state.settings.plannerPriority = UI.state.settings.plannerPriority || Utils.clone(DEFAULTS.settings.plannerPriority);
+        if (data.has('plannerQueuePolicy')) {
+          const queuePolicy = String(data.get('plannerQueuePolicy') || '').trim();
+          UI.state.settings.plannerPriority.queuePolicy = ['director', 'rotation', 'lowest_stats', 'role_closest', 'role_gap'].includes(queuePolicy) ? queuePolicy : DEFAULTS.settings.plannerPriority.queuePolicy;
+        }
+        UI.state.settings.plannerPriority.paidFirst = settingsContext.checked('plannerPaidFirst', UI.state.settings.plannerPriority.paidFirst !== false);
         UI.state.settings.plannerPriority.addictionEnabled = settingsContext.checked('plannerAddictionEnabled', UI.state.settings.plannerPriority.addictionEnabled !== false);
         UI.state.settings.plannerPriority.inactivityEnabled = settingsContext.checked('plannerInactivityEnabled', UI.state.settings.plannerPriority.inactivityEnabled !== false);
         if (data.has('plannerAddictionWeight')) UI.state.settings.plannerPriority.addictionWeight = Math.max(0, Utils.num(data.get('plannerAddictionWeight'), UI.state.settings.plannerPriority.addictionWeight || 1));
         if (data.has('plannerInactivityWeight')) UI.state.settings.plannerPriority.inactivityWeight = Math.max(0, Utils.num(data.get('plannerInactivityWeight'), UI.state.settings.plannerPriority.inactivityWeight || 1));
+        if (UI.state.settings.plannerPriority.queuePolicy === 'director' && UI.state.planner.mode === 'auto') UI.state.planner.mode = 'hybrid';
         const trainerAssigned = settingsContext.field('trainerAssigned');
         if (trainerAssigned) UI.state.settings.trainerAssigned = trainerAssigned.checked;
         Company.syncTrainingSetup(UI.state);
@@ -13265,6 +13399,11 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
       UI.readStockSettings(root);
       Store.applyAdminConfig(UI.state);
       Planner.build(UI.state);
+      if ((previousQueuePolicy !== Planner.queuePolicy(UI.state) || previousPaidFirst !== Planner.paidFirstEnabled(UI.state)) && (UI.state.planner.days || []).length) {
+        const prepared = UI.prepareTrainingQueue({ force: true });
+        if (!prepared) UI.state.planner.trainingQueue = null;
+        Store.updateSyncCache(UI.state, 'planner');
+      }
       UI.scheduleSettingsCloudSave(opts.silent ? 900 : 100);
       if (opts.silent) {
         Store.save(UI.state);
