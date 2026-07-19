@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Pythagoras Project - CIS
 // @namespace    https://torn.com/
-// @version      2.9.7
+// @version      2.9.8
 // @description  Company Intelligence System for Torn company training, staff, analytics, and local reporting.
 // @author       MoDuL [4022159]
 // @match        https://www.torn.com/companies.php*
@@ -45,7 +45,9 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
     ledgerPendingKey: 'pp_cis_ledger_pending_v2',
     syncCacheKey: 'pp_cis_sync_cache_v1',
     notificationDismissalsKey: 'pp_cis_notification_dismissals_v1',
-    version: '2.9.7',
+    uiPreferencesKey: 'pp_cis_ui_preferences_v1',
+    stockEditsKey: 'pp_cis_stock_edits_v1',
+    version: '2.9.8',
     popupName: 'pythagoras-cis-popup'
   };
 
@@ -121,6 +123,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
       stockSettings: {},
       stockHistory: [],
       adBudgetHistory: [],
+      operatingCostHistory: [],
       newsSync: { firstBackfillDone: false, earliestTimestamp: 0, oldestTimestamp: 0, latestTimestamp: 0, lastSynced: '', fetchedPages: 0, reportGapAttempts: {} },
       syncWatermarks: {}
     },
@@ -221,14 +224,14 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         inactiveDaysThreshold: 3
       },
       notifications: {
-        stock: { enabled: true },
+        stock: { enabled: true, thresholdPercent: 10 },
         addiction: { enabled: true, threshold: 4 },
         inactivity: { enabled: true, thresholdDays: 3 },
         sync: { enabled: true, warnHours: 24, dangerHours: 72 }
       },
       wageRoleRequirements: {}
     },
-    ui: { tab: 'timeline', staffTab: 'current', directorTab: 'current', settingsSection: 'core', timelineFilter: 'all', timelineGrouped: true, analyticsYear: 'all', analyticsExpanded: {}, dailyBalanceMode: 'week', dailyBalanceStart: '', dailyBalanceIncludeWages: true, graphIndex: 0, graphScale: 'weekly', graphSeries: { income: true, customers: true, wages: true, adBudget: true, profit: true }, trainingLogStart: '', trainingLogYear: 'all', profileSort: 'name', profileSortDir: 'asc', tableSorts: {}, showApiKey: false, privacyMode: false, tourActive: false, tourStep: 0, minimized: false, mode: 'embedded', editMode: false, editPersonKey: '', editDirectorKey: '', personSaveExit: false, plannerQueueHidden: false, collapsedPanels: {}, detailOpenState: {}, panelSizes: {}, reportSections: { summary: true, ledger: true, trainingLog: true, planner: true, analytics: true, balance: true, stock: true, staff: true, pastStaff: false, directors: false, timeline: true, profile: true, details: true, settings: true }, left: '', top: '', restoreWidth: '', restoreHeight: '' }
+    ui: { tab: 'timeline', staffTab: 'current', directorTab: 'current', settingsSection: 'core', timelineFilter: 'all', timelineGrouped: true, analyticsYear: 'all', analyticsExpanded: {}, dailyBalanceMode: 'week', dailyBalanceStart: '', dailyBalanceIncludeWages: true, graphIndex: 0, graphScale: 'daily', graphSeries: { income: true, customers: true, wages: true, adBudget: true, profit: true }, trainingLogStart: '', trainingLogYear: 'all', profileSort: 'name', profileSortDir: 'asc', tableSorts: {}, showApiKey: false, privacyMode: false, tourActive: false, tourStep: 0, minimized: false, mode: 'embedded', editMode: false, editPersonKey: '', editDirectorKey: '', personSaveExit: false, plannerQueueHidden: false, collapsedPanels: {}, detailOpenState: {}, panelSizes: {}, reportSections: { summary: true, ledger: true, trainingLog: true, planner: true, analytics: true, balance: true, stock: true, staff: true, pastStaff: false, directors: false, timeline: true, profile: true, details: true, settings: true }, left: '', top: '', restoreWidth: '', restoreHeight: '' }
   };
 
   const CSS = `
@@ -274,7 +277,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
     .pp-body{overflow:auto;padding:14px;background:var(--bg)}#pythagoras-cis.pp-cis-launcher-only{display:none!important}#pythagoras-cis.pp-cis-minimized{width:40px!important;height:40px!important;min-width:40px!important;min-height:40px!important;max-width:40px!important;max-height:40px!important;resize:none!important;border:0!important;background:transparent!important;box-shadow:none!important;overflow:visible!important}#pythagoras-cis.pp-cis-minimized.pp-minimized-docked{position:fixed!important}#pythagoras-cis.pp-cis-minimized.pp-footer-button-mounted{display:none!important}#ppcis-footer-wrap{transition:transform linear;display:inline-block!important;visibility:visible!important;opacity:1!important}#ppcis-footer-btn[data-ppcis-alerts]{position:relative;overflow:hidden}#ppcis-footer-btn[data-ppcis-alerts]::after{content:"";position:absolute;inset:2px;border-radius:inherit;pointer-events:none;opacity:0;box-shadow:inset 0 0 0 1px rgba(217,93,93,.72),inset 0 0 10px rgba(217,93,93,.9),inset 0 0 18px rgba(217,93,93,.48);animation:pp-footer-alert-glow 5s ease-in-out infinite}@keyframes pp-footer-alert-glow{0%,82%,100%{opacity:0}88%,94%{opacity:1}}#ppcis-footer-btn .pp-footer-button-icon{display:block!important;width:24px!important;height:24px!important;max-width:24px!important;max-height:24px!important;pointer-events:none!important}#ppcis-footer-btn .pp-footer-button-icon *{pointer-events:none!important}.pp-cis-minimized .pp-shell{display:block;width:40px!important;height:40px!important;min-width:40px!important;min-height:40px!important;max-height:none;background:transparent}.pp-cis-minimized .pp-tabs,.pp-cis-minimized .pp-body,.pp-cis-minimized .pp-alerts{display:none}.pp-cis-minimized .pp-titlebar{display:grid;place-items:center;width:40px;height:40px;max-width:40px;gap:0;padding:0;border:1px solid var(--accent);cursor:pointer;background:var(--accent);border-radius:8px;box-shadow:0 2px 0 rgba(255,255,255,.1) inset,0 1px 5px rgba(0,0,0,.36);transition:filter .14s ease,transform .14s ease}.pp-cis-minimized .pp-titlebar:hover{filter:brightness(1.08)}.pp-cis-minimized .pp-titlebar:active{transform:translateY(1px)}.pp-cis-minimized .pp-brand{display:grid;place-items:center;width:100%;height:100%;min-width:0}.pp-cis-minimized .pp-logo-mark{flex-basis:auto;width:30px;height:30px;border:0;border-radius:0;background:transparent;box-shadow:none;filter:drop-shadow(0 0 3px rgba(0,0,0,.5))}.pp-cis-minimized .pp-brand strong,.pp-cis-minimized .pp-brand span{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}.pp-cis-minimized .pp-brand:before{display:none}.pp-cis-minimized .pp-actions{display:none}.pp-popup-badge{width:auto;max-width:300px}.pp-popup-badge .pp-shell{display:block;min-height:0;background:transparent}.pp-popup-badge .pp-titlebar{display:flex;cursor:pointer;border:0;padding:8px 10px}.pp-popup-badge .pp-actions{display:flex}.pp-popup-badge .pp-tabs,.pp-popup-badge .pp-body,.pp-popup-badge .pp-alerts{display:none}
     .pp-grid{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:12px;align-items:start;min-width:0}.pp-panel{position:relative;grid-column:span 12;align-self:start;border:1px solid var(--line);border-radius:8px;background:var(--panel);overflow:hidden;min-width:0;max-width:100%}.pp-edit-mode .pp-panel{resize:both;overflow:auto;min-width:260px;min-height:120px;box-shadow:inset -1px -1px 0 rgba(70,197,143,.4)}.pp-edit-mode .pp-panel:after{content:'';position:absolute;right:5px;bottom:5px;width:13px;height:13px;border-right:2px solid var(--accent);border-bottom:2px solid var(--accent);opacity:.85;pointer-events:none}.pp-panel.is-collapsed .pp-content{display:none}.pp-panel.is-half{grid-column:span 6}.pp-panel.is-third{grid-column:span 4}.pp-collapse-toggle,.pp-hint-toggle{position:absolute;top:8px;z-index:3;display:grid;place-items:center;width:26px;min-width:26px;height:26px;min-height:26px;padding:0;margin:0;border-color:var(--accent);color:var(--accent);line-height:1}.pp-collapse-toggle{right:8px}.pp-hint-toggle{right:40px}
     .pp-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:16px 82px 14px 14px;border-bottom:1px solid var(--line);background:var(--panel2);min-width:0}.pp-head.is-stack{display:grid;grid-template-columns:minmax(0,1fr);gap:10px}.pp-head.is-stack .pp-row-actions{justify-content:flex-start}.pp-head>*,.pp-field>*,.pp-kv span{min-width:0}.pp-head>div:first-child{flex:1 1 auto}.pp-head>.pp-row-actions{flex:0 1 auto;justify-content:flex-end;align-items:flex-start}.pp-head h2,.pp-head h3{margin:0;font-size:14px;line-height:1.25;color:#fff}.pp-head p,.pp-note{margin:4px 0 0;color:var(--muted);font-size:12px}.pp-content{padding:12px;min-width:0}
-    .pp-form{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px;align-items:end;min-width:0}.pp-field{display:grid;gap:5px;min-width:0;overflow:hidden}.pp-field.span-2{grid-column:span 2}.pp-field.span-3{grid-column:span 3}.pp-field.span-4{grid-column:span 4}.pp-field.span-6{grid-column:span 6}.pp-field label,.pp-field>span{color:var(--muted);font-size:12px}
+    .pp-form{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px;align-items:end;min-width:0}.pp-field{display:grid;gap:5px;min-width:0;overflow:hidden}.pp-field.span-2{grid-column:span 2}.pp-field.span-3{grid-column:span 3}.pp-field.span-4{grid-column:span 4}.pp-field.span-6{grid-column:span 6}.pp-field label,.pp-field>span{color:var(--muted);font-size:12px}.pp-priority-grid{display:grid;grid-column:1/-1;grid-template-columns:minmax(190px,1fr) minmax(190px,1fr);gap:9px}.pp-priority-grid .pp-field{border:1px solid var(--line);border-radius:8px;background:#121615;padding:9px 10px}.pp-priority-grid .pp-input,.pp-priority-grid .pp-select{width:min(100%,240px)}.pp-title-switch{display:inline-flex;align-items:center;gap:7px;white-space:nowrap;color:var(--muted);font-size:12px}.pp-discount-row{display:grid;grid-column:1/-1;grid-template-columns:repeat(5,minmax(125px,1fr));gap:9px}.pp-discount-row .pp-field{border:1px solid var(--line);border-radius:8px;background:#121615;padding:9px}.pp-notification-grid{display:grid;grid-column:1/-1;grid-template-columns:repeat(2,minmax(260px,1fr));gap:9px}.pp-notification-rule{display:grid;grid-template-columns:minmax(120px,220px) auto;align-items:end;gap:10px;border:1px solid var(--line);border-radius:8px;background:#121615;padding:10px}.pp-notification-rule .pp-input{width:min(100%,180px)}.pp-notification-rule .pp-row-actions{flex-wrap:nowrap}.pp-notification-rule .pp-row-actions .pp-input{width:7ch;max-width:7ch}.pp-notification-switch{display:grid;gap:5px;align-self:end;color:var(--muted);font-size:12px}.pp-ledger-scroll{max-height:430px;overflow:auto}.pp-ledger-scroll .pp-table thead th{position:sticky;top:0;z-index:2}
     .pp-form-title{grid-column:span 6;color:#fff;font-weight:700;border-top:1px solid var(--line);padding-top:10px;margin-top:4px}.pp-form-title:first-child{border-top:0;padding-top:0;margin-top:0}
     .pp-loyalty-list{display:flex;flex-wrap:wrap;gap:8px}.pp-loyalty-list .pp-row-actions{border:1px solid var(--line);border-radius:8px;background:#121615;padding:8px}.pp-loyalty-list .pp-select{width:auto}
     .pp-input,.pp-select,.pp-textarea{width:calc(100% - 8px);max-width:calc(100% - 8px);min-height:34px;border:1px solid var(--line);border-radius:6px;background:#0f1111;color:var(--text);padding:7px 9px;margin-left:4px;margin-right:4px;outline:none}.pp-input[type="date"]::-webkit-calendar-picker-indicator{filter:invert(1);opacity:.78}.pp-textarea{min-height:78px;resize:vertical}.pp-select-fit{width:var(--select-width,auto);max-width:calc(100% - 8px)}.pp-input:focus,.pp-select:focus,.pp-textarea:focus{border-color:rgba(70,197,143,.82);box-shadow:0 0 0 2px rgba(70,197,143,.12)}.pp-input:disabled,.pp-select:disabled,.pp-textarea:disabled{opacity:.74;color:var(--muted);background:var(--panel2);cursor:not-allowed}
@@ -289,16 +292,16 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
     .pp-changelog{display:grid;gap:8px}.pp-changelog details{border:1px solid var(--line);border-radius:8px;background:#121615;padding:8px}.pp-changelog summary{cursor:pointer;color:#fff;font-weight:700}.pp-changelog ul{margin:8px 0 0 18px;padding:0;color:var(--muted)}.pp-changelog li{margin:4px 0}.pp-role-history{display:grid;gap:8px;border:1px solid var(--line);border-radius:8px;background:#121615;padding:10px}.pp-role-history>div+div{border-top:1px solid rgba(255,255,255,.08);padding-top:8px}.pp-card-userid{font:inherit;color:var(--accent);text-decoration:none}.pp-card-userid:hover{text-decoration:underline}
     .pp-alerts{position:relative;z-index:6;display:grid;gap:6px;padding:8px 12px;border-bottom:1px solid var(--line);background:rgba(217,93,93,.08);box-shadow:0 8px 18px rgba(0,0,0,.18)}.pp-alerts.is-empty{padding:0;border:0;box-shadow:none;background:transparent;min-height:0}.pp-alert{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:8px;color:var(--text);font-size:12px;text-align:left}.pp-alert strong{color:#fff}.pp-alert-main{display:block;width:100%;border:0;background:transparent;color:inherit;text-align:left;padding:0;cursor:default}.pp-alert-main[data-action]{cursor:pointer}.pp-alert-main[data-action]:hover strong{text-decoration:underline}.pp-alert-dismiss{display:grid;place-items:center;width:24px;min-width:24px;height:24px;min-height:24px;border:1px solid var(--line);border-radius:6px;background:rgba(0,0,0,.16);color:var(--muted);padding:0;margin:0;cursor:pointer;line-height:1}.pp-alert-dismiss:hover{border-color:var(--accent);color:var(--accent);background:rgba(255,255,255,.04)}.pp-alert-icon,.pp-stock-mini-alert:before{display:inline-grid;place-items:center;width:18px;height:18px;clip-path:polygon(50% 0,100% 92%,0 92%);background:#d95d5d;color:#fff;font-weight:800;font-size:12px;line-height:1}.pp-alert.is-warn .pp-alert-icon{background:var(--warn);color:#111}.pp-alert.is-info .pp-alert-icon{background:var(--accent);color:#07100d}.pp-stock-mini-alert{display:none;align-items:center;gap:5px;color:#fff;font-size:12px;line-height:1.2}.pp-stock-mini-alert:before{content:'!';flex:0 0 18px}.pp-cis-minimized .pp-brand,.pp-popup-badge .pp-brand{flex-wrap:wrap}.pp-cis-minimized .pp-brand .pp-stock-mini-alert,.pp-popup-badge .pp-brand .pp-stock-mini-alert{display:flex;flex-basis:100%;margin-top:2px;padding-top:6px;border-top:1px solid var(--line)}
     .pp-cis-minimized .pp-brand .pp-stock-mini-alert{position:absolute;left:0;top:44px;display:flex;width:max-content;max-width:220px;height:auto;clip:auto;overflow:visible;white-space:nowrap;padding:5px 7px;margin:0;border:1px solid var(--bad);border-radius:8px;background:#1b1111;color:#fff;box-shadow:0 8px 18px rgba(0,0,0,.35)}
-    .pp-training-day{align-content:start}.pp-pill-list{align-content:flex-start;align-items:flex-start;align-self:start;justify-content:flex-start}.pp-operational{display:grid;grid-template-columns:repeat(4,minmax(120px,1fr));gap:8px;margin:0 0 12px}.pp-operation-note{border:1px solid var(--line);border-radius:8px;background:#121615;padding:9px;color:var(--muted)}.pp-operation-note strong{display:block;color:#fff;font-size:16px}.pp-training-queue{display:grid;gap:7px;margin-bottom:12px;border:1px solid var(--line);border-radius:8px;background:#121615;padding:10px;color:var(--muted)}.pp-training-queue strong{color:#fff}.pp-training-queue-head{display:flex;align-items:center;justify-content:space-between;gap:8px}.pp-training-queue-body{display:flex;align-items:center;gap:8px;flex-wrap:wrap;min-width:0}.pp-training-queue-list{overflow-wrap:anywhere}.pp-queue-toggle{display:grid;place-items:center;width:28px;min-width:28px;height:26px;min-height:26px;padding:0;margin:0}.pp-eye-icon{display:block;width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+    .pp-training-day{align-content:start}.pp-pill-list{align-content:flex-start;align-items:flex-start;align-self:start;justify-content:flex-start}.pp-operational{display:grid;grid-template-columns:repeat(6,minmax(105px,1fr));gap:8px;margin:0 0 12px}.pp-operation-note{border:1px solid var(--line);border-radius:8px;background:#121615;padding:9px;color:var(--muted)}.pp-operation-note strong{display:block;color:#fff;font-size:16px}.pp-training-queue{display:grid;gap:7px;margin-bottom:12px;border:1px solid var(--line);border-radius:8px;background:#121615;padding:10px;color:var(--muted)}.pp-training-queue strong{color:#fff}.pp-training-queue-head{display:flex;align-items:center;justify-content:space-between;gap:8px}.pp-training-queue-body{display:flex;align-items:center;gap:8px;flex-wrap:wrap;min-width:0}.pp-training-queue-list{overflow-wrap:anywhere}.pp-queue-toggle{display:grid;place-items:center;width:28px;min-width:28px;height:26px;min-height:26px;padding:0;margin:0}.pp-eye-icon{display:block;width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
     .pp-disabled-overlay{position:absolute;inset:0;z-index:30;display:grid;place-items:center;padding:18px;background:rgba(0,0,0,.42);backdrop-filter:blur(5px)}.pp-disabled-overlay .pp-empty{max-width:520px;border-color:rgba(217,93,93,.75);background:#1b1111;color:#fff}.pp-disabled-context .pp-body,.pp-disabled-context .pp-tabs,.pp-disabled-context .pp-alerts{filter:blur(2px);pointer-events:none;user-select:none}
     .pp-theme-section{grid-column:1/-1;display:grid;gap:10px;min-width:0;border:1px solid var(--line);border-radius:8px;background:#121615;padding:10px}.pp-theme-section-head{display:grid;gap:3px;padding-bottom:8px;border-bottom:1px solid rgba(255,255,255,.07)}.pp-theme-section h4{margin:0;color:#fff;font-size:13px;line-height:1.25}.pp-theme-section p{margin:0;color:var(--muted);font-size:12px}.pp-theme-section-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;align-items:end}.pp-theme-section-grid .pp-field,.pp-theme-section-grid .pp-field.span-2{grid-column:auto}.pp-theme-editor{display:grid;grid-template-columns:repeat(3,minmax(150px,1fr));gap:10px}.pp-theme-swatch{display:grid;gap:5px}.pp-theme-dirty{border-color:var(--warn)!important}.pp-role-table .pp-inline{max-width:220px}.pp-compact-field .pp-input,.pp-compact-field .pp-select{width:auto;min-width:12ch;max-width:min(260px,calc(100% - 8px))}.pp-api-key{display:flex;align-items:center;gap:6px;flex-wrap:wrap}.pp-api-key .pp-input{flex:0 1 260px;max-width:min(260px,calc(100% - 84px))}.pp-align-top{align-self:start}.pp-identity-settings{align-items:start}.pp-identity-settings>.pp-field{align-self:start}.pp-identity-settings>.pp-field:not(.span-6){border-right:1px solid var(--line);padding-right:10px}.pp-date-format-control{display:grid;gap:6px;align-items:start}.pp-date-format-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.pp-date-format-row .pp-note{margin:0}
     .pp-graph-panel{display:grid;gap:10px}.pp-graph-head{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;flex-wrap:wrap}.pp-graph-stage{display:grid;grid-template-columns:repeat(var(--graph-cols,12),minmax(28px,1fr));gap:8px;align-items:end;min-height:190px;padding:12px;border:1px solid var(--line);border-radius:8px;background:#121615}.pp-bar{display:grid;grid-template-rows:auto minmax(0,1fr) auto;gap:6px;align-items:end;min-width:0}.pp-bar b{display:block;color:var(--text);font-size:11px;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.pp-bar span{display:block;height:max(4px,var(--bar));border-radius:6px 6px 2px 2px;background:linear-gradient(180deg,var(--bar-color,var(--accent)),rgba(255,255,255,.12));box-shadow:0 0 0 1px rgba(255,255,255,.08) inset}.pp-bar small{display:block;color:var(--muted);font-size:10px;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.pp-series-controls{display:flex;align-items:center;gap:6px;flex-wrap:wrap}.pp-series-toggle{display:inline-flex;align-items:center;gap:5px;min-height:28px;padding:3px 7px;border:1px solid var(--line);border-radius:6px;background:#111313;color:var(--muted);white-space:nowrap}.pp-series-toggle i{width:10px;height:10px;border-radius:50%;background:var(--series-color)}.pp-line-chart{border:1px solid var(--line);border-radius:8px;background:#121615;padding:10px;overflow-x:auto}.pp-line-svg{display:block;width:100%;min-width:760px;height:auto}.pp-line-grid{stroke:rgba(255,255,255,.08);stroke-width:1}.pp-line-axis{stroke:rgba(255,255,255,.24);stroke-width:1.2}.pp-line-axis-label{fill:var(--muted);font-size:15px;font-weight:700}.pp-line-y{fill:var(--muted);font-size:15px}.pp-line-y.left{text-anchor:end}.pp-line-y.right{text-anchor:start}.pp-line-zero{stroke:rgba(255,221,0,.32);stroke-width:1;stroke-dasharray:5 5}.pp-line-path{fill:none;stroke:var(--series-color);stroke-width:3;stroke-linejoin:round;stroke-linecap:round}.pp-line-path.is-count{stroke-dasharray:8 7;opacity:.72}.pp-line-point{fill:#121615;stroke:var(--series-color);stroke-width:3}.pp-line-point.is-count{stroke-width:2.4;opacity:.86}.pp-line-label{fill:var(--text);font-size:16px;text-anchor:middle;paint-order:stroke;stroke:#121615;stroke-width:4;stroke-linejoin:round}.pp-line-label.is-count{font-size:14px;opacity:.82}.pp-line-x{fill:var(--muted);font-size:15px;text-anchor:middle}.pp-balance-controls{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.pp-balance-table th,.pp-balance-table td{text-align:center;white-space:nowrap}.pp-balance-table td:nth-child(2){text-align:left}
     .pp-statline{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}.pp-stat{min-height:58px;border:1px solid var(--line);border-radius:8px;background:#121615;padding:10px}.pp-stat small{display:block;color:var(--muted);margin-bottom:3px}.pp-stat strong{display:block;font-size:18px;color:#fff;overflow-wrap:anywhere}
 .pp-calendar{display:grid;grid-template-columns:repeat(7,minmax(140px,1fr));gap:8px;overflow-x:auto}.pp-day{display:grid;align-content:start;gap:8px;min-width:0;min-height:132px;border:1px solid var(--line);border-radius:8px;background:#121615;padding:9px}.pp-day-head{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:6px}.pp-day-head h4{margin:0;font:700 12px/1.25 Arial,Helvetica,sans-serif;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.pp-day-reset{display:grid;place-items:center;width:26px;min-width:26px;height:24px;min-height:24px;padding:0;margin:0;color:var(--accent);border-color:var(--accent)}.pp-day-table{width:100%;border-collapse:collapse;table-layout:fixed}.pp-day-table td{padding:4px 3px;border-top:1px solid rgba(255,255,255,.06);vertical-align:middle;color:var(--muted)}.pp-day-table td:first-child{width:36px;text-align:right;padding-right:6px}.pp-day-table td:last-child{width:34px;text-align:right}.pp-day-row.is-active td{color:#fff;background:rgba(70,197,143,.13);box-shadow:0 1px 0 rgba(70,197,143,.42) inset,0 -1px 0 rgba(70,197,143,.42) inset}.pp-day-row.is-active td:first-child{border-radius:6px 0 0 6px}.pp-day-row.is-active td:last-child{border-radius:0 6px 6px 0}.pp-day-name{display:block;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.pp-day-table .pp-name{width:100%;max-width:100%;margin:0}.pp-contract-badge{display:inline-grid;place-items:center;width:24px;height:22px;border:1px solid var(--badge-color,var(--line));border-radius:6px;background:rgba(255,255,255,.04);color:var(--badge-color,var(--text));font-weight:800;font-size:11px;line-height:1}.pp-train-controls{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:6px;align-items:center;margin-top:2px;padding-top:8px;border-top:1px solid rgba(255,255,255,.08)}.pp-train-controls .pp-btn{min-width:34px;padding-left:9px;padding-right:9px}.pp-torn-train-glow{box-shadow:0 0 0 2px #FFDD00,0 0 20px rgba(255,221,0,.72)!important;border-radius:7px!important;position:relative!important;z-index:5!important;outline:1px solid rgba(255,221,0,.8)!important}
     #pythagoras-cis .pp-head h2,#pythagoras-cis .pp-head h3{font:700 14px/1.25 Arial,Helvetica,sans-serif!important;margin:0!important;color:#fff!important}#pythagoras-cis .pp-day-head h4{font:700 12px/1.25 Arial,Helvetica,sans-serif!important;margin:0!important;color:#fff!important;letter-spacing:0!important;text-transform:none!important}#pythagoras-cis .pp-tab,#pythagoras-cis .pp-subtab,#pythagoras-cis .pp-btn{font:13px/1.45 Arial,Helvetica,sans-serif!important;text-transform:none!important;letter-spacing:0!important}
-    .pp-timeline{display:grid;gap:8px;max-height:min(64vh,620px);overflow:auto;padding-right:4px}.pp-timeline-panel .pp-content,.pp-analytics-panel .pp-content{min-height:min(64vh,620px)}.pp-event{display:grid;gap:4px;padding:9px 10px;border-left:3px solid var(--event-color,var(--muted));background:#121615;border-radius:0 6px 6px 0}.pp-event time{color:var(--muted);font-size:12px}.pp-event strong{color:#fff}
+    .pp-timeline-grid{align-items:stretch}.pp-timeline-panel,.pp-analytics-panel{display:flex;flex-direction:column;height:min(74vh,760px);align-self:stretch}.pp-timeline-panel.is-collapsed,.pp-analytics-panel.is-collapsed{height:auto}.pp-timeline-panel .pp-content,.pp-analytics-panel .pp-content{display:flex;flex:1 1 auto;flex-direction:column;min-height:0;overflow:hidden}.pp-timeline{display:grid;flex:1 1 auto;gap:8px;min-height:0;overflow:auto;padding-right:4px}.pp-analytics-panel .pp-analytics-scroll{flex:1 1 auto;max-height:none;min-height:0}.pp-event{display:grid;gap:4px;padding:9px 10px;border-left:3px solid var(--event-color,var(--muted));background:#121615;border-radius:0 6px 6px 0}.pp-event time{color:var(--muted);font-size:12px}.pp-event strong{color:#fff}
     .pp-kv{display:grid;grid-template-columns:minmax(110px,.8fr) minmax(0,1.2fr);gap:8px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,.06)}.pp-kv>span:first-child{color:var(--muted)}
-    .pp-toast{position:absolute;right:12px;bottom:12px;max-width:min(420px,calc(100vw - 36px));border:1px solid rgba(70,197,143,.55);border-radius:8px;background:#102019;color:#effff8;padding:10px 12px;box-shadow:0 12px 28px rgba(0,0,0,.35);z-index:20}.pp-toast-confirm{display:grid;gap:8px;border-color:rgba(216,165,69,.75);background:#20180d}.pp-toast-confirm strong{color:#fff}.pp-toast-actions{display:flex;gap:6px;flex-wrap:wrap}.pp-empty{color:var(--muted);padding:12px;border:1px dashed var(--line);border-radius:8px;background:#111313}
+    .pp-toast{position:fixed;right:20px;bottom:20px;max-width:min(420px,calc(100vw - 36px));border:1px solid rgba(70,197,143,.55);border-radius:8px;background:#102019;color:#effff8;padding:10px 12px;box-shadow:0 12px 28px rgba(0,0,0,.35);z-index:1000001}.pp-toast-confirm{display:grid;gap:8px;border-color:rgba(216,165,69,.75);background:#20180d}.pp-toast-confirm strong{color:#fff}.pp-toast-actions{display:flex;gap:6px;flex-wrap:wrap}.pp-empty{color:var(--muted);padding:12px;border:1px dashed var(--line);border-radius:8px;background:#111313}
     .good{color:var(--accent)}.bad{color:var(--bad)}.warn{color:var(--warn)}
     .pp-effectiveness-tip{display:inline-flex;align-items:center;justify-content:center;min-width:2ch;color:inherit;cursor:help;text-decoration:underline dotted transparent;text-underline-offset:2px}.pp-effectiveness-tip.is-left{justify-content:flex-start;text-align:left;min-width:0}.pp-effectiveness-tip:hover,.pp-effectiveness-tip:focus-visible{text-decoration-color:var(--accent);outline:none}
     .pp-hover-tooltip{position:fixed;left:0;top:0;z-index:1000001;min-width:220px;max-width:min(320px,calc(100vw - 16px));padding:10px 11px;border:1px solid var(--tip-accent,#46c58f);border-radius:8px;background:var(--tip-panel,#171a1a);color:var(--tip-text,#eff2ef);box-shadow:0 14px 30px rgba(0,0,0,.38),0 0 0 1px rgba(255,255,255,.04) inset;pointer-events:none}
@@ -313,9 +316,9 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
     .pp-hover-tooltip-value.is-warn{color:var(--tip-warn,#d8a545)}
     .pp-hover-tooltip-value.is-bad{color:var(--tip-bad,#d95d5d)}
     .pp-hover-tooltip-empty{color:var(--tip-muted,#a8b0aa)}
-    @media (max-width:860px){#pythagoras-cis{top:8px;right:8px;left:8px!important;width:auto;max-height:calc(100vh - 16px);resize:none}.pp-titlebar{grid-template-columns:1fr;cursor:default}.pp-actions{justify-content:flex-start}.pp-panel.is-half,.pp-panel.is-third{grid-column:span 12}.pp-form{grid-template-columns:repeat(2,minmax(0,1fr))}.pp-field.span-2,.pp-field.span-3,.pp-field.span-4,.pp-field.span-6,.pp-settings-nav,.pp-action-grid,.pp-report-options{grid-column:span 2}.pp-statline,.pp-settings-nav,.pp-action-grid,.pp-report-options,.pp-operational,.pp-theme-editor{grid-template-columns:repeat(2,minmax(0,1fr))}}
+    @media (max-width:860px){#pythagoras-cis{top:8px;right:8px;left:8px!important;width:auto;max-height:calc(100vh - 16px);resize:none}.pp-titlebar{grid-template-columns:1fr;cursor:default}.pp-actions{justify-content:flex-start}.pp-panel.is-half,.pp-panel.is-third{grid-column:span 12}.pp-form{grid-template-columns:repeat(2,minmax(0,1fr))}.pp-field.span-2,.pp-field.span-3,.pp-field.span-4,.pp-field.span-6,.pp-settings-nav,.pp-action-grid,.pp-report-options{grid-column:span 2}.pp-statline,.pp-settings-nav,.pp-action-grid,.pp-report-options,.pp-operational,.pp-theme-editor{grid-template-columns:repeat(2,minmax(0,1fr))}.pp-priority-grid,.pp-notification-grid{grid-template-columns:1fr}.pp-discount-row{grid-template-columns:repeat(2,minmax(0,1fr))}.pp-timeline-panel,.pp-analytics-panel{height:min(72vh,680px)}}
     @media (max-width:860px){.pp-sync-center{grid-template-columns:1fr}.pp-sync-console{max-height:150px}}
-    @media (max-width:560px){#pythagoras-cis{top:0;right:0;left:0!important;width:100vw;max-height:100vh;border-radius:0}.pp-body{padding:8px}.pp-head{padding:14px 76px 12px 10px}.pp-grid,.pp-ledger-add-form,.pp-statline,.pp-operational,.pp-settings-nav,.pp-action-grid,.pp-report-options,.pp-theme-editor{grid-template-columns:1fr}.pp-field,.pp-field.span-2,.pp-field.span-3,.pp-field.span-4,.pp-field.span-6,.pp-ledger-preview-field{grid-column:span 1}.pp-ledger-add-form .pp-input,.pp-ledger-add-form .pp-select{width:calc(100vw - 44px);max-width:calc(100vw - 44px)}.pp-calendar{grid-template-columns:1fr;overflow-x:visible}.pp-table{min-width:680px}.pp-modal-card{width:calc(100vw - 16px);max-height:calc(100vh - 16px)}}
+    @media (max-width:560px){#pythagoras-cis{top:0;right:0;left:0!important;width:100vw;max-height:100vh;border-radius:0}.pp-body{padding:8px}.pp-head{padding:14px 76px 12px 10px}.pp-grid,.pp-ledger-add-form,.pp-statline,.pp-operational,.pp-settings-nav,.pp-action-grid,.pp-report-options,.pp-theme-editor,.pp-discount-row{grid-template-columns:1fr}.pp-field,.pp-field.span-2,.pp-field.span-3,.pp-field.span-4,.pp-field.span-6,.pp-ledger-preview-field{grid-column:span 1}.pp-ledger-add-form .pp-input,.pp-ledger-add-form .pp-select{width:calc(100vw - 44px);max-width:calc(100vw - 44px)}.pp-calendar{grid-template-columns:1fr;overflow-x:visible}.pp-table{min-width:680px}.pp-modal-card{width:calc(100vw - 16px);max-height:calc(100vh - 16px)}.pp-notification-rule{grid-template-columns:1fr}.pp-toast{right:10px;bottom:10px}}
   `;
 
   const Utils = {
@@ -678,7 +681,8 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
     localSaveSeq: 0,
     load() {
       const profile = Store.loadProfile();
-      const state = Store.applyProfile(Store.applyAdminConfig(Store.migrate(Utils.clone(DEFAULTS))), profile);
+      let state = Store.applyProfile(Store.applyAdminConfig(Store.migrate(Utils.clone(DEFAULTS))), profile);
+      state = Store.applyStockLocalEdits(Store.applyUiPreferences(state, Store.loadUiPreferences()), Store.loadStockLocalEdits());
       return Store.applyNotificationDismissals(Store.applyLedgerPending(Store.applyStaffEditCache(state, Store.loadStaffLocalEdits()), Store.loadLedgerPending()), Store.loadNotificationDismissals());
     },
     async loadAsync() {
@@ -686,6 +690,8 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
       let state = Store.applyProfile(Store.applyAdminConfig(Store.migrate(Utils.clone(DEFAULTS))), profile);
       const staffEditCache = await Store.loadStaffLocalEditsAsync();
       const ledgerPending = await Store.loadLedgerPendingAsync();
+      const uiPreferences = await Store.loadUiPreferencesAsync();
+      const stockLocalEdits = await Store.loadStockLocalEditsAsync();
       const legacyRaw = await Store.rawGetAsync(APP.storageKey);
       if (legacyRaw) {
         const legacy = Store.loadFromRaw(legacyRaw);
@@ -704,7 +710,9 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
       state.settings.companyId = state.settings.companyId || state.company.profile.id || PageData.companyId();
       state = Store.applyLedgerPending(Store.applyStaffEditCache(state, staffEditCache), ledgerPending);
       const cloudState = await Store.loadCloudWorkspace(state);
-      return Store.applyNotificationDismissals(Store.applyLedgerPending(Store.applySyncCache(cloudState), ledgerPending), await Store.loadNotificationDismissalsAsync());
+      const cachedState = Store.applySyncCache(cloudState);
+      Store.applyStockLocalEdits(Store.applyUiPreferences(cachedState, uiPreferences), stockLocalEdits);
+      return Store.applyNotificationDismissals(Store.applyLedgerPending(cachedState, ledgerPending), await Store.loadNotificationDismissalsAsync());
     },
     loadProfile() {
       const raw = Store.rawGet(APP.profileKey);
@@ -727,6 +735,92 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         console.warn('[Pythagoras Project - CIS] Could not read local profile.', error);
         return null;
       }
+    },
+    parseUiPreferences(raw) {
+      if (!raw) return {};
+      try {
+        const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+        const source = parsed && parsed.ui && typeof parsed.ui === 'object' && !Array.isArray(parsed.ui) ? parsed.ui : parsed;
+        if (!source || typeof source !== 'object' || Array.isArray(source)) return {};
+        return {
+          collapsedPanels: source.collapsedPanels && typeof source.collapsedPanels === 'object' && !Array.isArray(source.collapsedPanels) ? source.collapsedPanels : {},
+          graphScale: source.graphScale === 'weekly' ? 'weekly' : 'daily',
+          dailyBalanceMode: source.dailyBalanceMode === 'all' ? 'all' : 'week'
+        };
+      } catch (error) {
+        console.warn('[Pythagoras Project - CIS] Could not read local UI preferences.', error);
+        return {};
+      }
+    },
+    loadUiPreferences() {
+      return Store.parseUiPreferences(Store.rawGet(APP.uiPreferencesKey));
+    },
+    async loadUiPreferencesAsync() {
+      return Store.parseUiPreferences(await Store.rawGetAsync(APP.uiPreferencesKey));
+    },
+    applyUiPreferences(state, preferences) {
+      if (!state) return state;
+      const source = preferences && typeof preferences === 'object' && !Array.isArray(preferences) ? preferences : {};
+      state.ui = Object.assign({}, state.ui || DEFAULTS.ui);
+      if (source.collapsedPanels) state.ui.collapsedPanels = Object.assign({}, source.collapsedPanels);
+      if (source.graphScale) state.ui.graphScale = source.graphScale;
+      if (source.dailyBalanceMode) state.ui.dailyBalanceMode = source.dailyBalanceMode;
+      return state;
+    },
+    saveUiPreferences(state) {
+      const ui = state && state.ui || {};
+      Store.rawSet(APP.uiPreferencesKey, JSON.stringify({
+        ui: {
+          collapsedPanels: ui.collapsedPanels && typeof ui.collapsedPanels === 'object' && !Array.isArray(ui.collapsedPanels) ? ui.collapsedPanels : {},
+          graphScale: ui.graphScale === 'weekly' ? 'weekly' : 'daily',
+          dailyBalanceMode: ui.dailyBalanceMode === 'all' ? 'all' : 'week'
+        },
+        updatedAt: Utils.nowIso()
+      }));
+    },
+    parseStockLocalEdits(raw) {
+      if (!raw) return null;
+      try {
+        const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+        if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return null;
+        return {
+          userId: String(parsed.userId || ''),
+          companyId: String(parsed.companyId || ''),
+          stockSettings: Store.normaliseStockSettings(parsed.stockSettings || {})
+        };
+      } catch (error) {
+        console.warn('[Pythagoras Project - CIS] Could not read pending stock settings.', error);
+        return null;
+      }
+    },
+    loadStockLocalEdits() {
+      return Store.parseStockLocalEdits(Store.rawGet(APP.stockEditsKey));
+    },
+    async loadStockLocalEditsAsync() {
+      return Store.parseStockLocalEdits(await Store.rawGetAsync(APP.stockEditsKey));
+    },
+    applyStockLocalEdits(state, pending) {
+      if (!state || !pending) return state;
+      const identity = Store.syncCacheIdentity(state);
+      if ((pending.userId && identity.userId && pending.userId !== identity.userId)
+        || (pending.companyId && identity.companyId && pending.companyId !== identity.companyId)) return state;
+      state.company.stockSettings = Store.normaliseStockSettings(Object.assign({}, state.company.stockSettings || {}, pending.stockSettings || {}));
+      Store.applyStockSettings(state);
+      return state;
+    },
+    saveStockLocalEdits(state) {
+      const settings = Store.normaliseStockSettings(state && state.company && state.company.stockSettings || {});
+      if (!Object.keys(settings).length) {
+        Store.rawDelete(APP.stockEditsKey);
+        return;
+      }
+      const identity = Store.syncCacheIdentity(state);
+      Store.rawSet(APP.stockEditsKey, JSON.stringify({
+        userId: identity.userId,
+        companyId: identity.companyId,
+        stockSettings: settings,
+        updatedAt: Utils.nowIso()
+      }));
     },
     parseStaffLocalEdits(raw) {
       if (!raw) return { localEdits: {}, localEditVersion: 0 };
@@ -825,10 +919,75 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         const existing = byDate.get(date);
         if (!existing || Utils.dateTimestamp(row.observedAt) >= Utils.dateTimestamp(existing.observedAt)) byDate.set(date, row);
       });
-      return Array.from(byDate.values()).sort((a, b) => String(a.date).localeCompare(String(b.date)));
+      const sorted = Array.from(byDate.values()).sort((a, b) => String(a.date).localeCompare(String(b.date)));
+      sorted.forEach((row, index) => {
+        if (Utils.num(row.advertisingBudget, 0) > 0) return;
+        let previous = null;
+        let next = null;
+        for (let cursor = index - 1; cursor >= 0; cursor -= 1) {
+          if (Utils.num(sorted[cursor].advertisingBudget, 0) > 0) { previous = sorted[cursor]; break; }
+        }
+        for (let cursor = index + 1; cursor < sorted.length; cursor += 1) {
+          if (Utils.num(sorted[cursor].advertisingBudget, 0) > 0) { next = sorted[cursor]; break; }
+        }
+        if (!previous || !next) return;
+        const previousDistance = Math.max(0, Utils.daysBetween(previous.date, row.date));
+        const nextDistance = Math.max(0, Utils.daysBetween(row.date, next.date));
+        const totalDistance = previousDistance + nextDistance;
+        const previousBudget = Utils.num(previous.advertisingBudget, 0);
+        const nextBudget = Utils.num(next.advertisingBudget, 0);
+        const inferred = totalDistance > 0
+          ? previousBudget + ((nextBudget - previousBudget) * previousDistance / totalDistance)
+          : previousBudget;
+        if (!inferred) return;
+        row.advertisingBudget = Math.round(inferred);
+        row.advertisingBudgetKnown = true;
+        row.repairedFromZero = true;
+        row.source = 'v2.9.8-zero-repair';
+      });
+      return sorted;
     },
     mergeAdBudgetHistory(base, extra) {
       return Store.normaliseAdBudgetHistory([].concat(Array.isArray(base) ? base : [], Array.isArray(extra) ? extra : []));
+    },
+    normaliseOperatingCostHistory(rows) {
+      const byDate = new Map();
+      (Array.isArray(rows) ? rows : []).forEach((raw) => {
+        if (!raw || typeof raw !== 'object') return;
+        const date = Utils.dateInput(raw.date || raw.reportDate || raw.report_date || raw.observedAt || raw.observed_at);
+        if (!date) return;
+        const wages = Utils.num(raw.wages ?? raw.wageTotal ?? raw.wage_total ?? raw.totalWages ?? raw.total_wages, null);
+        const adBudget = Utils.num(raw.adBudget ?? raw.ad_budget ?? raw.advertisingBudget ?? raw.advertising_budget ?? raw.advertisement_budget, null);
+        if (wages === null && adBudget === null) return;
+        const row = {
+          date,
+          observedAt: String(raw.observedAt || raw.observed_at || raw.updatedAt || raw.updated_at || raw.created_at || '').trim() || Utils.nowIso(),
+          wages: Math.max(0, Math.round(wages === null ? 0 : wages)),
+          wagesKnown: wages !== null && (raw.wagesKnown !== false && raw.wages_known !== false),
+          adBudget: Math.max(0, Math.round(adBudget === null ? 0 : adBudget)),
+          adBudgetKnown: adBudget !== null && (raw.adBudgetKnown !== false && raw.ad_budget_known !== false),
+          source: String(raw.source || 'daily-operating-snapshot').trim() || 'daily-operating-snapshot'
+        };
+        const existing = byDate.get(date);
+        if (!existing) {
+          byDate.set(date, row);
+          return;
+        }
+        if (Utils.dateTimestamp(row.observedAt) < Utils.dateTimestamp(existing.observedAt)) return;
+        if (!row.wagesKnown && existing.wagesKnown) {
+          row.wages = existing.wages;
+          row.wagesKnown = true;
+        }
+        if (!row.adBudgetKnown && existing.adBudgetKnown) {
+          row.adBudget = existing.adBudget;
+          row.adBudgetKnown = true;
+        }
+        byDate.set(date, row);
+      });
+      return Array.from(byDate.values()).sort((a, b) => String(a.date).localeCompare(String(b.date)));
+    },
+    mergeOperatingCostHistory(base, extra) {
+      return Store.normaliseOperatingCostHistory([].concat(Array.isArray(base) ? base : [], Array.isArray(extra) ? extra : []));
     },
     stockSettingKey(value) {
       return String(value || '').trim();
@@ -1115,6 +1274,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         if (business.companyProfile) state.company.profile = Store.merge(state.company.profile || {}, business.companyProfile);
         if (business.companyDetailed) state.company.detailed = Store.merge(state.company.detailed || {}, business.companyDetailed);
         if (Array.isArray(business.adBudgetHistory)) state.company.adBudgetHistory = Store.mergeAdBudgetHistory(state.company.adBudgetHistory || [], business.adBudgetHistory);
+        if (Array.isArray(business.operatingCostHistory)) state.company.operatingCostHistory = Store.mergeOperatingCostHistory(state.company.operatingCostHistory || [], business.operatingCostHistory);
         if (business.settings) state.settings = Store.merge(state.settings || {}, business.settings);
       }
       const employees = cloneSlice('employees');
@@ -1132,7 +1292,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
       }
       const news = cloneSlice('news');
       if (news) {
-        if (Array.isArray(news.timeline)) state.staff.timeline = news.timeline;
+        if (Array.isArray(news.timeline)) state.staff.timeline = Timeline.reclassify(Timeline.mergeTimeline(state.staff.timeline || [], news.timeline));
         if (news.newsSync) state.company.newsSync = Store.merge(state.company.newsSync || {}, news.newsSync);
         if (news.analytics) state.analytics = Store.merge(state.analytics || {}, news.analytics);
       }
@@ -1154,6 +1314,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
           companyProfile: Utils.clone(state.company.profile || {}),
           companyDetailed: Utils.clone(state.company.detailed || {}),
           adBudgetHistory: Utils.clone(state.company.adBudgetHistory || []),
+          operatingCostHistory: Utils.clone(state.company.operatingCostHistory || []),
           settings: {
             companyId: state.settings.companyId || '',
             companyTypeId: state.settings.companyTypeId || '',
@@ -1197,6 +1358,8 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
     save(state) {
       Ledger.prepare(state);
       Store.saveProfile(state);
+      Store.saveUiPreferences(state);
+      Store.saveStockLocalEdits(state);
       try {
         const ui = typeof window !== 'undefined' ? window.__PPCIS_UI : null;
         if (ui && ui.state === state && typeof ui.scheduleWorkspaceMirrorSave === 'function') ui.scheduleWorkspaceMirrorSave('state-save', 1800);
@@ -1394,6 +1557,10 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         category: 'daily_report',
         customers: Utils.int(row.customers, 0),
         income: Utils.int(row.income, 0),
+        wages: Utils.num(row.wages ?? row.wage_total ?? row.total_wages, 0),
+        wagesKnown: row.wages !== undefined || row.wage_total !== undefined || row.total_wages !== undefined,
+        adBudget: Utils.num(row.ad_budget ?? row.advertising_budget ?? row.advertisement_budget, 0),
+        adBudgetKnown: row.ad_budget !== undefined || row.advertising_budget !== undefined || row.advertisement_budget !== undefined,
         plainText: Store.dailyReportText({
           reportDate: date,
           timestamp: stamp,
@@ -1446,6 +1613,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         inactivity: snapshot && snapshot.inactivity || raw.inactivity || 0,
         wage: snapshot && snapshot.wage || raw.wage || 0,
         employeeEfficiency: snapshot && snapshot.efficiency || raw.employeeEfficiency || raw.efficiency || 0,
+        efficiency: snapshot && snapshot.efficiency || raw.efficiency || raw.employeeEfficiency || 0,
         days: snapshot && snapshot.days_in_company || raw.days || 0,
         lastActionTimestamp: snapshot && snapshot.last_action_timestamp || raw.lastActionTimestamp || 0,
         racingRank: snapshot && snapshot.racing_rank || raw.racingRank || '',
@@ -1532,6 +1700,10 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
       next.company.adBudgetHistory = Store.mergeAdBudgetHistory(next.company.adBudgetHistory || [], []
         .concat(Array.isArray(settings.adBudgetHistory) ? settings.adBudgetHistory : [])
         .concat(Array.isArray(data.adBudgetHistory) ? data.adBudgetHistory : []));
+      next.company.operatingCostHistory = Store.mergeOperatingCostHistory(next.company.operatingCostHistory || [], []
+        .concat(Array.isArray(settings.operatingCostHistory) ? settings.operatingCostHistory : [])
+        .concat(Array.isArray(data.operatingCostHistory) ? data.operatingCostHistory : [])
+        .concat(Array.isArray(data.dailyReports) ? data.dailyReports : []));
 
       const snapshotMap = new Map((data.memberSnapshots || []).map((row) => [String(row.user_id), row]));
       const people = (data.members || []).map((row) => Store.dbMemberToPerson(row, snapshotMap.get(String(row.user_id))));
@@ -1554,7 +1726,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
       }
 
       const stockItems = data.stock && Array.isArray(data.stock.items) ? data.stock.items : [];
-      next.company.stockSettings = Store.normaliseStockSettings(next.company.stockSettings || {});
+      next.company.stockSettings = Store.normaliseStockSettings(Object.assign({}, next.company.stockSettings || {}, plain(settings.stockSettings)));
       if (stockItems.length) {
         const stock = {};
         stockItems.forEach((item) => {
@@ -1648,6 +1820,8 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
       Store.rawDelete(APP.ledgerPendingKey);
       Store.rawDelete(APP.syncCacheKey);
       Store.rawDelete(APP.notificationDismissalsKey);
+      Store.rawDelete(APP.uiPreferencesKey);
+      Store.rawDelete(APP.stockEditsKey);
     },
     applyAdminConfig(state) {
       if (!BUILD_CONFIG.enabled) return state;
@@ -1692,6 +1866,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
       }
       Store.applyStockSettings(state);
       state.company.adBudgetHistory = Store.normaliseAdBudgetHistory(state.company.adBudgetHistory || []);
+      state.company.operatingCostHistory = Store.normaliseOperatingCostHistory(state.company.operatingCostHistory || []);
       state.company.newsSync = Store.merge(Utils.clone(DEFAULTS.company.newsSync), state.company.newsSync || {});
       state.company.newsSync.reportGapAttempts = state.company.newsSync.reportGapAttempts && typeof state.company.newsSync.reportGapAttempts === 'object' && !Array.isArray(state.company.newsSync.reportGapAttempts)
         ? state.company.newsSync.reportGapAttempts
@@ -1705,6 +1880,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         });
       }
       state.staff = Store.merge(Utils.clone(DEFAULTS.staff), state.staff || {});
+      state.staff.timeline = Timeline.dedupeEvents(state.staff.timeline || []);
       state.staff.localEdits = state.staff.localEdits && typeof state.staff.localEdits === 'object' && !Array.isArray(state.staff.localEdits) ? state.staff.localEdits : {};
       state.staff.localEditVersion = Utils.int(state.staff.localEditVersion, 0);
       state.planner = Object.assign({}, DEFAULTS.planner, state.planner || {});
@@ -2910,11 +3086,14 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
     },
     stockWarnings(state) {
       const plan = Company.stockPlan(state);
+      const notificationThreshold = Utils.percent(state && state.settings && state.settings.notifications && state.settings.notifications.stock && state.settings.notifications.stock.thresholdPercent, 10);
       return (state.company.stock.items || []).filter((item) => {
         if (!Company.isRestockableStock(item) || !item.needsStock) return false;
         if (item.warningMode === 'amount') return Utils.num(item.inStock, 0) <= Math.max(0, Utils.num(item.warningAmount, 0));
         const row = plan.byKey.get(item.key);
-        return row && row.warningThreshold > 0 ? Utils.num(item.inStock, 0) <= row.warningThreshold : false;
+        const globalThreshold = row ? Math.ceil(Utils.num(row.targetStock, 0) * (notificationThreshold / 100)) : 0;
+        const threshold = Math.max(row && row.warningThreshold || 0, globalThreshold);
+        return threshold > 0 ? Utils.num(item.inStock, 0) <= threshold : false;
       });
     }
   };
@@ -2995,6 +3174,15 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
     prepare(state) {
       Ledger.ensureOrderIds(state);
       Ledger.bindPlayerIds(state);
+      (state && state.ledger || []).forEach((entry) => {
+        const totals = Ledger.totals(entry, state.settings);
+        const paid = !!totals.paid;
+        const done = !!totals.done;
+        if (entry.paid === paid && entry.done === done) return;
+        entry.paid = paid;
+        entry.done = done;
+        entry.updatedAt = Utils.nowIso();
+      });
     },
     fromForm(form, settings, state) {
       const entryDate = Utils.dateInput(form.entryDate ? form.entryDate.value : '') || Utils.todayInput();
@@ -3147,6 +3335,16 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
   const Planner = {
     dailySupply(settings) {
       return Utils.clamp(Utils.int(settings.companyStars, 1), 1, 10) + (settings.trainerAssigned ? 1 : 0);
+    },
+    availableTrains(state) {
+      const detailed = state && state.company && state.company.detailed || {};
+      return Utils.clamp(Utils.int(detailed.trainsAvailable, 0), 0, 20);
+    },
+    queueSupply(state, referenceDate) {
+      const detailed = state && state.company && state.company.detailed || {};
+      const date = Utils.dateInput(referenceDate) || Utils.todayInput();
+      if (date === Utils.todayInput() && detailed.lastSynced) return Planner.availableTrains(state);
+      return Planner.dailySupply(state && state.settings || DEFAULTS.settings);
     },
     paidCapLimit(settings) {
       return Math.min(8 + (settings.trainerAssigned ? 1 : 0), Planner.dailySupply(settings));
@@ -3610,7 +3808,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         return sum;
       }, { total: 0, warn: 0, danger: 0, reviewDays: Planner.inactivityReviewDays(referenceValue || Utils.todayInput()) });
     },
-    nextSponsored(roster, picked, state, referenceDate) {
+    nextSponsored(roster, state, referenceDate) {
       const total = Array.isArray(roster) ? roster.length : 0;
       if (!total) return null;
       roster.sort(Planner.compareSponsored);
@@ -3620,7 +3818,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
       for (let offset = 0; offset < total; offset += 1) {
         const index = (start + offset) % total;
         const candidate = roster[index];
-        if (!candidate || picked.has(candidate.identity)) continue;
+        if (!candidate) continue;
         if (!Planner.trainingEligibility(candidate.personRef || candidate, state, referenceDate).eligible) continue;
         row = candidate;
         rowIndex = index;
@@ -3657,7 +3855,6 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
       const daysToPlan = Utils.clamp(Utils.int(state.planner.daysToPlan, 14), 1, 60);
       const mode = Planner.allowedMode(state);
       if (state.planner.mode !== mode) state.planner.mode = mode;
-      const supply = Planner.dailySupply(state.settings);
       const paidCapLimit = Planner.paidCapLimit(state.settings);
       const paidLimit = Utils.clamp(Utils.int(state.settings.maxPaidTrainsPerDay, paidCapLimit), 0, paidCapLimit);
       const paidFirst = Planner.paidFirstEnabled(state);
@@ -3669,24 +3866,22 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
       const days = [];
       for (let dayIndex = 0; dayIndex < daysToPlan; dayIndex += 1) {
         const dayDate = Utils.addDays(startDate, dayIndex);
+        const supply = Planner.queueSupply(state, dayDate);
         const slots = [];
         const suggestions = [];
-        const picked = new Set();
         const fillPaid = () => {
           while (slots.length < Math.min(paidLimit, supply) && paidQueue.length) {
             const next = Planner.nextPaid(paidQueue, state, dayDate, rosterContext);
             if (!next) break;
             slots.push(next);
-            picked.add(Company.resolveIdentity({ id: next.playerId, name: next.playerName }, state));
           }
         };
         const fillSponsored = () => {
           while (slots.length < supply && sponsoredQueue.length) {
-            const sponsored = Planner.nextSponsored(sponsoredQueue, picked, state, dayDate);
+            const sponsored = Planner.nextSponsored(sponsoredQueue, state, dayDate);
             if (!sponsored) break;
             if (autoSponsored) slots.push(sponsored);
             else suggestions.push(sponsored);
-            picked.add(sponsored.identity || Company.resolveIdentity({ id: sponsored.playerId, name: sponsored.playerName }, state));
             if (!autoSponsored && slots.length + suggestions.length >= supply) break;
           }
         };
@@ -4284,6 +4479,16 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
       if (id) return `id:${id}`;
       return [displayType, Utils.int(event && event.timestamp, 0), Timeline.timelineText(event)].join('|');
     },
+    semanticDedupeKey(event) {
+      const type = Timeline.displayType(event);
+      const timestamp = Utils.int(event && event.timestamp, 0);
+      const text = Timeline.timelineText(event).toLowerCase();
+      if (!timestamp || !text) return '';
+      const identity = String(event && (event.userId || event.playerId) || '').trim()
+        || Company.nameKey(event && (event.playerName || event.name));
+      const count = type === 'training' ? Store.trainingEventCount(event, { raw: true }) : 0;
+      return [type, timestamp, identity, count, text].join('|');
+    },
     eventQuality(event) {
       const name = event && (event.playerName || event.name);
       return (String(event && (event.userId || event.playerId) || '').trim() ? 8 : 0)
@@ -4315,7 +4520,12 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         if (!key) return;
         byKey.set(key, Timeline.betterEvent(byKey.get(key), event));
       });
-      return Array.from(byKey.values()).sort((a, b) => Utils.int(b.timestamp, 0) - Utils.int(a.timestamp, 0));
+      const bySemanticKey = new Map();
+      Array.from(byKey.values()).forEach((event) => {
+        const key = Timeline.semanticDedupeKey(event) || Timeline.eventDedupeKey(event);
+        bySemanticKey.set(key, Timeline.betterEvent(bySemanticKey.get(key), event));
+      });
+      return Array.from(bySemanticKey.values()).sort((a, b) => Utils.int(b.timestamp, 0) - Utils.int(a.timestamp, 0));
     },
     trainingCollapseKey(event) {
       return Timeline.trainingSpecificKey(event);
@@ -5142,6 +5352,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
       Company.removeDirectorsFromStaff(UI.state);
       Ledger.prepare(UI.state);
       Company.syncTrainingSetup(UI.state);
+      UI.captureOperatingCostHistory('startup');
       Store.save(UI.state);
       if (Object.keys(UI.state.staff.localEdits || {}).length && Store.canUseCloudWorkspace(UI.state)) UI.scheduleStaffCardCloudSave(1500);
       if ((Store.loadLedgerPending().orders || []).length && Store.canUseCloudWorkspace(UI.state)) UI.scheduleLedgerCloudSave(1600);
@@ -6446,7 +6657,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
           text: 'Business Profile is the live company snapshot.',
           notes: [
             'It shows rating stars, trainings per day, director, company age and founded date, staff count, income flow, storage, funds, and health bars.',
-            'Current employee effectiveness includes suggested roles and themed hover breakdowns.',
+            'The Staff table includes efficiency, stat-based suggested roles, and themed hover breakdowns.',
             'The average effectiveness line gives a quick read on company health.'
           ]
         },
@@ -6902,7 +7113,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
       const weeks = UI.filteredAnalytics(Timeline.compareWeeks(UI.visibleAnalyticsWeeks()));
       const events = Timeline.accessEvents(state.staff.timeline || [], state);
       return `
-        <div class="pp-grid">
+        <div class="pp-grid pp-timeline-grid">
           <section class="pp-panel is-half pp-timeline-panel" data-tour="company-timeline">
             <div class="pp-head is-stack">
               <div><h2>Company timeline</h2><p>Sync company news with one manual API request.</p></div>
@@ -7317,8 +7528,8 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
       });
       return wage;
     },
-    dailyWageTotalOn(date, context) {
-      if (UI.state.ui.dailyBalanceIncludeWages === false) return 0;
+    dailyWageTotalOn(date, context, options) {
+      if (!(options && options.force) && UI.state.ui.dailyBalanceIncludeWages === false) return 0;
       const staff = context && context.staff ? context.staff : UI.balanceStaffPool();
       return staff
         .filter((person) => UI.balancePersonActiveOn(person, date))
@@ -7356,6 +7567,29 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
     adBudgetHistoryForApi() {
       return Store.normaliseAdBudgetHistory(UI.state.company.adBudgetHistory || []);
     },
+    operatingCostHistoryForApi() {
+      return Store.normaliseOperatingCostHistory(UI.state.company.operatingCostHistory || []);
+    },
+    captureOperatingCostHistory(source) {
+      UI.renderMemo = {};
+      const context = { staff: UI.balanceStaffPool() };
+      const dates = new Set(UI.reportDailyRows().filter((row) => row && row.hasReport && row.date <= Utils.todayInput()).map((row) => row.date));
+      dates.add(Utils.todayInput());
+      const rows = Array.from(dates).map((date) => {
+        const adBudget = UI.balanceAdBudgetOn(date);
+        return {
+          date,
+          observedAt: Utils.nowIso(),
+          wages: UI.dailyWageTotalOn(date, context, { force: true }),
+          wagesKnown: context.staff.some((person) => person && person._balanceWageKnown),
+          adBudget: adBudget === null ? 0 : adBudget,
+          adBudgetKnown: adBudget !== null,
+          source: source || 'daily-operating-snapshot'
+        };
+      });
+      UI.state.company.operatingCostHistory = Store.mergeOperatingCostHistory(UI.state.company.operatingCostHistory || [], rows);
+      return rows.length;
+    },
     balanceAdBudgetOn(date) {
       const target = Utils.dateInput(date);
       if (!target) return null;
@@ -7373,9 +7607,15 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
           .filter((event) => event && event.type === 'rating' && Utils.int(event.value, 0))
           .sort((a, b) => Utils.int(b.timestamp, 0) - Utils.int(a.timestamp, 0))
       };
+      const savedCosts = new Map(Store.normaliseOperatingCostHistory(UI.state.company.operatingCostHistory || []).map((row) => [row.date, row]));
       const rows = UI.reportDailyRows().map((row) => {
-        const wages = UI.dailyWageTotalOn(row.date, context);
-        const adBudget = UI.balanceAdBudgetOn(row.date);
+        const saved = savedCosts.get(row.date);
+        const calculatedWages = UI.dailyWageTotalOn(row.date, context);
+        const wages = UI.state.ui.dailyBalanceIncludeWages === false
+          ? 0
+          : (saved && saved.wagesKnown ? Utils.num(saved.wages, 0) : calculatedWages);
+        const observedAdBudget = UI.balanceAdBudgetOn(row.date);
+        const adBudget = saved && saved.adBudgetKnown ? Utils.num(saved.adBudget, 0) : observedAdBudget;
         const rating = UI.balanceRatingOn(row.date, context);
         return Object.assign({}, row, {
           wages,
@@ -7810,15 +8050,14 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
                 <button class="pp-btn is-primary" type="button" data-action="build-planner">Build calendar</button>
             </div>
             <div class="pp-content">
-              ${UI.trainingQueueSummary()}
+              ${UI.operationalContext()}
               <div class="pp-form" style="margin-bottom:12px">
                 ${UI.field('Start date', `<input class="pp-input" type="date" data-planner-field="startDate" value="${Utils.esc(state.planner.startDate || today)}">`, 'span-2')}
                 ${UI.field('Planner mode', UI.plannerModeSelect())}
                 ${UI.field('Days', `<input class="pp-input" inputmode="numeric" data-planner-field="daysToPlan" value="${Utils.esc(state.planner.daysToPlan)}">`)}
-                ${UI.field('Daily train supply', `<input class="pp-input" value="${Planner.dailySupply(state.settings)}" disabled>`)}
+                ${UI.field('Available train slots', `<input class="pp-input" value="${Planner.queueSupply(state, state.planner.startDate || today)} / 20" disabled>`)}
                 ${UI.field('Paid cap / day', `<input class="pp-input" value="${Utils.esc(state.settings.maxPaidTrainsPerDay)}" disabled>`)}
               </div>
-              ${UI.operationalContext()}
               ${UI.plannerCalendar()}
             </div>
           </section>
@@ -7842,8 +8081,8 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         merits: (entry) => Utils.int(entry.merits, 0),
         applyDiscount: (entry) => entry.applyDiscount === false ? 0 : 1,
         status: (entry) => `${Ledger.totals(entry, state.settings).paid ? 'paid' : 'unpaid'} ${Ledger.totals(entry, state.settings).done ? 'done' : 'undone'}`
-      }, 'playerName', 'asc');
-      return `<div class="pp-wrap"><table class="pp-table">
+      }, 'date', 'desc');
+      return `<div class="pp-wrap pp-ledger-scroll"><table class="pp-table">
         <thead>
           <tr>
             <th>#</th><th>${UI.tableSortHeader('ledger', 'orderId', 'Order')}</th><th>${UI.tableSortHeader('ledger', 'date', 'Date')}</th>
@@ -8039,29 +8278,16 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
       </div>`;
     },
 
-    trainingQueueSummary() {
-      const hidden = !!UI.state.ui.plannerQueueHidden;
-      const label = hidden ? 'Show training note' : 'Hide training note';
-      const toggle = `<button class="pp-btn pp-queue-toggle" type="button" data-action="toggle-planner-queue" title="${label}" aria-label="${label}">${UI.eyeIcon(hidden)}</button>`;
-      if (hidden) return `<div class="pp-training-queue"><div class="pp-training-queue-head"><span class="pp-note">Training note hidden.</span>${toggle}</div></div>`;
-      return `<div class="pp-training-queue"><div class="pp-training-queue-head"><span>Use &raquo; to open and highlight Torn's employee list, then + to click the loaded Torn action and advance the queue. New hires stay off the schedule for their first ${Planner.trainingHoldDays()} days.</span>${toggle}</div></div>`;
-    },
-
-    eyeIcon(hidden) {
-      const slash = hidden ? '' : '<line x1="18" y1="4" x2="4" y2="18"></line>';
-      return `<svg class="pp-eye-icon" viewBox="0 0 22 22" aria-hidden="true"><path d="M2.5 11s3.1-5 8.5-5 8.5 5 8.5 5-3.1 5-8.5 5-8.5-5-8.5-5z"></path><circle cx="11" cy="11" r="2.4"></circle>${slash}</svg>`;
-    },
-
     operationalContext() {
       const state = UI.state;
       const paidQueue = Planner.queue(UI.visibleLedgerRows(), 'paid', state.settings).length;
       const sponsored = Planner.sponsoredRoster(state);
       const risk = Planner.sponsoredRiskSummary(state);
-      const supply = Planner.dailySupply(state.settings);
+      const supply = Planner.queueSupply(state, state.planner.startDate || Utils.todayInput());
       const paidCapLimit = Planner.paidCapLimit(state.settings);
       const paidLimit = Utils.clamp(Utils.int(state.settings.maxPaidTrainsPerDay, paidCapLimit), 0, paidCapLimit);
-      const paidDaily = Math.max(1, Math.min(supply, paidLimit || supply));
-      const paidDays = Math.ceil(paidQueue / paidDaily);
+      const paidDaily = Math.max(0, Math.min(supply, paidLimit || supply));
+      const paidDays = paidDaily > 0 ? Math.ceil(paidQueue / paidDaily) : 0;
       const holdCount = Planner.holdCount(state, state.planner.startDate || Utils.todayInput());
       const counts = new Map();
       (state.staff.current || []).forEach((person) => {
@@ -8075,7 +8301,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
       return `<div class="pp-operational">
         <div class="pp-operation-note"><strong>${paidQueue.toLocaleString()}</strong>Paid trains waiting</div>
         <div class="pp-operation-note"><strong>${sponsored.length.toLocaleString()}</strong>Free/sponsored candidates</div>
-        <div class="pp-operation-note"><strong>${supply.toLocaleString()}</strong>Daily supply / ${paidDaily.toLocaleString()} paid slots</div>
+        <div class="pp-operation-note"><strong>${supply.toLocaleString()} / 20</strong>Available slots / ${paidDaily.toLocaleString()} paid</div>
         <div class="pp-operation-note" title="${Utils.esc(coverage)}"><strong>${paidDays.toLocaleString()}</strong>Paid queue day${paidDays === 1 ? '' : 's'}</div>
         <div class="pp-operation-note" title="Staff in their first ${Planner.trainingHoldDays()} days are held off the schedule, even when they already have paid orders."><strong>${holdCount.toLocaleString()}</strong>New-hire hold</div>
         <div class="pp-operation-note" title="${Utils.esc(riskTitle)}"><strong>${risk.total.toLocaleString()}</strong>Risk-adjusted sponsored</div>
@@ -8314,6 +8540,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         name: (person) => String(person.name || '').toLowerCase(),
         role: (person) => String(person.role || '').toLowerCase(),
         suggested: isDirector ? () => '' : (person) => String((UI.suggestedRole(person) || {}).label || '').toLowerCase(),
+        efficiency: isDirector ? () => 0 : (person) => Utils.num(person && person.effectiveness && person.effectiveness.total, Utils.num(person && (person.efficiency || person.employeeEfficiency), 0)),
         suggestedWage: isDirector || isPastStaff ? () => 0 : (person) => Wages.breakdown(person, UI.state).suggested,
         contract: (person) => String(person.contractType || '').toLowerCase(),
         str: isDirector ? () => 0 : (person) => countersFor(person).str,
@@ -8325,7 +8552,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         lastAction: (person) => Utils.int(person.lastActionTimestamp, 0)
       }, 'name', 'asc');
       return `<div class="pp-wrap ${activeSubtab === 'past' && !isDirector ? 'pp-past-scroll' : ''}"><table class="pp-table pp-people-table">
-        <thead><tr><th>#</th><th>${UI.tableSortHeader(tableId, 'name', 'Name')}</th><th>${UI.tableSortHeader(tableId, 'role', 'Role')}</th>${isDirector ? `<th>${UI.tableSortHeader(tableId, 'dates', 'Dates')}</th><th>${UI.tableSortHeader(tableId, 'days', 'Days')}</th><th>${UI.tableSortHeader(tableId, 'source', 'Source')}</th><th>Edit</th>` : `${isPastStaff ? '' : `<th>${UI.tableSortHeader(tableId, 'suggested', 'Suggested')}</th><th>${UI.tableSortHeader(tableId, 'contract', 'Contract')}</th><th>${UI.tableSortHeader(tableId, 'suggestedWage', 'Suggested wage')}</th>`}<th title="Sponsored Trains Received">${UI.tableSortHeader(tableId, 'str', 'STR')}</th><th title="Paid Trains Received">${UI.tableSortHeader(tableId, 'ptr', 'PTR')}</th><th title="Paid Trains">${UI.tableSortHeader(tableId, 'pt', 'PT')}</th><th>${UI.tableSortHeader(tableId, 'dates', 'Dates')}</th><th>${UI.tableSortHeader(tableId, 'days', 'Days')}</th>${isPastStaff ? '' : `<th>${UI.tableSortHeader(tableId, 'lastAction', 'Last action')}</th>`}<th>Edit</th>`}</tr></thead>
+        <thead><tr><th>#</th><th>${UI.tableSortHeader(tableId, 'name', 'Name')}</th><th>${UI.tableSortHeader(tableId, 'role', 'Role')}</th>${isDirector ? `<th>${UI.tableSortHeader(tableId, 'dates', 'Dates')}</th><th>${UI.tableSortHeader(tableId, 'days', 'Days')}</th><th>${UI.tableSortHeader(tableId, 'source', 'Source')}</th><th>Edit</th>` : `${isPastStaff ? '' : `<th>${UI.tableSortHeader(tableId, 'suggested', 'Suggested')}</th><th>${UI.tableSortHeader(tableId, 'efficiency', 'Efficiency')}</th><th>${UI.tableSortHeader(tableId, 'contract', 'Contract')}</th><th>${UI.tableSortHeader(tableId, 'suggestedWage', 'Suggested wage')}</th>`}<th title="Sponsored Trains Received">${UI.tableSortHeader(tableId, 'str', 'STR')}</th><th title="Paid Trains Received">${UI.tableSortHeader(tableId, 'ptr', 'PTR')}</th><th title="Paid Trains">${UI.tableSortHeader(tableId, 'pt', 'PT')}</th><th>${UI.tableSortHeader(tableId, 'dates', 'Dates')}</th><th>${UI.tableSortHeader(tableId, 'days', 'Days')}</th>${isPastStaff ? '' : `<th>${UI.tableSortHeader(tableId, 'lastAction', 'Last action')}</th>`}<th>Edit</th>`}</tr></thead>
         <tbody>${sorted.map((person, index) => {
           const roleName = isDirector ? (person.role || 'Director') : (person.role || 'Employee');
           const roleColor = UI.roleColor(roleName);
@@ -8341,7 +8568,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
             <td>${UI.directorDates(person)}</td>
             <td>${Utils.esc(UI.directorTenureDays(person) || '')}</td>
             <td>${Utils.esc(person.source || '')}</td>
-            <td><button class="pp-btn" type="button" data-action="edit-director" data-director-key="${Utils.esc(personKey)}">Edit</button></td>` : `${isPastStaff ? '' : `<td>${UI.suggestedRolePill(person)}</td><td><span class="pp-pill" style="--pill-color:${contractColor}">${Utils.esc(UI.contractLabel(person.contractType))}</span></td><td>${UI.personSuggestedWageView(wageBreakdown)}</td>`}
+            <td><button class="pp-btn" type="button" data-action="edit-director" data-director-key="${Utils.esc(personKey)}">Edit</button></td>` : `${isPastStaff ? '' : `<td>${UI.suggestedRolePill(person)}</td><td>${UI.personEfficiencyView(person)}</td><td><span class="pp-pill" style="--pill-color:${contractColor}">${Utils.esc(UI.contractLabel(person.contractType))}</span></td><td>${UI.personSuggestedWageView(wageBreakdown)}</td>`}
             <td title="Sponsored Trains Received">${counters.str}</td>
             <td title="Paid Trains Received">${counters.ptr}</td>
             <td title="Paid Trains">${counters.pt}</td>
@@ -8788,7 +9015,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
     },
     personEfficiencyView(person, align) {
       const effectiveness = person && person.effectiveness ? person.effectiveness : null;
-      const total = Utils.num(effectiveness && effectiveness.total, Utils.num(person && person.efficiency, 0));
+      const total = Utils.num(effectiveness && effectiveness.total, Utils.num(person && (person.efficiency || person.employeeEfficiency), 0));
       if (!total) return '<span class="pp-note">Not detected</span>';
       const tooltip = effectiveness ? UI.effectivenessTooltip(effectiveness) : '';
       const attrs = tooltip ? ` tabindex="0" data-tooltip-html="${Utils.esc(tooltip)}"` : '';
@@ -9112,12 +9339,14 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
             <label class="pp-field"><span class="pp-note">Trainer role</span><span><input type="checkbox" name="trainerAutoDetect" ${state.settings.trainerAutoDetect !== false ? 'checked' : ''}> Auto-Detect</span></label>
             <div class="pp-field span-6"><span class="pp-note">Detected setup: company rating comes from profile sync and Trainer comes from staff sync when Auto-Detect is enabled. Current trainer bonus: ${state.settings.trainerAssigned ? 'yes' : 'no'}.</span></div>
             <div class="pp-form-title">Auto mode priority</div>
-            ${UI.field('Queue standard', UI.plannerQueuePolicySelect(), 'span-2 pp-compact-field')}
-            <label class="pp-field"><span class="pp-note">Paid orders first</span><span><input type="checkbox" name="plannerPaidFirst" ${state.settings.plannerPriority && state.settings.plannerPriority.paidFirst !== false ? 'checked' : ''}> Enabled</span></label>
-            <label class="pp-field"><span class="pp-note">Addiction penalty</span><span><input type="checkbox" name="plannerAddictionEnabled" ${state.settings.plannerPriority && state.settings.plannerPriority.addictionEnabled !== false ? 'checked' : ''}> Enabled</span></label>
-            ${UI.field('Addiction weight', `<input class="pp-input" name="plannerAddictionWeight" inputmode="decimal" value="${Utils.esc(state.settings.plannerPriority && state.settings.plannerPriority.addictionWeight || 1)}">`, 'pp-compact-field')}
-            <label class="pp-field"><span class="pp-note">Inactivity penalty</span><span><input type="checkbox" name="plannerInactivityEnabled" ${state.settings.plannerPriority && state.settings.plannerPriority.inactivityEnabled !== false ? 'checked' : ''}> Enabled</span></label>
-            ${UI.field('Inactivity weight', `<input class="pp-input" name="plannerInactivityWeight" inputmode="decimal" value="${Utils.esc(state.settings.plannerPriority && state.settings.plannerPriority.inactivityWeight || 1)}">`, 'pp-compact-field')}
+            <div class="pp-priority-grid">
+              ${UI.field('Queue standard', UI.plannerQueuePolicySelect(), 'pp-compact-field')}
+              <label class="pp-field"><span class="pp-note">Paid orders first</span><span><input type="checkbox" name="plannerPaidFirst" ${state.settings.plannerPriority && state.settings.plannerPriority.paidFirst !== false ? 'checked' : ''}> Enabled</span></label>
+              ${UI.field('Addiction weight', `<input class="pp-input" name="plannerAddictionWeight" inputmode="decimal" value="${Utils.esc(state.settings.plannerPriority && state.settings.plannerPriority.addictionWeight || 1)}">`, 'pp-compact-field')}
+              <label class="pp-field"><span class="pp-note">Addiction penalty</span><span><input type="checkbox" name="plannerAddictionEnabled" ${state.settings.plannerPriority && state.settings.plannerPriority.addictionEnabled !== false ? 'checked' : ''}> Enabled</span></label>
+              ${UI.field('Inactivity weight', `<input class="pp-input" name="plannerInactivityWeight" inputmode="decimal" value="${Utils.esc(state.settings.plannerPriority && state.settings.plannerPriority.inactivityWeight || 1)}">`, 'pp-compact-field')}
+              <label class="pp-field"><span class="pp-note">Inactivity penalty</span><span><input type="checkbox" name="plannerInactivityEnabled" ${state.settings.plannerPriority && state.settings.plannerPriority.inactivityEnabled !== false ? 'checked' : ''}> Enabled</span></label>
+            </div>
             <div class="pp-field span-6"><span class="pp-note">Paid orders first prioritizes paid staff with remaining trains. Queue standard controls sponsored/free capacity: director-selected slots, full rotation, lower stats, assigned-role catch-up, or role need. Addiction and inactivity can still lower priority.</span></div>
           </form>
         </div>
@@ -9132,16 +9361,19 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
             <h3>Discount rules</h3>
             <p>Training-order discount logic and the message trigger used for log imports.</p>
           </div>
+          <label class="pp-title-switch"><input type="checkbox" form="pp-discount-settings" name="discountsEnabled" ${state.settings.discountsEnabled !== false ? 'checked' : ''}> Discount rules</label>
         </div>
         <div class="pp-content">
-          <form data-settings-form class="pp-form">
-            <label class="pp-field span-2"><span class="pp-note">Discount rules</span><span><input type="checkbox" name="discountsEnabled" ${state.settings.discountsEnabled !== false ? 'checked' : ''}> Enabled</span></label>
-            ${UI.field('Merit discount % / merit', `<input class="pp-input" name="meritDiscountRate" inputmode="decimal" value="${Utils.esc(state.settings.meritDiscountRate)}">`)}
-            ${UI.field('Max merit discount %', `<input class="pp-input" name="maxMeritDiscount" inputmode="decimal" value="${Utils.esc(state.settings.maxMeritDiscount)}">`)}
-            ${UI.field('Loyalty max %', `<div class="pp-row-actions"><input class="pp-input pp-fit" name="loyaltyMaxDiscount" inputmode="decimal" value="${Utils.esc(state.settings.loyaltyMaxDiscount)}"><button class="pp-btn" type="button" data-action="add-loyalty-tier">Add loyalty tier</button></div>`, 'span-2')}
-            ${UI.field('Promo discount %', `<select class="pp-select" name="globalPromoDiscount"><option value="0" ${state.settings.globalPromoDiscount == 0 ? 'selected' : ''}>0%</option><option value="25" ${state.settings.globalPromoDiscount == 25 ? 'selected' : ''}>25%</option><option value="50" ${state.settings.globalPromoDiscount == 50 ? 'selected' : ''}>50%</option></select>`)}
-            ${UI.field('Total discount cap %', `<input class="pp-input" name="maxTotalDiscount" inputmode="decimal" value="${Utils.esc(state.settings.maxTotalDiscount)}">`)}
+          <form id="pp-discount-settings" data-settings-form class="pp-form">
+            <div class="pp-discount-row">
+              ${UI.field('Merit % / merit', `<input class="pp-input" name="meritDiscountRate" inputmode="decimal" value="${Utils.esc(state.settings.meritDiscountRate)}">`)}
+              ${UI.field('Max merit %', `<input class="pp-input" name="maxMeritDiscount" inputmode="decimal" value="${Utils.esc(state.settings.maxMeritDiscount)}">`)}
+              ${UI.field('Loyalty max %', `<input class="pp-input" name="loyaltyMaxDiscount" inputmode="decimal" value="${Utils.esc(state.settings.loyaltyMaxDiscount)}">`)}
+              ${UI.field('Promo %', `<select class="pp-select" name="globalPromoDiscount"><option value="0" ${state.settings.globalPromoDiscount == 0 ? 'selected' : ''}>0%</option><option value="25" ${state.settings.globalPromoDiscount == 25 ? 'selected' : ''}>25%</option><option value="50" ${state.settings.globalPromoDiscount == 50 ? 'selected' : ''}>50%</option></select>`)}
+              ${UI.field('Total cap %', `<input class="pp-input" name="maxTotalDiscount" inputmode="decimal" value="${Utils.esc(state.settings.maxTotalDiscount)}">`)}
+            </div>
             ${UI.loyaltyTierBuilder(state.settings.loyaltyTiers)}
+            <div class="pp-field span-6"><div class="pp-row-actions"><button class="pp-btn" type="button" data-action="add-loyalty-tier">Add loyalty tier</button></div></div>
             <div class="pp-form-title">Log trigger</div>
             ${UI.field('Trigger text', `<input class="pp-input" name="logTrigger" value="${Utils.esc(state.settings.logTrigger || '!train')}" placeholder="!train">`, 'span-2 pp-compact-field')}
             <div class="pp-field span-4"><span class="pp-note">Import from log scans the latest 100 matching Torn log rows and imports only rows containing this trigger.</span></div>
@@ -9392,16 +9624,25 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         </div>
         <div class="pp-content">
           <form data-notifications-form class="pp-form">
-            <div class="pp-form-title">Warnings</div>
-            <label class="pp-field span-2"><span>Low stock</span><span><input type="checkbox" name="notifyStock" ${settings.stock.enabled ? 'checked' : ''}> Enabled</span></label>
-            <label class="pp-field span-2"><span>Addiction watch</span><span><input type="checkbox" name="notifyAddiction" ${settings.addiction.enabled ? 'checked' : ''}> Enabled</span></label>
-            ${UI.field('Addiction threshold', `<input class="pp-input" name="notifyAddictionThreshold" inputmode="decimal" value="${Utils.esc(settings.addiction.threshold)}">`, 'span-2')}
-            <label class="pp-field span-2"><span>Inactivity watch</span><span><input type="checkbox" name="notifyInactivity" ${settings.inactivity.enabled ? 'checked' : ''}> Enabled</span></label>
-            ${UI.field('Inactive days threshold', `<input class="pp-input" name="notifyInactiveDays" inputmode="numeric" value="${Utils.esc(settings.inactivity.thresholdDays)}">`, 'span-2')}
-            <label class="pp-field span-2"><span>Sync freshness</span><span><input type="checkbox" name="notifySync" ${settings.sync.enabled ? 'checked' : ''}> Enabled</span></label>
-            ${UI.field('Sync warning hours', `<input class="pp-input" name="notifySyncWarnHours" inputmode="numeric" value="${Utils.esc(settings.sync.warnHours)}">`, 'span-2')}
-            ${UI.field('Sync danger hours', `<input class="pp-input" name="notifySyncDangerHours" inputmode="numeric" value="${Utils.esc(settings.sync.dangerHours)}">`, 'span-2')}
-            <div class="pp-field span-6"><span class="pp-note">Low stock still uses each service row's own warning threshold. Sync freshness changes the colour of sync buttons as well as the alert strip.</span></div>
+            <div class="pp-notification-grid">
+              <div class="pp-notification-rule">
+                ${UI.field('Low-stock threshold %', `<input class="pp-input" name="notifyStockThreshold" inputmode="numeric" value="${Utils.esc(settings.stock.thresholdPercent)}">`)}
+                <label class="pp-notification-switch"><span>Low stock</span><span><input type="checkbox" name="notifyStock" ${settings.stock.enabled ? 'checked' : ''}> Enabled</span></label>
+              </div>
+              <div class="pp-notification-rule">
+                ${UI.field('Addiction threshold', `<input class="pp-input" name="notifyAddictionThreshold" inputmode="decimal" value="${Utils.esc(settings.addiction.threshold)}">`)}
+                <label class="pp-notification-switch"><span>Addiction watch</span><span><input type="checkbox" name="notifyAddiction" ${settings.addiction.enabled ? 'checked' : ''}> Enabled</span></label>
+              </div>
+              <div class="pp-notification-rule">
+                ${UI.field('Inactive days', `<input class="pp-input" name="notifyInactiveDays" inputmode="numeric" value="${Utils.esc(settings.inactivity.thresholdDays)}">`)}
+                <label class="pp-notification-switch"><span>Inactivity watch</span><span><input type="checkbox" name="notifyInactivity" ${settings.inactivity.enabled ? 'checked' : ''}> Enabled</span></label>
+              </div>
+              <div class="pp-notification-rule">
+                ${UI.field('Warn / danger hours', `<div class="pp-row-actions"><input class="pp-input" name="notifySyncWarnHours" inputmode="numeric" value="${Utils.esc(settings.sync.warnHours)}" title="Warning hours"><input class="pp-input" name="notifySyncDangerHours" inputmode="numeric" value="${Utils.esc(settings.sync.dangerHours)}" title="Danger hours"></div>`)}
+                <label class="pp-notification-switch"><span>Sync freshness</span><span><input type="checkbox" name="notifySync" ${settings.sync.enabled ? 'checked' : ''}> Enabled</span></label>
+              </div>
+            </div>
+            <div class="pp-field span-6"><span class="pp-note">The low-stock percentage is the global warning floor; quantity-mode service thresholds remain exact. Sync freshness also colours sync buttons and the alert strip.</span></div>
           </form>
         </div>
       </section>`;
@@ -9752,16 +9993,22 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
     },
     reportRowsForApi(rows) {
       const byDate = new Map();
+      const costsByDate = new Map(UI.operatingCostHistoryForApi().map((row) => [row.date, row]));
       (rows || []).forEach((row) => {
         const reportDate = Utils.dateInput(row.reportDate || row.date) || Utils.dayKey(row.timestamp);
         const customers = Utils.int(row.customers, 0);
         const income = Utils.int(row.income || row.grossIncome, 0);
         if (!reportDate || (!customers && !income)) return;
+        const costs = costsByDate.get(reportDate) || {};
         byDate.set(reportDate, {
           reportDate,
           timestamp: Utils.int(row.timestamp, 0) || Utils.dateTimestamp(reportDate),
           customers,
-          income
+          income,
+          wages: costs.wagesKnown ? Utils.num(costs.wages, 0) : undefined,
+          wageTotal: costs.wagesKnown ? Utils.num(costs.wages, 0) : undefined,
+          adBudget: costs.adBudgetKnown ? Utils.num(costs.adBudget, 0) : undefined,
+          advertisingBudget: costs.adBudgetKnown ? Utils.num(costs.adBudget, 0) : undefined
         });
       });
       return Array.from(byDate.values()).sort((a, b) => String(b.reportDate).localeCompare(String(a.reportDate)));
@@ -9992,6 +10239,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
       }
     },
     businessPayloadForApi() {
+      UI.captureOperatingCostHistory('business-sync');
       const profile = UI.state.company.profile || {};
       const detailed = UI.state.company.detailed || {};
       const sanitized = Store.cloudState(UI.state);
@@ -10009,6 +10257,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         profile,
         detailed,
         adBudgetHistory: UI.adBudgetHistoryForApi(),
+        operatingCostHistory: UI.operatingCostHistoryForApi(),
         settings: sanitized.settings || {}
       };
     },
@@ -10034,7 +10283,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
       }
       if (parts.stock) {
         const stock = parts.stock === true ? UI.stockItemsForApi() : UI.stockItemsForApi(parts.stock);
-        if (Object.keys(stock).length) requests.push({ label: 'stock', path: '/sync/stock', payload: { stock, syncedAt: Utils.nowIso() }, timeout: 30000 });
+        if (Object.keys(stock).length) requests.push({ label: 'stock', path: '/sync/stock', payload: { stock, stockSettings: Store.normaliseStockSettings(UI.state.company.stockSettings || {}), syncedAt: Utils.nowIso() }, timeout: 30000 });
       }
       if (parts.events) {
         const events = Array.isArray(parts.events) ? parts.events : [];
@@ -10212,17 +10461,29 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
     statTotal(vector) {
       return Utils.num(vector && vector.man, 0) + Utils.num(vector && vector.int, 0) + Utils.num(vector && vector.end, 0);
     },
+    statShapeFit(stats, target) {
+      const statTotal = UI.statTotal(stats);
+      const targetTotal = UI.statTotal(target);
+      if (!statTotal || !targetTotal) return 0;
+      const statVector = [stats.man / statTotal, stats.int / statTotal, stats.end / statTotal];
+      const targetVector = [target.man / targetTotal, target.int / targetTotal, target.end / targetTotal];
+      const distance = statVector.reduce((sum, value, index) => sum + Math.abs(value - targetVector[index]), 0);
+      return Math.max(0, 1 - distance / 2) * 100;
+    },
     companyTemplateRoleSuggestion(person) {
-      const status = Planner.roleTemplateStatus(person, UI.state);
-      if (!status) return null;
-      const current = UI.roleKey(person && person.role) === UI.roleKey(status.label);
-      return {
-        key: UI.roleKey(status.label),
-        label: status.label,
-        source: status.source,
-        score: (status.shortage ? 2000 : 1000) + status.fit / 100000,
-        met: current && !status.shortage
+      const template = Planner.companyRoleTargets(UI.state);
+      const stats = UI.statVector(person);
+      if (!template || !UI.statTotal(stats)) return null;
+      const shapes = {
+        manager: { man: 25, int: 45, end: 30 },
+        receptionist: { man: 10, int: 60, end: 30 },
+        technician: { man: 45, int: 10, end: 45 }
       };
+      const candidates = Object.entries(template.roles).map(([key, role]) => {
+        const score = UI.statShapeFit(stats, shapes[key] || { man: 1, int: 1, end: 1 });
+        return { key, label: role.label, source: `${template.source}; individual MAN/INT/END fit`, score, met: UI.roleKey(person && person.role) === UI.roleKey(role.label) };
+      }).sort((a, b) => b.score - a.score || String(a.label).localeCompare(String(b.label)));
+      return candidates[0] || null;
     },
     roleRequirementSuggestion(person) {
       const stats = UI.statVector(person);
@@ -10234,14 +10495,13 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         const end = Utils.num(req.end, 0);
         const total = man + int + end;
         if (!total) return null;
-        const ratios = [
-          man ? Math.min(stats.man / man, 1) : 1,
-          int ? Math.min(stats.int / int, 1) : 1,
-          end ? Math.min(stats.end / end, 1) : 1
-        ];
-        const coverage = ratios.reduce((sum, value) => sum + value, 0) / ratios.length;
+        const target = { man, int, end };
+        const ratios = [man ? Math.min(stats.man / man, 1) : 1, int ? Math.min(stats.int / int, 1) : 1, end ? Math.min(stats.end / end, 1) : 1];
+        const coverage = ratios.reduce((sum, value) => sum + value, 0) / ratios.length * 100;
+        const shape = UI.statShapeFit(stats, target);
+        const scale = Math.min(UI.statTotal(stats) / total, total / Math.max(1, UI.statTotal(stats)), 1) * 100;
         const met = (!man || stats.man >= man) && (!int || stats.int >= int) && (!end || stats.end >= end);
-        return { key, label, source: 'role requirements', score: (met ? 1000 : 0) + coverage * 100 + total / 100000, met };
+        return { key, label, source: 'individual MAN/INT/END versus saved role requirements', score: shape * 0.6 + coverage * 0.3 + scale * 0.1, met };
       }).filter(Boolean);
       if (!candidates.length) return null;
       candidates.sort((a, b) => b.score - a.score || String(a.label).localeCompare(String(b.label)));
@@ -10284,7 +10544,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
       return candidates[0];
     },
     suggestedRole(person) {
-      return UI.companyTemplateRoleSuggestion(person) || UI.roleRequirementSuggestion(person) || UI.rolePoolSuggestion(person);
+      return UI.roleRequirementSuggestion(person) || UI.companyTemplateRoleSuggestion(person) || UI.rolePoolSuggestion(person);
     },
     suggestedRolePill(person) {
       const suggestion = UI.suggestedRole(person);
@@ -10428,7 +10688,6 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
           ${UI.kv('Staffroom', Utils.esc(detailed.staffroomSize || 'Not detected'))}
           ${UI.kv('Storage', UI.stockStorageLabel(detailed))}
           ${UI.kv('Company value', Utils.money(detailed.value))}
-          ${employees.length ? `<div class="pp-table-title"><span>Current employee effectiveness</span><span class="pp-note">${employees.length} row${employees.length === 1 ? '' : 's'}</span></div><div class="pp-wrap" style="margin-top:10px"><table class="pp-table pp-effectiveness-table"><thead><tr><th>#</th><th>${UI.profileSortHeader('name', 'Employee')}</th><th>${UI.profileSortHeader('role', 'Role')}</th><th>Suggested</th><th>${UI.profileSortHeader('daysInCompany', 'Days')}</th><th>${UI.profileSortHeader('effectiveness', 'Effectiveness')}</th><th>${UI.profileSortHeader('lastAction', 'Last action')}</th></tr></thead><tbody>${employees.map((person, index) => `<tr><td>${index + 1}</td><td>${Utils.esc(person.name)}</td><td>${Utils.esc(person.role)}</td><td>${UI.suggestedRolePill(person)}</td><td>${Utils.esc(person.daysInCompany)}</td><td>${person.effectiveness && person.effectiveness.total ? `<span class="pp-effectiveness-tip" tabindex="0" data-tooltip-html="${Utils.esc(UI.effectivenessTooltip(person.effectiveness))}">${Utils.esc(person.effectiveness.total)}</span>` : 'Not detected'}</td><td>${Utils.esc(person.lastAction || 'Not detected')}</td></tr>`).join('')}</tbody></table></div>` : '<div class="pp-empty" style="margin-top:10px">No non-director profile employees synced yet.</div>'}
         </div>
       </section>`;
     },
@@ -10563,6 +10822,10 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         <div class="pp-content">
           <div class="pp-changelog">
             <details open>
+              <summary>v2.9.8 - Persistence and operations polish</summary>
+              <ul><li>Major changes: Wage, stock, collapsed-panel, and Daily/Weekly graph preferences now persist across fast navigation and refreshes.</li><li>Major changes: Legacy news duplicates and bracketed zero advertising-budget rows are repaired, while dated wages and advertising totals are included in database sync payloads.</li><li>Major changes: Staff efficiency, stat-based role suggestions, available-train queues, training-order status sync, and the requested Settings/Timeline visual layouts were reworked.</li></ul>
+            </details>
+            <details>
               <summary>v2.9.7 - Training queue standards</summary>
               <ul><li>Major changes: Training setup now includes a Queue standard controller for Director chooses, Full staff rotation, Lower stats first, Closest under assigned role, and Role need first.</li><li>Major changes: Full staff rotation now cycles eligible sponsored/free staff across generated days before repeating the same people, while paid staff with remaining trains stay prioritized by default.</li><li>Major changes: Build calendar now saves the generated active queue into planner state, local planner cache, and the cloud workspace mirror path.</li></ul>
             </details>
@@ -10796,6 +11059,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
       if (control.closest('[data-ledger-form],[data-planner-field],[data-planner-manual],[data-ui-field],[data-ui-check],[data-report-section],[data-graph-series]')) return '';
       if (control.closest('[data-person-card]')) return 'person';
       if (control.closest('[data-stock-form]')) return 'stock';
+      if (control.matches('[form="pp-discount-settings"]')) return 'settings';
       if (control.closest('[data-settings-form],[data-wage-form],[data-roles-form],[data-notifications-form],[data-theme-form]')) return 'settings';
       return '';
     },
@@ -10824,6 +11088,19 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         return;
       }
       if (target === 'settings') {
+        UI.saveSettings({ silent: true });
+      }
+    },
+    flushVisibleForms() {
+      clearTimeout(UI.autoSaveTimer);
+      const root = UI.currentRoot();
+      if (!root) return;
+      if (root.querySelector('[data-stock-form]')) {
+        UI.readStockSettings(root);
+        Store.updateSyncCache(UI.state, 'stock');
+        Store.saveStockLocalEdits(UI.state);
+      }
+      if (root.querySelector('[data-settings-form],[data-wage-form],[data-roles-form],[data-notifications-form],[data-theme-form]')) {
         UI.saveSettings({ silent: true });
       }
     },
@@ -10926,7 +11203,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
       }
 
       const tab = event.target.closest('[data-tab]');
-      if (tab) { UI.state.ui.tab = tab.dataset.tab; UI.saveRender(); return; }
+      if (tab) { UI.flushVisibleForms(); UI.state.ui.tab = tab.dataset.tab; UI.saveRender(); return; }
 
       const subtab = event.target.closest('[data-subtab]');
       if (subtab) {
@@ -11001,7 +11278,6 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
       if (action === 'use-train') UI.useTrain(id);
       if (action === 'build-planner') UI.buildPlanner();
       if (action === 'reset-planner-day') UI.resetPlannerDay(button.dataset.day || '');
-      if (action === 'toggle-planner-queue') UI.togglePlannerQueue();
       if (action === 'start-training-queue') UI.startTrainingQueue();
       if (action === 'open-training-queue-page') UI.openTrainingQueuePage();
       if (action === 'open-stock-page') UI.openStockPage();
@@ -11096,8 +11372,14 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
       const stockField = event.target.closest('[data-stock-field]');
       if (stockField) {
         UI.readStockSettings(UI.currentRoot());
+        Store.saveStockLocalEdits(UI.state);
         Store.updateSyncCache(UI.state, 'stock');
         UI.scheduleAutoSave(stockField);
+      }
+      const wageForm = event.target.closest('[data-wage-form]');
+      if (wageForm) {
+        UI.readWageSettings(wageForm);
+        Store.saveProfile(UI.state);
       }
       if (event.target.closest('[data-theme-editor]')) UI.markThemeDirty(event.target.closest('[data-theme-form]'));
       if (event.target.closest('[data-date-format-input]')) UI.updateDatePreview(event.target.closest('[data-settings-form]'));
@@ -11124,8 +11406,14 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
       const stockField = event.target.closest('[data-stock-field]');
       if (stockField) {
         UI.readStockSettings(UI.currentRoot());
+        Store.saveStockLocalEdits(UI.state);
         Store.updateSyncCache(UI.state, 'stock');
         UI.scheduleAutoSave(event.target, { delay: 100 });
+      }
+      const wageForm = event.target.closest('[data-wage-form]');
+      if (wageForm) {
+        UI.readWageSettings(wageForm);
+        Store.saveProfile(UI.state);
       }
       if (event.target.closest('[data-report-section]')) UI.readReportSections(UI.currentRoot());
       const staffPicker = event.target.closest('[data-staff-picker]');
@@ -11639,11 +11927,6 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
       Store.updateSyncCache(UI.state, 'planner');
       Store.save(UI.state);
       UI.saveRender(`Reset queue for ${date}.`);
-    },
-
-    togglePlannerQueue() {
-      UI.state.ui.plannerQueueHidden = !UI.state.ui.plannerQueueHidden;
-      UI.saveRender();
     },
 
     trainingPageUrl() {
@@ -12369,6 +12652,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         const logs = Ledger.syncTrainingLog(UI.state);
         UI.syncStep(syncId, 'Rebuilding train schedule.', 60);
         Planner.build(UI.state);
+        UI.captureOperatingCostHistory('training-log-sync');
         const stored = (UI.state.trainingLog || []).length;
         Store.save(UI.state);
         Store.updateSyncCache(UI.state, ['news', 'trainingLog']);
@@ -12659,6 +12943,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         UI.state.analytics.weeks = Timeline.analyticsFromEvents(UI.state.staff.timeline, UI.state);
         Ledger.syncTrainingLog(UI.state);
         Planner.build(UI.state);
+        UI.captureOperatingCostHistory('news-sync');
         if (incoming.length) {
           const timestamps = incoming.map((event) => Utils.int(event.timestamp, 0)).filter(Boolean);
           if (timestamps.length) {
@@ -12854,6 +13139,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
       Company.syncTrainingSetup(UI.state);
       Ledger.syncTrainingLog(UI.state);
       Planner.build(UI.state);
+      UI.prepareTrainingQueue({ force: true });
       return { riskStrikes };
     },
 
@@ -12878,7 +13164,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         const result = UI.applyBusinessData(data) || {};
         const warnings = Company.stockWarnings(UI.state);
         Store.save(UI.state);
-        Store.updateSyncCache(UI.state, ['business', 'employees', 'stock']);
+        Store.updateSyncCache(UI.state, ['business', 'employees', 'stock', 'planner']);
         await UI.uploadSyncState(syncId, { business: true, staff: true, stock: true });
         const strikeText = result.riskStrikes ? ` ${result.riskStrikes} staff risk strike${result.riskStrikes === 1 ? '' : 's'} recorded.` : '';
         const message = warnings.length ? `Business synced. ${warnings.length} stock row${warnings.length === 1 ? '' : 's'} need attention.${strikeText}` : `Business Profile synced.${strikeText}`;
@@ -12997,6 +13283,27 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         percent: Utils.percent(row.querySelector('[data-loyalty-percent]') && row.querySelector('[data-loyalty-percent]').value, 0)
       })).filter((tier) => tier.min > 0 && tier.percent > 0);
       return tiers.length ? tiers.sort((a, b) => a.min - b.min) : Utils.clone(DEFAULTS.settings.loyaltyTiers);
+    },
+
+    readWageSettings(formOrRoot) {
+      const source = formOrRoot || UI.currentRoot();
+      const form = source && source.matches && source.matches('[data-wage-form]') ? source : source && source.querySelector && source.querySelector('[data-wage-form]');
+      if (!form) return;
+      const data = new FormData(form);
+      UI.state.settings.wage = UI.state.settings.wage || Utils.clone(DEFAULTS.settings.wage);
+      Object.keys(UI.state.settings.wage).forEach((key) => {
+        if (data.has(key)) UI.state.settings.wage[key] = Utils.num(data.get(key), UI.state.settings.wage[key]);
+      });
+      UI.state.settings.wageRoleRequirements = UI.state.settings.wageRoleRequirements || {};
+      Array.from(data.entries()).forEach(([key, value]) => {
+        if (!key.startsWith('wageRole:')) return;
+        const parts = key.split(':');
+        const roleKey = parts[1];
+        const stat = parts[2];
+        if (!roleKey || !['man', 'int', 'end'].includes(stat)) return;
+        UI.state.settings.wageRoleRequirements[roleKey] = UI.state.settings.wageRoleRequirements[roleKey] || {};
+        UI.state.settings.wageRoleRequirements[roleKey][stat] = Math.max(0, Utils.num(value, 0));
+      });
     },
 
     readStockSettings(root) {
@@ -13136,7 +13443,10 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
       const warnHours = Math.max(1, Utils.num(data.get('notifySyncWarnHours'), current.sync.warnHours));
       const dangerHours = Math.max(warnHours, Utils.num(data.get('notifySyncDangerHours'), current.sync.dangerHours));
       UI.state.settings.notifications = {
-        stock: { enabled: form.notifyStock ? form.notifyStock.checked : current.stock.enabled },
+        stock: {
+          enabled: form.notifyStock ? form.notifyStock.checked : current.stock.enabled,
+          thresholdPercent: Utils.clamp(Utils.num(data.get('notifyStockThreshold'), current.stock.thresholdPercent), 1, 100)
+        },
         addiction: {
           enabled: form.notifyAddiction ? form.notifyAddiction.checked : current.addiction.enabled,
           threshold: Math.max(1, Utils.num(data.get('notifyAddictionThreshold'), current.addiction.threshold))
@@ -13384,17 +13694,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
       if (rolesForm) UI.readRoleManagement(root);
       UI.readThemeForm(root);
       if (wageForm) {
-        const data = new FormData(wageForm);
-        Object.keys(UI.state.settings.wage).forEach((key) => { UI.state.settings.wage[key] = Utils.num(data.get(key), UI.state.settings.wage[key]); });
-        UI.state.settings.wageRoleRequirements = UI.state.settings.wageRoleRequirements || {};
-        Array.from(data.entries()).forEach(([key, value]) => {
-          if (!key.startsWith('wageRole:')) return;
-          const parts = key.split(':');
-          const roleKey = parts[1];
-          const stat = parts[2];
-          UI.state.settings.wageRoleRequirements[roleKey] = UI.state.settings.wageRoleRequirements[roleKey] || {};
-          UI.state.settings.wageRoleRequirements[roleKey][stat] = Math.max(0, Utils.num(value, 0));
-        });
+        UI.readWageSettings(wageForm);
       }
       UI.readStockSettings(root);
       Store.applyAdminConfig(UI.state);
