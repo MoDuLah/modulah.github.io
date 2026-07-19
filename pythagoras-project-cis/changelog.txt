@@ -1,3 +1,13 @@
+## v2.9.8 (2026-07-19)
+
+### Miscellaneous
+
+- **Miscellaneous**: Release Pythagoras CIS v2.9.8
+- **Miscellaneous**: Release Pythagoras CIS v2.9.8
+- **Miscellaneous**: Update Pythagoras CIS site to v2.9.7
+- **Miscellaneous**: Release Pythagoras CIS v2.9.3
+
+
 # Pythagoras Project - CIS Changelog
 
 ## v2.9.8 - Persistence and operations polish
