@@ -1,5 +1,15 @@
 # Pythagoras Project - CIS Changelog
 
+## v2.9.8 - Persistence and operations polish
+
+- Wage-role and stock-management edits now persist immediately, with company-scoped local recovery for stock settings and GM-backed UI collapse preferences.
+- Timeline news is re-deduplicated during migration/cache restore, including exact legacy copies that carried different stored IDs.
+- Operating Balance defaults to Daily graphs, remembers the selected scale, repairs bracketed zero ad-budget history, and uploads dated wage/ad-budget totals with daily reports and business syncs.
+- Staff now owns the Efficiency column and stat-based suggested-role analysis; the duplicate employee-effectiveness table was removed from Business Profile.
+- Training Schedule now uses current Profile train availability up to the fixed 20 cap, allows repeated candidates when slots exceed the roster, and follows the configured Queue standard.
+- Training Schedule, Settings, notification rules, discount rules, training-order scrolling/sorting, fixed notifications, and equal-height Timeline cards received the requested layout pass.
+- Training-order Paid and Done states are normalized before database upload so derived on-screen status and stored status cannot diverge.
+
 ## v2.9.3 - Training news grouping fix
 
 - Grouped timeline training rows now collapse named employees only by their own identity, not by same-minute role/count fallback buckets.
