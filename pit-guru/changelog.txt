@@ -1,3 +1,13 @@
+## v2.3.0 (2026-07-20)
+
+- Finished replay/log pages now bootstrap racingData on their first visit, enabling analysis, Driver Intel, Player, and HTML export without a manual refresh.
+- Compact hosted replay storage now preserves race type, lap count, and timestamps.
+- Custom Records remains lap-specific even when its distance matches the official race, and Custom hides bare track names.
+- Track variants sort by numeric lap count from shortest to longest.
+- Missing race-time RS falls back to the saved driver profile instead of displaying 0.00.
+- Detached Records header dragging now preserves the window size and no longer triggers runaway resizing.
+- Production remains PostgreSQL-backed; SQLite remains supported for local and rollback use.
+
 ## v2.2.9 (2026-07-19)
 
 ### Miscellaneous
