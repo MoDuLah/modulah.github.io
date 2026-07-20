@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         MoDuL's Pit Guru
 // @namespace    modul.torn.racing
-// @version      2.2.9
+// @version      2.3.0
 // @description  Live Torn race timing, gaps, sectors, speed and estimated telemetry analysis
 // @author       MoDuL
 // @copyright    2026 MoDuL. All rights reserved.
@@ -565,7 +565,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         return bigRaceSafeModeStatus_();
     };
 
-    const MPG_VERSION = "2.2.9";
+    const MPG_VERSION = "2.3.0";
     var TAG = "[MoDuL's Pit Guru v" + MPG_VERSION + "]";
 
     const PitGuruRaceEngine = (() => {
@@ -1194,6 +1194,9 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
     let raceDataDirectFetchAt = 0;
     let raceDataDirectFetchActive = false;
     let raceDataDirectFetchLastKey = "";
+    let replayBootstrapTimer = 0;
+    let replayBootstrapAttempts = 0;
+    let replayBootstrapRaceId = "";
     const raceDataCaptureSuppressedFetchOptions = new WeakSet();
     const raceDataPayloadCacheByRaceId = new Map();
     const raceDataInFlightByRaceId = new Map();
@@ -1257,7 +1260,14 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
     let directRacingDataParticipantsByName = new Map();
     let raceDataVisibleMatchCache = { key: "", at: 0, valid: false };
     let preRaceParticipantsKey = "";
-    let pgLocalTracksCache = { rows: [], recordTracks: { lap: [], race: [] }, fetchedAt: 0, loading: false, error: "" };
+    let pgLocalTracksCache = {
+        rows: [],
+        recordTracks: { lap: [], race: [] },
+        recordTracksByRaceType: { official: [], custom: [] },
+        fetchedAt: 0,
+        loading: false,
+        error: ""
+    };
     let pgLocalRecordsCache = { key: "", rows: [], fetchedAt: 0, loading: false, error: "" };
     let preRaceParticipantsScanAt = 0;
     let preRaceParticipantsScanRaceKey = "";
@@ -1267,6 +1277,8 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
     const driverIdLookupCache = new Map();
     let analysisHooked = false;
     let pageRaceDataBridgeInstalled = false;
+    let pageRaceDataBridgeListenerInstalled = false;
+    let pageRaceDataBridgeAttempts = 0;
     let clearedRaceDataKey = "";
     let raceCaptureRouteAllowedLast = null;
     let raceDataReceivedPerfMs = 0;
@@ -1385,6 +1397,10 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         driverIntelPoolStableAt = 0;
         raceDataDirectFetchAt = 0;
         raceDataDirectFetchLastKey = "";
+        clearTimeout(replayBootstrapTimer);
+        replayBootstrapTimer = 0;
+        replayBootstrapAttempts = 0;
+        replayBootstrapRaceId = "";
         preRaceSummaryReceivedPerfMs = 0;
         raceDataVisibleMatchCache = { key: "", at: 0, valid: false };
     }
@@ -1777,11 +1793,41 @@ self.onmessage=event=>{const id=event.data&&event.data.id;try{const root=JSON.pa
         }, 7500);
     }
 
+    function scheduleReplayRaceDataBootstrap_(reason = "replay-bootstrap") {
+        const raceId = isReplayPage_() ? urlRaceId_() : "";
+        if (!raceId || analysis?.drivers?.length) return false;
+        if (replayBootstrapRaceId !== raceId) {
+            clearTimeout(replayBootstrapTimer);
+            replayBootstrapTimer = 0;
+            replayBootstrapAttempts = 0;
+            replayBootstrapRaceId = raceId;
+        }
+        if (replayBootstrapTimer || replayBootstrapAttempts >= 10) return false;
+
+        const delay = replayBootstrapAttempts === 0
+            ? 100
+            : Math.min(3000, 500 + replayBootstrapAttempts * 350);
+        replayBootstrapTimer = setTimeout(async () => {
+            replayBootstrapTimer = 0;
+            if (!isReplayPage_() || urlRaceId_() !== raceId || analysis?.drivers?.length) return;
+            replayBootstrapAttempts += 1;
+            try {
+                await maybeFetchRacingDataForCurrentRace_(true);
+            } finally {
+                if (!analysis?.drivers?.length) scheduleReplayRaceDataBootstrap_(reason);
+            }
+        }, delay);
+        return true;
+    }
+
     function scheduleInitialRaceDataFetch_() {
-        const timeout = isReplayPage_() ? 1250 : 4500;
+        if (isReplayPage_()) {
+            scheduleReplayRaceDataBootstrap_("startup");
+            return;
+        }
         idleStartupWork_("startup.initialRaceDataFetch", () => {
             maybeFetchRacingDataForCurrentRace_(true);
-        }, timeout);
+        }, 4500);
     }
 
     function perfNow_() {
@@ -1980,7 +2026,14 @@ self.onmessage=event=>{const id=event.data&&event.data.id;try{const root=JSON.pa
         pgLocalRaceIntelCache = null;
         pgLocalTrackHistoryCache = { track: "", rows: [], fetchedAt: 0, loading: false, error: "" };
         pgLocalTrackHistoryCacheByTrack = {};
-        pgLocalTracksCache = { rows: [], recordTracks: { lap: [], race: [] }, fetchedAt: 0, loading: false, error: "" };
+        pgLocalTracksCache = {
+            rows: [],
+            recordTracks: { lap: [], race: [] },
+            recordTracksByRaceType: { official: [], custom: [] },
+            fetchedAt: 0,
+            loading: false,
+            error: ""
+        };
         pgLocalRecordsCache = { key: "", rows: [], fetchedAt: 0, loading: false, error: "" };
 
         latestRaceDataPayload = null;
@@ -2777,12 +2830,23 @@ self.onmessage=event=>{const id=event.data&&event.data.id;try{const root=JSON.pa
         return `${base} - ${lapCount} Laps`;
     }
 
-    function getRecordTrackScope_(mode, track) {
+    function normalizeRaceTypeValue_(value, fallback = "official") {
+        const normalized = String(value || "").trim().toLowerCase();
+        if (normalized === "custom") return "custom";
+        if (normalized === "official") return "official";
+        return fallback === "custom" ? "custom" : "official";
+    }
+
+    function getRecordTrackScope_(mode, track, raceType = "official") {
         const parsed = parseTrackLabel_(track);
         const baseTrack = parsed.baseTrack || stripTrackLapSuffix_(parsed.raw) || parsed.raw;
         if (!baseTrack) return "";
         if (mode === "lap") return baseTrack;
 
+        const normalizedRaceType = normalizeRaceTypeValue_(raceType);
+        if (normalizedRaceType === "custom") {
+            return parsed.lapCount == null ? baseTrack : formatRaceTrackLabel_(baseTrack, parsed.lapCount);
+        }
         const officialLaps = getOfficialLapCount_(baseTrack);
         if (parsed.lapCount == null) return baseTrack;
         if (officialLaps != null && parsed.lapCount === officialLaps) return baseTrack;
@@ -2792,14 +2856,17 @@ self.onmessage=event=>{const id=event.data&&event.data.id;try{const root=JSON.pa
     function getRecordTrackScopeFromRow_(row, fallbackMode) {
         if (!row) return "";
         const mode = String(row.mode || fallbackMode || "lap").trim() || "lap";
-        const scoped = normalizeTrackLabel_(row.trackKey || "");
-        if (scoped) return scoped;
-        return getRecordTrackScope_(mode, row.track || row.sourceTrack || "");
+        const raceType = getRecordRaceTypeFromRow_(row);
+        let scoped = normalizeTrackLabel_(row.trackKey || row.track || row.sourceTrack || "");
+        const rowLaps = Number(row.laps ?? row.lapCount ?? row.lap_count);
+        if (mode === "race" && raceType === "custom" && parseTrackLabel_(scoped).lapCount == null && Number.isFinite(rowLaps) && rowLaps > 0) {
+            scoped = formatRaceTrackLabel_(scoped, rowLaps);
+        }
+        return getRecordTrackScope_(mode, scoped, raceType);
     }
 
     function getRecordRaceTypeFromRow_(row) {
-        const value = String(row?.raceType || row?.race_type || row?.type || "").trim().toLowerCase();
-        return value === "custom" ? "custom" : "official";
+        return normalizeRaceTypeValue_(row?.raceType || row?.race_type || row?.type || "");
     }
 
     function recordBucketKey_(row, fallbackMode) {
@@ -2872,7 +2939,7 @@ self.onmessage=event=>{const id=event.data&&event.data.id;try{const root=JSON.pa
             const rowMode = String(row.mode || wantedMode || "lap").trim().toLowerCase();
             if (wantedMode && rowMode !== wantedMode) continue;
             if (rowMode !== "lap" && rowMode !== "race") continue;
-            const track = getRecordTrackScopeFromRow_(row, rowMode) || getRecordTrackScope_(rowMode, fallbackTrack) || normalizeTrackLabel_(fallbackTrack);
+            const track = getRecordTrackScopeFromRow_(row, rowMode) || getRecordTrackScope_(rowMode, fallbackTrack, fallbackRaceType) || normalizeTrackLabel_(fallbackTrack);
             const car = toOgCarName_(row.car || "").trim();
             const ms = recordMsValue_(row);
             if (!track || !car || !ms) continue;
@@ -2892,6 +2959,27 @@ self.onmessage=event=>{const id=event.data&&event.data.id;try{const root=JSON.pa
         const rowId = String(row.driverId || row.driver_id || "").trim();
         const rowName = normalizeDriverName_(row.driverName || row.driver_name || "");
         return (!!id && rowId === id) || (!!name && rowName === name);
+    }
+
+    function recordDisplayRacingSkill_(row) {
+        const positive = value => {
+            const n = Number(value);
+            return Number.isFinite(n) && n > 0 ? n : null;
+        };
+        const stored = positive(row?.racingSkill ?? row?.racing_skill);
+        if (stored != null) return stored;
+        const rowId = String(row?.driverId || row?.driver_id || "").trim();
+        const rowName = normalizeDriverName_(row?.driverName || row?.driver_name || "");
+        const modelDriver = (analysis?.drivers || []).find(driver => {
+            const driverId = String(driver?.driverId || "").trim();
+            return (rowId && driverId === rowId) || (rowName && normalizeDriverName_(driver?.name || "") === rowName);
+        });
+        for (const value of [modelDriver?.racingSkill, modelDriver?.driverIntel?.racingSkill]) {
+            const resolved = positive(value);
+            if (resolved != null) return resolved;
+        }
+        const intel = getCachedDriverIntel_(rowId, 24 * 7) || getCachedDriverIntelByName_(row?.driverName || row?.driver_name || "", 24 * 7);
+        return positive(intel?.racingSkill);
     }
 
     function currentRecordsFetchOptions_() {
@@ -4111,10 +4199,14 @@ self.onmessage=event=>{const id=event.data&&event.data.id;try{const root=JSON.pa
             carInfo,
             logData: {}
         };
-        for (const key of ["ID", "raceID", "raceId", "trackTitle"]) {
+        for (const key of [
+            "ID", "raceID", "raceId", "trackTitle", "title", "type", "laps",
+            "timeStarted", "TimeStarted", "timeEnded", "TimeEnded", "timeCreated", "TimeCreated",
+            "carsAllowed", "carsTypeAllowed", "betAmount", "currentDrivers", "userID"
+        ]) {
             if (logData?.[key] != null) compact.logData[key] = logData[key];
         }
-        for (const key of ["imageID", "imageId", "title", "trackName", "track"]) {
+        for (const key of ["imageID", "imageId", "title", "trackName", "track", "type", "raceType", "race_type"]) {
             if (p?.[key] != null) compact[key] = p[key];
         }
         return compact;
@@ -4939,7 +5031,9 @@ self.onmessage=event=>{const id=event.data&&event.data.id;try{const root=JSON.pa
                 carData: obj.raceData.carData ?? obj.carData,
                 logData: obj.raceData.logData ?? obj.logData,
                 trackID: obj.raceData.trackID ?? obj.trackID,
-                info: obj.raceData.info ?? obj.info
+                info: obj.raceData.info ?? obj.info,
+                type: obj.raceData.type ?? obj.type,
+                raceType: obj.raceData.raceType ?? obj.raceType ?? obj.race_type
             });
         }
         for (const k of Object.keys(obj).slice(0, 80)) {
@@ -5375,7 +5469,7 @@ self.onmessage=event=>{const id=event.data&&event.data.id;try{const root=JSON.pa
             endedIso,
             createdIso: toIsoFromAt_(log.TimeCreated || log.timeCreated || "") || "",
             name: log.title || p.name || "",
-            type: log.type || p.type || "",
+            type: log.type || p.type || p.raceType || p.race_type || "",
             carsAllowed: log.carsAllowed || p.cars_allowed || p.carsAllowed || "",
             upgradesAllowed: log.carsTypeAllowed || p.upgrades_allowed || p.upgradesAllowed || "",
             betAmount: log.betAmount ?? p.bet_amount ?? p.betAmount ?? "",
@@ -5458,29 +5552,33 @@ self.onmessage=event=>{const id=event.data&&event.data.id;try{const root=JSON.pa
 
     function installPageRaceDataBridge_() {
         if (pageRaceDataBridgeInstalled) return;
-        pageRaceDataBridgeInstalled = true;
         const eventName = "mpg-pit-guru-racedata";
-        document.addEventListener(eventName, ev => {
-            try {
-                if (!isRaceCaptureRoute_()) return;
-                const detail = JSON.parse(String(ev.detail || "{}"));
-                if (detail?.summary) {
-                    if (preRaceSummaryStats.timingAccepted) return;
-                    applyPreRaceSummary_(detail.summary, detail.source || "page-pre-race");
-                    return;
-                }
-                if (detail?.data) {
-                    if (preRaceSummaryStats.timingAccepted && isEmptyRaceIdRacingDataUrl_(detail.url || "")) return;
-                    maybeAcceptRaceDataPayload_(detail.data, detail.source || "page", detail.url || "");
-                }
-            } catch {}
-        });
+        if (!pageRaceDataBridgeListenerInstalled) {
+            pageRaceDataBridgeListenerInstalled = true;
+            document.addEventListener(eventName, ev => {
+                try {
+                    if (!isRaceCaptureRoute_()) return;
+                    const detail = JSON.parse(String(ev.detail || "{}"));
+                    if (detail?.summary) {
+                        if (preRaceSummaryStats.timingAccepted) return;
+                        applyPreRaceSummary_(detail.summary, detail.source || "page-pre-race");
+                        return;
+                    }
+                    if (detail?.data) {
+                        if (preRaceSummaryStats.timingAccepted && isEmptyRaceIdRacingDataUrl_(detail.url || "")) return;
+                        maybeAcceptRaceDataPayload_(detail.data, detail.source || "page", detail.url || "");
+                    }
+                } catch {}
+            });
+        }
         try {
             const script = document.createElement("script");
             const nonceEl = document.querySelector("script[nonce],[nonce]");
             const nonce = String(nonceEl?.nonce || nonceEl?.getAttribute?.("nonce") || "").trim();
             if (!nonce) {
                 if (debugEnabled) console.warn(TAG, "page raceData bridge skipped: Torn page nonce not found");
+                pageRaceDataBridgeAttempts += 1;
+                if (pageRaceDataBridgeAttempts < 20) setTimeout(installPageRaceDataBridge_, 100);
                 return;
             }
             script.nonce = nonce;
@@ -5652,6 +5750,7 @@ self.onmessage=event=>{const id=event.data&&event.data.id;try{const root=JSON.pa
             })();`;
             (document.documentElement || document.head || document.body)?.appendChild(script);
             script.remove();
+            pageRaceDataBridgeInstalled = true;
         } catch {}
     }
 
@@ -6849,6 +6948,31 @@ self.onmessage=event=>{const id=event.data&&event.data.id;try{const root=JSON.pa
         };
     }
 
+    function raceTypeFromPayloadOrMeta_(payload, fallback = "official") {
+        const p = payload || {};
+        const log = extractRaceLogData_(p);
+        const candidates = [
+            log.type,
+            p.type,
+            p.raceType,
+            p.race_type,
+            p.raceData?.type,
+            p.raceData?.raceType,
+            p.raceData?.race_type,
+            raceMeta?.replayInfo?.type,
+            raceMeta?.type
+        ];
+        for (const candidate of candidates) {
+            const value = String(candidate || "").trim().toLowerCase();
+            if (value === "custom" || value === "official") return value;
+        }
+        try {
+            const visibleType = String(tornRacePanelText_() || "").match(/\bType\s*:?\s*(Custom|Official)\b/i)?.[1];
+            if (visibleType) return normalizeRaceTypeValue_(visibleType, fallback);
+        } catch { }
+        return normalizeRaceTypeValue_(fallback);
+    }
+
     function buildAggregateWorkerSource_() {
         return `"use strict";
 const finite=value=>{const n=Number(value);return Number.isFinite(n)?n:0;};
@@ -7077,10 +7201,9 @@ self.onmessage=event=>{try{self.postMessage({ok:true,result:aggregate(event.data
                 ensureRecordsLoaded_("updateRecordsFromAnalysis");
                 const sourceTrack = analysis.trackName || "UnknownTrack";
                 const lapTrack = getRecordTrackScope_("lap", sourceTrack) || "UnknownTrack";
-                const raceTrack = getRecordTrackScope_("race", formatRaceTrackLabel_(sourceTrack, analysis.laps)) || "UnknownTrack";
                 const atIso = raceMeta?.detectedAtIso || nowIso_();
-                const meta = raceMetaFromPayload_(analysis.payload || {}, false);
-                const raceType = String(meta.type || raceMeta?.replayInfo?.type || "Official").toLowerCase() === "custom" ? "custom" : "official";
+                const raceType = raceTypeFromPayloadOrMeta_(analysis.payload || {}, "official");
+                const raceTrack = getRecordTrackScope_("race", formatRaceTrackLabel_(sourceTrack, analysis.laps), raceType) || "UnknownTrack";
                 const analysisDriverNames = new Set(analysis.drivers.map(d => normalizeDriverName_(d.name)).filter(Boolean));
                 records = records.filter(r => {
                     if (!r || (r.mode !== "lap" && r.mode !== "race")) return true;
@@ -7097,13 +7220,13 @@ self.onmessage=event=>{try{self.postMessage({ok:true,result:aggregate(event.data
                     const car = toOgCarName_(d.car);
                     if (d.bestLapSeconds && car) {
                         const id = makeRecId_("lap", lapTrack, car, `${atIso}_${d.name}`);
-                        const candidate = { id, track: lapTrack, trackKey: lapTrack, trackLabel: lapTrack, sourceTrack, mode: "lap", raceType, car, carImg: d.carImg, driverName: d.name, driverId: d.driverId, racingSkill: d.racingSkill, raceId, timeText: formatTimeSeconds_(d.bestLapSeconds), ms: Math.round(d.bestLapSeconds * 1000), atIso };
+                        const candidate = { id, track: lapTrack, trackKey: lapTrack, trackLabel: lapTrack, sourceTrack, laps: analysis.laps, mode: "lap", raceType, car, carImg: d.carImg, driverName: d.name, driverId: d.driverId, racingSkill: d.racingSkill, raceId, timeText: formatTimeSeconds_(d.bestLapSeconds), ms: Math.round(d.bestLapSeconds * 1000), atIso };
                         records = records.filter(r => !recordSubmissionMatches_(r, candidate));
                         records.push(candidate);
                     }
                     if (!d.crashed && d.finalTime && car) {
                         const id = makeRecId_("race", raceTrack, car, `${atIso}_${d.name}`);
-                        const candidate = { id, track: raceTrack, trackKey: raceTrack, trackLabel: raceTrack, sourceTrack, mode: "race", raceType, car, carImg: d.carImg, driverName: d.name, driverId: d.driverId, racingSkill: d.racingSkill, raceId, timeText: formatTimeSeconds_(d.finalTime), ms: Math.round(d.finalTime * 1000), atIso };
+                        const candidate = { id, track: raceTrack, trackKey: raceTrack, trackLabel: raceTrack, sourceTrack, laps: analysis.laps, mode: "race", raceType, car, carImg: d.carImg, driverName: d.name, driverId: d.driverId, racingSkill: d.racingSkill, raceId, timeText: formatTimeSeconds_(d.finalTime), ms: Math.round(d.finalTime * 1000), atIso };
                         records = records.filter(r => !recordSubmissionMatches_(r, candidate));
                         records.push(candidate);
                     }
@@ -7802,6 +7925,10 @@ self.onmessage=event=>{try{self.postMessage({ok:true,result:aggregate(event.data
                     lap: Array.isArray(result.recordTracks?.lap) ? result.recordTracks.lap.map(String).filter(Boolean) : [],
                     race: Array.isArray(result.recordTracks?.race) ? result.recordTracks.race.map(String).filter(Boolean) : []
                 },
+                recordTracksByRaceType: {
+                    official: Array.isArray(result.recordTracksByRaceType?.official) ? result.recordTracksByRaceType.official.map(String).filter(Boolean) : [],
+                    custom: Array.isArray(result.recordTracksByRaceType?.custom) ? result.recordTracksByRaceType.custom.map(String).filter(Boolean) : []
+                },
                 fetchedAt: Date.now(),
                 loading: false,
                 error: ""
@@ -7816,6 +7943,7 @@ self.onmessage=event=>{try{self.postMessage({ok:true,result:aggregate(event.data
             pgLocalTracksCache = {
                 rows: [],
                 recordTracks: { lap: [], race: [] },
+                recordTracksByRaceType: { official: [], custom: [] },
                 fetchedAt: Date.now(),
                 loading: false,
                 error: pgErrorMessage_(e, "Local tracks unavailable")
@@ -8361,7 +8489,7 @@ return {
     raceId,
     track: trackName,
     laps: Number(analysis.laps || raceMeta?.laps || raceMeta?.replayInfo?.laps || 0) || null,
-    raceType: meta.type || replayInfo.type || "",
+    raceType: raceTypeFromPayloadOrMeta_(analysis.payload || {}, meta.type || replayInfo.type || "official"),
     carsAllowed: meta.carsAllowed || replayInfo.cars_allowed || "",
     upgradesAllowed: meta.upgradesAllowed || replayInfo.upgrades_allowed || "",
     startedAt: meta.startedIso || raceMeta?.startAtIso || toIsoFromAt_(replayInfo.time_started) || "",
@@ -8890,39 +9018,61 @@ return {
         GM_setValue(STORE_META_KEY, "");
     }
 
+    function compareRecordTrackLabels_(a, b) {
+        const left = parseTrackLabel_(a);
+        const right = parseTrackLabel_(b);
+        const byTrack = left.baseTrack.localeCompare(right.baseTrack, undefined, { sensitivity: "base", numeric: true });
+        if (byTrack) return byTrack;
+        if (left.lapCount == null && right.lapCount == null) return left.raw.localeCompare(right.raw, undefined, { sensitivity: "base" });
+        if (left.lapCount == null) return -1;
+        if (right.lapCount == null) return 1;
+        return left.lapCount - right.lapCount;
+    }
+
     function getAllTrackNames_(mode = recordsMode) {
         const out = new Set();
+        const raceType = normalizeRaceTypeValue_(recordsRaceType);
+        const customRaceMode = mode === "race" && raceType === "custom";
         try {
-            pgLocalTrackRows_().forEach(row => {
-                const name = String(row?.name || row?.Name || "").trim();
-                if (name) out.add(name);
-            });
-            const localRecordTracks = pgLocalTracksCache?.recordTracks?.[mode] || [];
+            if (!customRaceMode) {
+                pgLocalTrackRows_().forEach(row => {
+                    const name = String(row?.name || row?.Name || "").trim();
+                    if (name) out.add(name);
+                });
+            }
+            const typedTracks = mode === "race" ? (pgLocalTracksCache?.recordTracksByRaceType?.[raceType] || []) : [];
+            const localRecordTracks = typedTracks.length ? typedTracks : (pgLocalTracksCache?.recordTracks?.[mode] || []);
             if (Array.isArray(localRecordTracks)) {
                 localRecordTracks.forEach(t => {
                     const name = String(t || "").trim();
-                    if (name) out.add(name);
+                    if (!name || (customRaceMode && parseTrackLabel_(name).lapCount == null)) return;
+                    out.add(name);
                 });
             }
         } catch { }
         try {
             for (const r of (records || [])) {
                 if (!r || String(r.mode || "") !== String(mode || "")) continue;
+                if (mode === "race" && getRecordRaceTypeFromRow_(r) !== raceType) continue;
                 const scoped = getRecordTrackScopeFromRow_(r, mode);
-                if (scoped) out.add(scoped);
+                if (!scoped || (customRaceMode && parseTrackLabel_(scoped).lapCount == null)) continue;
+                out.add(scoped);
             }
         } catch { }
+        const currentRaceType = raceTypeFromPayloadOrMeta_(analysis?.payload || latestRaceDataPayload || {}, "official");
         const currentTrackLabel = mode === "race" ? formatRaceTrackLabel_((raceMeta?.track || "").trim(), Number(analysis?.laps || raceMeta?.laps || 0)) : (raceMeta?.track || "").trim();
-        const cur = getRecordTrackScope_(mode, currentTrackLabel);
-        if (cur) out.add(cur);
+        if (mode !== "race" || currentRaceType === raceType) {
+            const cur = getRecordTrackScope_(mode, currentTrackLabel, raceType);
+            if (cur && (!customRaceMode || parseTrackLabel_(cur).lapCount != null)) out.add(cur);
+        }
 
-        // Fallback: common track names (if the current page view doesn't expose a track selector).
-        if (out.size < 3) {
+        // Fallback: common official track names when the current page has no track data.
+        if (!customRaceMode && out.size < 3) {
             ["Underdog", "Parkland", "Mudpit", "Speedway", "Stone Park", "Commerce", "Meltdown", "Uptown", "Withdrawal", "Hammerhead", "Docks", "Industrial", "Vector", "Two Islands", "Sewage", "Convict"]
                 .forEach(t => out.add(t));
         }
 
-        return Array.from(out).sort((a, b) => a.localeCompare(b));
+        return Array.from(out).sort(compareRecordTrackLabels_);
     }
 
 
@@ -11444,7 +11594,12 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
         ensureRecordsLoaded_("updateBestRecord");
 
         const sourceTrack = (extra && extra.sourceTrack) ? normalizeTrackLabel_(extra.sourceTrack) : normalizeTrackLabel_(track);
-        const scopedTrack = getRecordTrackScope_(mode, sourceTrack || track);
+        const raceType = (extra && extra.raceType) ? normalizeRaceTypeValue_(extra.raceType) : "official";
+        const extraLaps = (extra && Number.isFinite(Number(extra.laps))) ? Number(extra.laps) : parseTrackLabel_(track).lapCount;
+        const scopeSource = mode === "race" && raceType === "custom" && extraLaps
+            ? formatRaceTrackLabel_(sourceTrack || track, extraLaps)
+            : (sourceTrack || track);
+        const scopedTrack = getRecordTrackScope_(mode, scopeSource, raceType);
         if (!scopedTrack) return false;
 
         const atIso = (extra && extra.atIso) ? extra.atIso : bestRaceAtIso_();
@@ -11458,7 +11613,8 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
             trackLabel: scopedTrack,
             sourceTrack,
             mode,
-            raceType: (extra && extra.raceType) ? extra.raceType : "official",
+            raceType,
+            laps: extraLaps,
             car: normalizedCar,
             carImg: (extra && extra.carImg) ? extra.carImg : '',
             carClass: (extra && extra.carClass) ? extra.carClass : '',
@@ -11817,6 +11973,7 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
 
     function keepWindowInBounds_(el, storeKey, opts = {}) {
         if (!el) return null;
+        if (el.dataset.mpgDragging === "1") return getWindowRect_(el);
         const persist = opts.persist !== false;
         const minSize = getWindowMinSize_(el);
         const before = getWindowRect_(el);
@@ -16053,7 +16210,7 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
             pgLocalEnsureTracks_().catch(() => { });
             const mode = recordsMode;
             const currentTrackLabel = mode === "race" ? formatRaceTrackLabel_((raceMeta?.track || "").trim(), Number(analysis?.laps || raceMeta?.laps || 0)) : (raceMeta?.track || "").trim();
-            const trackNow = getRecordTrackScope_(mode, currentTrackLabel);
+            const trackNow = getRecordTrackScope_(mode, currentTrackLabel, recordsRaceType);
             const tracks = getAllTrackNames_(mode);
             if (!recordsTrack && trackNow) recordsTrack = trackNow;
 
@@ -16063,7 +16220,7 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
                 activeRecTrackSel.dataset.key = optKey;
             }
 
-            const normalizedSelectedTrack = getRecordTrackScope_(mode, recordsTrack);
+            const normalizedSelectedTrack = getRecordTrackScope_(mode, recordsTrack, recordsRaceType);
             if (normalizedSelectedTrack && tracks.includes(normalizedSelectedTrack)) {
                 recordsTrack = normalizedSelectedTrack;
                 activeRecTrackSel.value = recordsTrack;
@@ -16097,7 +16254,7 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
             }
             if (!top.length) {
                 const msg = pgLocalRecordsCache.loading && pgLocalRecordsMatch_(mode, track)
-                    ? "Loading SQLite records..."
+                    ? "Loading records..."
                     : "No records for this track yet.";
                 activeRecTbody.innerHTML = `<tr><td colspan="9" class="muted">${esc_(msg)}</td></tr>`;
             } else {
@@ -16105,17 +16262,17 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
                     const imgUrl = r.carImg || carImageFromCatalog_(r.car);
                     const imgCell = imgUrl ? `<img class="carIcon" src="${escAttr_(imgUrl)}" alt="" loading="lazy" decoding="async">` : `<div class="carIcon" aria-hidden="true"></div>`;
                     const drv = (r.driverName || r.driverId || "—");
-                    const rsNum = Number(r.racingSkill);
-                    const rs = Number.isFinite(rsNum) && rsNum > 0 && rsNum < 1 ? "--" : formatDriverRs_(r.racingSkill).replace(/^RS:\s*/i, "");
+                    const displayRs = recordDisplayRacingSkill_(r);
+                    const rs = displayRs == null ? "--" : formatDriverRs_(displayRs).replace(/^RS:\s*/i, "");
                     const recRid = String(r.raceId || "").trim();
                     const raceCell = recRid ? `<a class="recRaceLink" href="https://www.torn.com/page.php?sid=racing&raceID=${encodeURIComponent(recRid)}" target="_blank" title="View Replay">${esc_(recRid)}</a>` : "";
-                    const actionCell = `<button class="recDelBtn" data-id="${escAttr_(r.id)}" data-source="${escAttr_(r.source || "")}" data-mode="${escAttr_(mode)}" data-race-id="${escAttr_(r.raceId || "")}" data-driver-id="${escAttr_(r.driverId || "")}" data-car="${escAttr_(r.car || "")}" title="${r.source === "sqlite" ? "Delete from SQLite" : "Delete"}">🗑️</button>`;
+                    const actionCell = `<button class="recDelBtn" data-id="${escAttr_(r.id)}" data-source="${escAttr_(r.source || "")}" data-mode="${escAttr_(mode)}" data-race-id="${escAttr_(r.raceId || "")}" data-driver-id="${escAttr_(r.driverId || "")}" data-car="${escAttr_(r.car || "")}" title="Delete saved record">🗑️</button>`;
                     return `<tr>
             <td class="recNum">${i + 1}</td>
             <td class="recImg">${imgCell}</td>
             <td class="recCar"><span>${esc_(toOgCarName_(r.car) || "—")}</span></td>
             <td class="recTime">${esc_(r.timeText || "—")}</td>
-            <td class="recDrv">${driverNameCell_({ name: drv, driverId: r.driverId, racingSkill: r.racingSkill })}</td>
+            <td class="recDrv">${driverNameCell_({ name: drv, driverId: r.driverId, racingSkill: displayRs })}</td>
             <td class="recSkill mono">${esc_(rs)}</td>
             <td class="recRace mono">${raceCell}</td>
             <td class="recWhen">${esc_(fmtWhen_(r.atIso || r.at || ""))}</td>
@@ -16157,6 +16314,7 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
         resizePersistTimers.set(storeKey, setTimeout(() => {
             resizePersistTimers.delete(storeKey);
             if (!el.isConnected) return;
+            if (el.dataset.mpgDragging === "1") return;
             const rect = getWindowRect_(el);
             if (storedRectLooksPageSized_(rect)) return;
             saveElementRect_(storeKey, el.getBoundingClientRect());
@@ -16164,9 +16322,9 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
     }
 
     function canEdgeResize_(el, storeKey) {
-        if (!el || !["win", "records"].includes(storeKey)) return false;
-        const resize = String(getComputedStyle(el).resize || "").toLowerCase();
-        return resize && resize !== "none";
+        // Both floating windows use a dedicated resize grip. Header drags must
+        // never be reinterpreted as native edge-resize gestures.
+        return false;
     }
 
     function getResizeEdges_(event, rect, el, storeKey) {
@@ -16181,6 +16339,7 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
     function observeResize_(el, storeKey) {
         if (!el || !storeKey || typeof ResizeObserver === "undefined") return;
         const ro = new ResizeObserver(() => {
+            if (el.dataset.mpgDragging === "1") return;
             const isManualNativeResize = nativeResizeEl === el && nativeResizeStoreKey === storeKey && Date.now() - nativeResizeAt < 20000;
             const rect = getWindowRect_(el);
             if (isManualNativeResize) {
@@ -16281,6 +16440,8 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
             targetEl.style.bottom = "auto";
             targetEl.style.left = `${startL}px`;
             targetEl.style.top = `${startT}px`;
+            targetEl.style.width = `${startW}px`;
+            targetEl.style.height = `${startH}px`;
             window.addEventListener(moveEvent, onMove, true);
             window.addEventListener(upEvent, finish, true);
             window.addEventListener(cancelEvent, finish, true);
@@ -16334,6 +16495,9 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
             targetEl.style.bottom = "auto";
             targetEl.style.left = `${startL}px`;
             targetEl.style.top = `${startT}px`;
+            targetEl.style.width = `${startW}px`;
+            targetEl.style.height = `${startH}px`;
+            targetEl.dataset.mpgDragging = "1";
 
             e.preventDefault();
         });
@@ -16361,20 +16525,15 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
             const dy = e.clientY - startY;
             if (Math.abs(dx) > 2 || Math.abs(dy) > 2) moved = true;
 
-            if (storeKey === "win") {
-                const minSize = getWindowMinSize_(targetEl);
-                const clamped = clampWindowRect_({
-                    left: startL + dx,
-                    top: startT + dy,
-                    width: startW,
-                    height: startH
-                }, minSize.width, minSize.height);
-                targetEl.style.left = `${clamped.left}px`;
-                targetEl.style.top = `${clamped.top}px`;
-            } else {
-                targetEl.style.left = `${startL + dx}px`;
-                targetEl.style.top = `${startT + dy}px`;
-            }
+            const minSize = getWindowMinSize_(targetEl);
+            const clamped = clampWindowRect_({
+                left: startL + dx,
+                top: startT + dy,
+                width: startW,
+                height: startH
+            }, minSize.width, minSize.height);
+            targetEl.style.left = `${clamped.left}px`;
+            targetEl.style.top = `${clamped.top}px`;
 
             if (clickGuardAttr) targetEl.dataset[clickGuardAttr] = "1";
         });
@@ -16396,10 +16555,10 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
             }
             if (!down) return;
             down = false;
+            delete targetEl.dataset.mpgDragging;
 
             if (storeKey) {
-                if (storeKey === "win") keepWindowInBounds_(targetEl, storeKey);
-                else saveElementRect_(storeKey, targetEl.getBoundingClientRect());
+                keepWindowInBounds_(targetEl, storeKey, { persist: true });
             }
 
             if (clickGuardAttr) {
@@ -16504,6 +16663,7 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
 
         if (maintenanceLoopTimer) clearInterval(maintenanceLoopTimer);
         maintenanceLoopTimer = setInterval(() => {
+            if (isReplayPage_() && !analysis?.drivers?.length) scheduleReplayRaceDataBootstrap_("maintenance");
             if (!canScanTornPage_()) return;
             if (!syncRaceCaptureRoute_()) return;
             const now = Date.now();
