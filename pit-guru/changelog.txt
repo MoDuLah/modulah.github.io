@@ -22,6 +22,20 @@
 - **Miscellaneous**: Release Pit Guru v2.2.3 performance fix
 - **Miscellaneous**: Publish Pit Guru v2.2.2 big race safe mode
 
+## v2.3.0 (2026-07-20)
+
+### Miscellaneous
+
+- **Miscellaneous**: Release Pit Guru v2.3.0 replay records fixes
+- **Miscellaneous**: Bound Pit Guru history and route capture
+- **Miscellaneous**: Restore Pit Guru pre-race metadata
+- **Miscellaneous**: Sync Pit Guru internal release version
+- **Miscellaneous**: Bound Pit Guru pre-race capture
+- **Miscellaneous**: Fix Pit Guru pre-race summary capture
+- **Miscellaneous**: Release Pit Guru v2.2.5 long-task optimizations
+- **Miscellaneous**: Release Pit Guru v2.2.4 diagnostic reset
+
+
 
 MoDuL's Pit Guru Changelog
 ==========================
