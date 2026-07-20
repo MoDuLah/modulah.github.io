@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Pythagoras Project - CIS
 // @namespace    https://torn.com/
-// @version      2.9.0
+// @version      2.9.8
 // @description  Company Intelligence System for Torn company training, staff, analytics, and local reporting.
 // @author       MoDuL [4022159]
 // @match        https://www.torn.com/companies.php*
@@ -20,6 +20,8 @@
 // @grant        GM.xmlHttpRequest
 // @grant        GM.setClipboard
 // @grant        unsafeWindow
+// @updateURL    https://modulah.github.io/pythagoras-project-cis/pythagoras-project-cis.user.js
+// @downloadURL  https://modulah.github.io/pythagoras-project-cis/pythagoras-project-cis.user.js
 // @connect      api.torn.com
 // @connect      pp-api.sokin.xyz
 // @run-at       document-end
@@ -42,7 +44,10 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
     staffEditsKey: 'pp_cis_staff_card_edits_v2',
     ledgerPendingKey: 'pp_cis_ledger_pending_v2',
     syncCacheKey: 'pp_cis_sync_cache_v1',
-    version: '2.9.0',
+    notificationDismissalsKey: 'pp_cis_notification_dismissals_v1',
+    uiPreferencesKey: 'pp_cis_ui_preferences_v1',
+    stockEditsKey: 'pp_cis_stock_edits_v1',
+    version: '2.9.8',
     popupName: 'pythagoras-cis-popup'
   };
 
@@ -115,8 +120,10 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         value: 0
       },
       stock: { lastSynced: '', items: [] },
+      stockSettings: {},
       stockHistory: [],
       adBudgetHistory: [],
+      operatingCostHistory: [],
       newsSync: { firstBackfillDone: false, earliestTimestamp: 0, oldestTimestamp: 0, latestTimestamp: 0, lastSynced: '', fetchedPages: 0, reportGapAttempts: {} },
       syncWatermarks: {}
     },
@@ -146,6 +153,8 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
       trainerAutoDetect: true,
       trainerAssigned: false,
       plannerPriority: {
+        queuePolicy: 'rotation',
+        paidFirst: true,
         addictionEnabled: true,
         inactivityEnabled: true,
         addictionWeight: 1,
@@ -215,14 +224,14 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         inactiveDaysThreshold: 3
       },
       notifications: {
-        stock: { enabled: true },
+        stock: { enabled: true, thresholdPercent: 10 },
         addiction: { enabled: true, threshold: 4 },
         inactivity: { enabled: true, thresholdDays: 3 },
         sync: { enabled: true, warnHours: 24, dangerHours: 72 }
       },
       wageRoleRequirements: {}
     },
-    ui: { tab: 'timeline', staffTab: 'current', directorTab: 'current', settingsSection: 'core', timelineFilter: 'all', timelineGrouped: true, analyticsYear: 'all', analyticsExpanded: {}, dailyBalanceMode: 'week', dailyBalanceStart: '', dailyBalanceIncludeWages: true, graphIndex: 0, graphScale: 'weekly', graphSeries: { income: true, customers: true, wages: true, adBudget: true, profit: true }, trainingLogStart: '', trainingLogYear: 'all', profileSort: 'name', profileSortDir: 'asc', tableSorts: {}, showApiKey: false, privacyMode: false, tourActive: false, tourStep: 0, minimized: false, mode: 'embedded', editMode: false, editPersonKey: '', editDirectorKey: '', personSaveExit: false, plannerQueueHidden: false, collapsedPanels: {}, detailOpenState: {}, panelSizes: {}, reportSections: { summary: true, ledger: true, trainingLog: true, planner: true, analytics: true, balance: true, stock: true, staff: true, pastStaff: false, directors: false, timeline: true, profile: true, details: true, settings: true }, left: '', top: '', restoreWidth: '', restoreHeight: '' }
+    ui: { tab: 'timeline', staffTab: 'current', directorTab: 'current', settingsSection: 'core', timelineFilter: 'all', timelineGrouped: true, analyticsYear: 'all', analyticsExpanded: {}, dailyBalanceMode: 'week', dailyBalanceStart: '', dailyBalanceIncludeWages: true, graphIndex: 0, graphScale: 'daily', graphSeries: { income: true, customers: true, wages: true, adBudget: true, profit: true }, trainingLogStart: '', trainingLogYear: 'all', profileSort: 'name', profileSortDir: 'asc', tableSorts: {}, showApiKey: false, privacyMode: false, tourActive: false, tourStep: 0, minimized: false, mode: 'embedded', editMode: false, editPersonKey: '', editDirectorKey: '', personSaveExit: false, plannerQueueHidden: false, collapsedPanels: {}, detailOpenState: {}, panelSizes: {}, reportSections: { summary: true, ledger: true, trainingLog: true, planner: true, analytics: true, balance: true, stock: true, staff: true, pastStaff: false, directors: false, timeline: true, profile: true, details: true, settings: true }, left: '', top: '', restoreWidth: '', restoreHeight: '' }
   };
 
   const CSS = `
@@ -257,7 +266,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
     .pp-shell{position:relative;display:grid;grid-template-rows:auto auto auto minmax(0,1fr);max-height:calc(100vh - 30px);min-height:360px;background:var(--bg)}
     .pp-cis-popup-root .pp-shell{max-height:none;min-height:100vh}
     .pp-titlebar{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:12px;padding:12px 14px;border-bottom:1px solid var(--line);background:#141717;cursor:move;user-select:none;min-width:0}
-    .pp-brand{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center;min-width:0}.pp-logo-mark{flex:0 0 34px;width:34px;height:34px;border:1px solid var(--line);border-radius:6px;background:#0b0f14;box-shadow:0 0 0 1px rgba(255,221,0,.08)}.pp-brand strong{font-size:16px;line-height:1.2;color:#fff;white-space:nowrap}.pp-brand span{color:var(--muted);white-space:nowrap}
+    .pp-brand{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center;min-width:0}.pp-logo-mark{flex:0 0 34px;width:34px;height:34px;border:1px solid var(--line);border-radius:6px;background:#0b0f14;box-shadow:0 0 0 1px rgba(255,221,0,.08)}.pp-brand strong{font-size:16px;line-height:1.2;color:#fff;white-space:nowrap}.pp-brand span{color:var(--muted);white-space:nowrap}.pp-version-pill{display:inline-flex;align-items:center;min-height:24px;padding:2px 8px;border:1px solid var(--line);border-radius:999px;background:#111313;color:var(--accent);font-size:12px;font-weight:700}.pp-title-sync{display:flex;align-items:center;gap:5px;flex-wrap:wrap;min-width:0}.pp-title-sync .pp-btn{min-height:26px;padding:3px 7px;margin:0;font-size:12px}
     .pp-actions{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:8px;min-width:0}.pp-tabs,.pp-subtabs{display:flex;gap:4px}.pp-tabs{padding:8px;background:#111313;border-bottom:1px solid var(--line);overflow:hidden;flex-wrap:wrap}.pp-subtabs{margin-bottom:12px;overflow-x:auto}
     .pp-tab,.pp-subtab,.pp-btn{min-height:32px;border:1px solid var(--line);border-radius:6px;background:#191d1c;color:var(--text);padding:6px 10px;cursor:pointer;transition:background .14s ease,border-color .14s ease,transform .14s ease;white-space:nowrap}
     .pp-tab{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-width:max-content}.pp-tab-icon{display:inline-flex;align-items:center;justify-content:center;min-width:1.2em;line-height:1}.pp-tab-label{display:inline-block}.pp-tabs-glyph-only .pp-tabs{flex-wrap:wrap;overflow:hidden}.pp-tabs-glyph-only .pp-tab{width:34px;min-width:34px;padding-left:6px;padding-right:6px}.pp-tabs-glyph-only .pp-tab-label{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
@@ -268,7 +277,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
     .pp-body{overflow:auto;padding:14px;background:var(--bg)}#pythagoras-cis.pp-cis-launcher-only{display:none!important}#pythagoras-cis.pp-cis-minimized{width:40px!important;height:40px!important;min-width:40px!important;min-height:40px!important;max-width:40px!important;max-height:40px!important;resize:none!important;border:0!important;background:transparent!important;box-shadow:none!important;overflow:visible!important}#pythagoras-cis.pp-cis-minimized.pp-minimized-docked{position:fixed!important}#pythagoras-cis.pp-cis-minimized.pp-footer-button-mounted{display:none!important}#ppcis-footer-wrap{transition:transform linear;display:inline-block!important;visibility:visible!important;opacity:1!important}#ppcis-footer-btn[data-ppcis-alerts]{position:relative;overflow:hidden}#ppcis-footer-btn[data-ppcis-alerts]::after{content:"";position:absolute;inset:2px;border-radius:inherit;pointer-events:none;opacity:0;box-shadow:inset 0 0 0 1px rgba(217,93,93,.72),inset 0 0 10px rgba(217,93,93,.9),inset 0 0 18px rgba(217,93,93,.48);animation:pp-footer-alert-glow 5s ease-in-out infinite}@keyframes pp-footer-alert-glow{0%,82%,100%{opacity:0}88%,94%{opacity:1}}#ppcis-footer-btn .pp-footer-button-icon{display:block!important;width:24px!important;height:24px!important;max-width:24px!important;max-height:24px!important;pointer-events:none!important}#ppcis-footer-btn .pp-footer-button-icon *{pointer-events:none!important}.pp-cis-minimized .pp-shell{display:block;width:40px!important;height:40px!important;min-width:40px!important;min-height:40px!important;max-height:none;background:transparent}.pp-cis-minimized .pp-tabs,.pp-cis-minimized .pp-body,.pp-cis-minimized .pp-alerts{display:none}.pp-cis-minimized .pp-titlebar{display:grid;place-items:center;width:40px;height:40px;max-width:40px;gap:0;padding:0;border:1px solid var(--accent);cursor:pointer;background:var(--accent);border-radius:8px;box-shadow:0 2px 0 rgba(255,255,255,.1) inset,0 1px 5px rgba(0,0,0,.36);transition:filter .14s ease,transform .14s ease}.pp-cis-minimized .pp-titlebar:hover{filter:brightness(1.08)}.pp-cis-minimized .pp-titlebar:active{transform:translateY(1px)}.pp-cis-minimized .pp-brand{display:grid;place-items:center;width:100%;height:100%;min-width:0}.pp-cis-minimized .pp-logo-mark{flex-basis:auto;width:30px;height:30px;border:0;border-radius:0;background:transparent;box-shadow:none;filter:drop-shadow(0 0 3px rgba(0,0,0,.5))}.pp-cis-minimized .pp-brand strong,.pp-cis-minimized .pp-brand span{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}.pp-cis-minimized .pp-brand:before{display:none}.pp-cis-minimized .pp-actions{display:none}.pp-popup-badge{width:auto;max-width:300px}.pp-popup-badge .pp-shell{display:block;min-height:0;background:transparent}.pp-popup-badge .pp-titlebar{display:flex;cursor:pointer;border:0;padding:8px 10px}.pp-popup-badge .pp-actions{display:flex}.pp-popup-badge .pp-tabs,.pp-popup-badge .pp-body,.pp-popup-badge .pp-alerts{display:none}
     .pp-grid{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:12px;align-items:start;min-width:0}.pp-panel{position:relative;grid-column:span 12;align-self:start;border:1px solid var(--line);border-radius:8px;background:var(--panel);overflow:hidden;min-width:0;max-width:100%}.pp-edit-mode .pp-panel{resize:both;overflow:auto;min-width:260px;min-height:120px;box-shadow:inset -1px -1px 0 rgba(70,197,143,.4)}.pp-edit-mode .pp-panel:after{content:'';position:absolute;right:5px;bottom:5px;width:13px;height:13px;border-right:2px solid var(--accent);border-bottom:2px solid var(--accent);opacity:.85;pointer-events:none}.pp-panel.is-collapsed .pp-content{display:none}.pp-panel.is-half{grid-column:span 6}.pp-panel.is-third{grid-column:span 4}.pp-collapse-toggle,.pp-hint-toggle{position:absolute;top:8px;z-index:3;display:grid;place-items:center;width:26px;min-width:26px;height:26px;min-height:26px;padding:0;margin:0;border-color:var(--accent);color:var(--accent);line-height:1}.pp-collapse-toggle{right:8px}.pp-hint-toggle{right:40px}
     .pp-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:16px 82px 14px 14px;border-bottom:1px solid var(--line);background:var(--panel2);min-width:0}.pp-head.is-stack{display:grid;grid-template-columns:minmax(0,1fr);gap:10px}.pp-head.is-stack .pp-row-actions{justify-content:flex-start}.pp-head>*,.pp-field>*,.pp-kv span{min-width:0}.pp-head>div:first-child{flex:1 1 auto}.pp-head>.pp-row-actions{flex:0 1 auto;justify-content:flex-end;align-items:flex-start}.pp-head h2,.pp-head h3{margin:0;font-size:14px;line-height:1.25;color:#fff}.pp-head p,.pp-note{margin:4px 0 0;color:var(--muted);font-size:12px}.pp-content{padding:12px;min-width:0}
-    .pp-form{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px;align-items:end;min-width:0}.pp-field{display:grid;gap:5px;min-width:0;overflow:hidden}.pp-field.span-2{grid-column:span 2}.pp-field.span-3{grid-column:span 3}.pp-field.span-4{grid-column:span 4}.pp-field.span-6{grid-column:span 6}.pp-field label,.pp-field>span{color:var(--muted);font-size:12px}
+    .pp-form{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px;align-items:end;min-width:0}.pp-field{display:grid;gap:5px;min-width:0;overflow:hidden}.pp-field.span-2{grid-column:span 2}.pp-field.span-3{grid-column:span 3}.pp-field.span-4{grid-column:span 4}.pp-field.span-6{grid-column:span 6}.pp-field label,.pp-field>span{color:var(--muted);font-size:12px}.pp-priority-grid{display:grid;grid-column:1/-1;grid-template-columns:minmax(190px,1fr) minmax(190px,1fr);gap:9px}.pp-priority-grid .pp-field{border:1px solid var(--line);border-radius:8px;background:#121615;padding:9px 10px}.pp-priority-grid .pp-input,.pp-priority-grid .pp-select{width:min(100%,240px)}.pp-title-switch{display:inline-flex;align-items:center;gap:7px;white-space:nowrap;color:var(--muted);font-size:12px}.pp-discount-row{display:grid;grid-column:1/-1;grid-template-columns:repeat(5,minmax(125px,1fr));gap:9px}.pp-discount-row .pp-field{border:1px solid var(--line);border-radius:8px;background:#121615;padding:9px}.pp-notification-grid{display:grid;grid-column:1/-1;grid-template-columns:repeat(2,minmax(260px,1fr));gap:9px}.pp-notification-rule{display:grid;grid-template-columns:minmax(120px,220px) auto;align-items:end;gap:10px;border:1px solid var(--line);border-radius:8px;background:#121615;padding:10px}.pp-notification-rule .pp-input{width:min(100%,180px)}.pp-notification-rule .pp-row-actions{flex-wrap:nowrap}.pp-notification-rule .pp-row-actions .pp-input{width:7ch;max-width:7ch}.pp-notification-switch{display:grid;gap:5px;align-self:end;color:var(--muted);font-size:12px}.pp-ledger-scroll{max-height:430px;overflow:auto}.pp-ledger-scroll .pp-table thead th{position:sticky;top:0;z-index:2}
     .pp-form-title{grid-column:span 6;color:#fff;font-weight:700;border-top:1px solid var(--line);padding-top:10px;margin-top:4px}.pp-form-title:first-child{border-top:0;padding-top:0;margin-top:0}
     .pp-loyalty-list{display:flex;flex-wrap:wrap;gap:8px}.pp-loyalty-list .pp-row-actions{border:1px solid var(--line);border-radius:8px;background:#121615;padding:8px}.pp-loyalty-list .pp-select{width:auto}
     .pp-input,.pp-select,.pp-textarea{width:calc(100% - 8px);max-width:calc(100% - 8px);min-height:34px;border:1px solid var(--line);border-radius:6px;background:#0f1111;color:var(--text);padding:7px 9px;margin-left:4px;margin-right:4px;outline:none}.pp-input[type="date"]::-webkit-calendar-picker-indicator{filter:invert(1);opacity:.78}.pp-textarea{min-height:78px;resize:vertical}.pp-select-fit{width:var(--select-width,auto);max-width:calc(100% - 8px)}.pp-input:focus,.pp-select:focus,.pp-textarea:focus{border-color:rgba(70,197,143,.82);box-shadow:0 0 0 2px rgba(70,197,143,.12)}.pp-input:disabled,.pp-select:disabled,.pp-textarea:disabled{opacity:.74;color:var(--muted);background:var(--panel2);cursor:not-allowed}
@@ -283,16 +292,16 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
     .pp-changelog{display:grid;gap:8px}.pp-changelog details{border:1px solid var(--line);border-radius:8px;background:#121615;padding:8px}.pp-changelog summary{cursor:pointer;color:#fff;font-weight:700}.pp-changelog ul{margin:8px 0 0 18px;padding:0;color:var(--muted)}.pp-changelog li{margin:4px 0}.pp-role-history{display:grid;gap:8px;border:1px solid var(--line);border-radius:8px;background:#121615;padding:10px}.pp-role-history>div+div{border-top:1px solid rgba(255,255,255,.08);padding-top:8px}.pp-card-userid{font:inherit;color:var(--accent);text-decoration:none}.pp-card-userid:hover{text-decoration:underline}
     .pp-alerts{position:relative;z-index:6;display:grid;gap:6px;padding:8px 12px;border-bottom:1px solid var(--line);background:rgba(217,93,93,.08);box-shadow:0 8px 18px rgba(0,0,0,.18)}.pp-alerts.is-empty{padding:0;border:0;box-shadow:none;background:transparent;min-height:0}.pp-alert{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:8px;color:var(--text);font-size:12px;text-align:left}.pp-alert strong{color:#fff}.pp-alert-main{display:block;width:100%;border:0;background:transparent;color:inherit;text-align:left;padding:0;cursor:default}.pp-alert-main[data-action]{cursor:pointer}.pp-alert-main[data-action]:hover strong{text-decoration:underline}.pp-alert-dismiss{display:grid;place-items:center;width:24px;min-width:24px;height:24px;min-height:24px;border:1px solid var(--line);border-radius:6px;background:rgba(0,0,0,.16);color:var(--muted);padding:0;margin:0;cursor:pointer;line-height:1}.pp-alert-dismiss:hover{border-color:var(--accent);color:var(--accent);background:rgba(255,255,255,.04)}.pp-alert-icon,.pp-stock-mini-alert:before{display:inline-grid;place-items:center;width:18px;height:18px;clip-path:polygon(50% 0,100% 92%,0 92%);background:#d95d5d;color:#fff;font-weight:800;font-size:12px;line-height:1}.pp-alert.is-warn .pp-alert-icon{background:var(--warn);color:#111}.pp-alert.is-info .pp-alert-icon{background:var(--accent);color:#07100d}.pp-stock-mini-alert{display:none;align-items:center;gap:5px;color:#fff;font-size:12px;line-height:1.2}.pp-stock-mini-alert:before{content:'!';flex:0 0 18px}.pp-cis-minimized .pp-brand,.pp-popup-badge .pp-brand{flex-wrap:wrap}.pp-cis-minimized .pp-brand .pp-stock-mini-alert,.pp-popup-badge .pp-brand .pp-stock-mini-alert{display:flex;flex-basis:100%;margin-top:2px;padding-top:6px;border-top:1px solid var(--line)}
     .pp-cis-minimized .pp-brand .pp-stock-mini-alert{position:absolute;left:0;top:44px;display:flex;width:max-content;max-width:220px;height:auto;clip:auto;overflow:visible;white-space:nowrap;padding:5px 7px;margin:0;border:1px solid var(--bad);border-radius:8px;background:#1b1111;color:#fff;box-shadow:0 8px 18px rgba(0,0,0,.35)}
-    .pp-training-day{align-content:start}.pp-pill-list{align-content:flex-start;align-items:flex-start;align-self:start;justify-content:flex-start}.pp-operational{display:grid;grid-template-columns:repeat(4,minmax(120px,1fr));gap:8px;margin:0 0 12px}.pp-operation-note{border:1px solid var(--line);border-radius:8px;background:#121615;padding:9px;color:var(--muted)}.pp-operation-note strong{display:block;color:#fff;font-size:16px}.pp-training-queue{display:grid;gap:7px;margin-bottom:12px;border:1px solid var(--line);border-radius:8px;background:#121615;padding:10px;color:var(--muted)}.pp-training-queue strong{color:#fff}.pp-training-queue-head{display:flex;align-items:center;justify-content:space-between;gap:8px}.pp-training-queue-body{display:flex;align-items:center;gap:8px;flex-wrap:wrap;min-width:0}.pp-training-queue-list{overflow-wrap:anywhere}.pp-queue-toggle{display:grid;place-items:center;width:28px;min-width:28px;height:26px;min-height:26px;padding:0;margin:0}.pp-eye-icon{display:block;width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+    .pp-training-day{align-content:start}.pp-pill-list{align-content:flex-start;align-items:flex-start;align-self:start;justify-content:flex-start}.pp-operational{display:grid;grid-template-columns:repeat(6,minmax(105px,1fr));gap:8px;margin:0 0 12px}.pp-operation-note{border:1px solid var(--line);border-radius:8px;background:#121615;padding:9px;color:var(--muted)}.pp-operation-note strong{display:block;color:#fff;font-size:16px}.pp-training-queue{display:grid;gap:7px;margin-bottom:12px;border:1px solid var(--line);border-radius:8px;background:#121615;padding:10px;color:var(--muted)}.pp-training-queue strong{color:#fff}.pp-training-queue-head{display:flex;align-items:center;justify-content:space-between;gap:8px}.pp-training-queue-body{display:flex;align-items:center;gap:8px;flex-wrap:wrap;min-width:0}.pp-training-queue-list{overflow-wrap:anywhere}.pp-queue-toggle{display:grid;place-items:center;width:28px;min-width:28px;height:26px;min-height:26px;padding:0;margin:0}.pp-eye-icon{display:block;width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
     .pp-disabled-overlay{position:absolute;inset:0;z-index:30;display:grid;place-items:center;padding:18px;background:rgba(0,0,0,.42);backdrop-filter:blur(5px)}.pp-disabled-overlay .pp-empty{max-width:520px;border-color:rgba(217,93,93,.75);background:#1b1111;color:#fff}.pp-disabled-context .pp-body,.pp-disabled-context .pp-tabs,.pp-disabled-context .pp-alerts{filter:blur(2px);pointer-events:none;user-select:none}
     .pp-theme-section{grid-column:1/-1;display:grid;gap:10px;min-width:0;border:1px solid var(--line);border-radius:8px;background:#121615;padding:10px}.pp-theme-section-head{display:grid;gap:3px;padding-bottom:8px;border-bottom:1px solid rgba(255,255,255,.07)}.pp-theme-section h4{margin:0;color:#fff;font-size:13px;line-height:1.25}.pp-theme-section p{margin:0;color:var(--muted);font-size:12px}.pp-theme-section-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;align-items:end}.pp-theme-section-grid .pp-field,.pp-theme-section-grid .pp-field.span-2{grid-column:auto}.pp-theme-editor{display:grid;grid-template-columns:repeat(3,minmax(150px,1fr));gap:10px}.pp-theme-swatch{display:grid;gap:5px}.pp-theme-dirty{border-color:var(--warn)!important}.pp-role-table .pp-inline{max-width:220px}.pp-compact-field .pp-input,.pp-compact-field .pp-select{width:auto;min-width:12ch;max-width:min(260px,calc(100% - 8px))}.pp-api-key{display:flex;align-items:center;gap:6px;flex-wrap:wrap}.pp-api-key .pp-input{flex:0 1 260px;max-width:min(260px,calc(100% - 84px))}.pp-align-top{align-self:start}.pp-identity-settings{align-items:start}.pp-identity-settings>.pp-field{align-self:start}.pp-identity-settings>.pp-field:not(.span-6){border-right:1px solid var(--line);padding-right:10px}.pp-date-format-control{display:grid;gap:6px;align-items:start}.pp-date-format-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.pp-date-format-row .pp-note{margin:0}
     .pp-graph-panel{display:grid;gap:10px}.pp-graph-head{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;flex-wrap:wrap}.pp-graph-stage{display:grid;grid-template-columns:repeat(var(--graph-cols,12),minmax(28px,1fr));gap:8px;align-items:end;min-height:190px;padding:12px;border:1px solid var(--line);border-radius:8px;background:#121615}.pp-bar{display:grid;grid-template-rows:auto minmax(0,1fr) auto;gap:6px;align-items:end;min-width:0}.pp-bar b{display:block;color:var(--text);font-size:11px;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.pp-bar span{display:block;height:max(4px,var(--bar));border-radius:6px 6px 2px 2px;background:linear-gradient(180deg,var(--bar-color,var(--accent)),rgba(255,255,255,.12));box-shadow:0 0 0 1px rgba(255,255,255,.08) inset}.pp-bar small{display:block;color:var(--muted);font-size:10px;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.pp-series-controls{display:flex;align-items:center;gap:6px;flex-wrap:wrap}.pp-series-toggle{display:inline-flex;align-items:center;gap:5px;min-height:28px;padding:3px 7px;border:1px solid var(--line);border-radius:6px;background:#111313;color:var(--muted);white-space:nowrap}.pp-series-toggle i{width:10px;height:10px;border-radius:50%;background:var(--series-color)}.pp-line-chart{border:1px solid var(--line);border-radius:8px;background:#121615;padding:10px;overflow-x:auto}.pp-line-svg{display:block;width:100%;min-width:760px;height:auto}.pp-line-grid{stroke:rgba(255,255,255,.08);stroke-width:1}.pp-line-axis{stroke:rgba(255,255,255,.24);stroke-width:1.2}.pp-line-axis-label{fill:var(--muted);font-size:15px;font-weight:700}.pp-line-y{fill:var(--muted);font-size:15px}.pp-line-y.left{text-anchor:end}.pp-line-y.right{text-anchor:start}.pp-line-zero{stroke:rgba(255,221,0,.32);stroke-width:1;stroke-dasharray:5 5}.pp-line-path{fill:none;stroke:var(--series-color);stroke-width:3;stroke-linejoin:round;stroke-linecap:round}.pp-line-path.is-count{stroke-dasharray:8 7;opacity:.72}.pp-line-point{fill:#121615;stroke:var(--series-color);stroke-width:3}.pp-line-point.is-count{stroke-width:2.4;opacity:.86}.pp-line-label{fill:var(--text);font-size:16px;text-anchor:middle;paint-order:stroke;stroke:#121615;stroke-width:4;stroke-linejoin:round}.pp-line-label.is-count{font-size:14px;opacity:.82}.pp-line-x{fill:var(--muted);font-size:15px;text-anchor:middle}.pp-balance-controls{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.pp-balance-table th,.pp-balance-table td{text-align:center;white-space:nowrap}.pp-balance-table td:nth-child(2){text-align:left}
     .pp-statline{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}.pp-stat{min-height:58px;border:1px solid var(--line);border-radius:8px;background:#121615;padding:10px}.pp-stat small{display:block;color:var(--muted);margin-bottom:3px}.pp-stat strong{display:block;font-size:18px;color:#fff;overflow-wrap:anywhere}
 .pp-calendar{display:grid;grid-template-columns:repeat(7,minmax(140px,1fr));gap:8px;overflow-x:auto}.pp-day{display:grid;align-content:start;gap:8px;min-width:0;min-height:132px;border:1px solid var(--line);border-radius:8px;background:#121615;padding:9px}.pp-day-head{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:6px}.pp-day-head h4{margin:0;font:700 12px/1.25 Arial,Helvetica,sans-serif;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.pp-day-reset{display:grid;place-items:center;width:26px;min-width:26px;height:24px;min-height:24px;padding:0;margin:0;color:var(--accent);border-color:var(--accent)}.pp-day-table{width:100%;border-collapse:collapse;table-layout:fixed}.pp-day-table td{padding:4px 3px;border-top:1px solid rgba(255,255,255,.06);vertical-align:middle;color:var(--muted)}.pp-day-table td:first-child{width:36px;text-align:right;padding-right:6px}.pp-day-table td:last-child{width:34px;text-align:right}.pp-day-row.is-active td{color:#fff;background:rgba(70,197,143,.13);box-shadow:0 1px 0 rgba(70,197,143,.42) inset,0 -1px 0 rgba(70,197,143,.42) inset}.pp-day-row.is-active td:first-child{border-radius:6px 0 0 6px}.pp-day-row.is-active td:last-child{border-radius:0 6px 6px 0}.pp-day-name{display:block;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.pp-day-table .pp-name{width:100%;max-width:100%;margin:0}.pp-contract-badge{display:inline-grid;place-items:center;width:24px;height:22px;border:1px solid var(--badge-color,var(--line));border-radius:6px;background:rgba(255,255,255,.04);color:var(--badge-color,var(--text));font-weight:800;font-size:11px;line-height:1}.pp-train-controls{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:6px;align-items:center;margin-top:2px;padding-top:8px;border-top:1px solid rgba(255,255,255,.08)}.pp-train-controls .pp-btn{min-width:34px;padding-left:9px;padding-right:9px}.pp-torn-train-glow{box-shadow:0 0 0 2px #FFDD00,0 0 20px rgba(255,221,0,.72)!important;border-radius:7px!important;position:relative!important;z-index:5!important;outline:1px solid rgba(255,221,0,.8)!important}
     #pythagoras-cis .pp-head h2,#pythagoras-cis .pp-head h3{font:700 14px/1.25 Arial,Helvetica,sans-serif!important;margin:0!important;color:#fff!important}#pythagoras-cis .pp-day-head h4{font:700 12px/1.25 Arial,Helvetica,sans-serif!important;margin:0!important;color:#fff!important;letter-spacing:0!important;text-transform:none!important}#pythagoras-cis .pp-tab,#pythagoras-cis .pp-subtab,#pythagoras-cis .pp-btn{font:13px/1.45 Arial,Helvetica,sans-serif!important;text-transform:none!important;letter-spacing:0!important}
-    .pp-timeline{display:grid;gap:8px;max-height:min(64vh,620px);overflow:auto;padding-right:4px}.pp-timeline-panel .pp-content,.pp-analytics-panel .pp-content{min-height:min(64vh,620px)}.pp-event{display:grid;gap:4px;padding:9px 10px;border-left:3px solid var(--event-color,var(--muted));background:#121615;border-radius:0 6px 6px 0}.pp-event time{color:var(--muted);font-size:12px}.pp-event strong{color:#fff}
+    .pp-timeline-grid{align-items:stretch}.pp-timeline-panel,.pp-analytics-panel{display:flex;flex-direction:column;height:min(74vh,760px);align-self:stretch}.pp-timeline-panel.is-collapsed,.pp-analytics-panel.is-collapsed{height:auto}.pp-timeline-panel .pp-content,.pp-analytics-panel .pp-content{display:flex;flex:1 1 auto;flex-direction:column;min-height:0;overflow:hidden}.pp-timeline{display:grid;flex:1 1 auto;gap:8px;min-height:0;overflow:auto;padding-right:4px}.pp-analytics-panel .pp-analytics-scroll{flex:1 1 auto;max-height:none;min-height:0}.pp-event{display:grid;gap:4px;padding:9px 10px;border-left:3px solid var(--event-color,var(--muted));background:#121615;border-radius:0 6px 6px 0}.pp-event time{color:var(--muted);font-size:12px}.pp-event strong{color:#fff}
     .pp-kv{display:grid;grid-template-columns:minmax(110px,.8fr) minmax(0,1.2fr);gap:8px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,.06)}.pp-kv>span:first-child{color:var(--muted)}
-    .pp-toast{position:absolute;right:12px;bottom:12px;max-width:min(420px,calc(100vw - 36px));border:1px solid rgba(70,197,143,.55);border-radius:8px;background:#102019;color:#effff8;padding:10px 12px;box-shadow:0 12px 28px rgba(0,0,0,.35);z-index:20}.pp-toast-confirm{display:grid;gap:8px;border-color:rgba(216,165,69,.75);background:#20180d}.pp-toast-confirm strong{color:#fff}.pp-toast-actions{display:flex;gap:6px;flex-wrap:wrap}.pp-empty{color:var(--muted);padding:12px;border:1px dashed var(--line);border-radius:8px;background:#111313}
+    .pp-toast{position:fixed;right:20px;bottom:20px;max-width:min(420px,calc(100vw - 36px));border:1px solid rgba(70,197,143,.55);border-radius:8px;background:#102019;color:#effff8;padding:10px 12px;box-shadow:0 12px 28px rgba(0,0,0,.35);z-index:1000001}.pp-toast-confirm{display:grid;gap:8px;border-color:rgba(216,165,69,.75);background:#20180d}.pp-toast-confirm strong{color:#fff}.pp-toast-actions{display:flex;gap:6px;flex-wrap:wrap}.pp-empty{color:var(--muted);padding:12px;border:1px dashed var(--line);border-radius:8px;background:#111313}
     .good{color:var(--accent)}.bad{color:var(--bad)}.warn{color:var(--warn)}
     .pp-effectiveness-tip{display:inline-flex;align-items:center;justify-content:center;min-width:2ch;color:inherit;cursor:help;text-decoration:underline dotted transparent;text-underline-offset:2px}.pp-effectiveness-tip.is-left{justify-content:flex-start;text-align:left;min-width:0}.pp-effectiveness-tip:hover,.pp-effectiveness-tip:focus-visible{text-decoration-color:var(--accent);outline:none}
     .pp-hover-tooltip{position:fixed;left:0;top:0;z-index:1000001;min-width:220px;max-width:min(320px,calc(100vw - 16px));padding:10px 11px;border:1px solid var(--tip-accent,#46c58f);border-radius:8px;background:var(--tip-panel,#171a1a);color:var(--tip-text,#eff2ef);box-shadow:0 14px 30px rgba(0,0,0,.38),0 0 0 1px rgba(255,255,255,.04) inset;pointer-events:none}
@@ -307,9 +316,9 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
     .pp-hover-tooltip-value.is-warn{color:var(--tip-warn,#d8a545)}
     .pp-hover-tooltip-value.is-bad{color:var(--tip-bad,#d95d5d)}
     .pp-hover-tooltip-empty{color:var(--tip-muted,#a8b0aa)}
-    @media (max-width:860px){#pythagoras-cis{top:8px;right:8px;left:8px!important;width:auto;max-height:calc(100vh - 16px);resize:none}.pp-titlebar{grid-template-columns:1fr;cursor:default}.pp-actions{justify-content:flex-start}.pp-panel.is-half,.pp-panel.is-third{grid-column:span 12}.pp-form{grid-template-columns:repeat(2,minmax(0,1fr))}.pp-field.span-2,.pp-field.span-3,.pp-field.span-4,.pp-field.span-6,.pp-settings-nav,.pp-action-grid,.pp-report-options{grid-column:span 2}.pp-statline,.pp-settings-nav,.pp-action-grid,.pp-report-options,.pp-operational,.pp-theme-editor{grid-template-columns:repeat(2,minmax(0,1fr))}}
+    @media (max-width:860px){#pythagoras-cis{top:8px;right:8px;left:8px!important;width:auto;max-height:calc(100vh - 16px);resize:none}.pp-titlebar{grid-template-columns:1fr;cursor:default}.pp-actions{justify-content:flex-start}.pp-panel.is-half,.pp-panel.is-third{grid-column:span 12}.pp-form{grid-template-columns:repeat(2,minmax(0,1fr))}.pp-field.span-2,.pp-field.span-3,.pp-field.span-4,.pp-field.span-6,.pp-settings-nav,.pp-action-grid,.pp-report-options{grid-column:span 2}.pp-statline,.pp-settings-nav,.pp-action-grid,.pp-report-options,.pp-operational,.pp-theme-editor{grid-template-columns:repeat(2,minmax(0,1fr))}.pp-priority-grid,.pp-notification-grid{grid-template-columns:1fr}.pp-discount-row{grid-template-columns:repeat(2,minmax(0,1fr))}.pp-timeline-panel,.pp-analytics-panel{height:min(72vh,680px)}}
     @media (max-width:860px){.pp-sync-center{grid-template-columns:1fr}.pp-sync-console{max-height:150px}}
-    @media (max-width:560px){#pythagoras-cis{top:0;right:0;left:0!important;width:100vw;max-height:100vh;border-radius:0}.pp-body{padding:8px}.pp-head{padding:14px 76px 12px 10px}.pp-grid,.pp-ledger-add-form,.pp-statline,.pp-operational,.pp-settings-nav,.pp-action-grid,.pp-report-options,.pp-theme-editor{grid-template-columns:1fr}.pp-field,.pp-field.span-2,.pp-field.span-3,.pp-field.span-4,.pp-field.span-6,.pp-ledger-preview-field{grid-column:span 1}.pp-ledger-add-form .pp-input,.pp-ledger-add-form .pp-select{width:calc(100vw - 44px);max-width:calc(100vw - 44px)}.pp-calendar{grid-template-columns:1fr;overflow-x:visible}.pp-table{min-width:680px}.pp-modal-card{width:calc(100vw - 16px);max-height:calc(100vh - 16px)}}
+    @media (max-width:560px){#pythagoras-cis{top:0;right:0;left:0!important;width:100vw;max-height:100vh;border-radius:0}.pp-body{padding:8px}.pp-head{padding:14px 76px 12px 10px}.pp-grid,.pp-ledger-add-form,.pp-statline,.pp-operational,.pp-settings-nav,.pp-action-grid,.pp-report-options,.pp-theme-editor,.pp-discount-row{grid-template-columns:1fr}.pp-field,.pp-field.span-2,.pp-field.span-3,.pp-field.span-4,.pp-field.span-6,.pp-ledger-preview-field{grid-column:span 1}.pp-ledger-add-form .pp-input,.pp-ledger-add-form .pp-select{width:calc(100vw - 44px);max-width:calc(100vw - 44px)}.pp-calendar{grid-template-columns:1fr;overflow-x:visible}.pp-table{min-width:680px}.pp-modal-card{width:calc(100vw - 16px);max-height:calc(100vh - 16px)}.pp-notification-rule{grid-template-columns:1fr}.pp-toast{right:10px;bottom:10px}}
   `;
 
   const Utils = {
@@ -672,14 +681,17 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
     localSaveSeq: 0,
     load() {
       const profile = Store.loadProfile();
-      const state = Store.applyProfile(Store.applyAdminConfig(Store.migrate(Utils.clone(DEFAULTS))), profile);
-      return Store.applyLedgerPending(Store.applyStaffEditCache(state, Store.loadStaffLocalEdits()), Store.loadLedgerPending());
+      let state = Store.applyProfile(Store.applyAdminConfig(Store.migrate(Utils.clone(DEFAULTS))), profile);
+      state = Store.applyStockLocalEdits(Store.applyUiPreferences(state, Store.loadUiPreferences()), Store.loadStockLocalEdits());
+      return Store.applyNotificationDismissals(Store.applyLedgerPending(Store.applyStaffEditCache(state, Store.loadStaffLocalEdits()), Store.loadLedgerPending()), Store.loadNotificationDismissals());
     },
     async loadAsync() {
       const profile = await Store.loadProfileAsync();
       let state = Store.applyProfile(Store.applyAdminConfig(Store.migrate(Utils.clone(DEFAULTS))), profile);
       const staffEditCache = await Store.loadStaffLocalEditsAsync();
       const ledgerPending = await Store.loadLedgerPendingAsync();
+      const uiPreferences = await Store.loadUiPreferencesAsync();
+      const stockLocalEdits = await Store.loadStockLocalEditsAsync();
       const legacyRaw = await Store.rawGetAsync(APP.storageKey);
       if (legacyRaw) {
         const legacy = Store.loadFromRaw(legacyRaw);
@@ -698,7 +710,9 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
       state.settings.companyId = state.settings.companyId || state.company.profile.id || PageData.companyId();
       state = Store.applyLedgerPending(Store.applyStaffEditCache(state, staffEditCache), ledgerPending);
       const cloudState = await Store.loadCloudWorkspace(state);
-      return Store.applyLedgerPending(Store.applySyncCache(cloudState), ledgerPending);
+      const cachedState = Store.applySyncCache(cloudState);
+      Store.applyStockLocalEdits(Store.applyUiPreferences(cachedState, uiPreferences), stockLocalEdits);
+      return Store.applyNotificationDismissals(Store.applyLedgerPending(cachedState, ledgerPending), await Store.loadNotificationDismissalsAsync());
     },
     loadProfile() {
       const raw = Store.rawGet(APP.profileKey);
@@ -721,6 +735,92 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         console.warn('[Pythagoras Project - CIS] Could not read local profile.', error);
         return null;
       }
+    },
+    parseUiPreferences(raw) {
+      if (!raw) return {};
+      try {
+        const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+        const source = parsed && parsed.ui && typeof parsed.ui === 'object' && !Array.isArray(parsed.ui) ? parsed.ui : parsed;
+        if (!source || typeof source !== 'object' || Array.isArray(source)) return {};
+        return {
+          collapsedPanels: source.collapsedPanels && typeof source.collapsedPanels === 'object' && !Array.isArray(source.collapsedPanels) ? source.collapsedPanels : {},
+          graphScale: source.graphScale === 'weekly' ? 'weekly' : 'daily',
+          dailyBalanceMode: source.dailyBalanceMode === 'all' ? 'all' : 'week'
+        };
+      } catch (error) {
+        console.warn('[Pythagoras Project - CIS] Could not read local UI preferences.', error);
+        return {};
+      }
+    },
+    loadUiPreferences() {
+      return Store.parseUiPreferences(Store.rawGet(APP.uiPreferencesKey));
+    },
+    async loadUiPreferencesAsync() {
+      return Store.parseUiPreferences(await Store.rawGetAsync(APP.uiPreferencesKey));
+    },
+    applyUiPreferences(state, preferences) {
+      if (!state) return state;
+      const source = preferences && typeof preferences === 'object' && !Array.isArray(preferences) ? preferences : {};
+      state.ui = Object.assign({}, state.ui || DEFAULTS.ui);
+      if (source.collapsedPanels) state.ui.collapsedPanels = Object.assign({}, source.collapsedPanels);
+      if (source.graphScale) state.ui.graphScale = source.graphScale;
+      if (source.dailyBalanceMode) state.ui.dailyBalanceMode = source.dailyBalanceMode;
+      return state;
+    },
+    saveUiPreferences(state) {
+      const ui = state && state.ui || {};
+      Store.rawSet(APP.uiPreferencesKey, JSON.stringify({
+        ui: {
+          collapsedPanels: ui.collapsedPanels && typeof ui.collapsedPanels === 'object' && !Array.isArray(ui.collapsedPanels) ? ui.collapsedPanels : {},
+          graphScale: ui.graphScale === 'weekly' ? 'weekly' : 'daily',
+          dailyBalanceMode: ui.dailyBalanceMode === 'all' ? 'all' : 'week'
+        },
+        updatedAt: Utils.nowIso()
+      }));
+    },
+    parseStockLocalEdits(raw) {
+      if (!raw) return null;
+      try {
+        const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+        if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return null;
+        return {
+          userId: String(parsed.userId || ''),
+          companyId: String(parsed.companyId || ''),
+          stockSettings: Store.normaliseStockSettings(parsed.stockSettings || {})
+        };
+      } catch (error) {
+        console.warn('[Pythagoras Project - CIS] Could not read pending stock settings.', error);
+        return null;
+      }
+    },
+    loadStockLocalEdits() {
+      return Store.parseStockLocalEdits(Store.rawGet(APP.stockEditsKey));
+    },
+    async loadStockLocalEditsAsync() {
+      return Store.parseStockLocalEdits(await Store.rawGetAsync(APP.stockEditsKey));
+    },
+    applyStockLocalEdits(state, pending) {
+      if (!state || !pending) return state;
+      const identity = Store.syncCacheIdentity(state);
+      if ((pending.userId && identity.userId && pending.userId !== identity.userId)
+        || (pending.companyId && identity.companyId && pending.companyId !== identity.companyId)) return state;
+      state.company.stockSettings = Store.normaliseStockSettings(Object.assign({}, state.company.stockSettings || {}, pending.stockSettings || {}));
+      Store.applyStockSettings(state);
+      return state;
+    },
+    saveStockLocalEdits(state) {
+      const settings = Store.normaliseStockSettings(state && state.company && state.company.stockSettings || {});
+      if (!Object.keys(settings).length) {
+        Store.rawDelete(APP.stockEditsKey);
+        return;
+      }
+      const identity = Store.syncCacheIdentity(state);
+      Store.rawSet(APP.stockEditsKey, JSON.stringify({
+        userId: identity.userId,
+        companyId: identity.companyId,
+        stockSettings: settings,
+        updatedAt: Utils.nowIso()
+      }));
     },
     parseStaffLocalEdits(raw) {
       if (!raw) return { localEdits: {}, localEditVersion: 0 };
@@ -795,6 +895,17 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         if (!raw || typeof raw !== 'object') return;
         const budget = Utils.num(raw.advertisingBudget ?? raw.advertisement_budget ?? raw.adBudget ?? raw.budget ?? raw.value, null);
         if (budget === null || budget < 0) return;
+        const rawMeta = raw.raw && typeof raw.raw === 'object' && !Array.isArray(raw.raw) ? raw.raw : {};
+        const known = budget > 0
+          || raw.advertisingBudgetKnown === true
+          || raw.known === true
+          || raw.explicit === true
+          || raw.explicitZero === true
+          || rawMeta.advertisingBudgetKnown === true
+          || rawMeta.known === true
+          || rawMeta.explicit === true
+          || rawMeta.explicitZero === true;
+        if (budget === 0 && !known) return;
         const observedAt = String(raw.observedAt || raw.observed_at || raw.syncedAt || raw.synced_at || raw.at || raw.created_at || '').trim() || Utils.nowIso();
         const date = Utils.dateInput(raw.date || raw.observedDate || raw.observed_date || observedAt);
         if (!date) return;
@@ -802,15 +913,135 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
           date,
           observedAt,
           advertisingBudget: Math.round(budget),
+          advertisingBudgetKnown: known,
           source: String(raw.source || 'business-sync').trim() || 'business-sync'
         };
         const existing = byDate.get(date);
         if (!existing || Utils.dateTimestamp(row.observedAt) >= Utils.dateTimestamp(existing.observedAt)) byDate.set(date, row);
       });
-      return Array.from(byDate.values()).sort((a, b) => String(a.date).localeCompare(String(b.date)));
+      const sorted = Array.from(byDate.values()).sort((a, b) => String(a.date).localeCompare(String(b.date)));
+      sorted.forEach((row, index) => {
+        if (Utils.num(row.advertisingBudget, 0) > 0) return;
+        let previous = null;
+        let next = null;
+        for (let cursor = index - 1; cursor >= 0; cursor -= 1) {
+          if (Utils.num(sorted[cursor].advertisingBudget, 0) > 0) { previous = sorted[cursor]; break; }
+        }
+        for (let cursor = index + 1; cursor < sorted.length; cursor += 1) {
+          if (Utils.num(sorted[cursor].advertisingBudget, 0) > 0) { next = sorted[cursor]; break; }
+        }
+        if (!previous || !next) return;
+        const previousDistance = Math.max(0, Utils.daysBetween(previous.date, row.date));
+        const nextDistance = Math.max(0, Utils.daysBetween(row.date, next.date));
+        const totalDistance = previousDistance + nextDistance;
+        const previousBudget = Utils.num(previous.advertisingBudget, 0);
+        const nextBudget = Utils.num(next.advertisingBudget, 0);
+        const inferred = totalDistance > 0
+          ? previousBudget + ((nextBudget - previousBudget) * previousDistance / totalDistance)
+          : previousBudget;
+        if (!inferred) return;
+        row.advertisingBudget = Math.round(inferred);
+        row.advertisingBudgetKnown = true;
+        row.repairedFromZero = true;
+        row.source = 'v2.9.8-zero-repair';
+      });
+      return sorted;
     },
     mergeAdBudgetHistory(base, extra) {
       return Store.normaliseAdBudgetHistory([].concat(Array.isArray(base) ? base : [], Array.isArray(extra) ? extra : []));
+    },
+    normaliseOperatingCostHistory(rows) {
+      const byDate = new Map();
+      (Array.isArray(rows) ? rows : []).forEach((raw) => {
+        if (!raw || typeof raw !== 'object') return;
+        const date = Utils.dateInput(raw.date || raw.reportDate || raw.report_date || raw.observedAt || raw.observed_at);
+        if (!date) return;
+        const wages = Utils.num(raw.wages ?? raw.wageTotal ?? raw.wage_total ?? raw.totalWages ?? raw.total_wages, null);
+        const adBudget = Utils.num(raw.adBudget ?? raw.ad_budget ?? raw.advertisingBudget ?? raw.advertising_budget ?? raw.advertisement_budget, null);
+        if (wages === null && adBudget === null) return;
+        const row = {
+          date,
+          observedAt: String(raw.observedAt || raw.observed_at || raw.updatedAt || raw.updated_at || raw.created_at || '').trim() || Utils.nowIso(),
+          wages: Math.max(0, Math.round(wages === null ? 0 : wages)),
+          wagesKnown: wages !== null && (raw.wagesKnown !== false && raw.wages_known !== false),
+          adBudget: Math.max(0, Math.round(adBudget === null ? 0 : adBudget)),
+          adBudgetKnown: adBudget !== null && (raw.adBudgetKnown !== false && raw.ad_budget_known !== false),
+          source: String(raw.source || 'daily-operating-snapshot').trim() || 'daily-operating-snapshot'
+        };
+        const existing = byDate.get(date);
+        if (!existing) {
+          byDate.set(date, row);
+          return;
+        }
+        if (Utils.dateTimestamp(row.observedAt) < Utils.dateTimestamp(existing.observedAt)) return;
+        if (!row.wagesKnown && existing.wagesKnown) {
+          row.wages = existing.wages;
+          row.wagesKnown = true;
+        }
+        if (!row.adBudgetKnown && existing.adBudgetKnown) {
+          row.adBudget = existing.adBudget;
+          row.adBudgetKnown = true;
+        }
+        byDate.set(date, row);
+      });
+      return Array.from(byDate.values()).sort((a, b) => String(a.date).localeCompare(String(b.date)));
+    },
+    mergeOperatingCostHistory(base, extra) {
+      return Store.normaliseOperatingCostHistory([].concat(Array.isArray(base) ? base : [], Array.isArray(extra) ? extra : []));
+    },
+    stockSettingKey(value) {
+      return String(value || '').trim();
+    },
+    normaliseStockSettings(settings) {
+      const source = settings && typeof settings === 'object' && !Array.isArray(settings) ? settings : {};
+      const next = {};
+      Object.entries(source).forEach(([rawKey, raw]) => {
+        const key = Store.stockSettingKey(rawKey);
+        if (!key || !raw || typeof raw !== 'object' || Array.isArray(raw)) return;
+        next[key] = {
+          needsStock: !!raw.needsStock,
+          warningMode: raw.warningMode === 'amount' ? 'amount' : 'percent',
+          warningPercent: Utils.percent(raw.warningPercent, 10),
+          warningAmount: Math.max(0, Utils.num(raw.warningAmount, 0)),
+          restockQty: raw.restockQty === '' || raw.restockQty === null || raw.restockQty === undefined ? '' : Math.max(0, Utils.num(raw.restockQty, 0)),
+          updatedAt: String(raw.updatedAt || '')
+        };
+      });
+      return next;
+    },
+    stockSettingsFromItems(items, existing) {
+      const next = Store.normaliseStockSettings(existing || {});
+      (Array.isArray(items) ? items : []).forEach((item) => {
+        const key = Store.stockSettingKey(item && item.key);
+        if (!key) return;
+        next[key] = {
+          needsStock: !!(item && item.needsStock),
+          warningMode: item && item.warningMode === 'amount' ? 'amount' : 'percent',
+          warningPercent: Utils.percent(item && item.warningPercent, 10),
+          warningAmount: Math.max(0, Utils.num(item && item.warningAmount, 0)),
+          restockQty: item && item.restockQty !== '' && item.restockQty !== null && item.restockQty !== undefined ? Math.max(0, Utils.num(item.restockQty, 0)) : '',
+          updatedAt: Utils.nowIso()
+        };
+      });
+      return next;
+    },
+    applyStockSettings(state) {
+      if (!state || !state.company || !state.company.stock) return state;
+      const settings = Store.normaliseStockSettings(state.company.stockSettings || {});
+      state.company.stockSettings = settings;
+      state.company.stock.items = (state.company.stock.items || []).map((item) => {
+        const saved = settings[Store.stockSettingKey(item && item.key)];
+        if (!saved) return item;
+        const restockable = Company.isRestockableStock(item);
+        return Object.assign({}, item, {
+          needsStock: restockable ? !!saved.needsStock : false,
+          warningMode: saved.warningMode === 'amount' ? 'amount' : 'percent',
+          warningPercent: Utils.percent(saved.warningPercent, 10),
+          warningAmount: Math.max(0, Utils.num(saved.warningAmount, 0)),
+          restockQty: restockable ? saved.restockQty : ''
+        });
+      });
+      return state;
     },
     parseLedgerPending(raw) {
       if (!raw) return { orders: [], updatedAt: '' };
@@ -841,6 +1072,43 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
     },
     clearLedgerPending() {
       Store.rawDelete(APP.ledgerPendingKey);
+    },
+    parseNotificationDismissals(raw) {
+      if (!raw) return {};
+      try {
+        const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+        const source = parsed && parsed.dismissedNotifications && typeof parsed.dismissedNotifications === 'object' && !Array.isArray(parsed.dismissedNotifications)
+          ? parsed.dismissedNotifications
+          : parsed;
+        const currentDay = Utils.tctWorkingDayKey();
+        const next = {};
+        Object.entries(source && typeof source === 'object' && !Array.isArray(source) ? source : {}).forEach(([key, value]) => {
+          if (String(value || '') === currentDay) next[String(key)] = currentDay;
+        });
+        return next;
+      } catch (error) {
+        console.warn('[Pythagoras Project - CIS] Could not read notification dismissals.', error);
+        return {};
+      }
+    },
+    loadNotificationDismissals() {
+      return Store.parseNotificationDismissals(Store.rawGet(APP.notificationDismissalsKey));
+    },
+    async loadNotificationDismissalsAsync() {
+      return Store.parseNotificationDismissals(await Store.rawGetAsync(APP.notificationDismissalsKey));
+    },
+    saveNotificationDismissals(state) {
+      const dismissed = Store.parseNotificationDismissals(state && state.dismissedNotifications || {});
+      if (!Object.keys(dismissed).length) {
+        Store.rawDelete(APP.notificationDismissalsKey);
+        return;
+      }
+      Store.rawSet(APP.notificationDismissalsKey, JSON.stringify({ dismissedNotifications: dismissed, updatedAt: Utils.nowIso() }));
+    },
+    applyNotificationDismissals(state, dismissals) {
+      if (!state) return state;
+      state.dismissedNotifications = Object.assign({}, Store.parseNotificationDismissals(state.dismissedNotifications || {}), Store.parseNotificationDismissals(dismissals || {}));
+      return state;
     },
     applyLedgerPending(state, pending) {
       const rows = pending && Array.isArray(pending.orders) ? pending.orders : [];
@@ -1006,6 +1274,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         if (business.companyProfile) state.company.profile = Store.merge(state.company.profile || {}, business.companyProfile);
         if (business.companyDetailed) state.company.detailed = Store.merge(state.company.detailed || {}, business.companyDetailed);
         if (Array.isArray(business.adBudgetHistory)) state.company.adBudgetHistory = Store.mergeAdBudgetHistory(state.company.adBudgetHistory || [], business.adBudgetHistory);
+        if (Array.isArray(business.operatingCostHistory)) state.company.operatingCostHistory = Store.mergeOperatingCostHistory(state.company.operatingCostHistory || [], business.operatingCostHistory);
         if (business.settings) state.settings = Store.merge(state.settings || {}, business.settings);
       }
       const employees = cloneSlice('employees');
@@ -1016,12 +1285,14 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
       }
       const stock = cloneSlice('stock');
       if (stock) {
+        if (stock.stockSettings) state.company.stockSettings = Store.normaliseStockSettings(stock.stockSettings);
         if (stock.companyStock) state.company.stock = stock.companyStock;
         if (Array.isArray(stock.stockHistory)) state.company.stockHistory = stock.stockHistory;
+        Store.applyStockSettings(state);
       }
       const news = cloneSlice('news');
       if (news) {
-        if (Array.isArray(news.timeline)) state.staff.timeline = news.timeline;
+        if (Array.isArray(news.timeline)) state.staff.timeline = Timeline.reclassify(Timeline.mergeTimeline(state.staff.timeline || [], news.timeline));
         if (news.newsSync) state.company.newsSync = Store.merge(state.company.newsSync || {}, news.newsSync);
         if (news.analytics) state.analytics = Store.merge(state.analytics || {}, news.analytics);
       }
@@ -1030,6 +1301,8 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         if (Array.isArray(trainingLog.trainingLog)) state.trainingLog = trainingLog.trainingLog;
         if (Array.isArray(trainingLog.ledger)) state.ledger = Store.mergeLedgerRows(state.ledger || [], trainingLog.ledger);
       }
+      const planner = cloneSlice('planner');
+      if (planner && planner.planner) state.planner = Store.merge(state.planner || {}, planner.planner);
       Company.dedupeStaff(state);
       Company.removeDirectorsFromStaff(state);
       return state;
@@ -1041,6 +1314,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
           companyProfile: Utils.clone(state.company.profile || {}),
           companyDetailed: Utils.clone(state.company.detailed || {}),
           adBudgetHistory: Utils.clone(state.company.adBudgetHistory || []),
+          operatingCostHistory: Utils.clone(state.company.operatingCostHistory || []),
           settings: {
             companyId: state.settings.companyId || '',
             companyTypeId: state.settings.companyTypeId || '',
@@ -1060,9 +1334,10 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
           }
         };
       }
-      if (kind === 'stock') return { companyStock: Utils.clone(state.company.stock || {}), stockHistory: Utils.clone(state.company.stockHistory || []) };
+      if (kind === 'stock') return { companyStock: Utils.clone(state.company.stock || {}), stockSettings: Utils.clone(state.company.stockSettings || {}), stockHistory: Utils.clone(state.company.stockHistory || []) };
       if (kind === 'news') return { timeline: Utils.clone(state.staff.timeline || []), newsSync: Utils.clone(state.company.newsSync || {}), analytics: Utils.clone(state.analytics || {}) };
       if (kind === 'trainingLog') return { trainingLog: Utils.clone(state.trainingLog || []), ledger: Utils.clone(state.ledger || []) };
+      if (kind === 'planner') return { planner: Utils.clone(state.planner || {}) };
       return {};
     },
     updateSyncCache(state, kinds) {
@@ -1083,6 +1358,8 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
     save(state) {
       Ledger.prepare(state);
       Store.saveProfile(state);
+      Store.saveUiPreferences(state);
+      Store.saveStockLocalEdits(state);
       try {
         const ui = typeof window !== 'undefined' ? window.__PPCIS_UI : null;
         if (ui && ui.state === state && typeof ui.scheduleWorkspaceMirrorSave === 'function') ui.scheduleWorkspaceMirrorSave('state-save', 1800);
@@ -1106,7 +1383,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
       const payload = Object.assign({
         userId,
         companyId,
-        username: String(state.settings.userName || '').trim(),
+        username: String(state.settings.userName || PageData.userName() || '').trim(),
         scriptVersion: APP.version
       }, extra || {});
       payload.apiKey = String(state.settings.apiKey || '').trim();
@@ -1144,7 +1421,9 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
       if (!Store.canUseCloudWorkspace(state)) return null;
       const base = Store.workspaceBaseUrl(state);
       const companyId = String(options && options.companyId || state.settings.companyId || state.company.profile.id || PageData.companyId() || '').trim();
-      const companyName = String(options && options.companyName || state.company.profile.name || state.settings.companyTypeName || '').trim();
+      const detailed = state.company && state.company.detailed || {};
+      const profile = state.company && state.company.profile || {};
+      const companyName = String(options && options.companyName || profile.name || profile.companyName || detailed.name || detailed.companyName || '').trim();
       const payload = Store.workspacePayload(state, {
         companyId,
         companyName,
@@ -1157,8 +1436,20 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
     },
     async saveWorkspaceMirror(state, options) {
       if (!Store.canUseCloudWorkspace(state)) return null;
+      const detailed = state.company && state.company.detailed || {};
+      const profile = state.company && state.company.profile || {};
+      const companyName = String(profile.name || profile.companyName || detailed.name || detailed.companyName || '').trim();
       const result = await Store.cisCompanyApi(state, '/sync/workspace', {
         state: Store.cloudState(state),
+        companyName,
+        company: {
+          id: profile.id || detailed.id || state.settings.companyId || PageData.companyId() || '',
+          name: companyName,
+          companyName,
+          companyTypeId: profile.typeId || detailed.typeId || state.settings.companyTypeId || '',
+          companyTypeName: profile.typeName || detailed.typeName || state.settings.companyTypeName || '',
+          directorId: profile.directorId || detailed.directorId || state.settings.userId || ''
+        },
         scriptVersion: APP.version,
         snapshot: options && options.snapshot === true,
         snapshotReason: options && options.reason || 'autosave'
@@ -1204,6 +1495,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
       const event = {
         id: row.event_id || meta.id || '',
         eventId: row.event_id || '',
+        sourceEventId: row.event_id || meta.sourceEventId || meta.tornEventId || meta.apiEventId || meta.newsId || meta.id || '',
         timestamp: Utils.int(row.timestamp, 0),
         date: row.timestamp ? Utils.dateShort(row.timestamp) : '',
         reportDate,
@@ -1239,10 +1531,12 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
       if (event.type === 'funds' && event.amount) return `Funds movement: ${Utils.money(event.amount)}.`;
       return [name, event.value, event.position, event.amount ? Utils.money(event.amount) : ''].filter(Boolean).join(' - ') || String(event.type || event.eventType || 'Company event');
     },
-    trainingEventCount(event) {
+    trainingEventCount(event, options) {
       const text = String(event && (event.plainText || event.text || event.message) || '');
       const match = text.match(/\b(\d[\d,]*)\s+trains?\b/i);
-      return Math.max(1, Utils.int(event && (event.displayCount || event.trainCount || event.count || event.trains), 0), match ? Utils.int(match[1], 0) : 0);
+      const rawCount = Utils.int(event && (event.trainCount || event.count || event.trains), 0);
+      const displayCount = options && options.raw ? 0 : Utils.int(event && event.displayCount, 0);
+      return Math.max(1, displayCount, rawCount, match ? Utils.int(match[1], 0) : 0);
     },
     trainingEventText(event) {
       const name = event.playerName || event.name || (event.userId ? `User ${event.userId}` : 'A staff member');
@@ -1263,6 +1557,10 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         category: 'daily_report',
         customers: Utils.int(row.customers, 0),
         income: Utils.int(row.income, 0),
+        wages: Utils.num(row.wages ?? row.wage_total ?? row.total_wages, 0),
+        wagesKnown: row.wages !== undefined || row.wage_total !== undefined || row.total_wages !== undefined,
+        adBudget: Utils.num(row.ad_budget ?? row.advertising_budget ?? row.advertisement_budget, 0),
+        adBudgetKnown: row.ad_budget !== undefined || row.advertising_budget !== undefined || row.advertisement_budget !== undefined,
         plainText: Store.dailyReportText({
           reportDate: date,
           timestamp: stamp,
@@ -1315,6 +1613,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         inactivity: snapshot && snapshot.inactivity || raw.inactivity || 0,
         wage: snapshot && snapshot.wage || raw.wage || 0,
         employeeEfficiency: snapshot && snapshot.efficiency || raw.employeeEfficiency || raw.efficiency || 0,
+        efficiency: snapshot && snapshot.efficiency || raw.efficiency || raw.employeeEfficiency || 0,
         days: snapshot && snapshot.days_in_company || raw.days || 0,
         lastActionTimestamp: snapshot && snapshot.last_action_timestamp || raw.lastActionTimestamp || 0,
         racingRank: snapshot && snapshot.racing_rank || raw.racingRank || '',
@@ -1401,6 +1700,10 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
       next.company.adBudgetHistory = Store.mergeAdBudgetHistory(next.company.adBudgetHistory || [], []
         .concat(Array.isArray(settings.adBudgetHistory) ? settings.adBudgetHistory : [])
         .concat(Array.isArray(data.adBudgetHistory) ? data.adBudgetHistory : []));
+      next.company.operatingCostHistory = Store.mergeOperatingCostHistory(next.company.operatingCostHistory || [], []
+        .concat(Array.isArray(settings.operatingCostHistory) ? settings.operatingCostHistory : [])
+        .concat(Array.isArray(data.operatingCostHistory) ? data.operatingCostHistory : [])
+        .concat(Array.isArray(data.dailyReports) ? data.dailyReports : []));
 
       const snapshotMap = new Map((data.memberSnapshots || []).map((row) => [String(row.user_id), row]));
       const people = (data.members || []).map((row) => Store.dbMemberToPerson(row, snapshotMap.get(String(row.user_id))));
@@ -1423,6 +1726,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
       }
 
       const stockItems = data.stock && Array.isArray(data.stock.items) ? data.stock.items : [];
+      next.company.stockSettings = Store.normaliseStockSettings(Object.assign({}, next.company.stockSettings || {}, plain(settings.stockSettings)));
       if (stockItems.length) {
         const stock = {};
         stockItems.forEach((item) => {
@@ -1441,6 +1745,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         next.company.stock = Company.stock({ company_stock: stock }, next.company.stock.items, next);
         next.company.stock.lastSynced = UI.newestSync([data.stock && data.stock.snapshot && data.stock.snapshot.synced_at, watermarks.stock && watermarks.stock.latestSyncedAt, next.company.stock.lastSynced]);
       }
+      Store.applyStockSettings(next);
 
       next.staff.current = (next.staff.current || []).map((person) => Timeline.hydrateEmploymentDates(next, person));
       next.staff.past = (next.staff.past || []).map((person) => Timeline.hydrateEmploymentDates(next, person));
@@ -1514,6 +1819,9 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
       Store.rawDelete(APP.staffEditsKey);
       Store.rawDelete(APP.ledgerPendingKey);
       Store.rawDelete(APP.syncCacheKey);
+      Store.rawDelete(APP.notificationDismissalsKey);
+      Store.rawDelete(APP.uiPreferencesKey);
+      Store.rawDelete(APP.stockEditsKey);
     },
     applyAdminConfig(state) {
       if (!BUILD_CONFIG.enabled) return state;
@@ -1552,7 +1860,13 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
       delete state['lic' + 'ense'];
       delete state.access;
       state.company = Store.merge(Utils.clone(DEFAULTS.company), state.company || {});
+      state.company.stockSettings = Store.normaliseStockSettings(state.company.stockSettings || {});
+      if (!Object.keys(state.company.stockSettings).length && state.company.stock && state.company.stock.items && state.company.stock.items.length) {
+        state.company.stockSettings = Store.stockSettingsFromItems(state.company.stock.items, state.company.stockSettings);
+      }
+      Store.applyStockSettings(state);
       state.company.adBudgetHistory = Store.normaliseAdBudgetHistory(state.company.adBudgetHistory || []);
+      state.company.operatingCostHistory = Store.normaliseOperatingCostHistory(state.company.operatingCostHistory || []);
       state.company.newsSync = Store.merge(Utils.clone(DEFAULTS.company.newsSync), state.company.newsSync || {});
       state.company.newsSync.reportGapAttempts = state.company.newsSync.reportGapAttempts && typeof state.company.newsSync.reportGapAttempts === 'object' && !Array.isArray(state.company.newsSync.reportGapAttempts)
         ? state.company.newsSync.reportGapAttempts
@@ -1566,6 +1880,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         });
       }
       state.staff = Store.merge(Utils.clone(DEFAULTS.staff), state.staff || {});
+      state.staff.timeline = Timeline.dedupeEvents(state.staff.timeline || []);
       state.staff.localEdits = state.staff.localEdits && typeof state.staff.localEdits === 'object' && !Array.isArray(state.staff.localEdits) ? state.staff.localEdits : {};
       state.staff.localEditVersion = Utils.int(state.staff.localEditVersion, 0);
       state.planner = Object.assign({}, DEFAULTS.planner, state.planner || {});
@@ -1596,6 +1911,9 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
       settings.wageRoleRequirements = settings.wageRoleRequirements || {};
       settings.dateFormat = settings.dateFormat || DEFAULTS.settings.dateFormat;
       settings.customDateFormat = settings.customDateFormat || DEFAULTS.settings.customDateFormat;
+      const queuePolicy = String(settings.plannerPriority.queuePolicy || DEFAULTS.settings.plannerPriority.queuePolicy || 'rotation').trim();
+      settings.plannerPriority.queuePolicy = ['director', 'rotation', 'lowest_stats', 'role_closest', 'role_gap'].includes(queuePolicy) ? queuePolicy : DEFAULTS.settings.plannerPriority.queuePolicy;
+      settings.plannerPriority.paidFirst = settings.plannerPriority.paidFirst !== false;
       if (!settings.companyTypeId && settings.companyTypeName) {
         const typeMatch = Object.entries(Company.typeNames).find(([, name]) => String(name).toLowerCase() === String(settings.companyTypeName).toLowerCase());
         if (typeMatch) settings.companyTypeId = typeMatch[0];
@@ -1732,6 +2050,40 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
     }
   };
 
+  function cleanDetectedUserName(value, userId) {
+    const name = String(value || '').replace(/\s+/g, ' ').trim();
+    const id = String(userId || '').trim();
+    if (!name) return '';
+    const key = name.toLowerCase();
+    if (['user', 'profile', 'view profile', 'my profile', 'view my profile'].includes(key)) return '';
+    if (id && (key === id || key === `user ${id}`)) return '';
+    return name;
+  }
+
+  function cookieValue(name) {
+    const wanted = `${encodeURIComponent(name)}=`;
+    const raw = String(document.cookie || '').split(';');
+    for (const part of raw) {
+      const item = part.trim();
+      if (!item.startsWith(wanted)) continue;
+      const value = item.slice(wanted.length).replace(/\+/g, ' ');
+      try { return decodeURIComponent(value); } catch (error) { return value; }
+    }
+    return '';
+  }
+
+  function profileLinkUserName(link, userId) {
+    if (!link) return '';
+    const href = String(link.getAttribute('href') || link.href || '');
+    const match = href.match(/[?&]XID=(\d+)/i);
+    if (userId && match && match[1] !== String(userId)) return '';
+    const aria = String(link.getAttribute('aria-label') || '');
+    const labelMatch = aria.match(/^Name:\s*(.+)$/i);
+    const labelName = labelMatch ? cleanDetectedUserName(labelMatch[1], userId) : '';
+    if (labelName) return labelName;
+    return cleanDetectedUserName(link.textContent || '', userId);
+  }
+
   const PageData = {
     win() {
       try { return typeof unsafeWindow !== 'undefined' ? unsafeWindow : window; } catch (error) { return window; }
@@ -1760,12 +2112,21 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
     },
     userName() {
       const page = PageData.win();
+      const userId = PageData.userId();
       const candidates = [page.userName, page.username, page.User && (page.User.name || page.User.username), page.Torn && page.Torn.user && (page.Torn.user.name || page.Torn.user.username)];
       for (const value of candidates) {
-        if (value) return String(value).trim();
+        const name = cleanDetectedUserName(value, userId);
+        if (name) return name;
       }
-      const link = document.querySelector('a[href*="profiles.php?XID="]');
-      return link ? (link.textContent || '').replace(/\s+/g, ' ').trim() : '';
+      const namedLink = document.querySelector('a[href*="profiles.php?XID="][aria-label^="Name:"]');
+      const namedLinkName = profileLinkUserName(namedLink, userId);
+      if (namedLinkName) return namedLinkName;
+      const links = Array.from(document.querySelectorAll('a[href*="profiles.php?XID="]'));
+      for (const link of links) {
+        const name = profileLinkUserName(link, userId);
+        if (name) return name;
+      }
+      return cleanDetectedUserName(cookieValue('sso_wiki_user'), userId);
     }
   };
 
@@ -2057,6 +2418,19 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         if (value !== undefined && value !== null && value !== '') return value;
       }
       return fallback;
+    },
+    hasPath(source, path) {
+      if (!source || typeof source !== 'object') return false;
+      const parts = String(path || '').split('.').filter(Boolean);
+      let cursor = source;
+      for (const key of parts) {
+        if (!cursor || typeof cursor !== 'object' || !Object.prototype.hasOwnProperty.call(cursor, key)) return false;
+        cursor = cursor[key];
+      }
+      return true;
+    },
+    hasAny(source, paths) {
+      return (paths || []).some((path) => Company.hasPath(source, path));
     },
     nameKey(name) {
       return String(name || '').replace(/<[^>]+>/g, '').replace(/\s*\[\d+\]\s*$/, '').trim().toLowerCase();
@@ -2578,6 +2952,8 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
       const source = Company.selection(data, 'detailed') || {};
       const upgrades = source.upgrades || {};
       const previous = state && state.company && state.company.detailed ? state.company.detailed : {};
+      const adBudgetKeys = ['advertising_budget', 'advertisingBudget', 'advertisement_budget', 'advertising'];
+      const advertisingBudgetKnown = Company.hasAny(source, adBudgetKeys) || previous.advertisingBudgetKnown === true || Utils.num(previous.advertisingBudget, 0) > 0;
       return {
         lastSynced: Utils.nowIso(),
         id: String(Company.first(source, ['company_id', 'companyId', 'id', 'ID'], state.settings.companyId || '') || ''),
@@ -2587,7 +2963,8 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         efficiency: Utils.percent(Company.first(source, ['efficiency'], previous.efficiency), 0),
         environment: Utils.percent(Company.first(source, ['environment'], previous.environment), 0),
         trainsAvailable: Utils.clamp(Utils.int(Company.first(source, ['trains_available', 'training_available', 'trainsAvailable', 'trains'], previous.trainsAvailable), 0), 0, 20),
-        advertisingBudget: Utils.num(Company.first(source, ['advertising_budget', 'advertisingBudget', 'advertisement_budget', 'advertising'], previous.advertisingBudget), 0),
+        advertisingBudget: Utils.num(Company.first(source, adBudgetKeys, previous.advertisingBudget), 0),
+        advertisingBudgetKnown,
         companySize: String(Company.first(upgrades, ['company_size', 'companySize', 'size'], previous.companySize) || ''),
         staffroomSize: String(Company.first(upgrades, ['staffroom_size', 'staffroomSize', 'staffroom', 'staff_room'], previous.staffroomSize) || ''),
         storageSize: String(Company.first(upgrades, ['storage_size', 'storageSize', 'storage'], previous.storageSize) || ''),
@@ -2597,6 +2974,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
     },
     stock(data, existingItems, state) {
       const existing = new Map((existingItems || []).map((item) => [String(item.key), item]));
+      const savedSettings = Store.normaliseStockSettings(state && state.company && state.company.stockSettings || {});
       const source = Company.selection(data, 'stock') || {};
       const stockKeys = ['cost', 'rrp', 'price', 'in_stock', 'inStock', 'on_order', 'onOrder', 'sold_amount', 'soldAmount', 'sold_worth', 'soldWorth'];
       const pickStock = (value) => {
@@ -2615,13 +2993,15 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
       const items = rows.map(([key, item]) => {
         item = item && typeof item === 'object' ? item : { name: key, in_stock: item };
         const previous = existing.get(String(key)) || {};
+        const saved = savedSettings[String(key)] || {};
         const rawName = String(item.name || item.item || item.service || previous.name || key);
         const name = rawName.replace(/\bstock\b/ig, '').replace(/\s+/g, ' ').trim() || rawName;
+        const cost = Utils.num(item.cost, 0);
         return {
           key: String(key),
           name: String(name),
           label: previous.label || String(name),
-          cost: Utils.num(item.cost, 0),
+          cost,
           rrp: Utils.num(item.rrp, 0),
           price: Utils.num(item.price, 0),
           inStock: Utils.num(item.in_stock || item.inStock, 0),
@@ -2629,11 +3009,11 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
           soldAmount: Utils.num(item.sold_amount || item.soldAmount, 0),
           soldWorth: Utils.num(item.sold_worth || item.soldWorth, 0),
           capacity: Utils.num(previous.capacity || item.capacity || item.max_stock || item.maxStock || defaultCapacity, 0),
-          needsStock: Utils.num(item.cost, 0) > 0 ? Boolean(previous.needsStock) : false,
-          warningPercent: previous.warningPercent || 10,
-          warningAmount: previous.warningAmount || 0,
-          warningMode: previous.warningMode || 'percent',
-          restockQty: previous.restockQty !== undefined ? previous.restockQty : ''
+          needsStock: cost > 0 ? Boolean(Object.prototype.hasOwnProperty.call(saved, 'needsStock') ? saved.needsStock : previous.needsStock) : false,
+          warningPercent: Object.prototype.hasOwnProperty.call(saved, 'warningPercent') ? saved.warningPercent : previous.warningPercent || 10,
+          warningAmount: Object.prototype.hasOwnProperty.call(saved, 'warningAmount') ? saved.warningAmount : previous.warningAmount || 0,
+          warningMode: saved.warningMode || previous.warningMode || 'percent',
+          restockQty: Object.prototype.hasOwnProperty.call(saved, 'restockQty') ? saved.restockQty : (previous.restockQty !== undefined ? previous.restockQty : '')
         };
       }).sort((a, b) => String(a.name).localeCompare(String(b.name)));
       return { lastSynced: Utils.nowIso(), items };
@@ -2706,11 +3086,14 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
     },
     stockWarnings(state) {
       const plan = Company.stockPlan(state);
+      const notificationThreshold = Utils.percent(state && state.settings && state.settings.notifications && state.settings.notifications.stock && state.settings.notifications.stock.thresholdPercent, 10);
       return (state.company.stock.items || []).filter((item) => {
         if (!Company.isRestockableStock(item) || !item.needsStock) return false;
         if (item.warningMode === 'amount') return Utils.num(item.inStock, 0) <= Math.max(0, Utils.num(item.warningAmount, 0));
         const row = plan.byKey.get(item.key);
-        return row && row.warningThreshold > 0 ? Utils.num(item.inStock, 0) <= row.warningThreshold : false;
+        const globalThreshold = row ? Math.ceil(Utils.num(row.targetStock, 0) * (notificationThreshold / 100)) : 0;
+        const threshold = Math.max(row && row.warningThreshold || 0, globalThreshold);
+        return threshold > 0 ? Utils.num(item.inStock, 0) <= threshold : false;
       });
     }
   };
@@ -2791,6 +3174,15 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
     prepare(state) {
       Ledger.ensureOrderIds(state);
       Ledger.bindPlayerIds(state);
+      (state && state.ledger || []).forEach((entry) => {
+        const totals = Ledger.totals(entry, state.settings);
+        const paid = !!totals.paid;
+        const done = !!totals.done;
+        if (entry.paid === paid && entry.done === done) return;
+        entry.paid = paid;
+        entry.done = done;
+        entry.updatedAt = Utils.nowIso();
+      });
     },
     fromForm(form, settings, state) {
       const entryDate = Utils.dateInput(form.entryDate ? form.entryDate.value : '') || Utils.todayInput();
@@ -2944,8 +3336,28 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
     dailySupply(settings) {
       return Utils.clamp(Utils.int(settings.companyStars, 1), 1, 10) + (settings.trainerAssigned ? 1 : 0);
     },
+    availableTrains(state) {
+      const detailed = state && state.company && state.company.detailed || {};
+      return Utils.clamp(Utils.int(detailed.trainsAvailable, 0), 0, 20);
+    },
+    queueSupply(state, referenceDate) {
+      const detailed = state && state.company && state.company.detailed || {};
+      const date = Utils.dateInput(referenceDate) || Utils.todayInput();
+      if (date === Utils.todayInput() && detailed.lastSynced) return Planner.availableTrains(state);
+      return Planner.dailySupply(state && state.settings || DEFAULTS.settings);
+    },
     paidCapLimit(settings) {
       return Math.min(8 + (settings.trainerAssigned ? 1 : 0), Planner.dailySupply(settings));
+    },
+    queuePolicy(state) {
+      const settings = state && state.settings ? state.settings : {};
+      const priority = settings.plannerPriority || DEFAULTS.settings.plannerPriority;
+      const policy = String(priority.queuePolicy || DEFAULTS.settings.plannerPriority.queuePolicy || 'rotation').trim();
+      return ['director', 'rotation', 'lowest_stats', 'role_closest', 'role_gap'].includes(policy) ? policy : 'rotation';
+    },
+    paidFirstEnabled(state) {
+      const priority = state && state.settings && state.settings.plannerPriority || DEFAULTS.settings.plannerPriority;
+      return priority.paidFirst !== false;
     },
     trainingHoldDays() {
       return 3;
@@ -3047,13 +3459,21 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
       });
     },
     rotationOrder(state, roster) {
+      const policy = Planner.queuePolicy(state);
       const previous = state && state.planner && state.planner.sponsoredRotation && Array.isArray(state.planner.sponsoredRotation.order)
         ? state.planner.sponsoredRotation.order.map((value) => String(value || '')).filter(Boolean)
         : [];
       const previousIndex = new Map(previous.map((identity, index) => [identity, index]));
-      const ordered = (roster || []).slice().sort((a, b) => Planner.compareSponsored(a, b)
-        || (previousIndex.has(String(a && a.identity || '')) ? previousIndex.get(String(a.identity)) : Number.MAX_SAFE_INTEGER)
-          - (previousIndex.has(String(b && b.identity || '')) ? previousIndex.get(String(b.identity)) : Number.MAX_SAFE_INTEGER));
+      const rotationPosition = (row) => previousIndex.has(String(row && row.identity || '')) ? previousIndex.get(String(row.identity)) : Number.MAX_SAFE_INTEGER;
+      const ordered = (roster || []).slice().sort((a, b) => {
+        if (policy === 'rotation' || policy === 'director') {
+          return rotationPosition(a) - rotationPosition(b)
+            || String(a && a.playerName || '').localeCompare(String(b && b.playerName || ''));
+        }
+        return Planner.compareSponsored(a, b)
+          || rotationPosition(a) - rotationPosition(b);
+      });
+      ordered.forEach((row, index) => { row.rotationIndex = index; });
       if (state && state.planner) {
         state.planner.sponsoredRotation = state.planner.sponsoredRotation || Utils.clone(DEFAULTS.planner.sponsoredRotation);
         state.planner.sponsoredRotation.order = ordered.map((row) => row.identity);
@@ -3177,6 +3597,31 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         summary: `${total.toLocaleString()} total stats`
       };
     },
+    assignedRoleNeed(person, state) {
+      const roleKey = Planner.roleKey(person && person.role);
+      const req = state && state.settings && state.settings.wageRoleRequirements && state.settings.wageRoleRequirements[roleKey]
+        ? state.settings.wageRoleRequirements[roleKey]
+        : {};
+      const man = Utils.num(person && person.man, 0);
+      const int = Utils.num(person && person.int, 0);
+      const end = Utils.num(person && person.end, 0);
+      const reqMan = Utils.num(req.man, 0);
+      const reqInt = Utils.num(req.int, 0);
+      const reqEnd = Utils.num(req.end, 0);
+      const requiredTotal = reqMan + reqInt + reqEnd;
+      const gap = Math.max(0, reqMan - man) + Math.max(0, reqInt - int) + Math.max(0, reqEnd - end);
+      const total = man + int + end;
+      return {
+        roleKey,
+        gap,
+        total,
+        requiredTotal,
+        under: requiredTotal > 0 && gap > 0,
+        summary: requiredTotal > 0
+          ? (gap > 0 ? `${gap.toLocaleString()} stats under ${person && person.role || 'assigned role'}` : `meets ${person && person.role || 'assigned role'} requirements`)
+          : `${total.toLocaleString()} total stats`
+      };
+    },
     rotateSponsoredIdentity(state, identity) {
       const key = String(identity || '').trim();
       if (!key || !state || !state.planner) return;
@@ -3212,7 +3657,10 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
     sponsoredRoster(state, options) {
       const opts = options || {};
       const riskAware = !!opts.riskAware;
-      const priorityMode = Planner.companyRoleTargets(state) ? 'lowest_stats' : 'need';
+      const queuePolicy = Planner.queuePolicy(state);
+      const priorityMode = queuePolicy === 'lowest_stats'
+        ? 'lowest_stats'
+        : (queuePolicy === 'role_closest' ? 'role_closest' : (queuePolicy === 'role_gap' ? 'need' : queuePolicy));
       const identityMaps = Company.identityMaps(state);
       const loggedByIdentity = new Map();
       (Array.isArray(state.trainingLog) ? state.trainingLog : []).forEach((row) => {
@@ -3230,6 +3678,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
           const str = Math.max(Utils.int(loggedByIdentity.get(identity), 0), Utils.int(ledgerUsedByIdentity.get(identity), 0));
           const risk = riskAware ? Planner.trainingRisk(person, state, opts.referenceDate) : { penalty: 0, level: 0, summary: '' };
           const need = Planner.trainingNeed(person, state);
+          const assignedNeed = Planner.assignedRoleNeed(person, state);
           return {
             identity,
             playerId: person.id || '',
@@ -3237,23 +3686,44 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
             role: person.role || 'Employee',
             personRef: person,
             str,
-            virtualStr: str,
+            virtualStr: (priorityMode === 'rotation' || priorityMode === 'director') ? 0 : str,
             needScore: need.score,
             statGap: need.gap,
             statTotal: need.total,
-            statNeedSummary: need.summary,
+            statNeedSummary: priorityMode === 'role_closest' ? assignedNeed.summary : need.summary,
+            assignedGap: assignedNeed.gap,
+            assignedRequiredTotal: assignedNeed.requiredTotal,
+            assignedUnder: assignedNeed.under,
             priorityMode,
             riskPenalty: risk.penalty,
             riskLevel: risk.level,
             riskSummary: risk.summary
           };
         })
-        .sort(Planner.compareSponsored);
+        .sort(priorityMode === 'rotation' || priorityMode === 'director' ? (a, b) => String(a.playerName || '').localeCompare(String(b.playerName || '')) : Planner.compareSponsored);
       const ordered = Planner.rotationOrder(state, roster);
       ordered.cursor = 0;
       return ordered;
     },
     compareSponsored(a, b) {
+      const mode = (a && a.priorityMode) || (b && b.priorityMode) || 'need';
+      if (mode === 'rotation' || mode === 'director') {
+        return Utils.num(a && a.virtualStr, 0) - Utils.num(b && b.virtualStr, 0)
+          || Utils.num(a && a.riskPenalty, 0) - Utils.num(b && b.riskPenalty, 0)
+          || Utils.num(a && a.rotationIndex, 0) - Utils.num(b && b.rotationIndex, 0)
+          || String(a && a.playerName || '').localeCompare(String(b && b.playerName || ''));
+      }
+      if (mode === 'role_closest') {
+        const closestScore = (row) => {
+          const cycle = Utils.num(row && row.virtualStr, 0) * 100000000;
+          const risk = Utils.num(row && row.riskPenalty, 0) * 100000000;
+          if (row && row.assignedUnder) return cycle + risk + Math.max(1, Utils.num(row.assignedGap, 0));
+          const total = Utils.num(row && row.statTotal, 0);
+          return cycle + risk + 100000000000 + (total > 0 ? total : 1000000000);
+        };
+        const closestDelta = closestScore(a) - closestScore(b);
+        if (closestDelta) return closestDelta;
+      }
       if ((a && a.priorityMode) === 'lowest_stats' || (b && b.priorityMode) === 'lowest_stats') {
         const projectedTotal = (row) => {
           const total = Utils.num(row && row.statTotal, 0);
@@ -3338,7 +3808,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         return sum;
       }, { total: 0, warn: 0, danger: 0, reviewDays: Planner.inactivityReviewDays(referenceValue || Utils.todayInput()) });
     },
-    nextSponsored(roster, picked, state, referenceDate) {
+    nextSponsored(roster, state, referenceDate) {
       const total = Array.isArray(roster) ? roster.length : 0;
       if (!total) return null;
       roster.sort(Planner.compareSponsored);
@@ -3348,7 +3818,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
       for (let offset = 0; offset < total; offset += 1) {
         const index = (start + offset) % total;
         const candidate = roster[index];
-        if (!candidate || picked.has(candidate.identity)) continue;
+        if (!candidate) continue;
         if (!Planner.trainingEligibility(candidate.personRef || candidate, state, referenceDate).eligible) continue;
         row = candidate;
         rowIndex = index;
@@ -3367,6 +3837,8 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         role: row.role,
         statGap: row.statGap,
         statTotal: row.statTotal,
+        assignedGap: row.assignedGap,
+        assignedUnder: row.assignedUnder,
         statNeedSummary: row.statNeedSummary,
         riskPenalty: row.riskPenalty,
         riskLevel: row.riskLevel,
@@ -3375,6 +3847,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
     },
     allowedMode(state) {
       const requested = ['auto', 'manual', 'hybrid'].includes(state.planner.mode) ? state.planner.mode : 'auto';
+      if (Planner.queuePolicy(state) === 'director' && requested === 'auto') return 'hybrid';
       return requested;
     },
     build(state) {
@@ -3382,9 +3855,10 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
       const daysToPlan = Utils.clamp(Utils.int(state.planner.daysToPlan, 14), 1, 60);
       const mode = Planner.allowedMode(state);
       if (state.planner.mode !== mode) state.planner.mode = mode;
-      const supply = Planner.dailySupply(state.settings);
       const paidCapLimit = Planner.paidCapLimit(state.settings);
       const paidLimit = Utils.clamp(Utils.int(state.settings.maxPaidTrainsPerDay, paidCapLimit), 0, paidCapLimit);
+      const paidFirst = Planner.paidFirstEnabled(state);
+      const autoSponsored = mode === 'auto' && Planner.queuePolicy(state) !== 'director';
       const rosterContext = Planner.currentRosterContext(state);
       const plannerLedger = Array.isArray(state.ledger) ? state.ledger : [];
       const paidQueue = mode === 'manual' ? [] : Planner.queue(plannerLedger, 'paid', state.settings);
@@ -3392,22 +3866,31 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
       const days = [];
       for (let dayIndex = 0; dayIndex < daysToPlan; dayIndex += 1) {
         const dayDate = Utils.addDays(startDate, dayIndex);
+        const supply = Planner.queueSupply(state, dayDate);
         const slots = [];
         const suggestions = [];
-        const picked = new Set();
-        while (slots.length < Math.min(paidLimit, supply) && paidQueue.length) {
-          const next = Planner.nextPaid(paidQueue, state, dayDate, rosterContext);
-          if (!next) break;
-          slots.push(next);
-          picked.add(Company.resolveIdentity({ id: next.playerId, name: next.playerName }, state));
-        }
-        while (slots.length < supply && sponsoredQueue.length) {
-          const sponsored = Planner.nextSponsored(sponsoredQueue, picked, state, dayDate);
-          if (!sponsored) break;
-          if (mode === 'auto') slots.push(sponsored);
-          else suggestions.push(sponsored);
-          picked.add(sponsored.identity || Company.resolveIdentity({ id: sponsored.playerId, name: sponsored.playerName }, state));
-          if (mode !== 'auto' && slots.length + suggestions.length >= supply) break;
+        const fillPaid = () => {
+          while (slots.length < Math.min(paidLimit, supply) && paidQueue.length) {
+            const next = Planner.nextPaid(paidQueue, state, dayDate, rosterContext);
+            if (!next) break;
+            slots.push(next);
+          }
+        };
+        const fillSponsored = () => {
+          while (slots.length < supply && sponsoredQueue.length) {
+            const sponsored = Planner.nextSponsored(sponsoredQueue, state, dayDate);
+            if (!sponsored) break;
+            if (autoSponsored) slots.push(sponsored);
+            else suggestions.push(sponsored);
+            if (!autoSponsored && slots.length + suggestions.length >= supply) break;
+          }
+        };
+        if (paidFirst) {
+          fillPaid();
+          fillSponsored();
+        } else {
+          fillSponsored();
+          fillPaid();
         }
         days.push({ date: dayDate, supply, mode, slots, suggestions });
       }
@@ -3420,13 +3903,21 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
     normaliseNews(data) {
       const source = data && (data.news || data.companynews || data.events || data.log || data);
       if (!source) return [];
-      const rows = Array.isArray(source) ? source.map((item, index) => [String(item.id || index), item]) : Object.entries(source);
+      const rows = Array.isArray(source)
+        ? source.map((item) => {
+          const id = item && item.id ? String(item.id) : '';
+          return { id, sourceEventId: id, item };
+        })
+        : Object.entries(source).map(([key, item]) => {
+          const id = item && item.id ? String(item.id) : String(key || '');
+          return { id, sourceEventId: id, item };
+        });
       return rows
-        .map(([id, item]) => {
+        .map(({ id, sourceEventId, item }) => {
           const text = item.news || item.text || item.message || item.event || '';
           const timestamp = Utils.int(item.timestamp || item.time || item.date, 0);
           const action = item.action || item.category || item.type || item.title || '';
-          return text ? Timeline.parseEvent({ id: String(id), text: String(text), timestamp, action: String(action) }) : null;
+          return text ? Timeline.parseEvent({ id: String(id || ''), sourceEventId: String(sourceEventId || ''), text: String(text), timestamp, action: String(action) }) : null;
         })
         .filter(Boolean)
         .sort((a, b) => b.timestamp - a.timestamp);
@@ -3437,7 +3928,8 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
       const anchors = Timeline.anchors(text);
       const linkedPlayer = anchors[0] ? anchors[0].text : '';
       const event = {
-        id: item.id || Utils.id('event'),
+        id: item.id || item.sourceEventId || Utils.id('event'),
+        sourceEventId: item.sourceEventId || item.id || '',
         timestamp: item.timestamp || 0,
         type: Timeline.typeFromAction(item.action, plainText),
         action: item.action || '',
@@ -3927,7 +4419,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
     },
     isAggregateTrainingEvent(event) {
       if (Timeline.displayType(event) !== 'training') return false;
-      return Store.trainingEventCount(event) > 1 || /\breceived\s+\d[\d,]*\s+trains?\b/i.test(Timeline.timelineText(event));
+      return Store.trainingEventCount(event, { raw: true }) > 1 || /\breceived\s+\d[\d,]*\s+trains?\b/i.test(Timeline.timelineText(event));
     },
     trainingMinute(event) {
       const timestamp = Utils.int(event && event.timestamp, 0);
@@ -3938,7 +4430,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
       const day = Utils.dayKey(event && event.timestamp);
       const minute = Timeline.trainingMinute(event);
       const position = Company.nameKey(event && (event.position || event.role));
-      const count = Store.trainingEventCount(event);
+      const count = Store.trainingEventCount(event, { raw: true });
       if (!day || !minute || !count) return '';
       return [day, minute, position, count].join('|');
     },
@@ -3951,6 +4443,24 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
       if (!day || !identity) return '';
       return [day, identity, position].join('|');
     },
+    trainingDedupeKey(event) {
+      if (Timeline.displayType(event) !== 'training') return '';
+      const minute = Timeline.trainingMinute(event);
+      const count = Store.trainingEventCount(event, { raw: true });
+      const specific = Timeline.trainingSpecificKey(event);
+      if (specific && minute && count) return `training:${specific}:${minute}:${count}`;
+      const fallback = Timeline.trainingFallbackKey(event);
+      return fallback ? `training-generic:${fallback}` : '';
+    },
+    isLocalEventId(id) {
+      return /^event_[a-z0-9]+_[a-z0-9]+$/i.test(String(id || '')) || /^daily:/i.test(String(id || ''));
+    },
+    sourceEventId(event) {
+      const direct = String(event && (event.sourceEventId || event.tornEventId || event.apiEventId || event.newsId || event.news_id) || '').trim();
+      if (direct && !Timeline.isLocalEventId(direct)) return direct;
+      const id = String(event && (event.id || event.eventId) || '').trim();
+      return id && !Timeline.isLocalEventId(id) ? id : '';
+    },
     reportDedupeKey(event) {
       const reportDate = Utils.dateInput(event && (event.reportDate || event.report_date || event.date)) || Utils.dayKey(event && event.timestamp);
       const values = Timeline.reportValues(event || {});
@@ -3959,14 +4469,25 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
     eventDedupeKey(event) {
       const displayType = Timeline.displayType(event);
       const id = String(event && (event.id || event.eventId) || '').trim();
+      const sourceEventId = Timeline.sourceEventId(event);
+      if (sourceEventId) return `source:${sourceEventId}`;
       if (displayType === 'daily_report') return Timeline.reportDedupeKey(event) || (id ? `id:${id}` : '');
-      if (displayType === 'training' && Timeline.isAggregateTrainingEvent(event)) {
-        const specific = Timeline.trainingSpecificKey(event);
-        const fallback = Timeline.trainingFallbackKey(event);
-        return specific ? `training-aggregate:${specific}:${Timeline.trainingMinute(event)}:${Store.trainingEventCount(event)}` : (fallback ? `training-aggregate-generic:${fallback}` : '');
+      if (displayType === 'training') {
+        const trainingKey = Timeline.trainingDedupeKey(event);
+        if (trainingKey) return trainingKey;
       }
       if (id) return `id:${id}`;
       return [displayType, Utils.int(event && event.timestamp, 0), Timeline.timelineText(event)].join('|');
+    },
+    semanticDedupeKey(event) {
+      const type = Timeline.displayType(event);
+      const timestamp = Utils.int(event && event.timestamp, 0);
+      const text = Timeline.timelineText(event).toLowerCase();
+      if (!timestamp || !text) return '';
+      const identity = String(event && (event.userId || event.playerId) || '').trim()
+        || Company.nameKey(event && (event.playerName || event.name));
+      const count = type === 'training' ? Store.trainingEventCount(event, { raw: true }) : 0;
+      return [type, timestamp, identity, count, text].join('|');
     },
     eventQuality(event) {
       const name = event && (event.playerName || event.name);
@@ -3999,7 +4520,12 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         if (!key) return;
         byKey.set(key, Timeline.betterEvent(byKey.get(key), event));
       });
-      return Array.from(byKey.values()).sort((a, b) => Utils.int(b.timestamp, 0) - Utils.int(a.timestamp, 0));
+      const bySemanticKey = new Map();
+      Array.from(byKey.values()).forEach((event) => {
+        const key = Timeline.semanticDedupeKey(event) || Timeline.eventDedupeKey(event);
+        bySemanticKey.set(key, Timeline.betterEvent(bySemanticKey.get(key), event));
+      });
+      return Array.from(bySemanticKey.values()).sort((a, b) => Utils.int(b.timestamp, 0) - Utils.int(a.timestamp, 0));
     },
     trainingCollapseKey(event) {
       return Timeline.trainingSpecificKey(event);
@@ -4011,7 +4537,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
       Timeline.dedupeEvents(events || []).forEach((event) => {
         const displayType = Timeline.displayType(event);
         const timestamp = Utils.int(event && event.timestamp, 0);
-        const eventTrainCount = displayType === 'training' ? Store.trainingEventCount(event) : 1;
+        const eventTrainCount = displayType === 'training' ? Store.trainingEventCount(event, { raw: true }) : 1;
         const base = Object.assign({}, event, {
           displayType,
           displayCount: eventTrainCount,
@@ -4026,8 +4552,8 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         }
         const key = Timeline.trainingCollapseKey(event);
         const fallbackKey = Timeline.trainingFallbackKey(event);
-        const fallbackMatch = fallbackKey ? fallbackGrouped.get(fallbackKey) : null;
-        if (fallbackMatch && (!key || fallbackMatch !== grouped.get(key))) {
+        const fallbackMatch = !key && fallbackKey ? fallbackGrouped.get(fallbackKey) : null;
+        if (fallbackMatch) {
           const existing = fallbackMatch;
           existing.displayRawCount += eventTrainCount <= 1 ? 1 : 0;
           existing.displayExplicitCount = Math.max(existing.displayExplicitCount || 0, eventTrainCount > 1 ? eventTrainCount : 0);
@@ -4053,14 +4579,13 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         const existing = grouped.get(key);
         if (!existing) {
           grouped.set(key, base);
-          if (fallbackKey) fallbackGrouped.set(fallbackKey, base);
           rows.push(base);
           return;
         }
         existing.displayRawCount += eventTrainCount <= 1 ? 1 : 0;
         existing.displayExplicitCount = Math.max(existing.displayExplicitCount || 0, eventTrainCount > 1 ? eventTrainCount : 0);
         existing.displayCount = Math.max(1, existing.displayRawCount, existing.displayExplicitCount);
-        if (eventTrainCount > Store.trainingEventCount(existing) || Timeline.eventQuality(event) > Timeline.eventQuality(existing)) {
+        if (eventTrainCount > Store.trainingEventCount(existing, { raw: true }) || Timeline.eventQuality(event) > Timeline.eventQuality(existing)) {
           existing.playerName = event.playerName || existing.playerName;
           existing.name = event.name || existing.name;
           existing.position = event.position || existing.position;
@@ -4077,6 +4602,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
     reclassify(events) {
       return Timeline.dedupeEvents(events.map((event) => Object.assign({}, event, Timeline.parseEvent({
         id: event.id,
+        sourceEventId: event.sourceEventId || event.tornEventId || event.apiEventId || event.newsId || event.news_id || '',
         text: event.text || event.plainText || '',
         timestamp: event.timestamp || 0,
         action: event.action || event.type || ''
@@ -4568,6 +5094,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
       if (!choices.analytics && !choices.balance) data.analytics = Utils.clone(DEFAULTS.analytics);
       if (!choices.stock) {
         data.company.stock = Utils.clone(DEFAULTS.company.stock);
+        data.company.stockSettings = {};
         data.company.stockHistory = [];
       }
       if (!choices.profile) data.company.profile = Utils.clone(DEFAULTS.company.profile);
@@ -4722,11 +5249,10 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
     },
     dailyBalanceTable(state) {
       const staff = Company.staffEmployees(state.staff.current || [], state.company.profile.directorId || state.settings.userId || '');
-      const hasSyncedWages = staff.some((person) => person.wageFromApi);
       const includeWages = !state.ui || state.ui.dailyBalanceIncludeWages !== false;
       const wages = includeWages ? staff.reduce((sum, person) => {
         const wage = Utils.num(person.wage, 0);
-        return sum + (hasSyncedWages ? wage : (wage > 0 ? wage : Wages.estimate(person, state.settings)));
+        return sum + (person.wageFromApi || wage > 0 ? wage : 0);
       }, 0) : 0;
       const adBudget = Utils.num(state.company.detailed.advertisingBudget, 0);
       const rows = [];
@@ -4826,6 +5352,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
       Company.removeDirectorsFromStaff(UI.state);
       Ledger.prepare(UI.state);
       Company.syncTrainingSetup(UI.state);
+      UI.captureOperatingCostHistory('startup');
       Store.save(UI.state);
       if (Object.keys(UI.state.staff.localEdits || {}).length && Store.canUseCloudWorkspace(UI.state)) UI.scheduleStaffCardCloudSave(1500);
       if ((Store.loadLedgerPending().orders || []).length && Store.canUseCloudWorkspace(UI.state)) UI.scheduleLedgerCloudSave(1600);
@@ -5540,6 +6067,18 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
       UI.saveRender();
     },
 
+    topBarSyncButtons() {
+      const disabled = UI.apiKeyMissing() ? ' disabled' : '';
+      return `<div class="pp-title-sync" aria-label="Sync controls">
+        <button class="pp-btn is-primary ${UI.syncProgressClass('smart-sync')}" style="${UI.syncProgressStyle('smart-sync')}" type="button" data-action="smart-sync" data-sync-action="smart-sync" title="Run Smart sync"${disabled}>Smart</button>
+        <button class="${UI.syncButtonClass('business', true)} ${UI.syncProgressClass('business')}" style="${UI.syncProgressStyle('business')}" type="button" data-action="sync-business" data-sync-action="business" title="Sync business profile"${disabled}>Business</button>
+        <button class="${UI.syncButtonClass('news', false)} ${UI.syncProgressClass('news')}" style="${UI.syncProgressStyle('news')}" type="button" data-action="sync-news" data-sync-action="news" title="Sync latest company news"${disabled}>News</button>
+        <button class="${UI.syncButtonClass('employees', false)} ${UI.syncProgressClass('employees')}" style="${UI.syncProgressStyle('employees')}" type="button" data-action="sync-employees" data-sync-action="employees" title="Sync employees"${disabled}>Employees</button>
+        <button class="${UI.syncButtonClass('stock', false)} ${UI.syncProgressClass('stock')}" style="${UI.syncProgressStyle('stock')}" type="button" data-action="sync-stock" data-sync-action="stock" title="Sync services sold and stock"${disabled}>Stock</button>
+        <button class="pp-btn ${UI.syncProgressClass('training-log')}" style="${UI.syncProgressStyle('training-log')}" type="button" data-action="sync-training-log" data-sync-action="training-log" title="Sync training log"${disabled}>Training</button>
+      </div>`;
+    },
+
     layout(isPopup) {
       const state = UI.state;
       if (!isPopup && state.ui.mode === 'popup') return UI.popupBadge();
@@ -5552,7 +6091,8 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
             <div class="pp-brand">
               ${UI.logoMark('main')}
               <strong>${title}</strong>
-              <span>Local data only</span>
+              <span class="pp-version-pill">v${Utils.esc(APP.version)}</span>
+              ${UI.topBarSyncButtons()}
               ${UI.stockMiniAlert()}
             </div>
             <div class="pp-actions">
@@ -5916,6 +6456,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
       if (!safeKey) return;
       UI.state.dismissedNotifications = UI.notificationDismissals();
       UI.state.dismissedNotifications[safeKey] = Utils.tctWorkingDayKey();
+      Store.saveNotificationDismissals(UI.state);
       Store.save(UI.state);
       UI.render(UI.currentRoot(), UI.currentRoot().ownerDocument);
       UI.toast('Notification hidden until the next 18:10 TCT business reset.');
@@ -6116,7 +6657,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
           text: 'Business Profile is the live company snapshot.',
           notes: [
             'It shows rating stars, trainings per day, director, company age and founded date, staff count, income flow, storage, funds, and health bars.',
-            'Current employee effectiveness includes suggested roles and themed hover breakdowns.',
+            'The Staff table includes efficiency, stat-based suggested roles, and themed hover breakdowns.',
             'The average effectiveness line gives a quick read on company health.'
           ]
         },
@@ -6261,11 +6802,11 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
           tab: 'balance',
           selector: '[data-tour="daily-balance-table"]',
           title: 'Balance table',
-          text: 'The balance table estimates daily operating performance from synced reports and latest company settings.',
+          text: 'The balance table calculates daily operating performance from synced reports and dated company history.',
           notes: [
             'Income and customers come from daily reports.',
             'Wages can be included or treated as zero with the Use wages switch.',
-            'Wages, employees, ad budget, and rating use dated history where available instead of stamping the latest snapshot onto old rows.'
+            'Wages use current synced values and saved wage history only; ad budget and rating use dated history where available.'
           ]
         },
         {
@@ -6572,7 +7113,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
       const weeks = UI.filteredAnalytics(Timeline.compareWeeks(UI.visibleAnalyticsWeeks()));
       const events = Timeline.accessEvents(state.staff.timeline || [], state);
       return `
-        <div class="pp-grid">
+        <div class="pp-grid pp-timeline-grid">
           <section class="pp-panel is-half pp-timeline-panel" data-tour="company-timeline">
             <div class="pp-head is-stack">
               <div><h2>Company timeline</h2><p>Sync company news with one manual API request.</p></div>
@@ -6916,12 +7457,9 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
     dailyWageTotal() {
       if (UI.state.ui.dailyBalanceIncludeWages === false) return 0;
       const staff = Company.staffEmployees(UI.state.staff.current || [], UI.state.company.profile.directorId || UI.state.settings.userId || '');
-      if (staff.some((person) => person.wageFromApi)) {
-        return staff.reduce((sum, person) => sum + Utils.num(person.wage, 0), 0);
-      }
       return staff.reduce((sum, person) => {
         const wage = Utils.num(person.wage, 0);
-        return sum + (wage > 0 ? wage : Wages.estimate(person, UI.state.settings));
+        return sum + (person.wageFromApi || wage > 0 ? wage : 0);
       }, 0);
     },
     reportDailyRows() {
@@ -6959,10 +7497,12 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
             ? person.wageHistory.slice().sort((a, b) => Utils.dateTimestamp(a.at) - Utils.dateTimestamp(b.at))
             : [];
           const wage = Utils.num(person && person.wage, 0);
+          const wageKnown = !!(person && person.wageFromApi) || wage > 0 || !!wageHistory.length;
           return Object.assign({}, person, {
             _balanceStartTs: Utils.dateTimestamp(UI.personHireValue(person) || Company.employmentStart(person)),
             _balanceLeftTs: Utils.dateTimestamp(UI.personLeftValue(person) || person && (person.leftDate || person.leftTimestamp)),
-            _balanceWage: wage > 0 ? wage : Wages.estimate(person, UI.state.settings),
+            _balanceWage: wageKnown ? wage : 0,
+            _balanceWageKnown: wageKnown,
             _balanceWageHistory: wageHistory
           });
         });
@@ -6980,6 +7520,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
     balancePersonWageOn(person, date) {
       const at = Utils.dateTimestamp(`${date}T23:59:59`);
       const history = Array.isArray(person && person._balanceWageHistory) ? person._balanceWageHistory : [];
+      if (!person || (!person._balanceWageKnown && !history.length)) return 0;
       let wage = Utils.num(person && person._balanceWage, 0);
       if (history.length) wage = Utils.num(history[0].previousWage, wage);
       history.forEach((row) => {
@@ -6987,8 +7528,8 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
       });
       return wage;
     },
-    dailyWageTotalOn(date, context) {
-      if (UI.state.ui.dailyBalanceIncludeWages === false) return 0;
+    dailyWageTotalOn(date, context, options) {
+      if (!(options && options.force) && UI.state.ui.dailyBalanceIncludeWages === false) return 0;
       const staff = context && context.staff ? context.staff : UI.balanceStaffPool();
       return staff
         .filter((person) => UI.balancePersonActiveOn(person, date))
@@ -7010,18 +7551,44 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
       const detailed = UI.state.company.detailed || {};
       const budget = Utils.num(detailed.advertisingBudget, null);
       if (budget === null || budget < 0) return 0;
+      const known = detailed.advertisingBudgetKnown === true || budget > 0;
+      if (budget === 0 && !known) return 0;
       const at = String(observedAt || detailed.lastSynced || Utils.nowIso()).trim() || Utils.nowIso();
       const date = Utils.dateInput(at) || Utils.todayInput();
       UI.state.company.adBudgetHistory = Store.mergeAdBudgetHistory(UI.state.company.adBudgetHistory || [], [{
         date,
         observedAt: at,
         advertisingBudget: budget,
+        advertisingBudgetKnown: true,
         source: source || 'business-sync'
       }]);
       return 1;
     },
     adBudgetHistoryForApi() {
       return Store.normaliseAdBudgetHistory(UI.state.company.adBudgetHistory || []);
+    },
+    operatingCostHistoryForApi() {
+      return Store.normaliseOperatingCostHistory(UI.state.company.operatingCostHistory || []);
+    },
+    captureOperatingCostHistory(source) {
+      UI.renderMemo = {};
+      const context = { staff: UI.balanceStaffPool() };
+      const dates = new Set(UI.reportDailyRows().filter((row) => row && row.hasReport && row.date <= Utils.todayInput()).map((row) => row.date));
+      dates.add(Utils.todayInput());
+      const rows = Array.from(dates).map((date) => {
+        const adBudget = UI.balanceAdBudgetOn(date);
+        return {
+          date,
+          observedAt: Utils.nowIso(),
+          wages: UI.dailyWageTotalOn(date, context, { force: true }),
+          wagesKnown: context.staff.some((person) => person && person._balanceWageKnown),
+          adBudget: adBudget === null ? 0 : adBudget,
+          adBudgetKnown: adBudget !== null,
+          source: source || 'daily-operating-snapshot'
+        };
+      });
+      UI.state.company.operatingCostHistory = Store.mergeOperatingCostHistory(UI.state.company.operatingCostHistory || [], rows);
+      return rows.length;
     },
     balanceAdBudgetOn(date) {
       const target = Utils.dateInput(date);
@@ -7040,9 +7607,15 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
           .filter((event) => event && event.type === 'rating' && Utils.int(event.value, 0))
           .sort((a, b) => Utils.int(b.timestamp, 0) - Utils.int(a.timestamp, 0))
       };
+      const savedCosts = new Map(Store.normaliseOperatingCostHistory(UI.state.company.operatingCostHistory || []).map((row) => [row.date, row]));
       const rows = UI.reportDailyRows().map((row) => {
-        const wages = UI.dailyWageTotalOn(row.date, context);
-        const adBudget = UI.balanceAdBudgetOn(row.date);
+        const saved = savedCosts.get(row.date);
+        const calculatedWages = UI.dailyWageTotalOn(row.date, context);
+        const wages = UI.state.ui.dailyBalanceIncludeWages === false
+          ? 0
+          : (saved && saved.wagesKnown ? Utils.num(saved.wages, 0) : calculatedWages);
+        const observedAdBudget = UI.balanceAdBudgetOn(row.date);
+        const adBudget = saved && saved.adBudgetKnown ? Utils.num(saved.adBudget, 0) : observedAdBudget;
         const rating = UI.balanceRatingOn(row.date, context);
         return Object.assign({}, row, {
           wages,
@@ -7127,7 +7700,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
             </tr>`;
           }).join('')}</tbody>
         </table></div>
-        <p class="pp-note">Income and customers come from daily company report rows. ${UI.state.ui.dailyBalanceIncludeWages === false ? 'Wages are disabled for Balance, so profit treats wages as $0.' : 'Wages use employee hire/left dates with saved wage history or estimates.'} Advertising budget uses dated Business Profile sync history; dates before the first observed budget stay blank. Rating uses dated news history where available.</p>`;
+        <p class="pp-note">Income and customers come from daily company report rows. ${UI.state.ui.dailyBalanceIncludeWages === false ? 'Wages are disabled for Balance, so profit treats wages as $0.' : 'Wages use current synced employee wages and saved wage history only; estimates are not included.'} Advertising budget uses dated Business Profile sync history; dates before the first observed budget stay blank. Rating uses dated news history where available.</p>`;
     },
 
     dailyGraphRows() {
@@ -7210,6 +7783,35 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
       return text.length > 12 ? `${text.slice(0, 10)}...` : text;
     },
 
+    graphNiceStep(rawStep, minimumStep) {
+      const min = Math.max(1, Utils.num(minimumStep, 1));
+      const raw = Math.max(min, Math.abs(Utils.num(rawStep, min)));
+      const magnitude = Math.pow(10, Math.floor(Math.log10(raw)));
+      const normalized = raw / magnitude;
+      const factor = normalized <= 1 ? 1 : normalized <= 2 ? 2 : normalized <= 5 ? 5 : 10;
+      return Math.max(min, factor * magnitude);
+    },
+
+    graphTickValues(bounds, minimumStep, maxTicks) {
+      if (!bounds) return [];
+      const limit = Math.max(2, Utils.int(maxTicks, 6));
+      const span = Math.max(Math.abs(bounds.max - bounds.min), Math.max(1, Utils.num(minimumStep, 1)));
+      let step = UI.graphNiceStep(span / Math.max(1, limit - 1), minimumStep);
+      let ticks = [];
+      for (let guard = 0; guard < 8; guard += 1) {
+        const start = Math.floor(bounds.min / step) * step;
+        const end = Math.ceil(bounds.max / step) * step;
+        ticks = [];
+        for (let value = start; value <= end + step / 2; value += step) ticks.push(Math.round(value));
+        if (ticks.length <= limit || guard === 7) break;
+        step = UI.graphNiceStep(step * 1.8, minimumStep);
+      }
+      if (ticks.length < 2) ticks = [0, Math.max(step, 1)];
+      bounds.min = ticks[0];
+      bounds.max = ticks[ticks.length - 1];
+      return ticks;
+    },
+
     graphSlides() {
       const scale = UI.graphScale();
       const isDaily = scale === 'daily';
@@ -7218,8 +7820,8 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
       const serviceRows = UI.serviceSoldGraphRows();
       const vars = UI.currentThemeVars();
       return [
-        { type: 'line', title: `${scaleLabel} operating performance`, note: `${scaleLabel} income, wages, ad budget, and profit share the $250K-step money axis. Customers use the right-side 500-step count axis.`, rows: UI.performanceGraphRows(scale), series: UI.activeGraphMetrics(), label: rowLabel, empty: 'Sync company news to build performance graphs.' },
-        { type: 'bar', title: 'Services sold', note: 'Latest synced daily service totals by service type.', rows: serviceRows, value: (row) => Utils.num(row.sold, 0), label: (row) => UI.graphLabel(row.name), titleText: (row) => `${row.name}: ${Number(row.sold || 0).toLocaleString()} sold${row.worth ? ` / ${Utils.money(row.worth)} sold worth` : ''}`, format: Utils.formatNumber, color: vars.graphServices, empty: 'Use Settings -> Sync center -> Sync services sold to pull daily service totals.' }
+        { type: 'line', title: `${scaleLabel} operating performance`, note: `${scaleLabel} income, wages, ad budget, and profit share an adaptive money axis. Customers use the right-side count axis.`, rows: UI.performanceGraphRows(scale), series: UI.activeGraphMetrics(), label: rowLabel, empty: 'Sync company news to build performance graphs.' },
+        { type: 'bar', title: 'Services sold', note: 'Latest Torn stock snapshot totals by service type. Torn does not label the sold_amount period.', rows: serviceRows, value: (row) => Utils.num(row.sold, 0), label: (row) => UI.graphLabel(row.name), titleText: (row) => `${row.name}: ${Number(row.sold || 0).toLocaleString()} sold${row.worth ? ` / ${Utils.money(row.worth)} sold worth` : ''}`, format: Utils.formatNumber, color: vars.graphServices, empty: 'Use Sync services sold to pull the latest Torn stock snapshot. Torn does not label the sold_amount period.' }
       ];
     },
 
@@ -7246,8 +7848,6 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
       const bottom = 62;
       const plotWidth = width - left - right;
       const plotHeight = height - top - bottom;
-      const moneyStep = 250000;
-      const countStep = 500;
       const boundsFor = (seriesGroup) => {
         const values = seriesGroup.flatMap((series) => rows.map((row) => series.value(row))).filter((value) => Number.isFinite(value));
         let min = Math.min(0, values.length ? Math.min.apply(null, values) : 0);
@@ -7257,24 +7857,8 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
       };
       const moneyBounds = moneySeries.length ? boundsFor(moneySeries) : null;
       const countBounds = countSeries.length ? boundsFor(countSeries) : null;
-      const moneyTicks = moneyBounds ? (() => {
-        const start = Math.floor(moneyBounds.min / moneyStep) * moneyStep;
-        const end = Math.max(moneyStep, Math.ceil(moneyBounds.max / moneyStep) * moneyStep);
-        const ticks = [];
-        for (let value = start; value <= end + moneyStep / 2; value += moneyStep) ticks.push(value);
-        moneyBounds.min = ticks[0];
-        moneyBounds.max = ticks[ticks.length - 1];
-        return ticks;
-      })() : [];
-      const countTicks = countBounds ? (() => {
-        const start = Math.floor(countBounds.min / countStep) * countStep;
-        const end = Math.max(countStep, Math.ceil(countBounds.max / countStep) * countStep);
-        const ticks = [];
-        for (let value = start; value <= end + countStep / 2; value += countStep) ticks.push(value);
-        countBounds.min = ticks[0];
-        countBounds.max = ticks[ticks.length - 1];
-        return ticks;
-      })() : [];
+      const moneyTicks = UI.graphTickValues(moneyBounds, 1, 6);
+      const countTicks = UI.graphTickValues(countBounds, 1, 6);
       const axisFor = (series) => series.axis === 'count' ? countBounds : moneyBounds;
       const xFor = (index) => rows.length === 1 ? left + plotWidth / 2 : left + (index * plotWidth / (rows.length - 1));
       const pointFor = (value, min, max, index) => {
@@ -7339,7 +7923,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
           ${grid}${zeroLine}${leftAxis}${rightAxis}${seriesMarkup}${labels}
         </svg>
       </div>
-      <p class="pp-note">Money lines share the left Y axis in $250K steps. Customers use the right Y axis in 500-customer steps and are dashed because they often track income closely.</p>`;
+      <p class="pp-note">Money lines share the left Y axis with adaptive tick spacing. Customers use the right Y axis and are dashed because they often track income closely.</p>`;
     },
 
     barGraph(slide) {
@@ -7466,15 +8050,14 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
                 <button class="pp-btn is-primary" type="button" data-action="build-planner">Build calendar</button>
             </div>
             <div class="pp-content">
-              ${UI.trainingQueueSummary()}
+              ${UI.operationalContext()}
               <div class="pp-form" style="margin-bottom:12px">
                 ${UI.field('Start date', `<input class="pp-input" type="date" data-planner-field="startDate" value="${Utils.esc(state.planner.startDate || today)}">`, 'span-2')}
                 ${UI.field('Planner mode', UI.plannerModeSelect())}
                 ${UI.field('Days', `<input class="pp-input" inputmode="numeric" data-planner-field="daysToPlan" value="${Utils.esc(state.planner.daysToPlan)}">`)}
-                ${UI.field('Daily train supply', `<input class="pp-input" value="${Planner.dailySupply(state.settings)}" disabled>`)}
+                ${UI.field('Available train slots', `<input class="pp-input" value="${Planner.queueSupply(state, state.planner.startDate || today)} / 20" disabled>`)}
                 ${UI.field('Paid cap / day', `<input class="pp-input" value="${Utils.esc(state.settings.maxPaidTrainsPerDay)}" disabled>`)}
               </div>
-              ${UI.operationalContext()}
               ${UI.plannerCalendar()}
             </div>
           </section>
@@ -7498,8 +8081,8 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         merits: (entry) => Utils.int(entry.merits, 0),
         applyDiscount: (entry) => entry.applyDiscount === false ? 0 : 1,
         status: (entry) => `${Ledger.totals(entry, state.settings).paid ? 'paid' : 'unpaid'} ${Ledger.totals(entry, state.settings).done ? 'done' : 'undone'}`
-      }, 'playerName', 'asc');
-      return `<div class="pp-wrap"><table class="pp-table">
+      }, 'date', 'desc');
+      return `<div class="pp-wrap pp-ledger-scroll"><table class="pp-table">
         <thead>
           <tr>
             <th>#</th><th>${UI.tableSortHeader('ledger', 'orderId', 'Order')}</th><th>${UI.tableSortHeader('ledger', 'date', 'Date')}</th>
@@ -7547,6 +8130,18 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         ['hybrid', 'Hybrid']
       ];
       return `<select class="pp-select" data-planner-field="mode">${options.map(([value, label]) => `<option value="${value}" ${mode === value ? 'selected' : ''}>${label}</option>`).join('')}</select>`;
+    },
+
+    plannerQueuePolicySelect() {
+      const current = Planner.queuePolicy(UI.state);
+      const options = [
+        ['director', 'Director chooses'],
+        ['rotation', 'Full staff rotation'],
+        ['lowest_stats', 'Lower stats first'],
+        ['role_closest', 'Closest under assigned role'],
+        ['role_gap', 'Role need first']
+      ];
+      return `<select class="pp-select" name="plannerQueuePolicy">${options.map(([value, label]) => `<option value="${Utils.esc(value)}" ${current === value ? 'selected' : ''}>${Utils.esc(label)}</option>`).join('')}</select>`;
     },
 
     plannerStaffValue(person) {
@@ -7624,9 +8219,10 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
       if (mode === 'auto') return slots;
       const open = Math.max(0, Utils.int(day.supply, 0) - slots.length);
       const manualSlots = UI.state.planner.manualSlots || {};
+      const directorChooses = Planner.queuePolicy(UI.state) === 'director';
       for (let index = 0; index < open; index += 1) {
         const key = `${day.date}:${index}`;
-        const suggested = mode === 'hybrid' ? UI.plannerSuggestedSlot(day, index) : null;
+        const suggested = mode === 'hybrid' && !directorChooses ? UI.plannerSuggestedSlot(day, index) : null;
         const hasManual = Object.prototype.hasOwnProperty.call(manualSlots, key);
         const selected = hasManual ? manualSlots[key] : (suggested ? UI.plannerStaffValue(suggested) : '');
         if (!selected) continue;
@@ -7682,29 +8278,16 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
       </div>`;
     },
 
-    trainingQueueSummary() {
-      const hidden = !!UI.state.ui.plannerQueueHidden;
-      const label = hidden ? 'Show training note' : 'Hide training note';
-      const toggle = `<button class="pp-btn pp-queue-toggle" type="button" data-action="toggle-planner-queue" title="${label}" aria-label="${label}">${UI.eyeIcon(hidden)}</button>`;
-      if (hidden) return `<div class="pp-training-queue"><div class="pp-training-queue-head"><span class="pp-note">Training note hidden.</span>${toggle}</div></div>`;
-      return `<div class="pp-training-queue"><div class="pp-training-queue-head"><span>Use &raquo; to open and highlight Torn's employee list, then + to click the loaded Torn action and advance the queue. New hires stay off the schedule for their first ${Planner.trainingHoldDays()} days.</span>${toggle}</div></div>`;
-    },
-
-    eyeIcon(hidden) {
-      const slash = hidden ? '' : '<line x1="18" y1="4" x2="4" y2="18"></line>';
-      return `<svg class="pp-eye-icon" viewBox="0 0 22 22" aria-hidden="true"><path d="M2.5 11s3.1-5 8.5-5 8.5 5 8.5 5-3.1 5-8.5 5-8.5-5-8.5-5z"></path><circle cx="11" cy="11" r="2.4"></circle>${slash}</svg>`;
-    },
-
     operationalContext() {
       const state = UI.state;
       const paidQueue = Planner.queue(UI.visibleLedgerRows(), 'paid', state.settings).length;
       const sponsored = Planner.sponsoredRoster(state);
       const risk = Planner.sponsoredRiskSummary(state);
-      const supply = Planner.dailySupply(state.settings);
+      const supply = Planner.queueSupply(state, state.planner.startDate || Utils.todayInput());
       const paidCapLimit = Planner.paidCapLimit(state.settings);
       const paidLimit = Utils.clamp(Utils.int(state.settings.maxPaidTrainsPerDay, paidCapLimit), 0, paidCapLimit);
-      const paidDaily = Math.max(1, Math.min(supply, paidLimit || supply));
-      const paidDays = Math.ceil(paidQueue / paidDaily);
+      const paidDaily = Math.max(0, Math.min(supply, paidLimit || supply));
+      const paidDays = paidDaily > 0 ? Math.ceil(paidQueue / paidDaily) : 0;
       const holdCount = Planner.holdCount(state, state.planner.startDate || Utils.todayInput());
       const counts = new Map();
       (state.staff.current || []).forEach((person) => {
@@ -7718,7 +8301,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
       return `<div class="pp-operational">
         <div class="pp-operation-note"><strong>${paidQueue.toLocaleString()}</strong>Paid trains waiting</div>
         <div class="pp-operation-note"><strong>${sponsored.length.toLocaleString()}</strong>Free/sponsored candidates</div>
-        <div class="pp-operation-note"><strong>${supply.toLocaleString()}</strong>Daily supply / ${paidDaily.toLocaleString()} paid slots</div>
+        <div class="pp-operation-note"><strong>${supply.toLocaleString()} / 20</strong>Available slots / ${paidDaily.toLocaleString()} paid</div>
         <div class="pp-operation-note" title="${Utils.esc(coverage)}"><strong>${paidDays.toLocaleString()}</strong>Paid queue day${paidDays === 1 ? '' : 's'}</div>
         <div class="pp-operation-note" title="Staff in their first ${Planner.trainingHoldDays()} days are held off the schedule, even when they already have paid orders."><strong>${holdCount.toLocaleString()}</strong>New-hire hold</div>
         <div class="pp-operation-note" title="${Utils.esc(riskTitle)}"><strong>${risk.total.toLocaleString()}</strong>Risk-adjusted sponsored</div>
@@ -7741,10 +8324,11 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         }).join('');
       }
       const manualSlots = UI.state.planner.manualSlots || {};
+      const directorChooses = Planner.queuePolicy(UI.state) === 'director';
       const rows = [];
       for (let index = 0; index < open; index += 1) {
         const key = `${day.date}:${index}`;
-        const suggested = mode === 'hybrid' ? UI.plannerSuggestedSlot(day, index) : null;
+        const suggested = mode === 'hybrid' && !directorChooses ? UI.plannerSuggestedSlot(day, index) : null;
         const hasManual = Object.prototype.hasOwnProperty.call(manualSlots, key);
         const selected = hasManual ? manualSlots[key] : (suggested ? UI.plannerStaffValue(suggested) : '');
         const selectedPerson = UI.resolvePlannerStaff(selected, day.date)
@@ -7956,6 +8540,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         name: (person) => String(person.name || '').toLowerCase(),
         role: (person) => String(person.role || '').toLowerCase(),
         suggested: isDirector ? () => '' : (person) => String((UI.suggestedRole(person) || {}).label || '').toLowerCase(),
+        efficiency: isDirector ? () => 0 : (person) => Utils.num(person && person.effectiveness && person.effectiveness.total, Utils.num(person && (person.efficiency || person.employeeEfficiency), 0)),
         suggestedWage: isDirector || isPastStaff ? () => 0 : (person) => Wages.breakdown(person, UI.state).suggested,
         contract: (person) => String(person.contractType || '').toLowerCase(),
         str: isDirector ? () => 0 : (person) => countersFor(person).str,
@@ -7967,7 +8552,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         lastAction: (person) => Utils.int(person.lastActionTimestamp, 0)
       }, 'name', 'asc');
       return `<div class="pp-wrap ${activeSubtab === 'past' && !isDirector ? 'pp-past-scroll' : ''}"><table class="pp-table pp-people-table">
-        <thead><tr><th>#</th><th>${UI.tableSortHeader(tableId, 'name', 'Name')}</th><th>${UI.tableSortHeader(tableId, 'role', 'Role')}</th>${isDirector ? `<th>${UI.tableSortHeader(tableId, 'dates', 'Dates')}</th><th>${UI.tableSortHeader(tableId, 'days', 'Days')}</th><th>${UI.tableSortHeader(tableId, 'source', 'Source')}</th><th>Edit</th>` : `${isPastStaff ? '' : `<th>${UI.tableSortHeader(tableId, 'suggested', 'Suggested')}</th><th>${UI.tableSortHeader(tableId, 'contract', 'Contract')}</th><th>${UI.tableSortHeader(tableId, 'suggestedWage', 'Suggested wage')}</th>`}<th title="Sponsored Trains Received">${UI.tableSortHeader(tableId, 'str', 'STR')}</th><th title="Paid Trains Received">${UI.tableSortHeader(tableId, 'ptr', 'PTR')}</th><th title="Paid Trains">${UI.tableSortHeader(tableId, 'pt', 'PT')}</th><th>${UI.tableSortHeader(tableId, 'dates', 'Dates')}</th><th>${UI.tableSortHeader(tableId, 'days', 'Days')}</th>${isPastStaff ? '' : `<th>${UI.tableSortHeader(tableId, 'lastAction', 'Last action')}</th>`}<th>Edit</th>`}</tr></thead>
+        <thead><tr><th>#</th><th>${UI.tableSortHeader(tableId, 'name', 'Name')}</th><th>${UI.tableSortHeader(tableId, 'role', 'Role')}</th>${isDirector ? `<th>${UI.tableSortHeader(tableId, 'dates', 'Dates')}</th><th>${UI.tableSortHeader(tableId, 'days', 'Days')}</th><th>${UI.tableSortHeader(tableId, 'source', 'Source')}</th><th>Edit</th>` : `${isPastStaff ? '' : `<th>${UI.tableSortHeader(tableId, 'suggested', 'Suggested')}</th><th>${UI.tableSortHeader(tableId, 'efficiency', 'Efficiency')}</th><th>${UI.tableSortHeader(tableId, 'contract', 'Contract')}</th><th>${UI.tableSortHeader(tableId, 'suggestedWage', 'Suggested wage')}</th>`}<th title="Sponsored Trains Received">${UI.tableSortHeader(tableId, 'str', 'STR')}</th><th title="Paid Trains Received">${UI.tableSortHeader(tableId, 'ptr', 'PTR')}</th><th title="Paid Trains">${UI.tableSortHeader(tableId, 'pt', 'PT')}</th><th>${UI.tableSortHeader(tableId, 'dates', 'Dates')}</th><th>${UI.tableSortHeader(tableId, 'days', 'Days')}</th>${isPastStaff ? '' : `<th>${UI.tableSortHeader(tableId, 'lastAction', 'Last action')}</th>`}<th>Edit</th>`}</tr></thead>
         <tbody>${sorted.map((person, index) => {
           const roleName = isDirector ? (person.role || 'Director') : (person.role || 'Employee');
           const roleColor = UI.roleColor(roleName);
@@ -7983,7 +8568,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
             <td>${UI.directorDates(person)}</td>
             <td>${Utils.esc(UI.directorTenureDays(person) || '')}</td>
             <td>${Utils.esc(person.source || '')}</td>
-            <td><button class="pp-btn" type="button" data-action="edit-director" data-director-key="${Utils.esc(personKey)}">Edit</button></td>` : `${isPastStaff ? '' : `<td>${UI.suggestedRolePill(person)}</td><td><span class="pp-pill" style="--pill-color:${contractColor}">${Utils.esc(UI.contractLabel(person.contractType))}</span></td><td>${UI.personSuggestedWageView(wageBreakdown)}</td>`}
+            <td><button class="pp-btn" type="button" data-action="edit-director" data-director-key="${Utils.esc(personKey)}">Edit</button></td>` : `${isPastStaff ? '' : `<td>${UI.suggestedRolePill(person)}</td><td>${UI.personEfficiencyView(person)}</td><td><span class="pp-pill" style="--pill-color:${contractColor}">${Utils.esc(UI.contractLabel(person.contractType))}</span></td><td>${UI.personSuggestedWageView(wageBreakdown)}</td>`}
             <td title="Sponsored Trains Received">${counters.str}</td>
             <td title="Paid Trains Received">${counters.ptr}</td>
             <td title="Paid Trains">${counters.pt}</td>
@@ -8430,7 +9015,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
     },
     personEfficiencyView(person, align) {
       const effectiveness = person && person.effectiveness ? person.effectiveness : null;
-      const total = Utils.num(effectiveness && effectiveness.total, Utils.num(person && person.efficiency, 0));
+      const total = Utils.num(effectiveness && effectiveness.total, Utils.num(person && (person.efficiency || person.employeeEfficiency), 0));
       if (!total) return '<span class="pp-note">Not detected</span>';
       const tooltip = effectiveness ? UI.effectivenessTooltip(effectiveness) : '';
       const attrs = tooltip ? ` tabindex="0" data-tooltip-html="${Utils.esc(tooltip)}"` : '';
@@ -8754,11 +9339,15 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
             <label class="pp-field"><span class="pp-note">Trainer role</span><span><input type="checkbox" name="trainerAutoDetect" ${state.settings.trainerAutoDetect !== false ? 'checked' : ''}> Auto-Detect</span></label>
             <div class="pp-field span-6"><span class="pp-note">Detected setup: company rating comes from profile sync and Trainer comes from staff sync when Auto-Detect is enabled. Current trainer bonus: ${state.settings.trainerAssigned ? 'yes' : 'no'}.</span></div>
             <div class="pp-form-title">Auto mode priority</div>
-            <label class="pp-field"><span class="pp-note">Addiction penalty</span><span><input type="checkbox" name="plannerAddictionEnabled" ${state.settings.plannerPriority && state.settings.plannerPriority.addictionEnabled !== false ? 'checked' : ''}> Enabled</span></label>
-            ${UI.field('Addiction weight', `<input class="pp-input" name="plannerAddictionWeight" inputmode="decimal" value="${Utils.esc(state.settings.plannerPriority && state.settings.plannerPriority.addictionWeight || 1)}">`, 'pp-compact-field')}
-            <label class="pp-field"><span class="pp-note">Inactivity penalty</span><span><input type="checkbox" name="plannerInactivityEnabled" ${state.settings.plannerPriority && state.settings.plannerPriority.inactivityEnabled !== false ? 'checked' : ''}> Enabled</span></label>
-            ${UI.field('Inactivity weight', `<input class="pp-input" name="plannerInactivityWeight" inputmode="decimal" value="${Utils.esc(state.settings.plannerPriority && state.settings.plannerPriority.inactivityWeight || 1)}">`, 'pp-compact-field')}
-            <div class="pp-field span-6"><span class="pp-note">Auto mode fills paid orders first, then ranks sponsored/free capacity by role-stat gaps or lowest total working stats. Addiction and inactivity can still lower priority.</span></div>
+            <div class="pp-priority-grid">
+              ${UI.field('Queue standard', UI.plannerQueuePolicySelect(), 'pp-compact-field')}
+              <label class="pp-field"><span class="pp-note">Paid orders first</span><span><input type="checkbox" name="plannerPaidFirst" ${state.settings.plannerPriority && state.settings.plannerPriority.paidFirst !== false ? 'checked' : ''}> Enabled</span></label>
+              ${UI.field('Addiction weight', `<input class="pp-input" name="plannerAddictionWeight" inputmode="decimal" value="${Utils.esc(state.settings.plannerPriority && state.settings.plannerPriority.addictionWeight || 1)}">`, 'pp-compact-field')}
+              <label class="pp-field"><span class="pp-note">Addiction penalty</span><span><input type="checkbox" name="plannerAddictionEnabled" ${state.settings.plannerPriority && state.settings.plannerPriority.addictionEnabled !== false ? 'checked' : ''}> Enabled</span></label>
+              ${UI.field('Inactivity weight', `<input class="pp-input" name="plannerInactivityWeight" inputmode="decimal" value="${Utils.esc(state.settings.plannerPriority && state.settings.plannerPriority.inactivityWeight || 1)}">`, 'pp-compact-field')}
+              <label class="pp-field"><span class="pp-note">Inactivity penalty</span><span><input type="checkbox" name="plannerInactivityEnabled" ${state.settings.plannerPriority && state.settings.plannerPriority.inactivityEnabled !== false ? 'checked' : ''}> Enabled</span></label>
+            </div>
+            <div class="pp-field span-6"><span class="pp-note">Paid orders first prioritizes paid staff with remaining trains. Queue standard controls sponsored/free capacity: director-selected slots, full rotation, lower stats, assigned-role catch-up, or role need. Addiction and inactivity can still lower priority.</span></div>
           </form>
         </div>
       </section>`;
@@ -8772,16 +9361,19 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
             <h3>Discount rules</h3>
             <p>Training-order discount logic and the message trigger used for log imports.</p>
           </div>
+          <label class="pp-title-switch"><input type="checkbox" form="pp-discount-settings" name="discountsEnabled" ${state.settings.discountsEnabled !== false ? 'checked' : ''}> Discount rules</label>
         </div>
         <div class="pp-content">
-          <form data-settings-form class="pp-form">
-            <label class="pp-field span-2"><span class="pp-note">Discount rules</span><span><input type="checkbox" name="discountsEnabled" ${state.settings.discountsEnabled !== false ? 'checked' : ''}> Enabled</span></label>
-            ${UI.field('Merit discount % / merit', `<input class="pp-input" name="meritDiscountRate" inputmode="decimal" value="${Utils.esc(state.settings.meritDiscountRate)}">`)}
-            ${UI.field('Max merit discount %', `<input class="pp-input" name="maxMeritDiscount" inputmode="decimal" value="${Utils.esc(state.settings.maxMeritDiscount)}">`)}
-            ${UI.field('Loyalty max %', `<div class="pp-row-actions"><input class="pp-input pp-fit" name="loyaltyMaxDiscount" inputmode="decimal" value="${Utils.esc(state.settings.loyaltyMaxDiscount)}"><button class="pp-btn" type="button" data-action="add-loyalty-tier">Add loyalty tier</button></div>`, 'span-2')}
-            ${UI.field('Promo discount %', `<select class="pp-select" name="globalPromoDiscount"><option value="0" ${state.settings.globalPromoDiscount == 0 ? 'selected' : ''}>0%</option><option value="25" ${state.settings.globalPromoDiscount == 25 ? 'selected' : ''}>25%</option><option value="50" ${state.settings.globalPromoDiscount == 50 ? 'selected' : ''}>50%</option></select>`)}
-            ${UI.field('Total discount cap %', `<input class="pp-input" name="maxTotalDiscount" inputmode="decimal" value="${Utils.esc(state.settings.maxTotalDiscount)}">`)}
+          <form id="pp-discount-settings" data-settings-form class="pp-form">
+            <div class="pp-discount-row">
+              ${UI.field('Merit % / merit', `<input class="pp-input" name="meritDiscountRate" inputmode="decimal" value="${Utils.esc(state.settings.meritDiscountRate)}">`)}
+              ${UI.field('Max merit %', `<input class="pp-input" name="maxMeritDiscount" inputmode="decimal" value="${Utils.esc(state.settings.maxMeritDiscount)}">`)}
+              ${UI.field('Loyalty max %', `<input class="pp-input" name="loyaltyMaxDiscount" inputmode="decimal" value="${Utils.esc(state.settings.loyaltyMaxDiscount)}">`)}
+              ${UI.field('Promo %', `<select class="pp-select" name="globalPromoDiscount"><option value="0" ${state.settings.globalPromoDiscount == 0 ? 'selected' : ''}>0%</option><option value="25" ${state.settings.globalPromoDiscount == 25 ? 'selected' : ''}>25%</option><option value="50" ${state.settings.globalPromoDiscount == 50 ? 'selected' : ''}>50%</option></select>`)}
+              ${UI.field('Total cap %', `<input class="pp-input" name="maxTotalDiscount" inputmode="decimal" value="${Utils.esc(state.settings.maxTotalDiscount)}">`)}
+            </div>
             ${UI.loyaltyTierBuilder(state.settings.loyaltyTiers)}
+            <div class="pp-field span-6"><div class="pp-row-actions"><button class="pp-btn" type="button" data-action="add-loyalty-tier">Add loyalty tier</button></div></div>
             <div class="pp-form-title">Log trigger</div>
             ${UI.field('Trigger text', `<input class="pp-input" name="logTrigger" value="${Utils.esc(state.settings.logTrigger || '!train')}" placeholder="!train">`, 'span-2 pp-compact-field')}
             <div class="pp-field span-4"><span class="pp-note">Import from log scans the latest 100 matching Torn log rows and imports only rows containing this trigger.</span></div>
@@ -9032,16 +9624,25 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         </div>
         <div class="pp-content">
           <form data-notifications-form class="pp-form">
-            <div class="pp-form-title">Warnings</div>
-            <label class="pp-field span-2"><span>Low stock</span><span><input type="checkbox" name="notifyStock" ${settings.stock.enabled ? 'checked' : ''}> Enabled</span></label>
-            <label class="pp-field span-2"><span>Addiction watch</span><span><input type="checkbox" name="notifyAddiction" ${settings.addiction.enabled ? 'checked' : ''}> Enabled</span></label>
-            ${UI.field('Addiction threshold', `<input class="pp-input" name="notifyAddictionThreshold" inputmode="decimal" value="${Utils.esc(settings.addiction.threshold)}">`, 'span-2')}
-            <label class="pp-field span-2"><span>Inactivity watch</span><span><input type="checkbox" name="notifyInactivity" ${settings.inactivity.enabled ? 'checked' : ''}> Enabled</span></label>
-            ${UI.field('Inactive days threshold', `<input class="pp-input" name="notifyInactiveDays" inputmode="numeric" value="${Utils.esc(settings.inactivity.thresholdDays)}">`, 'span-2')}
-            <label class="pp-field span-2"><span>Sync freshness</span><span><input type="checkbox" name="notifySync" ${settings.sync.enabled ? 'checked' : ''}> Enabled</span></label>
-            ${UI.field('Sync warning hours', `<input class="pp-input" name="notifySyncWarnHours" inputmode="numeric" value="${Utils.esc(settings.sync.warnHours)}">`, 'span-2')}
-            ${UI.field('Sync danger hours', `<input class="pp-input" name="notifySyncDangerHours" inputmode="numeric" value="${Utils.esc(settings.sync.dangerHours)}">`, 'span-2')}
-            <div class="pp-field span-6"><span class="pp-note">Low stock still uses each service row's own warning threshold. Sync freshness changes the colour of sync buttons as well as the alert strip.</span></div>
+            <div class="pp-notification-grid">
+              <div class="pp-notification-rule">
+                ${UI.field('Low-stock threshold %', `<input class="pp-input" name="notifyStockThreshold" inputmode="numeric" value="${Utils.esc(settings.stock.thresholdPercent)}">`)}
+                <label class="pp-notification-switch"><span>Low stock</span><span><input type="checkbox" name="notifyStock" ${settings.stock.enabled ? 'checked' : ''}> Enabled</span></label>
+              </div>
+              <div class="pp-notification-rule">
+                ${UI.field('Addiction threshold', `<input class="pp-input" name="notifyAddictionThreshold" inputmode="decimal" value="${Utils.esc(settings.addiction.threshold)}">`)}
+                <label class="pp-notification-switch"><span>Addiction watch</span><span><input type="checkbox" name="notifyAddiction" ${settings.addiction.enabled ? 'checked' : ''}> Enabled</span></label>
+              </div>
+              <div class="pp-notification-rule">
+                ${UI.field('Inactive days', `<input class="pp-input" name="notifyInactiveDays" inputmode="numeric" value="${Utils.esc(settings.inactivity.thresholdDays)}">`)}
+                <label class="pp-notification-switch"><span>Inactivity watch</span><span><input type="checkbox" name="notifyInactivity" ${settings.inactivity.enabled ? 'checked' : ''}> Enabled</span></label>
+              </div>
+              <div class="pp-notification-rule">
+                ${UI.field('Warn / danger hours', `<div class="pp-row-actions"><input class="pp-input" name="notifySyncWarnHours" inputmode="numeric" value="${Utils.esc(settings.sync.warnHours)}" title="Warning hours"><input class="pp-input" name="notifySyncDangerHours" inputmode="numeric" value="${Utils.esc(settings.sync.dangerHours)}" title="Danger hours"></div>`)}
+                <label class="pp-notification-switch"><span>Sync freshness</span><span><input type="checkbox" name="notifySync" ${settings.sync.enabled ? 'checked' : ''}> Enabled</span></label>
+              </div>
+            </div>
+            <div class="pp-field span-6"><span class="pp-note">The low-stock percentage is the global warning floor; quantity-mode service thresholds remain exact. Sync freshness also colours sync buttons and the alert strip.</span></div>
           </form>
         </div>
       </section>`;
@@ -9392,16 +9993,22 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
     },
     reportRowsForApi(rows) {
       const byDate = new Map();
+      const costsByDate = new Map(UI.operatingCostHistoryForApi().map((row) => [row.date, row]));
       (rows || []).forEach((row) => {
         const reportDate = Utils.dateInput(row.reportDate || row.date) || Utils.dayKey(row.timestamp);
         const customers = Utils.int(row.customers, 0);
         const income = Utils.int(row.income || row.grossIncome, 0);
         if (!reportDate || (!customers && !income)) return;
+        const costs = costsByDate.get(reportDate) || {};
         byDate.set(reportDate, {
           reportDate,
           timestamp: Utils.int(row.timestamp, 0) || Utils.dateTimestamp(reportDate),
           customers,
-          income
+          income,
+          wages: costs.wagesKnown ? Utils.num(costs.wages, 0) : undefined,
+          wageTotal: costs.wagesKnown ? Utils.num(costs.wages, 0) : undefined,
+          adBudget: costs.adBudgetKnown ? Utils.num(costs.adBudget, 0) : undefined,
+          advertisingBudget: costs.adBudgetKnown ? Utils.num(costs.adBudget, 0) : undefined
         });
       });
       return Array.from(byDate.values()).sort((a, b) => String(b.reportDate).localeCompare(String(a.reportDate)));
@@ -9632,6 +10239,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
       }
     },
     businessPayloadForApi() {
+      UI.captureOperatingCostHistory('business-sync');
       const profile = UI.state.company.profile || {};
       const detailed = UI.state.company.detailed || {};
       const sanitized = Store.cloudState(UI.state);
@@ -9649,6 +10257,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         profile,
         detailed,
         adBudgetHistory: UI.adBudgetHistoryForApi(),
+        operatingCostHistory: UI.operatingCostHistoryForApi(),
         settings: sanitized.settings || {}
       };
     },
@@ -9674,7 +10283,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
       }
       if (parts.stock) {
         const stock = parts.stock === true ? UI.stockItemsForApi() : UI.stockItemsForApi(parts.stock);
-        if (Object.keys(stock).length) requests.push({ label: 'stock', path: '/sync/stock', payload: { stock, syncedAt: Utils.nowIso() }, timeout: 30000 });
+        if (Object.keys(stock).length) requests.push({ label: 'stock', path: '/sync/stock', payload: { stock, stockSettings: Store.normaliseStockSettings(UI.state.company.stockSettings || {}), syncedAt: Utils.nowIso() }, timeout: 30000 });
       }
       if (parts.events) {
         const events = Array.isArray(parts.events) ? parts.events : [];
@@ -9852,17 +10461,29 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
     statTotal(vector) {
       return Utils.num(vector && vector.man, 0) + Utils.num(vector && vector.int, 0) + Utils.num(vector && vector.end, 0);
     },
+    statShapeFit(stats, target) {
+      const statTotal = UI.statTotal(stats);
+      const targetTotal = UI.statTotal(target);
+      if (!statTotal || !targetTotal) return 0;
+      const statVector = [stats.man / statTotal, stats.int / statTotal, stats.end / statTotal];
+      const targetVector = [target.man / targetTotal, target.int / targetTotal, target.end / targetTotal];
+      const distance = statVector.reduce((sum, value, index) => sum + Math.abs(value - targetVector[index]), 0);
+      return Math.max(0, 1 - distance / 2) * 100;
+    },
     companyTemplateRoleSuggestion(person) {
-      const status = Planner.roleTemplateStatus(person, UI.state);
-      if (!status) return null;
-      const current = UI.roleKey(person && person.role) === UI.roleKey(status.label);
-      return {
-        key: UI.roleKey(status.label),
-        label: status.label,
-        source: status.source,
-        score: (status.shortage ? 2000 : 1000) + status.fit / 100000,
-        met: current && !status.shortage
+      const template = Planner.companyRoleTargets(UI.state);
+      const stats = UI.statVector(person);
+      if (!template || !UI.statTotal(stats)) return null;
+      const shapes = {
+        manager: { man: 25, int: 45, end: 30 },
+        receptionist: { man: 10, int: 60, end: 30 },
+        technician: { man: 45, int: 10, end: 45 }
       };
+      const candidates = Object.entries(template.roles).map(([key, role]) => {
+        const score = UI.statShapeFit(stats, shapes[key] || { man: 1, int: 1, end: 1 });
+        return { key, label: role.label, source: `${template.source}; individual MAN/INT/END fit`, score, met: UI.roleKey(person && person.role) === UI.roleKey(role.label) };
+      }).sort((a, b) => b.score - a.score || String(a.label).localeCompare(String(b.label)));
+      return candidates[0] || null;
     },
     roleRequirementSuggestion(person) {
       const stats = UI.statVector(person);
@@ -9874,14 +10495,13 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         const end = Utils.num(req.end, 0);
         const total = man + int + end;
         if (!total) return null;
-        const ratios = [
-          man ? Math.min(stats.man / man, 1) : 1,
-          int ? Math.min(stats.int / int, 1) : 1,
-          end ? Math.min(stats.end / end, 1) : 1
-        ];
-        const coverage = ratios.reduce((sum, value) => sum + value, 0) / ratios.length;
+        const target = { man, int, end };
+        const ratios = [man ? Math.min(stats.man / man, 1) : 1, int ? Math.min(stats.int / int, 1) : 1, end ? Math.min(stats.end / end, 1) : 1];
+        const coverage = ratios.reduce((sum, value) => sum + value, 0) / ratios.length * 100;
+        const shape = UI.statShapeFit(stats, target);
+        const scale = Math.min(UI.statTotal(stats) / total, total / Math.max(1, UI.statTotal(stats)), 1) * 100;
         const met = (!man || stats.man >= man) && (!int || stats.int >= int) && (!end || stats.end >= end);
-        return { key, label, source: 'role requirements', score: (met ? 1000 : 0) + coverage * 100 + total / 100000, met };
+        return { key, label, source: 'individual MAN/INT/END versus saved role requirements', score: shape * 0.6 + coverage * 0.3 + scale * 0.1, met };
       }).filter(Boolean);
       if (!candidates.length) return null;
       candidates.sort((a, b) => b.score - a.score || String(a.label).localeCompare(String(b.label)));
@@ -9924,7 +10544,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
       return candidates[0];
     },
     suggestedRole(person) {
-      return UI.companyTemplateRoleSuggestion(person) || UI.roleRequirementSuggestion(person) || UI.rolePoolSuggestion(person);
+      return UI.roleRequirementSuggestion(person) || UI.companyTemplateRoleSuggestion(person) || UI.rolePoolSuggestion(person);
     },
     suggestedRolePill(person) {
       const suggestion = UI.suggestedRole(person);
@@ -10068,7 +10688,6 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
           ${UI.kv('Staffroom', Utils.esc(detailed.staffroomSize || 'Not detected'))}
           ${UI.kv('Storage', UI.stockStorageLabel(detailed))}
           ${UI.kv('Company value', Utils.money(detailed.value))}
-          ${employees.length ? `<div class="pp-table-title"><span>Current employee effectiveness</span><span class="pp-note">${employees.length} row${employees.length === 1 ? '' : 's'}</span></div><div class="pp-wrap" style="margin-top:10px"><table class="pp-table pp-effectiveness-table"><thead><tr><th>#</th><th>${UI.profileSortHeader('name', 'Employee')}</th><th>${UI.profileSortHeader('role', 'Role')}</th><th>Suggested</th><th>${UI.profileSortHeader('daysInCompany', 'Days')}</th><th>${UI.profileSortHeader('effectiveness', 'Effectiveness')}</th><th>${UI.profileSortHeader('lastAction', 'Last action')}</th></tr></thead><tbody>${employees.map((person, index) => `<tr><td>${index + 1}</td><td>${Utils.esc(person.name)}</td><td>${Utils.esc(person.role)}</td><td>${UI.suggestedRolePill(person)}</td><td>${Utils.esc(person.daysInCompany)}</td><td>${person.effectiveness && person.effectiveness.total ? `<span class="pp-effectiveness-tip" tabindex="0" data-tooltip-html="${Utils.esc(UI.effectivenessTooltip(person.effectiveness))}">${Utils.esc(person.effectiveness.total)}</span>` : 'Not detected'}</td><td>${Utils.esc(person.lastAction || 'Not detected')}</td></tr>`).join('')}</tbody></table></div>` : '<div class="pp-empty" style="margin-top:10px">No non-director profile employees synced yet.</div>'}
         </div>
       </section>`;
     },
@@ -10126,6 +10745,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
             ${UI.stat('Projected storage', `${plan.projectedStorage.toLocaleString()} / ${plan.capacity.toLocaleString() || '0'}`)}
             ${UI.stat('Order cost', Utils.money(plan.orderCost))}
           </div>
+          <p class="pp-note">Services sold is the latest Torn stock snapshot. Torn does not specify whether sold quantity is daily, weekly, monthly, or lifetime.</p>
           <form data-stock-form>
             <div class="pp-wrap"><table class="pp-table">
               <thead><tr><th>#</th><th>${UI.tableSortHeader('stock', 'name', 'Service')}</th><th>${UI.tableSortHeader('stock', 'cost', 'Cost')}</th><th>${UI.tableSortHeader('stock', 'rrp', 'RRP')}</th><th>${UI.tableSortHeader('stock', 'price', 'Price')}</th><th>${UI.tableSortHeader('stock', 'inStock', 'In stock')}</th><th>${UI.tableSortHeader('stock', 'onOrder', 'On order')}</th><th>${UI.tableSortHeader('stock', 'soldAmount', 'Sold qty')}</th><th>${UI.tableSortHeader('stock', 'soldWorth', 'Sold worth')}</th><th>${UI.tableSortHeader('stock', 'needsStock', 'Need Restock?')}</th><th>${UI.tableSortHeader('stock', 'warning', 'Warn')}</th><th>${UI.tableSortHeader('stock', 'restockQty', 'Restock qty')}</th></tr></thead>
@@ -10202,6 +10822,26 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         <div class="pp-content">
           <div class="pp-changelog">
             <details open>
+              <summary>v2.9.8 - Persistence and operations polish</summary>
+              <ul><li>Major changes: Wage, stock, collapsed-panel, and Daily/Weekly graph preferences now persist across fast navigation and refreshes.</li><li>Major changes: Legacy news duplicates and bracketed zero advertising-budget rows are repaired, while dated wages and advertising totals are included in database sync payloads.</li><li>Major changes: Staff efficiency, stat-based role suggestions, available-train queues, training-order status sync, and the requested Settings/Timeline visual layouts were reworked.</li></ul>
+            </details>
+            <details>
+              <summary>v2.9.7 - Training queue standards</summary>
+              <ul><li>Major changes: Training setup now includes a Queue standard controller for Director chooses, Full staff rotation, Lower stats first, Closest under assigned role, and Role need first.</li><li>Major changes: Full staff rotation now cycles eligible sponsored/free staff across generated days before repeating the same people, while paid staff with remaining trains stay prioritized by default.</li><li>Major changes: Build calendar now saves the generated active queue into planner state, local planner cache, and the cloud workspace mirror path.</li></ul>
+            </details>
+            <details>
+              <summary>v2.9.3 - Training news grouping fix</summary>
+              <ul><li>Major changes: Grouped timeline training rows now collapse named employees only by their own identity, not by same-minute role/count fallback buckets.</li><li>Major changes: Torn company-news event IDs are now the source of truth for training dedupe; employee/minute/count matching is only used for legacy or generated rows with no source event ID.</li><li>Minor changes: Same-timestamp one-train events for different employees now stay as separate grouped rows instead of being summed under the first matching role.</li></ul>
+            </details>
+            <details>
+              <summary>v2.9.2 - Balance sync stability</summary>
+              <ul><li>Major changes: Advertising budget history now records Torn V2 profile values as explicit dated rows and ignores older unmarked zero rows in Balance.</li><li>Major changes: Balance wages now use current synced employee wages and saved wage history only; wage estimates are no longer included in Balance profit.</li><li>Major changes: Notification hides now persist locally until the next 18:10 TCT business reset, even after page refresh.</li><li>Minor changes: Weekly performance graphs now use adaptive Y-axis tick spacing, Services Sold explains that Torn does not specify the sold_amount period, and the title bar shows the script version with compact Sync buttons.</li></ul>
+            </details>
+            <details>
+              <summary>v2.9.1 - Stock settings persistence</summary>
+              <ul><li>Major changes: Stock card restock toggles, warning thresholds, warning modes, and restock quantities now save to a dedicated stock settings map.</li><li>Major changes: Stock settings now update the 24-hour sync cache immediately on input/change, so fast Torn page switches and refreshes keep the latest values.</li><li>Minor changes: Stock sync, stock import/export, and legacy migration now preserve the stock settings map instead of falling back to default row values.</li></ul>
+            </details>
+            <details>
               <summary>v2.8.11 - Risk strike persistence</summary>
               <ul><li>Major changes: Visible risk notifications now record same-day risk-strike history, so warnings cannot appear without also updating the member record.</li><li>Major changes: Staff sync snapshots now include <code>strikeHistory</code> and raw strike-history data for the Pythagoras API snapshot path.</li><li>Minor changes: Risk-strike updates are also saved as staff-card edits and queued for staff/workspace cloud sync.</li></ul>
             </details>
@@ -10419,6 +11059,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
       if (control.closest('[data-ledger-form],[data-planner-field],[data-planner-manual],[data-ui-field],[data-ui-check],[data-report-section],[data-graph-series]')) return '';
       if (control.closest('[data-person-card]')) return 'person';
       if (control.closest('[data-stock-form]')) return 'stock';
+      if (control.matches('[form="pp-discount-settings"]')) return 'settings';
       if (control.closest('[data-settings-form],[data-wage-form],[data-roles-form],[data-notifications-form],[data-theme-form]')) return 'settings';
       return '';
     },
@@ -10442,10 +11083,24 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
       }
       if (target === 'stock') {
         UI.readStockSettings(root);
+        Store.updateSyncCache(UI.state, 'stock');
         Store.save(UI.state);
         return;
       }
       if (target === 'settings') {
+        UI.saveSettings({ silent: true });
+      }
+    },
+    flushVisibleForms() {
+      clearTimeout(UI.autoSaveTimer);
+      const root = UI.currentRoot();
+      if (!root) return;
+      if (root.querySelector('[data-stock-form]')) {
+        UI.readStockSettings(root);
+        Store.updateSyncCache(UI.state, 'stock');
+        Store.saveStockLocalEdits(UI.state);
+      }
+      if (root.querySelector('[data-settings-form],[data-wage-form],[data-roles-form],[data-notifications-form],[data-theme-form]')) {
         UI.saveSettings({ silent: true });
       }
     },
@@ -10548,7 +11203,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
       }
 
       const tab = event.target.closest('[data-tab]');
-      if (tab) { UI.state.ui.tab = tab.dataset.tab; UI.saveRender(); return; }
+      if (tab) { UI.flushVisibleForms(); UI.state.ui.tab = tab.dataset.tab; UI.saveRender(); return; }
 
       const subtab = event.target.closest('[data-subtab]');
       if (subtab) {
@@ -10623,7 +11278,6 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
       if (action === 'use-train') UI.useTrain(id);
       if (action === 'build-planner') UI.buildPlanner();
       if (action === 'reset-planner-day') UI.resetPlannerDay(button.dataset.day || '');
-      if (action === 'toggle-planner-queue') UI.togglePlannerQueue();
       if (action === 'start-training-queue') UI.startTrainingQueue();
       if (action === 'open-training-queue-page') UI.openTrainingQueuePage();
       if (action === 'open-stock-page') UI.openStockPage();
@@ -10716,7 +11370,17 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         numeric.value = value;
       }
       const stockField = event.target.closest('[data-stock-field]');
-      if (stockField) UI.scheduleAutoSave(stockField);
+      if (stockField) {
+        UI.readStockSettings(UI.currentRoot());
+        Store.saveStockLocalEdits(UI.state);
+        Store.updateSyncCache(UI.state, 'stock');
+        UI.scheduleAutoSave(stockField);
+      }
+      const wageForm = event.target.closest('[data-wage-form]');
+      if (wageForm) {
+        UI.readWageSettings(wageForm);
+        Store.saveProfile(UI.state);
+      }
       if (event.target.closest('[data-theme-editor]')) UI.markThemeDirty(event.target.closest('[data-theme-form]'));
       if (event.target.closest('[data-date-format-input]')) UI.updateDatePreview(event.target.closest('[data-settings-form]'));
       if (form && event.target.matches('[name="playerName"]')) UI.applyLedgerStaffSelection(form);
@@ -10729,7 +11393,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         UI.state.planner[plannerField.dataset.plannerField] = plannerField.value;
         Store.save(UI.state);
       }
-      UI.scheduleAutoSave(event.target);
+      if (!stockField) UI.scheduleAutoSave(event.target);
     },
 
     onChange(event) {
@@ -10739,7 +11403,18 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         UI.markPersonCardDirty(personForm, true);
         UI.refreshPersonCardWagePreview(personForm);
       }
-      if (event.target.closest('[data-stock-field]')) UI.scheduleAutoSave(event.target, { delay: 100 });
+      const stockField = event.target.closest('[data-stock-field]');
+      if (stockField) {
+        UI.readStockSettings(UI.currentRoot());
+        Store.saveStockLocalEdits(UI.state);
+        Store.updateSyncCache(UI.state, 'stock');
+        UI.scheduleAutoSave(event.target, { delay: 100 });
+      }
+      const wageForm = event.target.closest('[data-wage-form]');
+      if (wageForm) {
+        UI.readWageSettings(wageForm);
+        Store.saveProfile(UI.state);
+      }
       if (event.target.closest('[data-report-section]')) UI.readReportSections(UI.currentRoot());
       const staffPicker = event.target.closest('[data-staff-picker]');
       if (staffPicker) {
@@ -10799,20 +11474,26 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
       if (plannerField) {
         UI.state.planner[plannerField.dataset.plannerField] = plannerField.value;
         Planner.build(UI.state);
-        UI.saveRender('Planner calendar rebuilt.');
+        const prepared = UI.prepareTrainingQueue({ force: true });
+        if (!prepared) UI.state.planner.trainingQueue = null;
+        Store.updateSyncCache(UI.state, 'planner');
+        UI.saveRender(prepared ? `Planner calendar rebuilt and ${prepared.slots.length} train${prepared.slots.length === 1 ? '' : 's'} queued for ${Utils.dateShort(prepared.date)}.` : 'Planner calendar rebuilt.');
         return;
       }
       const plannerManual = event.target.closest('[data-planner-manual]');
       if (plannerManual) {
         UI.state.planner.manualSlots = UI.state.planner.manualSlots || {};
         UI.state.planner.manualSlots[plannerManual.dataset.plannerManual] = plannerManual.value;
+        const prepared = UI.prepareTrainingQueue({ force: true });
+        if (!prepared) UI.state.planner.trainingQueue = null;
+        Store.updateSyncCache(UI.state, 'planner');
         Store.save(UI.state);
         UI.saveRender();
         return;
       }
       const field = event.target.closest('[data-ledger-field]');
       if (field) UI.updateLedgerField(field);
-      UI.scheduleAutoSave(event.target, { delay: 100 });
+      if (!stockField) UI.scheduleAutoSave(event.target, { delay: 100 });
     },
 
     onToggle(event) {
@@ -11222,9 +11903,13 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
     buildPlanner() {
       const requested = UI.state.planner.mode;
       Planner.build(UI.state);
+      const prepared = UI.prepareTrainingQueue({ force: true });
+      if (!prepared) UI.state.planner.trainingQueue = null;
+      Store.updateSyncCache(UI.state, 'planner');
+      const queuedMessage = prepared ? `Planner calendar rebuilt and ${prepared.slots.length} train${prepared.slots.length === 1 ? '' : 's'} queued for ${Utils.dateShort(prepared.date)}.` : 'Planner calendar rebuilt.';
       UI.saveRender(requested !== UI.state.planner.mode
-        ? 'Auto and Hybrid require Company Boost or Ultimate. Manual schedule rebuilt.'
-        : 'Planner calendar rebuilt.');
+        ? (Planner.queuePolicy(UI.state) === 'director' ? `Director chooses uses Hybrid mode. ${queuedMessage}` : 'Planner mode adjusted and calendar rebuilt.')
+        : queuedMessage);
     },
 
     resetPlannerDay(day) {
@@ -11239,24 +11924,21 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         UI.state.planner.trainingQueue = null;
         UI.clearTrainingHighlight();
       }
+      Store.updateSyncCache(UI.state, 'planner');
       Store.save(UI.state);
       UI.saveRender(`Reset queue for ${date}.`);
-    },
-
-    togglePlannerQueue() {
-      UI.state.ui.plannerQueueHidden = !UI.state.ui.plannerQueueHidden;
-      UI.saveRender();
     },
 
     trainingPageUrl() {
       return 'https://www.torn.com/companies.php?step=your&type=1#/train=&option=employees';
     },
 
-    prepareTrainingQueue() {
+    prepareTrainingQueue(options) {
+      const opts = options || {};
       const queue = UI.plannerTrainingQueue();
       if (!queue || !queue.slots.length) return null;
       const oldQueue = UI.state.planner.trainingQueue || {};
-      if (oldQueue.date === queue.date && Array.isArray(oldQueue.slots) && oldQueue.slots.length && !oldQueue.completedAt) {
+      if (!opts.force && oldQueue.date === queue.date && Array.isArray(oldQueue.slots) && oldQueue.slots.length && !oldQueue.completedAt) {
         oldQueue.activeIndex = Utils.clamp(Utils.int(oldQueue.activeIndex, 0), 0, oldQueue.slots.length);
         UI.state.planner.trainingQueue = oldQueue;
         return oldQueue;
@@ -11405,6 +12087,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         return;
       }
       const prepared = UI.prepareTrainingQueue();
+      Store.updateSyncCache(UI.state, 'planner');
       Store.save(UI.state);
       UI.toast(`Prepared ${prepared.slots.length} train${prepared.slots.length === 1 ? '' : 's'} for ${Utils.dateShort(prepared.date)}.`);
       UI.navigateTornTraining(UI.trainingPageUrl());
@@ -11480,6 +12163,8 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         item.restockQty = row ? row.suggestedQty : 0;
         updated += 1;
       });
+      UI.state.company.stockSettings = Store.stockSettingsFromItems(UI.state.company.stock.items, UI.state.company.stockSettings);
+      Store.updateSyncCache(UI.state, 'stock');
       UI.saveRender(updated ? 'Restock quantities suggested from sales demand and storage capacity.' : 'No restockable stock rows found.');
     },
     applyStockOrderToTorn() {
@@ -11521,6 +12206,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         UI.clearTrainingHighlight();
       }
       UI.state.planner.trainingQueue = prepared;
+      Store.updateSyncCache(UI.state, 'planner');
       return queueComplete;
     },
 
@@ -11859,10 +12545,10 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
     latestNewsDelta(incoming) {
       const marks = UI.state.company.syncWatermarks || {};
       const latestStored = Utils.int(marks.events && marks.events.latestTimestamp, 0) || Utils.int(UI.state.company.newsSync.latestTimestamp, 0);
-      const existingIds = new Set((UI.state.staff.timeline || []).map((event) => String(event.id || event.eventId || '')).filter(Boolean));
+      const existingIds = new Set((UI.state.staff.timeline || []).map((event) => Timeline.sourceEventId(event)).filter(Boolean));
       return (incoming || []).filter((event) => {
         const timestamp = Utils.int(event.timestamp, 0);
-        const eventId = String(event.id || event.eventId || '').trim();
+        const eventId = Timeline.sourceEventId(event);
         if (!timestamp) return false;
         if (timestamp > latestStored) return true;
         return timestamp === latestStored && eventId && !existingIds.has(eventId);
@@ -11966,6 +12652,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         const logs = Ledger.syncTrainingLog(UI.state);
         UI.syncStep(syncId, 'Rebuilding train schedule.', 60);
         Planner.build(UI.state);
+        UI.captureOperatingCostHistory('training-log-sync');
         const stored = (UI.state.trainingLog || []).length;
         Store.save(UI.state);
         Store.updateSyncCache(UI.state, ['news', 'trainingLog']);
@@ -12256,6 +12943,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         UI.state.analytics.weeks = Timeline.analyticsFromEvents(UI.state.staff.timeline, UI.state);
         Ledger.syncTrainingLog(UI.state);
         Planner.build(UI.state);
+        UI.captureOperatingCostHistory('news-sync');
         if (incoming.length) {
           const timestamps = incoming.map((event) => Utils.int(event.timestamp, 0)).filter(Boolean);
           if (timestamps.length) {
@@ -12412,6 +13100,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
       UI.state.company.detailed = Company.detailed(data, UI.state);
       UI.recordAdBudgetHistory('business-sync', UI.state.company.detailed.lastSynced || profile.lastSynced);
       UI.state.company.stock = Company.stock(data, UI.state.company.stock.items, UI.state);
+      UI.state.company.stockSettings = Store.stockSettingsFromItems(UI.state.company.stock.items, UI.state.company.stockSettings);
       if (UI.state.company.stock.items.length) {
         UI.state.company.stockHistory.push({
           at: Utils.nowIso(),
@@ -12450,6 +13139,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
       Company.syncTrainingSetup(UI.state);
       Ledger.syncTrainingLog(UI.state);
       Planner.build(UI.state);
+      UI.prepareTrainingQueue({ force: true });
       return { riskStrikes };
     },
 
@@ -12474,7 +13164,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         const result = UI.applyBusinessData(data) || {};
         const warnings = Company.stockWarnings(UI.state);
         Store.save(UI.state);
-        Store.updateSyncCache(UI.state, ['business', 'employees', 'stock']);
+        Store.updateSyncCache(UI.state, ['business', 'employees', 'stock', 'planner']);
         await UI.uploadSyncState(syncId, { business: true, staff: true, stock: true });
         const strikeText = result.riskStrikes ? ` ${result.riskStrikes} staff risk strike${result.riskStrikes === 1 ? '' : 's'} recorded.` : '';
         const message = warnings.length ? `Business synced. ${warnings.length} stock row${warnings.length === 1 ? '' : 's'} need attention.${strikeText}` : `Business Profile synced.${strikeText}`;
@@ -12522,7 +13212,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
       const syncId = 'stock';
       UI.captureSettingsInputs(UI.currentRoot());
       UI.readStockSettings(UI.currentRoot());
-      UI.beginSync(syncId, 'Sync services sold and stock');
+      UI.beginSync(syncId, 'Sync stock snapshot and services sold');
       try {
         UI.syncStep(syncId, 'Requesting stock data from Torn API V2.', 18);
         const data = await ApiClient.companyStock(UI.state.settings.apiKey);
@@ -12530,6 +13220,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         const nextStock = Company.stock(data, UI.state.company.stock.items, UI.state);
         if (!nextStock.items.length) throw new Error('No stock rows were returned by Torn. Sync Business Profile first, then try again.');
         UI.state.company.stock = nextStock;
+        UI.state.company.stockSettings = Store.stockSettingsFromItems(UI.state.company.stock.items, UI.state.company.stockSettings);
         UI.state.company.stockHistory.push({
           at: Utils.nowIso(),
           items: UI.state.company.stock.items.map((item) => ({
@@ -12594,13 +13285,36 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
       return tiers.length ? tiers.sort((a, b) => a.min - b.min) : Utils.clone(DEFAULTS.settings.loyaltyTiers);
     },
 
+    readWageSettings(formOrRoot) {
+      const source = formOrRoot || UI.currentRoot();
+      const form = source && source.matches && source.matches('[data-wage-form]') ? source : source && source.querySelector && source.querySelector('[data-wage-form]');
+      if (!form) return;
+      const data = new FormData(form);
+      UI.state.settings.wage = UI.state.settings.wage || Utils.clone(DEFAULTS.settings.wage);
+      Object.keys(UI.state.settings.wage).forEach((key) => {
+        if (data.has(key)) UI.state.settings.wage[key] = Utils.num(data.get(key), UI.state.settings.wage[key]);
+      });
+      UI.state.settings.wageRoleRequirements = UI.state.settings.wageRoleRequirements || {};
+      Array.from(data.entries()).forEach(([key, value]) => {
+        if (!key.startsWith('wageRole:')) return;
+        const parts = key.split(':');
+        const roleKey = parts[1];
+        const stat = parts[2];
+        if (!roleKey || !['man', 'int', 'end'].includes(stat)) return;
+        UI.state.settings.wageRoleRequirements[roleKey] = UI.state.settings.wageRoleRequirements[roleKey] || {};
+        UI.state.settings.wageRoleRequirements[roleKey][stat] = Math.max(0, Utils.num(value, 0));
+      });
+    },
+
     readStockSettings(root) {
       const rows = Array.from((root || UI.currentRoot()).querySelectorAll('[data-stock-row]'));
       if (!rows.length) return;
+      UI.state.company.stockSettings = Store.normaliseStockSettings(UI.state.company.stockSettings || {});
       const byKey = new Map(UI.state.company.stock.items.map((item) => [item.key, item]));
       rows.forEach((row) => {
         const item = byKey.get(row.dataset.stockRow);
         if (!item) return;
+        const key = Store.stockSettingKey(item.key);
         const needsStock = row.querySelector('[data-stock-field="needsStock"]');
         const warningMode = row.querySelector('[data-stock-field="warningMode"]');
         const warningValue = row.querySelector('[data-stock-field="warningValue"]');
@@ -12608,6 +13322,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         if (!Company.isRestockableStock(item)) {
           item.needsStock = false;
           item.restockQty = '';
+          if (key) delete UI.state.company.stockSettings[key];
           return;
         }
         if (needsStock) item.needsStock = needsStock.checked;
@@ -12615,11 +13330,22 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         if (warningValue && item.warningMode === 'amount') item.warningAmount = Math.max(0, Utils.num(warningValue.value, 0));
         if (warningValue && item.warningMode !== 'amount') item.warningPercent = Utils.percent(warningValue.value, 10);
         item.restockQty = restockQty && String(restockQty.value || '').trim() !== '' ? Math.max(0, Utils.num(restockQty.value, 0)) : '';
+        if (key) {
+          UI.state.company.stockSettings[key] = {
+            needsStock: !!item.needsStock,
+            warningMode: item.warningMode === 'amount' ? 'amount' : 'percent',
+            warningPercent: Utils.percent(item.warningPercent, 10),
+            warningAmount: Math.max(0, Utils.num(item.warningAmount, 0)),
+            restockQty: item.restockQty === '' || item.restockQty === null || item.restockQty === undefined ? '' : Math.max(0, Utils.num(item.restockQty, 0)),
+            updatedAt: Utils.nowIso()
+          };
+        }
       });
     },
 
     saveStockSettings() {
       UI.readStockSettings(UI.currentRoot());
+      Store.updateSyncCache(UI.state, 'stock');
       UI.saveRender('Stock settings saved.');
     },
 
@@ -12717,7 +13443,10 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
       const warnHours = Math.max(1, Utils.num(data.get('notifySyncWarnHours'), current.sync.warnHours));
       const dangerHours = Math.max(warnHours, Utils.num(data.get('notifySyncDangerHours'), current.sync.dangerHours));
       UI.state.settings.notifications = {
-        stock: { enabled: form.notifyStock ? form.notifyStock.checked : current.stock.enabled },
+        stock: {
+          enabled: form.notifyStock ? form.notifyStock.checked : current.stock.enabled,
+          thresholdPercent: Utils.clamp(Utils.num(data.get('notifyStockThreshold'), current.stock.thresholdPercent), 1, 100)
+        },
         addiction: {
           enabled: form.notifyAddiction ? form.notifyAddiction.checked : current.addiction.enabled,
           threshold: Math.max(1, Utils.num(data.get('notifyAddictionThreshold'), current.addiction.threshold))
@@ -12907,6 +13636,8 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
       const root = UI.currentRoot();
       const previousApiKey = String(UI.state.settings.apiKey || '').trim();
       const previousKeyInfo = Object.assign({}, UI.state.settings.keyInfo || {});
+      const previousQueuePolicy = Planner.queuePolicy(UI.state);
+      const previousPaidFirst = Planner.paidFirstEnabled(UI.state);
       const settingsContext = UI.settingsFormContext(root);
       const rolesForm = root.querySelector('[data-roles-form]');
       const notificationsForm = root.querySelector('[data-notifications-form]');
@@ -12931,10 +13662,16 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         }
         UI.state.settings.trainerAutoDetect = settingsContext.checked('trainerAutoDetect', UI.state.settings.trainerAutoDetect !== false);
         UI.state.settings.plannerPriority = UI.state.settings.plannerPriority || Utils.clone(DEFAULTS.settings.plannerPriority);
+        if (data.has('plannerQueuePolicy')) {
+          const queuePolicy = String(data.get('plannerQueuePolicy') || '').trim();
+          UI.state.settings.plannerPriority.queuePolicy = ['director', 'rotation', 'lowest_stats', 'role_closest', 'role_gap'].includes(queuePolicy) ? queuePolicy : DEFAULTS.settings.plannerPriority.queuePolicy;
+        }
+        UI.state.settings.plannerPriority.paidFirst = settingsContext.checked('plannerPaidFirst', UI.state.settings.plannerPriority.paidFirst !== false);
         UI.state.settings.plannerPriority.addictionEnabled = settingsContext.checked('plannerAddictionEnabled', UI.state.settings.plannerPriority.addictionEnabled !== false);
         UI.state.settings.plannerPriority.inactivityEnabled = settingsContext.checked('plannerInactivityEnabled', UI.state.settings.plannerPriority.inactivityEnabled !== false);
         if (data.has('plannerAddictionWeight')) UI.state.settings.plannerPriority.addictionWeight = Math.max(0, Utils.num(data.get('plannerAddictionWeight'), UI.state.settings.plannerPriority.addictionWeight || 1));
         if (data.has('plannerInactivityWeight')) UI.state.settings.plannerPriority.inactivityWeight = Math.max(0, Utils.num(data.get('plannerInactivityWeight'), UI.state.settings.plannerPriority.inactivityWeight || 1));
+        if (UI.state.settings.plannerPriority.queuePolicy === 'director' && UI.state.planner.mode === 'auto') UI.state.planner.mode = 'hybrid';
         const trainerAssigned = settingsContext.field('trainerAssigned');
         if (trainerAssigned) UI.state.settings.trainerAssigned = trainerAssigned.checked;
         Company.syncTrainingSetup(UI.state);
@@ -12957,21 +13694,16 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
       if (rolesForm) UI.readRoleManagement(root);
       UI.readThemeForm(root);
       if (wageForm) {
-        const data = new FormData(wageForm);
-        Object.keys(UI.state.settings.wage).forEach((key) => { UI.state.settings.wage[key] = Utils.num(data.get(key), UI.state.settings.wage[key]); });
-        UI.state.settings.wageRoleRequirements = UI.state.settings.wageRoleRequirements || {};
-        Array.from(data.entries()).forEach(([key, value]) => {
-          if (!key.startsWith('wageRole:')) return;
-          const parts = key.split(':');
-          const roleKey = parts[1];
-          const stat = parts[2];
-          UI.state.settings.wageRoleRequirements[roleKey] = UI.state.settings.wageRoleRequirements[roleKey] || {};
-          UI.state.settings.wageRoleRequirements[roleKey][stat] = Math.max(0, Utils.num(value, 0));
-        });
+        UI.readWageSettings(wageForm);
       }
       UI.readStockSettings(root);
       Store.applyAdminConfig(UI.state);
       Planner.build(UI.state);
+      if ((previousQueuePolicy !== Planner.queuePolicy(UI.state) || previousPaidFirst !== Planner.paidFirstEnabled(UI.state)) && (UI.state.planner.days || []).length) {
+        const prepared = UI.prepareTrainingQueue({ force: true });
+        if (!prepared) UI.state.planner.trainingQueue = null;
+        Store.updateSyncCache(UI.state, 'planner');
+      }
       UI.scheduleSettingsCloudSave(opts.silent ? 900 : 100);
       if (opts.silent) {
         Store.save(UI.state);
@@ -13004,7 +13736,9 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
       if (choices.analytics || choices.balance) next.analytics = incoming.analytics || Utils.clone(DEFAULTS.analytics);
       if (choices.stock) {
         next.company.stock = incoming.company.stock || Utils.clone(DEFAULTS.company.stock);
+        next.company.stockSettings = Store.normaliseStockSettings(incoming.company.stockSettings || {});
         next.company.stockHistory = incoming.company.stockHistory || [];
+        Store.applyStockSettings(next);
       }
       if (choices.profile) next.company.profile = incoming.company.profile || Utils.clone(DEFAULTS.company.profile);
       if (choices.details) next.company.detailed = incoming.company.detailed || Utils.clone(DEFAULTS.company.detailed);

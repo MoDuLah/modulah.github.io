@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         MoDuL's: Custom Race Filter
 // @namespace    modul.torn.racing
-// @version      2.4.1
+// @version      2.5.2
 // @description  Custom Race filter. (OG Car Names & PDA Compatible)
 // @author       MoDuL
 // @copyright    2026 MoDuL. All rights reserved.
@@ -19,8 +19,8 @@
 // @connect      modulah.github.io
 // @run-at       document-idle
 // @icon         https://www.google.com/s2/favicons?sz=64&domain=torn.com
-// @downloadURL https://update.greasyfork.org/scripts/562954/MoDuL%27s%3A%20Custom%20Race%20Filter%20%28PDA%20compatible%29.user.js
-// @updateURL https://update.greasyfork.org/scripts/562954/MoDuL%27s%3A%20Custom%20Race%20Filter%20%28PDA%20compatible%29.meta.js
+// @downloadURL https://modulah.github.io/custom-race-filter/custom-race-filter.user.js
+// @updateURL https://modulah.github.io/custom-race-filter/custom-race-filter.user.js
 // ==/UserScript==
 
 /*
@@ -31,7 +31,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
 (function () {
   "use strict";
 
-var VERSION = "2.4.1";
+var VERSION = "2.5.2";
   var TAG = "[MoDuL's: Custom Race Filter v" + VERSION + "]";
   try { console.log(TAG, "Loaded ✅"); } catch (e) {}
 
@@ -684,10 +684,6 @@ var VERSION = "2.4.1";
     catch (_) { return Object.assign({}, defaults); }
   }
 
-  function loadUiState_() {
-    return parseStoredJson(gmGet(STORE.ui, ""), UI_DEFAULTS);
-  }
-
   async function loadUiStateAsync_() {
     return parseStoredJson(await gmGetAsync(STORE.ui, ""), UI_DEFAULTS);
   }
@@ -699,10 +695,6 @@ var VERSION = "2.4.1";
     const next = Object.assign({}, nextState);
     for (const key of SUPPORTER_SETTING_KEYS) next[key] = DEFAULTS[key];
     return next;
-  }
-
-  function loadSettings() {
-    return parseStoredJson(gmGet(STORE.settings, ""), DEFAULTS);
   }
 
   async function loadSettingsAsync() {
@@ -762,7 +754,7 @@ var VERSION = "2.4.1";
     #modulRFOuter .rfCollapseBtn:hover{ background: rgba(0,0,0,.25); }
 
     #modulRFOuter .rfBtns{
-      display:grid; grid-template-columns: 1fr 1fr;
+      display:grid; grid-template-columns: repeat(3, minmax(0, 1fr));
       gap:10px;
       padding: 0 10px 10px 10px;
     }
@@ -1089,6 +1081,18 @@ var VERSION = "2.4.1";
       transition:none;
     }
 
+    .custom-events-wrap .notification-wrap.rfJoinOpen{
+      display:block !important;
+      visibility:visible !important;
+    }
+
+    .custom-events-wrap .notification-wrap.rfJoinOpen .race-confidence,
+    .custom-events-wrap .notification-wrap.rfJoinOpen .race-warning,
+    .custom-events-wrap .notification-wrap.rfJoinOpen .race-password{
+      display:block !important;
+      visibility:visible !important;
+    }
+
     @media (max-width:540px){
       #modulRFOuter .rfInfoBar{ flex-direction:column; }
       #modulRFOuter .rfInfoLeft{ min-height:32px; }
@@ -1386,9 +1390,9 @@ var VERSION = "2.4.1";
   }
 
   function getItems() {
-    const list = $(".custom-events-wrap .events-list");
+    const list = $("#racingAdditionalContainer .custom-events-wrap .events-list") || $(".custom-events-wrap .events-list");
     if (!list) return [];
-    return Array.from(list.children).filter(li => li && li.tagName === "LI");
+    return Array.from(list.children).filter(li => li && li.tagName === "LI" && !li.classList.contains("clear"));
   }
 
   function norm(s) { return String(s || "").replace(/\s+/g, " ").trim().toLowerCase(); }
@@ -1690,9 +1694,223 @@ var VERSION = "2.4.1";
     return true;
   }
 
+  function getJoinNotice(row) {
+    return row?.querySelector?.(".acc-body .notification-wrap") || null;
+  }
+
+  function getJoinNoticePanels(wrap) {
+    if (!wrap) return [];
+    return Array.from(wrap.querySelectorAll(".race-confidence, .race-warning, .race-password"));
+  }
+
+  function setRaceJoinNoticeOpen(row, open) {
+    const wrap = getJoinNotice(row);
+    if (!wrap) return false;
+
+    wrap.classList.toggle("rfJoinOpen", !!open);
+    wrap.style.display = open ? "block" : "none";
+    wrap.style.visibility = open ? "visible" : "";
+
+    for (const panel of getJoinNoticePanels(wrap)) {
+      panel.style.display = open ? "block" : "none";
+      panel.style.visibility = open ? "visible" : "";
+    }
+
+    return true;
+  }
+
+  function getDirectRaceJoinLink(row) {
+    return row?.querySelector?.(
+      ".acc-body .notification-wrap .race-confidence .join-wrap a[href], " +
+      ".acc-body .notification-wrap .race-warning .join-wrap a[href]"
+    ) || null;
+  }
+
+  function getPasswordRaceForm(row) {
+    return row?.querySelector?.(".acc-body .notification-wrap .race-password form") || null;
+  }
+
+  function getRaceName(row) {
+    return String(row?.querySelector?.(".acc-body li.name")?.textContent || "").replace(/\s+/g, " ").trim();
+  }
+
+  function getCookieValue(name) {
+    const encoded = String(name || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const match = document.cookie.match(new RegExp("(?:^|;\\s*)" + encoded + "=([^;]*)"));
+    return match ? decodeURIComponent(match[1]) : "";
+  }
+
+  function getTornRfc() {
+    const rfc = String(getCookieValue("rfc_v") || "").trim();
+    if (!rfc || ["null", "undefined", "false", "0"].indexOf(rfc.toLowerCase()) !== -1) return "";
+    return rfc;
+  }
+
+  function addTornRfcToUrl(href) {
+    const rfc = getTornRfc();
+    if (!href || !rfc) return href;
+
+    try {
+      const url = new URL(href, window.location.origin);
+      url.searchParams.set("rfcv", rfc);
+      return url.href;
+    } catch (_) {
+      const joiner = String(href).indexOf("?") === -1 ? "?" : "&";
+      return String(href) + joiner + "rfcv=" + encodeURIComponent(rfc);
+    }
+  }
+
+  function refreshPasswordFormRfc(form) {
+    const rfc = getTornRfc();
+    if (!rfc || !form) return;
+
+    let rfcInput = form.querySelector('input[name="rfcv"]');
+    if (!rfcInput) {
+      rfcInput = document.createElement("input");
+      rfcInput.type = "hidden";
+      rfcInput.name = "rfcv";
+      form.appendChild(rfcInput);
+    }
+    rfcInput.value = rfc;
+  }
+
+  function copyJoinLinkToVisibleButton(row, iconLink) {
+    const joinLink = getDirectRaceJoinLink(row);
+    if (!joinLink || !iconLink) return false;
+
+    const href = joinLink.getAttribute("href");
+    if (!href || href === "#") return false;
+
+    iconLink.href = addTornRfcToUrl(href);
+    iconLink.dataset.rfJoinMode = "direct";
+    iconLink.title = "Join this race";
+
+    ["tab-value", "section-value", "step-value", "id-value"].forEach(attr => {
+      const value = joinLink.getAttribute(attr);
+      if (value != null) iconLink.setAttribute(attr, value);
+    });
+
+    return true;
+  }
+
+  function submitPasswordRaceJoin(row) {
+    const form = getPasswordRaceForm(row);
+    const passInput = form?.querySelector?.('input[name="password"]');
+    if (!form || !passInput) return false;
+
+    const label = getRaceName(row);
+    const pass = window.prompt(label ? `Enter passcode for ${label}:` : "Enter race passcode:");
+    if (pass == null) return true;
+
+    const trimmed = String(pass).trim();
+    if (!trimmed) return true;
+
+    passInput.value = trimmed;
+    refreshPasswordFormRfc(form);
+
+    const submit = form.querySelector('input[type="submit"], button[type="submit"]');
+    if (typeof form.requestSubmit === "function") {
+      form.requestSubmit(submit || undefined);
+    } else if (submit && typeof submit.click === "function") {
+      submit.click();
+    } else if (window.HTMLFormElement?.prototype?.submit) {
+      window.HTMLFormElement.prototype.submit.call(form);
+    } else if (typeof form.submit === "function") {
+      form.submit();
+    }
+
+    return true;
+  }
+
+  function stopRaceJoinEvent(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    if (typeof e.stopImmediatePropagation === "function") e.stopImmediatePropagation();
+  }
+
+  let raceJoinFallbackBound = false;
+
+  function getRaceJoinRowFromEvent(e) {
+    const target = e?.target;
+    const link = target?.closest?.(".custom-events-wrap .acc-body li.join > a");
+    if (!link) return null;
+
+    const href = String(link.getAttribute("href") || "").trim();
+    if (href && href !== "#" && link.dataset.rfJoinMode !== "direct") return null;
+
+    return link.closest(".custom-events-wrap .events-list > li");
+  }
+
+  function ensureRaceJoinFallbackHandler() {
+    if (raceJoinFallbackBound) return;
+    raceJoinFallbackBound = true;
+
+    document.addEventListener("click", (e) => {
+      const row = getRaceJoinRowFromEvent(e);
+      if (!row || !getJoinNotice(row)) return;
+
+      stopRaceJoinEvent(e);
+
+      const joinLink = getDirectRaceJoinLink(row);
+      const href = joinLink?.getAttribute?.("href");
+      if (href && href !== "#") {
+        window.location.assign(addTornRfcToUrl(href));
+        return;
+      }
+
+      if (submitPasswordRaceJoin(row)) return;
+
+      setRaceJoinNoticeOpen(row, true);
+    }, true);
+  }
+
+  function enhanceRaceJoinControls(items) {
+    ensureRaceJoinFallbackHandler();
+    const rows = items || getItems();
+
+    for (const row of rows) {
+      const wrap = getJoinNotice(row);
+      const panels = getJoinNoticePanels(wrap);
+      if (!wrap || !panels.length) continue;
+
+      const iconLink = row.querySelector(".acc-body li.join > a");
+      setRaceJoinNoticeOpen(row, false);
+      copyJoinLinkToVisibleButton(row, iconLink);
+
+      if (iconLink && iconLink.dataset.rfJoinBound !== "1") {
+        iconLink.dataset.rfJoinBound = "1";
+        iconLink.addEventListener("click", (e) => {
+          const href = String(iconLink.getAttribute("href") || "").trim();
+          stopRaceJoinEvent(e);
+          if (href && href !== "#" && iconLink.dataset.rfJoinMode === "direct") {
+            window.location.assign(addTornRfcToUrl(href));
+            return;
+          }
+
+          if (submitPasswordRaceJoin(row)) return;
+          setRaceJoinNoticeOpen(row, true);
+        }, true);
+      }
+
+      const cancel = wrap.querySelector(".cancel");
+      if (cancel && cancel.dataset.rfJoinBound !== "1") {
+        cancel.dataset.rfJoinBound = "1";
+        cancel.addEventListener("click", (e) => {
+          stopRaceJoinEvent(e);
+          setRaceJoinNoticeOpen(row, false);
+        }, true);
+      }
+    }
+  }
+
+  function hydrateRaceRowsAfterContentChange() {
+    enhanceRaceJoinControls(getItems());
+  }
+
   let applyToken = 0;
   function applyBatched() {
     const items = getItems();
+    enhanceRaceJoinControls(items);
     refreshExternalRealCarNames(items);
     if (!items.length) return;
 
@@ -1962,6 +2180,93 @@ var VERSION = "2.4.1";
     return null;
   }
 
+  let raceContentRefreshBusy = false;
+
+  function customRaceUrl() {
+    return new URL("/page.php?sid=racing&tab=customrace", window.location.origin).href;
+  }
+
+  async function fetchCustomRaceHtml() {
+    if (typeof window.fetch !== "function") throw new Error("Fetch is not available in this browser.");
+    const response = await window.fetch(customRaceUrl(), {
+      method: "GET",
+      credentials: "same-origin",
+      cache: "no-cache",
+      headers: { "Accept": "text/html,application/xhtml+xml,*/*" }
+    });
+    if (!response.ok) throw new Error(`Torn returned HTTP ${response.status}.`);
+    return response.text();
+  }
+
+  function extractCustomRaceContent(html) {
+    const doc = new DOMParser().parseFromString(String(html || ""), "text/html");
+    const nextContainer = doc.querySelector("#racingAdditionalContainer");
+    if (nextContainer) return { mode: "container", html: nextContainer.innerHTML };
+
+    const nextWrap = doc.querySelector(".custom-events-wrap");
+    if (nextWrap) return { mode: "wrap", html: nextWrap.outerHTML };
+
+    return null;
+  }
+
+  function replaceCustomRaceContent(content) {
+    if (!content) return false;
+
+    const oldUi = document.getElementById("modulRFOuter");
+    if (oldUi) oldUi.remove();
+
+    if (content.mode === "container") {
+      const currentContainer = document.querySelector("#racingAdditionalContainer");
+      if (currentContainer) {
+        currentContainer.innerHTML = content.html;
+        hydrateRaceRowsAfterContentChange();
+        return true;
+      }
+    }
+
+    const currentWrap = document.querySelector(".custom-events-wrap");
+    if (currentWrap && currentWrap.parentNode) {
+      const temp = document.createElement("div");
+      temp.innerHTML = content.html;
+      const nextWrap = temp.querySelector(".custom-events-wrap");
+      if (!nextWrap) return false;
+      currentWrap.parentNode.replaceChild(nextWrap, currentWrap);
+      hydrateRaceRowsAfterContentChange();
+      return true;
+    }
+
+    return false;
+  }
+
+  async function refreshCustomRaceContent(button) {
+    if (raceContentRefreshBusy) return;
+    raceContentRefreshBusy = true;
+
+    const oldText = button ? button.textContent : "";
+    if (button) {
+      button.disabled = true;
+      button.textContent = "Refreshing...";
+    }
+
+    try {
+      const html = await fetchCustomRaceHtml();
+      const content = extractCustomRaceContent(html);
+      if (!replaceCustomRaceContent(content)) throw new Error("Could not find custom race content in Torn response.");
+      mountUI();
+      applyNow();
+      schedulePostMountLicenseCheck(0, true);
+    } catch (error) {
+      try { console.warn(TAG, "manual custom race refresh failed", error); } catch (_) {}
+      applyNow();
+    } finally {
+      raceContentRefreshBusy = false;
+      if (button) {
+        button.disabled = false;
+        button.textContent = oldText || "Refresh races";
+      }
+    }
+  }
+
   function mountUI() {
     if (document.getElementById("modulRFOuter")) return true;
 
@@ -2125,7 +2430,18 @@ var VERSION = "2.4.1";
     btnAdv.textContent = supporter.unlocked ? (state.advOpen ? "Advanced ▲" : "Advanced ▼") : "Advanced (Supporter)";
     applyTornBtnClasses(btnAdv);
 
-    btnRow.append(btnFilter, btnAdv);
+    const btnRefreshRaces = document.createElement("button");
+    btnRefreshRaces.type = "button";
+    btnRefreshRaces.textContent = "Refresh races";
+    btnRefreshRaces.title = "Manually fetches Torn's custom-race page and re-applies filters to the returned race rows.";
+    applyTornBtnClasses(btnRefreshRaces);
+    btnRefreshRaces.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      refreshCustomRaceContent(btnRefreshRaces);
+    });
+
+    btnRow.append(btnFilter, btnRefreshRaces, btnAdv);
 
     const grid = document.createElement("div");
     grid.className = "rfGrid";

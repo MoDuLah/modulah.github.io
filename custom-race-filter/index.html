@@ -102,10 +102,86 @@
       <section class="content-card changelog-card" id="changelog" aria-label="Changelog">
         <p class="section-kicker">Release history</p>
         <h2>Changelog</h2>
-        <p>The current supporter build is v2.4.0, updated on July 1, 2026.</p>
+        <p>The current supporter build is v2.5.2, updated on July 14, 2026.</p>
 
         <div class="changelog-tree" role="tree">
           <details class="changelog-version" role="treeitem" open>
+            <summary class="changelog-summary">v2.5.2 - July 14, 2026</summary>
+            <div class="changelog-content">
+              <ul class="changelog-list">
+                <li>Fixed compact join links showing the correct URL in the browser status bar but not responding to clicks.</li>
+                <li>CRF now handles compact join icon clicks in capture phase and navigates to the RFC-safe join URL directly.</li>
+                <li>Prevented Torn's stale delegated click handlers from swallowing refreshed join clicks.</li>
+              </ul>
+            </div>
+          </details>
+
+          <details class="changelog-version" role="treeitem">
+            <summary class="changelog-summary">v2.5.1 - July 14, 2026</summary>
+            <div class="changelog-content">
+              <ul class="changelog-list">
+                <li>Updated userscript downloadURL and updateURL metadata to use the hosted GitHub Pages script URL.</li>
+                <li>Future installs from the hosted script now check https://modulah.github.io/custom-race-filter/custom-race-filter.user.js for updates.</li>
+              </ul>
+            </div>
+          </details>
+
+          <details class="changelog-version" role="treeitem">
+            <summary class="changelog-summary">v2.5.0 - July 14, 2026</summary>
+            <div class="changelog-content">
+              <ul class="changelog-list">
+                <li>Fixed Wrong RFC errors from compact join shortcuts by appending Torn's current rfcv token from the rfc_v cookie.</li>
+                <li>Password-protected race joins now refresh the hidden rfcv field before submitting Torn's existing password form.</li>
+                <li>Kept refreshed race rows compact without bypassing Torn's RFC validation.</li>
+              </ul>
+            </div>
+          </details>
+
+          <details class="changelog-version" role="treeitem">
+            <summary class="changelog-summary">v2.4.9 - July 13, 2026</summary>
+            <div class="changelog-content">
+              <ul class="changelog-list">
+                <li>Stopped opening every join confirmation panel after using Refresh races.</li>
+                <li>Copied Torn's real join URL onto the visible join icon for normal and long custom races so rows stay compact.</li>
+                <li>Password-protected races now prompt for the passcode and submit Torn's existing password form instead of expanding every password panel.</li>
+              </ul>
+            </div>
+          </details>
+
+          <details class="changelog-version" role="treeitem">
+            <summary class="changelog-summary">v2.4.8 - July 13, 2026</summary>
+            <div class="changelog-content">
+              <ul class="changelog-list">
+                <li>Fixed join controls after using Refresh races by binding the fallback immediately after the refreshed race HTML is inserted.</li>
+                <li>Prevented refreshed href="#" join icons from jumping to the top of the page.</li>
+                <li>Kept Torn's existing join confirmation, long-race warning, and password panels visible after manual race refreshes.</li>
+              </ul>
+            </div>
+          </details>
+
+          <details class="changelog-version" role="treeitem">
+            <summary class="changelog-summary">v2.4.7 - July 13, 2026</summary>
+            <div class="changelog-content">
+              <ul class="changelog-list">
+                <li>Fixed join icons with href="#" jumping to the top of the page when Torn's native join handler is not attached.</li>
+                <li>Join confirmation, long-race warning, and password panels now open by default when available.</li>
+                <li>Added a fallback so the join icon reveals Torn's existing join panel after a manual race refresh.</li>
+              </ul>
+            </div>
+          </details>
+
+          <details class="changelog-version" role="treeitem">
+            <summary class="changelog-summary">v2.4.6 - July 13, 2026</summary>
+            <div class="changelog-content">
+              <ul class="changelog-list">
+                <li>Added a manual Refresh races button that fetches Torn's custom-race page only when clicked.</li>
+                <li>Refresh replaces the custom-race container when Torn returns updated custom-race HTML, then re-runs the active filters.</li>
+                <li>Race filtering now ignores Torn's final layout-only row.</li>
+              </ul>
+            </div>
+          </details>
+
+          <details class="changelog-version" role="treeitem">
             <summary class="changelog-summary">v2.4.0 - July 1, 2026</summary>
             <div class="changelog-content">
               <ul class="changelog-list">

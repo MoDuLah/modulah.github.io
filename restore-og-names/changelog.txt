@@ -1,3 +1,17 @@
+## v1.3.1 (2026-07-19)
+
+### Miscellaneous
+
+- **Miscellaneous**: Restore Pit Guru pre-race metadata
+
+## v1.3.1 (2026-07-20)
+
+### Miscellaneous
+
+- **Miscellaneous**: Restore Pit Guru pre-race metadata
+
+
+
 MoDuL's: Restore OG Car Names Changelog
 ======================================
 

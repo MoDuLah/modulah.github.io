@@ -33,11 +33,11 @@
         <div class="hero-copy">
           <p class="section-kicker">Supporter Racing Analysis Tool</p>
           <h1 class="hero-title">MoDuL's Pit Guru</h1>
-          <p class="hero-text">A next-generation Torn racing analysis workspace built from Lap Recorder's lessons, with a public race player, PostgreSQL-backed history, and the live v2.1.1 userscript updated for stronger hosted API recovery and cleaner public Settings.</p>
+          <p class="hero-text">A next-generation Torn racing analysis workspace built from Lap Recorder's lessons, with a public race player, PostgreSQL-backed history, and a v2.3.0 userscript with reliable replay loading and lap-specific custom records.</p>
 
           <div class="hero-actions">
-            <a class="cta-button" href="https://pp_api.sokin.xyz/pit-guru/" target="_blank" rel="noopener noreferrer">Open Public Race Player</a>
-            <a class="cta-button" href="MoDuLs-Pit-Guru.user.js">Install v2.1.1</a>
+            <a class="cta-button" href="https://pp-api.sokin.xyz/pit-guru/" target="_blank" rel="noopener noreferrer">Open Public Race Player</a>
+            <a class="cta-button" href="pit-guru.user.js">Install v2.3.0</a>
             <a class="ghost-button" href="https://discord.gg/JP8FQBATMV" target="_blank" rel="noopener noreferrer">Join Pit Guru Discord</a>
             <a class="ghost-button" href="../index.html#supporter-scripts">Back to Supporter Scripts</a>
           </div>
@@ -72,8 +72,8 @@
               <p>The hosted API and player now persist Pit Guru data in PostgreSQL, with pooled connections and backend-aware health checks.</p>
             </div>
             <div class="feature-block">
-              <h3>API reliability</h3>
-              <p>The v2.1.1 userscript keeps hosted API retry recovery, short TTL read caching, and legacy session-key cleanup while restoring a cleaner public Settings screen.</p>
+              <h3>Replay and Records fixes</h3>
+              <p>v2.3.0 loads finished replays without a refresh and keeps Custom Records separated and sorted by lap count.</p>
             </div>
             <div class="feature-block">
               <h3>Large race performance</h3>
@@ -118,7 +118,7 @@
 
         <article class="content-card content-card-full">
           <h2>Supporter Access</h2>
-          <p><a href="MoDuLs-Pit-Guru.user.js">Install Pit Guru v2.1.1</a>, then follow the first-run guided setup to verify your Torn account using a public Torn API key. The key is used only for verification and is never saved in the Pit Guru database.</p>
+          <p><a href="pit-guru.user.js">Install Pit Guru v2.3.0</a>, then follow the first-run guided setup to verify your Torn account using a public Torn API key. The key is used only for verification and is never saved in the Pit Guru database.</p>
           <p>Race external player:</p>
           <p>Every verified account can analyse one race as a demo.<br> For supporter licensing, <a href="https://discord.gg/JP8FQBATMV" target="_blank" rel="noopener noreferrer">join the MoDuL's Hub Discord</a> and run <code>/buylicense</code> in any server channel.</p>
         </article>
@@ -126,7 +126,7 @@
         <article class="content-card content-card-full">
           <h2>Live infrastructure</h2>
           <ul class="feature-list">
-            <li class="feature-item"><span class="feature-dot" aria-hidden="true"></span><span><a href="https://pp_api.sokin.xyz/pit-guru/" target="_blank" rel="noopener noreferrer">The public race player</a> loads saved races and replay analysis from the hosted service.</span></li>
+            <li class="feature-item"><span class="feature-dot" aria-hidden="true"></span><span><a href="https://pp-api.sokin.xyz/pit-guru/" target="_blank" rel="noopener noreferrer">The public race player</a> loads saved races and replay analysis from the hosted service.</span></li>
             <li class="feature-item"><span class="feature-dot" aria-hidden="true"></span><span>Production race, driver, track, garage, fuel, prediction, and replay data is persisted in PostgreSQL.</span></li>
             <li class="feature-item"><span class="feature-dot" aria-hidden="true"></span><span>SQLite remains available as a rollback/local fallback while the hosted deployment receives wider testing.</span></li>
           </ul>
@@ -165,10 +165,10 @@
 
         <div class="changelog-tree" role="tree">
           <details class="changelog-version" role="treeitem" open>
-            <summary class="changelog-summary">Current status - July 1, 2026</summary>
+            <summary class="changelog-summary">Current status - July 14, 2026</summary>
             <div class="changelog-content">
               <ul class="changelog-list">
-                <li>The public race player is now live at <a href="https://pp_api.sokin.xyz/pit-guru/" target="_blank" rel="noopener noreferrer">pp_api.sokin.xyz/pit-guru/</a>.</li>
+                <li>The public race player is now live at <a href="https://pp-api.sokin.xyz/pit-guru/" target="_blank" rel="noopener noreferrer">pp-api.sokin.xyz/pit-guru/</a>.</li>
                 <li>The hosted API and player now persist Pit Guru data in PostgreSQL, with pooled connections and backend-aware health checks.</li>
                 <li>The public Settings panel has been cleaned up to keep normal user controls front and centre.</li>
                 <li>Performance presets now update every Performance & Scan Timers control, and the timer textboxes use Pit Guru theme styling.</li>
@@ -177,7 +177,16 @@
                 <li>Hosted session storage is standardized on RT_TORN_MPG_HOSTED_SESSION, with legacy RT_TORN_LTL_HOSTED_SESSION cleanup.</li>
                 <li>The pre-race countdown now occupies the racingData status line, while Past Races uses a scoped title and compact help button.</li>
                 <li>The public proxy now accepts full racingData analysis payloads, and destructive Records deletion requires an admin token.</li>
-                <li>The v2.1.1 userscript is publicly installable, verifies users without storing their API key, and includes first-run setup plus a replayable guided tour.</li>
+                <li>The v2.3.0 userscript loads finished replays on the first visit, restores Driver Intel/Player/export readiness, and fixes Custom Records filtering, ordering, RS fallback, and detached-window dragging.</li>
+                <li>v2.2.4 added <code>pgPerformanceCleanSlate()</code> for reproducible cold-cache tests without deleting credentials, licence/session state, settings, or layout.</li>
+                <li>v2.2.3 fixed duplicate racingData capture, repeated empty pre-race builds, duplicate interval decoding, and direct timer-driven full rendering.</li>
+                <li>HTML report export now stays disabled until the live race has finished or the page is a replay, preventing early full-result report generation.</li>
+                <li>Completed-race HTML reports now include a Race Overview, Full Race Data table, start/finish deltas, final gaps, sector summaries, lead stats, speed, G, and consistency.</li>
+                <li>Same-race page refresh now warm-restores cached heavy-race data and then validates fresh Torn racingData before suppressing expensive rebuilds.</li>
+                <li>Phase 6-7 adds bounded persistent cache cleanup, capped heavy-race IndexedDB storage, page lifecycle cleanup, final validation, and refreshed hosted install artifacts.</li>
+                <li>Phase 3-5 of the performance rewrite adds normalized race indexes, cached replay frame rows, bounded telemetry prefix stats, sector snapshots, and shared frame-state render paths.</li>
+                <li>Phase 0-2 of the performance rewrite adds render/build profiling, bounded race-data caches, render coalescing, replay-state foundations, and worker-backed heavy-race lead/sector aggregates.</li>
+                <li>Live overtake counting now advances incrementally instead of recalculating from race start on every update.</li>
                 <li>Predictions stays stable after racingData is captured, including when the shared renderer passes elapsed-time refresh arguments.</li>
                 <li>Big Race Mode now stores raw racingData once per race/signature in IndexedDB and stores compact processed summaries separately.</li>
                 <li>Heavy summary generation uses a Web Worker when available, and Driver Intel profile cache entries deduplicate by driverId.</li>

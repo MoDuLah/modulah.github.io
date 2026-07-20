@@ -7,6 +7,7 @@ module.exports = {
   ],
   testPathIgnorePatterns: [
     '/node_modules/',
+    '/__tests__/setup.js',
     '/pit-guru/exports/'
   ],
   coverageDirectory: 'coverage',

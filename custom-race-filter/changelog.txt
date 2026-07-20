@@ -1,6 +1,65 @@
 # Changelog
 
-## 2.4.1.
+## 2.5.2
+
+- Fixed compact join links showing the correct URL in the browser status bar but not responding to clicks
+- CRF now handles compact join icon clicks in capture phase and navigates to the RFC-safe join URL directly
+- Prevented Torn's stale delegated click handlers from swallowing refreshed join clicks
+
+## 2.5.1
+
+- Updated userscript `@downloadURL` and `@updateURL` to use the hosted GitHub Pages script URL
+- Future installs from the hosted script now check `https://modulah.github.io/custom-race-filter/custom-race-filter.user.js` for updates
+
+## 2.5.0
+
+- Fixed `Wrong RFC` errors from compact join shortcuts by appending Torn's current `rfcv` token from the `rfc_v` cookie
+- Password-protected race joins now refresh the hidden `rfcv` field before submitting Torn's existing password form
+- Kept refreshed race rows compact without bypassing Torn's RFC validation
+
+## 2.4.9
+
+- Stopped opening every join confirmation panel after using `Refresh races`
+- Copied Torn's real join URL onto the visible join icon for normal and long custom races so rows stay compact
+- Password-protected races now prompt for the passcode and submit Torn's existing password form instead of expanding every password panel
+
+## 2.4.8
+
+- Fixed join controls after using `Refresh races` by binding a local fallback to the refreshed race rows immediately after the HTML replacement
+- Prevented refreshed `href="#"` join icons from jumping to the top of the page when Torn's native row handler is not attached
+- Kept Torn's existing join confirmation, long-race warning, and password panels visible after manual race refreshes
+
+## 2.4.7
+
+- Fixed Torn join icons with `href="#"` jumping to the top of the page when Torn's native join handler is not attached
+- Join confirmation, long-race warning, and password panels now open by default when available in expanded race rows
+- Added a local fallback handler so clicking the join icon reveals Torn's existing join panel instead of relying only on Torn's page script
+
+## 2.4.6
+
+- Added a manual `Refresh races` button that fetches Torn's custom-race page only when clicked
+- Refresh replaces `#racingAdditionalContainer` when Torn returns updated custom-race HTML
+- Race filtering now ignores Torn's final `<li class="clear">` layout row
+
+## 2.4.5
+
+- Moved the manual `Reapply filters` button into the top button row so it is visible beside `Filter` and `Advanced`
+
+## 2.4.4
+
+- Removed unused legacy synchronous settings/UI loader functions
+- Confirmed old automatic refresh, TC-clock auto-click, legacy license verifier, and redirect code paths are absent
+
+## 2.4.3
+
+- Added a manual `Reapply filters` button that only re-runs filters on race rows already loaded by Torn
+
+## 2.4.2
+
+- Bumped the installable userscript version to `2.4.2`
+- Removed the duplicate non-`.user.js` script file from the project folder
+
+## 2.4.1
 
 - API Connection string updated to the latest DNS.
 

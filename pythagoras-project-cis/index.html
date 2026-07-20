@@ -112,6 +112,90 @@
 
         <div class="changelog-tree" role="tree">
           <details class="changelog-version" role="treeitem" open>
+            <summary class="changelog-summary">v2.9.8 - Persistence and operations polish</summary>
+            <div class="changelog-content">
+              <ul class="changelog-list">
+                <li>Wage, stock, collapse, and graph-scale changes now survive fast navigation and refreshes through immediate capture and GM-backed recovery.</li>
+                <li>Legacy news duplicates and bracketed zero advertising-budget history are repaired during state normalization.</li>
+                <li>Daily wage and advertising totals now travel with business/report database sync payloads.</li>
+                <li>Staff, Training Schedule, notification rules, Auto Mode, discount rules, orders, toasts, and Timeline cards received a coordinated data and layout pass.</li>
+              </ul>
+            </div>
+          </details>
+
+          <details class="changelog-version" role="treeitem">
+            <summary class="changelog-summary">v2.9.7 - Training queue standards</summary>
+            <div class="changelog-content">
+              <ul class="changelog-list">
+                <li>Training setup now includes a Queue standard controller for Director chooses, Full staff rotation, Lower stats first, Closest under assigned role, and Role need first.</li>
+                <li>Paid staff with remaining paid trains stay prioritized by default through the Paid orders first toggle.</li>
+                <li>Full staff rotation now cycles eligible sponsored/free staff across generated days before repeating the same people.</li>
+                <li>Director chooses now keeps sponsored/free slots open until the director manually selects staff.</li>
+                <li>Build calendar now saves the generated active queue into planner state, local planner cache, and the cloud workspace mirror path.</li>
+              </ul>
+            </div>
+          </details>
+
+          <details class="changelog-version" role="treeitem">
+            <summary class="changelog-summary">v2.9.3 - Training news grouping fix</summary>
+            <div class="changelog-content">
+              <ul class="changelog-list">
+                <li>Torn company-news event IDs are now the source of truth for training dedupe.</li>
+                <li>Duplicate copies of the same Torn news event count once, while different Torn news IDs for the same employee can still count as real multiple training events.</li>
+                <li>Legacy or generated training rows with no source event ID still use employee, position, visible minute, and raw train count as a cleanup fallback.</li>
+                <li>Grouped Timeline no longer merges named employees into the first matching same-minute role/count bucket.</li>
+                <li>Same-minute one-train events for different employees now stay as separate grouped rows.</li>
+              </ul>
+            </div>
+          </details>
+
+          <details class="changelog-version" role="treeitem">
+            <summary class="changelog-summary">v2.9.2 - Balance sync stability</summary>
+            <div class="changelog-content">
+              <ul class="changelog-list">
+                <li>Advertising budget history now records Torn API V2 profile values as explicit dated rows and ignores older unmarked zero rows in Balance.</li>
+                <li>The Pythagoras API now returns ad-budget raw metadata and rejects unmarked zero ad-budget rows, while still allowing future explicit zeroes from updated clients.</li>
+                <li>Balance wages now use current synced employee wages and saved wage history only; wage estimates are no longer included in Balance profit.</li>
+                <li>Notification hide/dismiss choices now persist locally until the next 18:10 TCT business reset, even after a page refresh.</li>
+                <li>Weekly operating performance graphs now use adaptive Y-axis tick spacing so weekly labels do not overcrowd.</li>
+                <li>Services Sold now explains that Torn's stock endpoint does not specify whether <code>sold_amount</code> is daily, weekly, monthly, or lifetime.</li>
+                <li>The title bar now shows the userscript version and compact Sync buttons beside it.</li>
+              </ul>
+            </div>
+          </details>
+
+          <details class="changelog-version" role="treeitem">
+            <summary class="changelog-summary">v2.9.1 - Stock settings persistence</summary>
+            <div class="changelog-content">
+              <ul class="changelog-list">
+                <li>Stock card restock toggles, warning thresholds, warning modes, and restock quantities now save to a dedicated stock settings map.</li>
+                <li>Stock settings update the 24-hour sync cache immediately on input/change, so fast Torn page switches and refreshes keep the latest values.</li>
+                <li>Stock sync, suggested restock, stock import/export, and legacy migration now preserve stock settings instead of falling back to default row values.</li>
+              </ul>
+            </div>
+          </details>
+
+          <details class="changelog-version" role="treeitem">
+            <summary class="changelog-summary">v2.9.0 - API DNS Update</summary>
+            <div class="changelog-content">
+              <ul class="changelog-list">
+                <li>Updated the CIS release line to the working API host at <code>https://pp-api.sokin.xyz</code>.</li>
+              </ul>
+            </div>
+          </details>
+
+          <details class="changelog-version" role="treeitem">
+            <summary class="changelog-summary">v2.8.12 - Advertising budget history</summary>
+            <div class="changelog-content">
+              <ul class="changelog-list">
+                <li>Business/Profile sync records Torn API V2 <code>advertisement_budget</code> as dated advertising-budget history.</li>
+                <li>Balance uses the latest observed advertising budget on or before each report date.</li>
+                <li>The Pythagoras API stores advertising-budget history separately from latest company settings.</li>
+              </ul>
+            </div>
+          </details>
+
+          <details class="changelog-version" role="treeitem">
             <summary class="changelog-summary">v2.8.11 - Risk strike persistence and data-flow cleanup</summary>
             <div class="changelog-content">
               <ul class="changelog-list">

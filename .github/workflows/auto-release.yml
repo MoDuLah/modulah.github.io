@@ -6,16 +6,19 @@ on:
     paths:
       - '**/*.user.js'
 
+permissions:
+  contents: write
+
 jobs:
   auto-release:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
       - name: Setup Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: '3.x'
 
@@ -34,7 +37,7 @@ jobs:
 
       - name: Commit Changelog Updates
         if: steps.changes.outputs.no_changes == 'false'
-        uses: stefanzweifel/git-auto-commit-action@v5
+        uses: stefanzweifel/git-auto-commit-action@v7
         with:
           commit_message: 'docs: auto-generate changelogs from commits'
           branch: main

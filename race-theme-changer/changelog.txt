@@ -1,3 +1,27 @@
+## v1.2.6 (2026-07-19)
+
+### Bug Fixes
+
+- **Bug Fix**: handle compact race join clicks directly
+- **Bug Fix**: append torn rfc to compact race joins
+
+### Miscellaneous
+
+- **Miscellaneous**: Restore Pit Guru pre-race metadata
+- **Miscellaneous**: Bound Pit Guru pre-race capture
+- **Miscellaneous**: Fix Pit Guru pre-race summary capture
+- **Miscellaneous**: Publish Pit Guru v2.2.2 big race safe mode
+
+## v1.2.6 (2026-07-20)
+
+### Miscellaneous
+
+- **Miscellaneous**: Restore Pit Guru pre-race metadata
+- **Miscellaneous**: Bound Pit Guru pre-race capture
+- **Miscellaneous**: Fix Pit Guru pre-race summary capture
+
+
+
 # Changelog
 
 ## 2.4.1.
