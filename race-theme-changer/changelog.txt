@@ -12,6 +12,15 @@
 - **Miscellaneous**: Fix Pit Guru pre-race summary capture
 - **Miscellaneous**: Publish Pit Guru v2.2.2 big race safe mode
 
+## v1.2.6 (2026-07-20)
+
+### Miscellaneous
+
+- **Miscellaneous**: Restore Pit Guru pre-race metadata
+- **Miscellaneous**: Bound Pit Guru pre-race capture
+- **Miscellaneous**: Fix Pit Guru pre-race summary capture
+
+
 
 # Changelog
 
