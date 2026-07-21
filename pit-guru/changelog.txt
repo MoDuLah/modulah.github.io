@@ -43,6 +43,15 @@
 - **Miscellaneous**: Release Pit Guru v2.2.5 long-task optimizations
 - **Miscellaneous**: Release Pit Guru v2.2.4 diagnostic reset
 
+## v2.3.1 (2026-07-21)
+
+### Miscellaneous
+
+- **Miscellaneous**: Release Pit Guru v2.3.1 window sizing hotfix
+- **Miscellaneous**: Release Pit Guru v2.3.0 replay records fixes
+- **Miscellaneous**: Bound Pit Guru history and route capture
+
+
 
 
 MoDuL's Pit Guru Changelog
