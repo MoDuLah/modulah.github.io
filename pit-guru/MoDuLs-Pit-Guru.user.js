@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         MoDuL's Pit Guru
 // @namespace    modul.torn.racing
-// @version      2.3.0
+// @version      2.3.1
 // @description  Live Torn race timing, gaps, sectors, speed and estimated telemetry analysis
 // @author       MoDuL
 // @copyright    2026 MoDuL. All rights reserved.
@@ -565,7 +565,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         return bigRaceSafeModeStatus_();
     };
 
-    const MPG_VERSION = "2.3.0";
+    const MPG_VERSION = "2.3.1";
     var TAG = "[MoDuL's Pit Guru v" + MPG_VERSION + "]";
 
     const PitGuruRaceEngine = (() => {
@@ -10389,6 +10389,7 @@ img.carIcon{
   border:1px solid var(--border);
   border-radius:16px;
   box-shadow:0 18px 46px rgba(0,0,0,.45);
+  box-sizing:border-box;
 }
 #rtRecordsPopup .recordsPopupHdr{
   min-height:44px;
@@ -11884,9 +11885,10 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
 
     function getWindowMinSize_(el) {
         const cs = getComputedStyle(el);
+        const isMainWindow = el?.id === "rtLapWin";
         return {
-            width: Math.max(parseFloat(cs.minWidth) || 0, WIN_MIN_WIDTH),
-            height: Math.max(parseFloat(cs.minHeight) || 0, WIN_MIN_HEIGHT)
+            width: Math.max(parseFloat(cs.minWidth) || 0, isMainWindow ? WIN_MIN_WIDTH : 0),
+            height: Math.max(parseFloat(cs.minHeight) || 0, isMainWindow ? WIN_MIN_HEIGHT : 0)
         };
     }
 
@@ -11939,6 +11941,7 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
 
     function applyWindowRect_(el, rect) {
         if (!el || !rect) return;
+        el.style.boxSizing = "border-box";
         el.style.right = "auto";
         el.style.bottom = "auto";
         el.style.left = `${Math.round(rect.left)}px`;
@@ -16495,8 +16498,11 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
             targetEl.style.bottom = "auto";
             targetEl.style.left = `${startL}px`;
             targetEl.style.top = `${startT}px`;
-            targetEl.style.width = `${startW}px`;
-            targetEl.style.height = `${startH}px`;
+            if (storeKey === "win" || storeKey === "records") {
+                targetEl.style.boxSizing = "border-box";
+                targetEl.style.width = `${startW}px`;
+                targetEl.style.height = `${startH}px`;
+            }
             targetEl.dataset.mpgDragging = "1";
 
             e.preventDefault();
@@ -16525,15 +16531,20 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
             const dy = e.clientY - startY;
             if (Math.abs(dx) > 2 || Math.abs(dy) > 2) moved = true;
 
-            const minSize = getWindowMinSize_(targetEl);
-            const clamped = clampWindowRect_({
-                left: startL + dx,
-                top: startT + dy,
-                width: startW,
-                height: startH
-            }, minSize.width, minSize.height);
-            targetEl.style.left = `${clamped.left}px`;
-            targetEl.style.top = `${clamped.top}px`;
+            if (storeKey === "win" || storeKey === "records") {
+                const minSize = getWindowMinSize_(targetEl);
+                const clamped = clampWindowRect_({
+                    left: startL + dx,
+                    top: startT + dy,
+                    width: startW,
+                    height: startH
+                }, minSize.width, minSize.height);
+                targetEl.style.left = `${clamped.left}px`;
+                targetEl.style.top = `${clamped.top}px`;
+            } else {
+                targetEl.style.left = `${startL + dx}px`;
+                targetEl.style.top = `${startT + dy}px`;
+            }
 
             if (clickGuardAttr) targetEl.dataset[clickGuardAttr] = "1";
         });
@@ -16558,7 +16569,11 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
             delete targetEl.dataset.mpgDragging;
 
             if (storeKey) {
-                keepWindowInBounds_(targetEl, storeKey, { persist: true });
+                if (storeKey === "win" || storeKey === "records") {
+                    keepWindowInBounds_(targetEl, storeKey, { persist: true });
+                } else {
+                    saveElementRect_(storeKey, targetEl.getBoundingClientRect());
+                }
             }
 
             if (clickGuardAttr) {

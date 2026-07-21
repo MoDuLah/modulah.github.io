@@ -1,3 +1,11 @@
+## v2.3.1 (2026-07-21)
+
+- Fixed the floating Pit Guru launcher pill growing when clicked.
+- Kept launcher dragging position-only instead of applying analysis-window minimum dimensions.
+- Made detached Records sizing border-box based so clicking or dragging its header cannot add padding and borders again.
+- Restored the Records pop-out's intended 360px minimum height.
+- Added regression coverage for launcher clicks and detached Records geometry.
+
 ## v2.3.0 (2026-07-20)
 
 - Finished replay/log pages now bootstrap racingData on their first visit, enabling analysis, Driver Intel, Player, and HTML export without a manual refresh.
@@ -40,10 +48,11 @@
 MoDuL's Pit Guru Changelog
 ==========================
 
-Project status (2026-07-15)
+Project status (2026-07-21)
 ---------------------------
 - MoDuL's Pit Guru is now the public-facing successor project to Lap Recorder on MoDuL's Hub.
-- The live supporter userscript build is v2.2.9 at https://modulah.github.io/pit-guru/pit-guru.user.js.
+- The live supporter userscript build is v2.3.1 at https://modulah.github.io/pit-guru/pit-guru.user.js.
+- v2.3.1 stops launcher click growth and stabilizes detached Records movement and resizing.
 - v2.2.9 caps the Predictions Past Races display at 10 relevance-ranked rows and suspends/clears race capture on parts and modification routes so cleared data cannot repopulate away from a race.
 - v2.2.8 restores compact pre-race Track, Lap, Lap Length, Race Length, Car, Driver, start-time, and Past Races context by carrying scalar race metadata and the current user's matched car row into `raceMeta` without returning timing arrays.
 - v2.2.7 latches the current Race ID once, scans and indexes entrants only until Torn's displayed participant capacity is reached, then performs worker-only timing readiness checks until one usable full payload is accepted and all Pit Guru fallback polling stops.
