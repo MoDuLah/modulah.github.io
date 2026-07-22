@@ -50,6 +50,7 @@
             <a href="#install">Install and setup</a>
             <a href="#api-key">API key</a>
             <a href="#data">Data and privacy</a>
+            <a href="#dashboard">Web dashboard</a>
             <a href="#training">Training ledger</a>
             <a href="#planner">Train planner</a>
             <a href="#timeline">Timeline and staff</a>
@@ -75,7 +76,7 @@
   <details>
     <summary>How do I install it?</summary>
     <div class="answer">
-      <p>Install a userscript manager such as Tampermonkey, or use Torn PDA’s userscript support. Then install the latest public build from the release link.</p>
+      <p>Install a userscript manager such as Tampermonkey, or use Torn PDA’s userscript support. Then <a href="https://greasyfork.org/en/scripts/580933-pythagoras-project-cis" target="_blank" rel="noopener noreferrer">install the latest release from GreasyFork</a>.</p>
       <p>After installation, open Torn and use the Pythagoras CIS panel to configure your API key, company ID, theme, and support options.</p>
     </div>
   </details>
@@ -95,6 +96,14 @@
       <p>Company data is stored in a PostgreSQL-backed cloud workspace keyed by company ID. Every company-owned row includes its company ID, and server-side access checks decide which Torn user can open that workspace.</p>
       <p>Free users can continue syncing and saving data, but Free visibility is limited to the last 7 days. Older saved data remains in the workspace and becomes visible if the account upgrades.</p>
       <p>The script does not store business data, licence state, analytics, planner rows, staff history, stock history, or persistent UI state in browser storage.</p>
+    </div>
+  </details>
+
+  <details id="dashboard">
+    <summary>Is there a standalone web dashboard?</summary>
+    <div class="answer">
+      <p>Yes. Open the <a href="https://pp-api.sokin.xyz/dashboard" target="_blank" rel="noopener noreferrer">CIS web dashboard</a> to view company information, reports, Staff history, and entitlement-aware Employee Efficiency graphs outside Torn.</p>
+      <p>Dashboard sign-in uses a Torn API key with company access. The server verifies it for each request and never writes it to the CIS database. The browser retains the key only in session storage until logout or the browser session ends.</p>
     </div>
   </details>
 

@@ -32,10 +32,11 @@
         <div class="hero-copy">
           <p class="section-kicker">Supporter Script</p>
           <h1 class="hero-title">Pythagoras Project</h1>
-          <p class="hero-text">A focused company management workspace for Torn built to help directors handle training, staff history, Torn API V2 company sync, analytics, reporting, backups, cloud history, and operational planning in one place.</p>
+          <p class="hero-text">A focused company management workspace for Torn directors, combining training, observed daily operating costs, Employee Efficiency history, analytics, reporting, backups, cloud history, and operational planning in one place.</p>
 
           <div class="hero-actions">
             <a class="cta-button" href="https://greasyfork.org/en/scripts/580933-pythagoras-project-cis" target="_blank" rel="noopener noreferrer">Install on GreasyFork</a>
+            <a class="ghost-button" href="https://pp-api.sokin.xyz/dashboard" target="_blank" rel="noopener noreferrer">Open Web Dashboard</a>
             <a class="ghost-button" href="https://discord.gg/JP8FQBATMV" target="_blank" rel="noopener noreferrer">Join Discord</a>
           </div>
         </div>
@@ -45,8 +46,9 @@
           <ul class="feature-list">
             <li class="feature-item"><span class="feature-dot" aria-hidden="true"></span><span>Training ledger with configurable discounts and loyalty handling</span></li>
             <li class="feature-item"><span class="feature-dot" aria-hidden="true"></span><span>FIFO train planner with sponsored rotation support</span></li>
-            <li class="feature-item"><span class="feature-dot" aria-hidden="true"></span><span>Staff and director history tracking with timeline views</span></li>
-            <li class="feature-item"><span class="feature-dot" aria-hidden="true"></span><span>Balance history, risk-strike records, daily and weekly analytics, exports, themed reports, and cloud-backed workspace history</span></li>
+            <li class="feature-item"><span class="feature-dot" aria-hidden="true"></span><span>Observed daily Advertisement Budget, Wage, and Employee Efficiency history</span></li>
+            <li class="feature-item"><span class="feature-dot" aria-hidden="true"></span><span>Newest-first team heatmap and nine-component employee trend graphs</span></li>
+            <li class="feature-item"><span class="feature-dot" aria-hidden="true"></span><span>Standalone web dashboard with company-scoped, entitlement-aware history</span></li>
           </ul>
         </aside>
       </section>
@@ -54,7 +56,13 @@
       <section class="content-grid" aria-label="Project details">
         <article class="content-card">
           <h2>What it does</h2>
-          <p>Pythagoras CIS gives you a structured workspace for company operations without relying on background scraping. Syncs are triggered manually, Torn API V2 company data feeds the active workspace, and company history can be saved in the Pythagoras cloud workspace.</p>
+          <p>Pythagoras CIS gives you a structured workspace for company operations without relying on background scraping. Manual syncs feed the active workspace and preserve observed daily company costs, employee wages, and raw Employee Efficiency history against the corrected 18:10 TCT company-day boundary.</p>
+        </article>
+
+        <article class="content-card">
+          <h2>Web Dashboard</h2>
+          <p>Open company information, reports, Staff history, and the same entitlement-aware Employee Efficiency graphs outside Torn. API keys are verified per request, retained only in browser session storage, and never written to the CIS database.</p>
+          <p><a href="https://pp-api.sokin.xyz/dashboard" target="_blank" rel="noopener noreferrer">Open the CIS dashboard</a></p>
         </article>
 
         <article class="content-card">
@@ -112,6 +120,31 @@
 
         <div class="changelog-tree" role="tree">
           <details class="changelog-version" role="treeitem" open>
+            <summary class="changelog-summary">v3.0.3 - Employee Efficiency component trends</summary>
+            <div class="changelog-content">
+              <ul class="changelog-list">
+                <li>Employee Efficiency history now runs newest to oldest, keeping the latest completed Torn company day closest to employee names.</li>
+                <li>Added a current-employee selector: All keeps the team heatmap, while an individual employee shows all nine raw EE components as dated lines.</li>
+                <li>Added a 7-day range alongside 14, 30, 90, and all-time; free accounts are strictly limited to their latest seven company days.</li>
+                <li>The employee choice is session-only and resets to All current employees after reload.</li>
+                <li>The standalone dashboard now exposes the same company-scoped, entitlement-aware Employee Efficiency views.</li>
+              </ul>
+            </div>
+          </details>
+
+          <details class="changelog-version" role="treeitem">
+            <summary class="changelog-summary">v3.0.2 - Daily operating-cost and Employee Efficiency history</summary>
+            <div class="changelog-content">
+              <ul class="changelog-list">
+                <li>Employees and Business sync preserve one VM-backed row per employee and completed Torn company day.</li>
+                <li>Daily employee rows retain Wage, total EE, and every raw signed EE component.</li>
+                <li>Daily company rows retain the observed Advertisement Budget instead of projecting the latest value backwards.</li>
+                <li>The company-day boundary records July 21 18:10 through July 22 18:09 as July 22.</li>
+              </ul>
+            </div>
+          </details>
+
+          <details class="changelog-version" role="treeitem">
             <summary class="changelog-summary">v2.9.8 - Persistence and operations polish</summary>
             <div class="changelog-content">
               <ul class="changelog-list">
