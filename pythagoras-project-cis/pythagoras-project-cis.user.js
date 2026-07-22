@@ -768,8 +768,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
           dailyBalanceMode: source.dailyBalanceMode === 'all' ? 'all' : 'week',
           staffEeMode: ['total', 'component', 'both'].includes(source.staffEeMode) ? source.staffEeMode : 'total',
           staffEeMetric: String(source.staffEeMetric || 'workingStats'),
-          staffEeRange: ['7', '14', '30', '90', 'all'].includes(String(source.staffEeRange)) ? String(source.staffEeRange) : '30',
-          staffEeEmployee: String(source.staffEeEmployee || 'all')
+          staffEeRange: ['7', '14', '30', '90', 'all'].includes(String(source.staffEeRange)) ? String(source.staffEeRange) : '30'
         };
       } catch (error) {
         console.warn('[Pythagoras Project - CIS] Could not read local UI preferences.', error);
@@ -792,7 +791,6 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
       if (source.staffEeMode) state.ui.staffEeMode = source.staffEeMode;
       if (source.staffEeMetric) state.ui.staffEeMetric = source.staffEeMetric;
       if (source.staffEeRange) state.ui.staffEeRange = source.staffEeRange;
-      if (source.staffEeEmployee) state.ui.staffEeEmployee = source.staffEeEmployee;
       return state;
     },
     saveUiPreferences(state) {
@@ -804,8 +802,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
           dailyBalanceMode: ui.dailyBalanceMode === 'all' ? 'all' : 'week',
           staffEeMode: ['total', 'component', 'both'].includes(ui.staffEeMode) ? ui.staffEeMode : 'total',
           staffEeMetric: String(ui.staffEeMetric || 'workingStats'),
-          staffEeRange: ['7', '14', '30', '90', 'all'].includes(String(ui.staffEeRange)) ? String(ui.staffEeRange) : '30',
-          staffEeEmployee: String(ui.staffEeEmployee || 'all')
+          staffEeRange: ['7', '14', '30', '90', 'all'].includes(String(ui.staffEeRange)) ? String(ui.staffEeRange) : '30'
         },
         updatedAt: Utils.nowIso()
       }));
@@ -1329,6 +1326,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
       const copy = Utils.clone(state);
       Store.applyAdminConfig(copy);
       copy.settings.apiKey = '';
+      if (copy.ui) delete copy.ui.staffEeEmployee;
       delete copy['lic' + 'ense'];
       return copy;
     },
@@ -8720,7 +8718,9 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
       const allHistory = Store.normaliseEmployeeDailyHistory(UI.state.staff.efficiencyHistory || []);
       const orderedPeople = (people || []).slice().filter((person) => String(person && (person.id || person.userId || person.playerId) || '').trim()).sort((a, b) => String(a.name || '').localeCompare(String(b.name || '')));
       const personIds = new Set(orderedPeople.map((person) => String(person && (person.id || person.userId || person.playerId) || '').trim()));
-      const history = allHistory.filter((row) => personIds.has(String(row.userId)));
+      const visibleDays = UI.historyVisibleDays();
+      const entitlementCutoff = visibleDays === null ? '' : Utils.addDays(Utils.tctCompanyDayKey(), -(visibleDays - 1));
+      const history = allHistory.filter((row) => personIds.has(String(row.userId)) && (!entitlementCutoff || row.date >= entitlementCutoff));
       if (!history.length) {
         return `<div class="pp-ee-history"><div><h3>Employee Efficiency history</h3><p class="pp-note">Daily EE, its Torn components, and wage will appear after an Employees or Business sync. Days close at 18:10 TCT.</p></div><div class="pp-empty">No completed Torn-day employee history is stored for this staff list yet.</div></div>`;
       }
@@ -11180,7 +11180,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
           <div class="pp-changelog">
             <details open>
               <summary>v3.0.3 - Employee Efficiency component trends</summary>
-              <ul><li>Employee history now runs newest to oldest, keeping the latest completed Torn day closest to the employee names.</li><li>A 7-day history range is available alongside the existing 14, 30, 90, and all-time ranges.</li><li>The employee selector keeps the current-staff comparison grid for All and shows all nine raw EE components as dated lines for an individual current employee.</li></ul>
+              <ul><li>Employee history now runs newest to oldest, keeping the latest completed Torn day closest to the employee names.</li><li>A 7-day history range is available alongside the existing 14, 30, 90, and all-time ranges; free accounts are strictly limited to their latest seven company days.</li><li>The employee selector keeps the current-staff comparison grid for All and shows all nine raw EE components as dated lines for an individual current employee. The choice is session-only and resets to All after reload.</li></ul>
             </details>
             <details>
               <summary>v3.0.2 - Daily Employee Efficiency history</summary>
