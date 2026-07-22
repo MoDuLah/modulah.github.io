@@ -1,3 +1,11 @@
+## v3.0.3 (2026-07-22)
+
+### Employee Efficiency component trends
+
+- Employee history now runs newest to oldest, keeping the latest completed Torn day closest to the employee names.
+- Added a 7-day history range alongside the existing 14, 30, 90, and all-time ranges; free accounts are strictly limited to their latest seven company days.
+- Added a session-only current-employee selector: All keeps the comparison grid, while an individual employee shows Working stats, Settled in, Book, Merits, Director education, Management, Wrong gender, Addiction, and Inactivity as dated lines. The choice resets to All after reload.
+
 ## v2.9.8 (2026-07-19)
 
 ### Miscellaneous
