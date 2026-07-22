@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Pythagoras Project - CIS
 // @namespace    https://torn.com/
-// @version      2.9.8
+// @version      3.0.2
 // @description  Company Intelligence System for Torn company training, staff, analytics, and local reporting.
 // @author       MoDuL [4022159]
 // @match        https://www.torn.com/companies.php*
@@ -47,7 +47,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
     notificationDismissalsKey: 'pp_cis_notification_dismissals_v1',
     uiPreferencesKey: 'pp_cis_ui_preferences_v1',
     stockEditsKey: 'pp_cis_stock_edits_v1',
-    version: '2.9.8',
+    version: '3.0.2',
     popupName: 'pythagoras-cis-popup'
   };
 
@@ -81,7 +81,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
     ledger: [],
     trainingLog: [],
     planner: { startDate: '', daysToPlan: 14, mode: 'auto', generatedAt: '', days: [], manualSlots: {}, trainingQueue: null, completedDates: {}, sponsoredRotation: { order: [], lastTrainedIdentity: '', updatedAt: '' } },
-    staff: { current: [], past: [], directorsCurrent: [], directorsPast: [], timeline: [], localEdits: {}, localEditVersion: 0 },
+    staff: { current: [], past: [], directorsCurrent: [], directorsPast: [], timeline: [], efficiencyHistory: [], localEdits: {}, localEditVersion: 0 },
     analytics: { weeks: [] },
     company: {
       profile: {
@@ -231,7 +231,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
       },
       wageRoleRequirements: {}
     },
-    ui: { tab: 'timeline', staffTab: 'current', directorTab: 'current', settingsSection: 'core', timelineFilter: 'all', timelineGrouped: true, analyticsYear: 'all', analyticsExpanded: {}, dailyBalanceMode: 'week', dailyBalanceStart: '', dailyBalanceIncludeWages: true, graphIndex: 0, graphScale: 'daily', graphSeries: { income: true, customers: true, wages: true, adBudget: true, profit: true }, trainingLogStart: '', trainingLogYear: 'all', profileSort: 'name', profileSortDir: 'asc', tableSorts: {}, showApiKey: false, privacyMode: false, tourActive: false, tourStep: 0, minimized: false, mode: 'embedded', editMode: false, editPersonKey: '', editDirectorKey: '', personSaveExit: false, plannerQueueHidden: false, collapsedPanels: {}, detailOpenState: {}, panelSizes: {}, reportSections: { summary: true, ledger: true, trainingLog: true, planner: true, analytics: true, balance: true, stock: true, staff: true, pastStaff: false, directors: false, timeline: true, profile: true, details: true, settings: true }, left: '', top: '', restoreWidth: '', restoreHeight: '' }
+    ui: { tab: 'timeline', staffTab: 'current', directorTab: 'current', settingsSection: 'core', timelineFilter: 'all', timelineGrouped: true, analyticsYear: 'all', analyticsExpanded: {}, dailyBalanceMode: 'week', dailyBalanceStart: '', dailyBalanceIncludeWages: true, graphIndex: 0, graphScale: 'daily', graphSeries: { income: true, customers: true, wages: true, adBudget: true, profit: true }, staffEeMode: 'total', staffEeMetric: 'workingStats', staffEeRange: '30', trainingLogStart: '', trainingLogYear: 'all', profileSort: 'name', profileSortDir: 'asc', tableSorts: {}, showApiKey: false, privacyMode: false, tourActive: false, tourStep: 0, minimized: false, mode: 'embedded', editMode: false, editPersonKey: '', editDirectorKey: '', personSaveExit: false, plannerQueueHidden: false, collapsedPanels: {}, detailOpenState: {}, panelSizes: {}, reportSections: { summary: true, ledger: true, trainingLog: true, planner: true, analytics: true, balance: true, stock: true, staff: true, pastStaff: false, directors: false, timeline: true, profile: true, details: true, settings: true }, left: '', top: '', restoreWidth: '', restoreHeight: '' }
   };
 
   const CSS = `
@@ -296,6 +296,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
     .pp-disabled-overlay{position:absolute;inset:0;z-index:30;display:grid;place-items:center;padding:18px;background:rgba(0,0,0,.42);backdrop-filter:blur(5px)}.pp-disabled-overlay .pp-empty{max-width:520px;border-color:rgba(217,93,93,.75);background:#1b1111;color:#fff}.pp-disabled-context .pp-body,.pp-disabled-context .pp-tabs,.pp-disabled-context .pp-alerts{filter:blur(2px);pointer-events:none;user-select:none}
     .pp-theme-section{grid-column:1/-1;display:grid;gap:10px;min-width:0;border:1px solid var(--line);border-radius:8px;background:#121615;padding:10px}.pp-theme-section-head{display:grid;gap:3px;padding-bottom:8px;border-bottom:1px solid rgba(255,255,255,.07)}.pp-theme-section h4{margin:0;color:#fff;font-size:13px;line-height:1.25}.pp-theme-section p{margin:0;color:var(--muted);font-size:12px}.pp-theme-section-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;align-items:end}.pp-theme-section-grid .pp-field,.pp-theme-section-grid .pp-field.span-2{grid-column:auto}.pp-theme-editor{display:grid;grid-template-columns:repeat(3,minmax(150px,1fr));gap:10px}.pp-theme-swatch{display:grid;gap:5px}.pp-theme-dirty{border-color:var(--warn)!important}.pp-role-table .pp-inline{max-width:220px}.pp-compact-field .pp-input,.pp-compact-field .pp-select{width:auto;min-width:12ch;max-width:min(260px,calc(100% - 8px))}.pp-api-key{display:flex;align-items:center;gap:6px;flex-wrap:wrap}.pp-api-key .pp-input{flex:0 1 260px;max-width:min(260px,calc(100% - 84px))}.pp-align-top{align-self:start}.pp-identity-settings{align-items:start}.pp-identity-settings>.pp-field{align-self:start}.pp-identity-settings>.pp-field:not(.span-6){border-right:1px solid var(--line);padding-right:10px}.pp-date-format-control{display:grid;gap:6px;align-items:start}.pp-date-format-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.pp-date-format-row .pp-note{margin:0}
     .pp-graph-panel{display:grid;gap:10px}.pp-graph-head{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;flex-wrap:wrap}.pp-graph-stage{display:grid;grid-template-columns:repeat(var(--graph-cols,12),minmax(28px,1fr));gap:8px;align-items:end;min-height:190px;padding:12px;border:1px solid var(--line);border-radius:8px;background:#121615}.pp-bar{display:grid;grid-template-rows:auto minmax(0,1fr) auto;gap:6px;align-items:end;min-width:0}.pp-bar b{display:block;color:var(--text);font-size:11px;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.pp-bar span{display:block;height:max(4px,var(--bar));border-radius:6px 6px 2px 2px;background:linear-gradient(180deg,var(--bar-color,var(--accent)),rgba(255,255,255,.12));box-shadow:0 0 0 1px rgba(255,255,255,.08) inset}.pp-bar small{display:block;color:var(--muted);font-size:10px;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.pp-series-controls{display:flex;align-items:center;gap:6px;flex-wrap:wrap}.pp-series-toggle{display:inline-flex;align-items:center;gap:5px;min-height:28px;padding:3px 7px;border:1px solid var(--line);border-radius:6px;background:#111313;color:var(--muted);white-space:nowrap}.pp-series-toggle i{width:10px;height:10px;border-radius:50%;background:var(--series-color)}.pp-line-chart{border:1px solid var(--line);border-radius:8px;background:#121615;padding:10px;overflow-x:auto}.pp-line-svg{display:block;width:100%;min-width:760px;height:auto}.pp-line-grid{stroke:rgba(255,255,255,.08);stroke-width:1}.pp-line-axis{stroke:rgba(255,255,255,.24);stroke-width:1.2}.pp-line-axis-label{fill:var(--muted);font-size:15px;font-weight:700}.pp-line-y{fill:var(--muted);font-size:15px}.pp-line-y.left{text-anchor:end}.pp-line-y.right{text-anchor:start}.pp-line-zero{stroke:rgba(255,221,0,.32);stroke-width:1;stroke-dasharray:5 5}.pp-line-path{fill:none;stroke:var(--series-color);stroke-width:3;stroke-linejoin:round;stroke-linecap:round}.pp-line-path.is-count{stroke-dasharray:8 7;opacity:.72}.pp-line-point{fill:#121615;stroke:var(--series-color);stroke-width:3}.pp-line-point.is-count{stroke-width:2.4;opacity:.86}.pp-line-label{fill:var(--text);font-size:16px;text-anchor:middle;paint-order:stroke;stroke:#121615;stroke-width:4;stroke-linejoin:round}.pp-line-label.is-count{font-size:14px;opacity:.82}.pp-line-x{fill:var(--muted);font-size:15px;text-anchor:middle}.pp-balance-controls{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.pp-balance-table th,.pp-balance-table td{text-align:center;white-space:nowrap}.pp-balance-table td:nth-child(2){text-align:left}
+    .pp-ee-history{display:grid;gap:10px;margin-bottom:14px;padding-bottom:14px;border-bottom:1px solid var(--line)}.pp-ee-controls{display:flex;align-items:center;gap:7px;flex-wrap:wrap}.pp-ee-wrap{overflow:auto;max-width:100%;border:1px solid var(--line);border-radius:8px;background:#121615}.pp-ee-grid{width:max-content;min-width:100%;border-collapse:separate;border-spacing:0}.pp-ee-grid th,.pp-ee-grid td{min-width:72px;height:48px;padding:5px 7px;border-right:1px solid rgba(255,255,255,.07);border-bottom:1px solid rgba(255,255,255,.07);text-align:center;white-space:nowrap}.pp-ee-grid thead th{position:sticky;top:0;z-index:2;height:34px;background:var(--panel2);color:var(--muted);font-size:10px}.pp-ee-grid .pp-ee-name{position:sticky;left:0;z-index:1;min-width:140px;max-width:180px;background:var(--panel);color:var(--text);text-align:left;overflow:hidden;text-overflow:ellipsis}.pp-ee-grid thead .pp-ee-name{z-index:3;background:var(--panel2)}.pp-ee-cell{background:rgba(255,255,255,.025);color:var(--text)}.pp-ee-cell.is-up{background:rgba(70,197,143,.18)}.pp-ee-cell.is-down{background:rgba(217,93,93,.2)}.pp-ee-cell.is-flat{background:rgba(255,255,255,.045)}.pp-ee-cell b{display:block;font-size:12px}.pp-ee-cell small{display:block;color:var(--muted);font-size:9px}.pp-ee-cell.is-up small{color:var(--accent)}.pp-ee-cell.is-down small{color:var(--bad)}.pp-ee-legend{display:flex;gap:12px;flex-wrap:wrap;color:var(--muted);font-size:10px}.pp-ee-legend span:before{content:'';display:inline-block;width:9px;height:9px;margin-right:4px;border-radius:2px;vertical-align:-1px;background:rgba(255,255,255,.06)}.pp-ee-legend .is-up:before{background:rgba(70,197,143,.5)}.pp-ee-legend .is-down:before{background:rgba(217,93,93,.55)}
     .pp-statline{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}.pp-stat{min-height:58px;border:1px solid var(--line);border-radius:8px;background:#121615;padding:10px}.pp-stat small{display:block;color:var(--muted);margin-bottom:3px}.pp-stat strong{display:block;font-size:18px;color:#fff;overflow-wrap:anywhere}
 .pp-calendar{display:grid;grid-template-columns:repeat(7,minmax(140px,1fr));gap:8px;overflow-x:auto}.pp-day{display:grid;align-content:start;gap:8px;min-width:0;min-height:132px;border:1px solid var(--line);border-radius:8px;background:#121615;padding:9px}.pp-day-head{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:6px}.pp-day-head h4{margin:0;font:700 12px/1.25 Arial,Helvetica,sans-serif;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.pp-day-reset{display:grid;place-items:center;width:26px;min-width:26px;height:24px;min-height:24px;padding:0;margin:0;color:var(--accent);border-color:var(--accent)}.pp-day-table{width:100%;border-collapse:collapse;table-layout:fixed}.pp-day-table td{padding:4px 3px;border-top:1px solid rgba(255,255,255,.06);vertical-align:middle;color:var(--muted)}.pp-day-table td:first-child{width:36px;text-align:right;padding-right:6px}.pp-day-table td:last-child{width:34px;text-align:right}.pp-day-row.is-active td{color:#fff;background:rgba(70,197,143,.13);box-shadow:0 1px 0 rgba(70,197,143,.42) inset,0 -1px 0 rgba(70,197,143,.42) inset}.pp-day-row.is-active td:first-child{border-radius:6px 0 0 6px}.pp-day-row.is-active td:last-child{border-radius:0 6px 6px 0}.pp-day-name{display:block;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.pp-day-table .pp-name{width:100%;max-width:100%;margin:0}.pp-contract-badge{display:inline-grid;place-items:center;width:24px;height:22px;border:1px solid var(--badge-color,var(--line));border-radius:6px;background:rgba(255,255,255,.04);color:var(--badge-color,var(--text));font-weight:800;font-size:11px;line-height:1}.pp-train-controls{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:6px;align-items:center;margin-top:2px;padding-top:8px;border-top:1px solid rgba(255,255,255,.08)}.pp-train-controls .pp-btn{min-width:34px;padding-left:9px;padding-right:9px}.pp-torn-train-glow{box-shadow:0 0 0 2px #FFDD00,0 0 20px rgba(255,221,0,.72)!important;border-radius:7px!important;position:relative!important;z-index:5!important;outline:1px solid rgba(255,221,0,.8)!important}
     #pythagoras-cis .pp-head h2,#pythagoras-cis .pp-head h3{font:700 14px/1.25 Arial,Helvetica,sans-serif!important;margin:0!important;color:#fff!important}#pythagoras-cis .pp-day-head h4{font:700 12px/1.25 Arial,Helvetica,sans-serif!important;margin:0!important;color:#fff!important;letter-spacing:0!important;text-transform:none!important}#pythagoras-cis .pp-tab,#pythagoras-cis .pp-subtab,#pythagoras-cis .pp-btn{font:13px/1.45 Arial,Helvetica,sans-serif!important;text-transform:none!important;letter-spacing:0!important}
@@ -386,7 +387,9 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
       return Number.isFinite(number) ? Math.trunc(number) : fallback;
     },
     num(value, fallback) {
-      const number = Number(String(value == null ? '' : value).replace(/[^\d.-]/g, ''));
+      if (value === null || value === undefined) return fallback;
+      if (typeof value === 'string' && !value.trim()) return fallback;
+      const number = Number(String(value).replace(/[^\d.-]/g, ''));
       return Number.isFinite(number) ? number : fallback;
     },
     percent(value, fallback) { return Math.max(0, Math.min(100, Utils.num(value, fallback))); },
@@ -583,6 +586,23 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
       const day = String(working.getUTCDate()).padStart(2, '0');
       return `${year}-${month}-${day}`;
     },
+    tctCompanyDayKey(value) {
+      const date = value ? new Date(value) : new Date();
+      if (Number.isNaN(date.getTime())) return Utils.todayInput();
+      const companyDay = new Date(date.getTime());
+      const currentMinutes = (companyDay.getUTCHours() * 60) + companyDay.getUTCMinutes();
+      if (currentMinutes >= ((18 * 60) + 10)) companyDay.setUTCDate(companyDay.getUTCDate() + 1);
+      const year = companyDay.getUTCFullYear();
+      const month = String(companyDay.getUTCMonth() + 1).padStart(2, '0');
+      const day = String(companyDay.getUTCDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    },
+    tctCalculationInProgress(value) {
+      const date = value ? new Date(value) : new Date();
+      if (Number.isNaN(date.getTime())) return false;
+      const minutes = (date.getUTCHours() * 60) + date.getUTCMinutes();
+      return minutes >= (18 * 60) && minutes < ((18 * 60) + 10);
+    },
     dateTimestamp(value) {
       if (!value) return 0;
       const raw = String(value);
@@ -745,7 +765,10 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         return {
           collapsedPanels: source.collapsedPanels && typeof source.collapsedPanels === 'object' && !Array.isArray(source.collapsedPanels) ? source.collapsedPanels : {},
           graphScale: source.graphScale === 'weekly' ? 'weekly' : 'daily',
-          dailyBalanceMode: source.dailyBalanceMode === 'all' ? 'all' : 'week'
+          dailyBalanceMode: source.dailyBalanceMode === 'all' ? 'all' : 'week',
+          staffEeMode: ['total', 'component', 'both'].includes(source.staffEeMode) ? source.staffEeMode : 'total',
+          staffEeMetric: String(source.staffEeMetric || 'workingStats'),
+          staffEeRange: ['14', '30', '90', 'all'].includes(String(source.staffEeRange)) ? String(source.staffEeRange) : '30'
         };
       } catch (error) {
         console.warn('[Pythagoras Project - CIS] Could not read local UI preferences.', error);
@@ -765,6 +788,9 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
       if (source.collapsedPanels) state.ui.collapsedPanels = Object.assign({}, source.collapsedPanels);
       if (source.graphScale) state.ui.graphScale = source.graphScale;
       if (source.dailyBalanceMode) state.ui.dailyBalanceMode = source.dailyBalanceMode;
+      if (source.staffEeMode) state.ui.staffEeMode = source.staffEeMode;
+      if (source.staffEeMetric) state.ui.staffEeMetric = source.staffEeMetric;
+      if (source.staffEeRange) state.ui.staffEeRange = source.staffEeRange;
       return state;
     },
     saveUiPreferences(state) {
@@ -773,7 +799,10 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         ui: {
           collapsedPanels: ui.collapsedPanels && typeof ui.collapsedPanels === 'object' && !Array.isArray(ui.collapsedPanels) ? ui.collapsedPanels : {},
           graphScale: ui.graphScale === 'weekly' ? 'weekly' : 'daily',
-          dailyBalanceMode: ui.dailyBalanceMode === 'all' ? 'all' : 'week'
+          dailyBalanceMode: ui.dailyBalanceMode === 'all' ? 'all' : 'week',
+          staffEeMode: ['total', 'component', 'both'].includes(ui.staffEeMode) ? ui.staffEeMode : 'total',
+          staffEeMetric: String(ui.staffEeMetric || 'workingStats'),
+          staffEeRange: ['14', '30', '90', 'all'].includes(String(ui.staffEeRange)) ? String(ui.staffEeRange) : '30'
         },
         updatedAt: Utils.nowIso()
       }));
@@ -893,28 +922,55 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
       const byDate = new Map();
       (Array.isArray(rows) ? rows : []).forEach((raw) => {
         if (!raw || typeof raw !== 'object') return;
-        const budget = Utils.num(raw.advertisingBudget ?? raw.advertisement_budget ?? raw.adBudget ?? raw.budget ?? raw.value, null);
-        if (budget === null || budget < 0) return;
         const rawMeta = raw.raw && typeof raw.raw === 'object' && !Array.isArray(raw.raw) ? raw.raw : {};
-        const known = budget > 0
-          || raw.advertisingBudgetKnown === true
-          || raw.known === true
-          || raw.explicit === true
-          || raw.explicitZero === true
-          || rawMeta.advertisingBudgetKnown === true
-          || rawMeta.known === true
-          || rawMeta.explicit === true
-          || rawMeta.explicitZero === true;
+        const budget = Utils.num(
+          raw.advertisingBudget
+          ?? raw.advertisementBudget
+          ?? raw.advertising_budget
+          ?? raw.advertisement_budget
+          ?? raw.adBudget
+          ?? raw.ad_budget
+          ?? raw.budget
+          ?? raw.value
+          ?? rawMeta.advertisingBudget
+          ?? rawMeta.advertisementBudget
+          ?? rawMeta.advertising_budget
+          ?? rawMeta.advertisement_budget
+          ?? rawMeta.adBudget
+          ?? rawMeta.ad_budget,
+          null
+        );
+        if (budget === null || budget < 0) return;
+        const knownFlag =
+          raw.advertisingBudgetKnown
+          ?? raw.advertisementBudgetKnown
+          ?? raw.advertising_budget_known
+          ?? raw.advertisement_budget_known
+          ?? raw.adBudgetKnown
+          ?? raw.ad_budget_known
+          ?? raw.known
+          ?? raw.explicit
+          ?? raw.explicitZero
+          ?? rawMeta.advertisingBudgetKnown
+          ?? rawMeta.advertisementBudgetKnown
+          ?? rawMeta.advertising_budget_known
+          ?? rawMeta.advertisement_budget_known
+          ?? rawMeta.adBudgetKnown
+          ?? rawMeta.ad_budget_known
+          ?? rawMeta.known
+          ?? rawMeta.explicit
+          ?? rawMeta.explicitZero;
+        const known = budget > 0 || knownFlag === true;
         if (budget === 0 && !known) return;
-        const observedAt = String(raw.observedAt || raw.observed_at || raw.syncedAt || raw.synced_at || raw.at || raw.created_at || '').trim() || Utils.nowIso();
-        const date = Utils.dateInput(raw.date || raw.observedDate || raw.observed_date || observedAt);
+        const observedAt = String(raw.observedAt || raw.observed_at || raw.syncedAt || raw.synced_at || raw.at || raw.created_at || rawMeta.observedAt || rawMeta.observed_at || '').trim() || Utils.nowIso();
+        const date = Utils.dateInput(raw.date || raw.observedDate || raw.observed_date || rawMeta.date || observedAt);
         if (!date) return;
         const row = {
           date,
           observedAt,
           advertisingBudget: Math.round(budget),
           advertisingBudgetKnown: known,
-          source: String(raw.source || 'business-sync').trim() || 'business-sync'
+          source: String(raw.source || rawMeta.source || 'business-sync').trim() || 'business-sync'
         };
         const existing = byDate.get(date);
         if (!existing || Utils.dateTimestamp(row.observedAt) >= Utils.dateTimestamp(existing.observedAt)) byDate.set(date, row);
@@ -943,7 +999,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         row.advertisingBudget = Math.round(inferred);
         row.advertisingBudgetKnown = true;
         row.repairedFromZero = true;
-        row.source = 'v2.9.8-zero-repair';
+        row.source = 'v2.9.9-zero-repair';
       });
       return sorted;
     },
@@ -954,19 +1010,64 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
       const byDate = new Map();
       (Array.isArray(rows) ? rows : []).forEach((raw) => {
         if (!raw || typeof raw !== 'object') return;
-        const date = Utils.dateInput(raw.date || raw.reportDate || raw.report_date || raw.observedAt || raw.observed_at);
+        const rawMeta = raw.raw && typeof raw.raw === 'object' && !Array.isArray(raw.raw) ? raw.raw : {};
+        const date = Utils.dateInput(raw.date || raw.operatingDate || raw.operating_date || raw.reportDate || raw.report_date || raw.observedAt || raw.observed_at || rawMeta.date || rawMeta.operatingDate || rawMeta.operating_date);
         if (!date) return;
-        const wages = Utils.num(raw.wages ?? raw.wageTotal ?? raw.wage_total ?? raw.totalWages ?? raw.total_wages, null);
-        const adBudget = Utils.num(raw.adBudget ?? raw.ad_budget ?? raw.advertisingBudget ?? raw.advertising_budget ?? raw.advertisement_budget, null);
+        const wages = Utils.num(
+          raw.wages
+          ?? raw.wageTotal
+          ?? raw.wage_total
+          ?? raw.totalWages
+          ?? raw.total_wages
+          ?? rawMeta.wages
+          ?? rawMeta.wageTotal
+          ?? rawMeta.wage_total
+          ?? rawMeta.totalWages
+          ?? rawMeta.total_wages,
+          null
+        );
+        const adBudget = Utils.num(
+          raw.adBudget
+          ?? raw.ad_budget
+          ?? raw.advertisingBudget
+          ?? raw.advertisementBudget
+          ?? raw.advertising_budget
+          ?? raw.advertisement_budget
+          ?? rawMeta.adBudget
+          ?? rawMeta.ad_budget
+          ?? rawMeta.advertisingBudget
+          ?? rawMeta.advertisementBudget
+          ?? rawMeta.advertising_budget
+          ?? rawMeta.advertisement_budget,
+          null
+        );
         if (wages === null && adBudget === null) return;
+        const wagesKnownFlag =
+          raw.wagesKnown
+          ?? raw.wages_known
+          ?? rawMeta.wagesKnown
+          ?? rawMeta.wages_known;
+        const adBudgetKnownFlag =
+          raw.adBudgetKnown
+          ?? raw.ad_budget_known
+          ?? raw.advertisingBudgetKnown
+          ?? raw.advertisementBudgetKnown
+          ?? raw.advertising_budget_known
+          ?? raw.advertisement_budget_known
+          ?? rawMeta.adBudgetKnown
+          ?? rawMeta.ad_budget_known
+          ?? rawMeta.advertisingBudgetKnown
+          ?? rawMeta.advertisementBudgetKnown
+          ?? rawMeta.advertising_budget_known
+          ?? rawMeta.advertisement_budget_known;
         const row = {
           date,
-          observedAt: String(raw.observedAt || raw.observed_at || raw.updatedAt || raw.updated_at || raw.created_at || '').trim() || Utils.nowIso(),
+          observedAt: String(raw.observedAt || raw.observed_at || raw.updatedAt || raw.updated_at || raw.created_at || rawMeta.observedAt || rawMeta.observed_at || '').trim() || Utils.nowIso(),
           wages: Math.max(0, Math.round(wages === null ? 0 : wages)),
-          wagesKnown: wages !== null && (raw.wagesKnown !== false && raw.wages_known !== false),
+          wagesKnown: wages !== null && wagesKnownFlag !== false,
           adBudget: Math.max(0, Math.round(adBudget === null ? 0 : adBudget)),
-          adBudgetKnown: adBudget !== null && (raw.adBudgetKnown !== false && raw.ad_budget_known !== false),
-          source: String(raw.source || 'daily-operating-snapshot').trim() || 'daily-operating-snapshot'
+          adBudgetKnown: adBudget !== null && adBudgetKnownFlag !== false,
+          source: String(raw.source || rawMeta.source || 'daily-operating-snapshot').trim() || 'daily-operating-snapshot'
         };
         const existing = byDate.get(date);
         if (!existing) {
@@ -988,6 +1089,41 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
     },
     mergeOperatingCostHistory(base, extra) {
       return Store.normaliseOperatingCostHistory([].concat(Array.isArray(base) ? base : [], Array.isArray(extra) ? extra : []));
+    },
+    normaliseEmployeeDailyHistory(rows) {
+      const byEmployeeDay = new Map();
+      const numberFrom = (raw, camel, snake) => Utils.num(raw[camel] ?? raw[snake], null);
+      (Array.isArray(rows) ? rows : []).forEach((raw) => {
+        if (!raw || typeof raw !== 'object') return;
+        const userId = String(raw.userId || raw.user_id || raw.id || raw.playerId || '').trim();
+        const date = Utils.dateInput(raw.date || raw.historyDate || raw.history_date || raw.snapshotDate || raw.snapshot_date);
+        if (!/^\d+$/.test(userId) || !date) return;
+        const row = {
+          date,
+          userId,
+          username: String(raw.username || raw.name || raw.playerName || userId).trim() || userId,
+          observedAt: String(raw.observedAt || raw.observed_at || raw.syncedAt || raw.synced_at || raw.updatedAt || raw.updated_at || '').trim() || `${date}T18:10:00.000Z`,
+          efficiency: numberFrom(raw, 'efficiency', 'employee_efficiency'),
+          workingStats: numberFrom(raw, 'workingStats', 'working_stats'),
+          settledIn: numberFrom(raw, 'settledIn', 'settled_in'),
+          book: Utils.num(raw.book, null),
+          merits: Utils.num(raw.merits, null),
+          directorEducation: numberFrom(raw, 'directorEducation', 'director_education'),
+          management: Utils.num(raw.management, null),
+          wrongGender: numberFrom(raw, 'wrongGender', 'wrong_gender'),
+          addiction: Utils.num(raw.addiction, null),
+          inactivity: Utils.num(raw.inactivity, null),
+          wage: Utils.num(raw.wage, null),
+          source: String(raw.source || 'torn-company-employees').trim() || 'torn-company-employees'
+        };
+        const key = `${date}:${userId}`;
+        const existing = byEmployeeDay.get(key);
+        if (!existing || Utils.dateTimestamp(row.observedAt) >= Utils.dateTimestamp(existing.observedAt)) byEmployeeDay.set(key, row);
+      });
+      return Array.from(byEmployeeDay.values()).sort((a, b) => String(a.date).localeCompare(String(b.date)) || String(a.username).localeCompare(String(b.username)));
+    },
+    mergeEmployeeDailyHistory(base, extra) {
+      return Store.normaliseEmployeeDailyHistory([].concat(Array.isArray(base) ? base : [], Array.isArray(extra) ? extra : []));
     },
     stockSettingKey(value) {
       return String(value || '').trim();
@@ -1138,6 +1274,11 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
       delete copy.userName;
       delete copy.username;
       delete copy.companyId;
+      delete copy.companyProfile;
+      delete copy.companyDetailed;
+      delete copy.adBudgetHistory;
+      delete copy.operatingCostHistory;
+      delete copy.businessSyncedAt;
       return copy;
     },
     applyLocalSettings(state, localSettings) {
@@ -1280,6 +1421,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
       const employees = cloneSlice('employees');
       if (employees) {
         if (Array.isArray(employees.staffCurrent)) state.staff.current = employees.staffCurrent;
+        if (Array.isArray(employees.efficiencyHistory)) state.staff.efficiencyHistory = Store.mergeEmployeeDailyHistory(state.staff.efficiencyHistory || [], employees.efficiencyHistory);
         if (Array.isArray(employees.profileEmployees)) state.company.profile.employees = employees.profileEmployees;
         if (employees.companyProfile) state.company.profile = Store.merge(state.company.profile || {}, employees.companyProfile);
       }
@@ -1327,6 +1469,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
       if (kind === 'employees') {
         return {
           staffCurrent: Utils.clone(state.staff.current || []),
+          efficiencyHistory: Utils.clone(state.staff.efficiencyHistory || []),
           profileEmployees: Utils.clone(state.company.profile.employees || []),
           companyProfile: {
             currentEmployees: state.company.profile.currentEmployees || 0,
@@ -1705,10 +1848,15 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         .concat(Array.isArray(data.operatingCostHistory) ? data.operatingCostHistory : [])
         .concat(Array.isArray(data.dailyReports) ? data.dailyReports : []));
 
+      ['companyProfile', 'companyDetailed', 'adBudgetHistory', 'operatingCostHistory', 'businessSyncedAt'].forEach((key) => {
+        delete next.settings[key];
+      });
+
       const snapshotMap = new Map((data.memberSnapshots || []).map((row) => [String(row.user_id), row]));
       const people = (data.members || []).map((row) => Store.dbMemberToPerson(row, snapshotMap.get(String(row.user_id))));
       next.staff.current = people.filter((row) => String(row.status || '').toLowerCase() !== 'past' && !Store.dbPersonHasLeftAfterHire(row));
       next.staff.past = people.filter((row) => String(row.status || '').toLowerCase() === 'past' || Store.dbPersonHasLeftAfterHire(row));
+      next.staff.efficiencyHistory = Store.mergeEmployeeDailyHistory(next.staff.efficiencyHistory || [], data.employeeDailyHistory || data.employee_daily_history || []);
       next.staff.localEdits = localStaffEdits;
       next.staff.localEditVersion = localStaffEditVersion;
       const timeline = (data.events || []).map((row) => Store.dbEventToTimeline(row));
@@ -1726,7 +1874,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
       }
 
       const stockItems = data.stock && Array.isArray(data.stock.items) ? data.stock.items : [];
-      next.company.stockSettings = Store.normaliseStockSettings(Object.assign({}, next.company.stockSettings || {}, plain(settings.stockSettings)));
+      next.company.stockSettings = Store.normaliseStockSettings(next.company.stockSettings || {});
       if (stockItems.length) {
         const stock = {};
         stockItems.forEach((item) => {
@@ -1881,6 +2029,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
       }
       state.staff = Store.merge(Utils.clone(DEFAULTS.staff), state.staff || {});
       state.staff.timeline = Timeline.dedupeEvents(state.staff.timeline || []);
+      state.staff.efficiencyHistory = Store.normaliseEmployeeDailyHistory(state.staff.efficiencyHistory || []);
       state.staff.localEdits = state.staff.localEdits && typeof state.staff.localEdits === 'object' && !Array.isArray(state.staff.localEdits) ? state.staff.localEdits : {};
       state.staff.localEditVersion = Utils.int(state.staff.localEditVersion, 0);
       state.planner = Object.assign({}, DEFAULTS.planner, state.planner || {});
@@ -7559,7 +7708,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         date,
         observedAt: at,
         advertisingBudget: budget,
-        advertisingBudgetKnown: true,
+        advertisingBudgetKnown: known,
         source: source || 'business-sync'
       }]);
       return 1;
@@ -7568,7 +7717,8 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
       return Store.normaliseAdBudgetHistory(UI.state.company.adBudgetHistory || []);
     },
     operatingCostHistoryForApi() {
-      return Store.normaliseOperatingCostHistory(UI.state.company.operatingCostHistory || []);
+      return Store.normaliseOperatingCostHistory(UI.state.company.operatingCostHistory || [])
+        .filter((row) => row.wagesKnown || row.adBudgetKnown);
     },
     captureOperatingCostHistory(source) {
       UI.renderMemo = {};
@@ -8499,6 +8649,102 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
       UI.saveRender();
     },
 
+    employeeEfficiencyMetricDefs() {
+      return [
+        { key: 'workingStats', label: 'Working stats' },
+        { key: 'settledIn', label: 'Settled in' },
+        { key: 'book', label: 'Book' },
+        { key: 'merits', label: 'Merits' },
+        { key: 'directorEducation', label: 'Director education' },
+        { key: 'management', label: 'Management' },
+        { key: 'wrongGender', label: 'Wrong gender' },
+        { key: 'addiction', label: 'Addiction' },
+        { key: 'inactivity', label: 'Inactivity' }
+      ];
+    },
+
+    employeeEfficiencyHistoryGraph(people) {
+      const allHistory = Store.normaliseEmployeeDailyHistory(UI.state.staff.efficiencyHistory || []);
+      const personIds = new Set((people || []).map((person) => String(person && (person.id || person.userId || person.playerId) || '').trim()).filter(Boolean));
+      const history = allHistory.filter((row) => personIds.has(String(row.userId)));
+      if (!history.length) {
+        return `<div class="pp-ee-history"><div><h3>Employee Efficiency history</h3><p class="pp-note">Daily EE, its Torn components, and wage will appear after an Employees or Business sync. Days close at 18:10 TCT.</p></div><div class="pp-empty">No completed Torn-day employee history is stored for this staff list yet.</div></div>`;
+      }
+      const metrics = UI.employeeEfficiencyMetricDefs();
+      const metric = metrics.find((item) => item.key === UI.state.ui.staffEeMetric) || metrics[0];
+      const mode = ['total', 'component', 'both'].includes(UI.state.ui.staffEeMode) ? UI.state.ui.staffEeMode : 'total';
+      const range = ['14', '30', '90', 'all'].includes(String(UI.state.ui.staffEeRange)) ? String(UI.state.ui.staffEeRange) : '30';
+      const allDates = Array.from(new Set(history.map((row) => row.date))).sort();
+      const latestDate = allDates[allDates.length - 1];
+      const cutoff = range === 'all' ? '' : Utils.addDays(latestDate, -(Utils.int(range, 30) - 1));
+      const dates = allDates.filter((date) => !cutoff || date >= cutoff);
+      const byKey = new Map(history.map((row) => [`${row.userId}:${row.date}`, row]));
+      const rowsByUser = new Map();
+      history.forEach((row) => {
+        const list = rowsByUser.get(String(row.userId)) || [];
+        list.push(row);
+        rowsByUser.set(String(row.userId), list);
+      });
+      rowsByUser.forEach((rows) => rows.sort((a, b) => String(a.date).localeCompare(String(b.date))));
+      const previousFor = (row) => {
+        const rows = rowsByUser.get(String(row.userId)) || [];
+        const index = rows.findIndex((item) => item.date === row.date);
+        return index > 0 ? rows[index - 1] : null;
+      };
+      const numberText = (value) => value === null || value === undefined ? '—' : String(Math.round(value));
+      const deltaText = (value, previous) => {
+        if (value === null || value === undefined || previous === null || previous === undefined) return '';
+        const delta = Math.round(value - previous);
+        return `${delta > 0 ? '+' : ''}${delta}`;
+      };
+      const cellFor = (row) => {
+        if (!row) return '<td class="pp-ee-cell"><b>—</b><small>No snapshot</small></td>';
+        const previous = previousFor(row);
+        const totalDelta = deltaText(row.efficiency, previous && previous.efficiency);
+        const metricDelta = deltaText(row[metric.key], previous && previous[metric.key]);
+        const toneDelta = mode === 'component'
+          ? (row[metric.key] !== null && previous && previous[metric.key] !== null ? row[metric.key] - previous[metric.key] : null)
+          : (row.efficiency !== null && previous && previous.efficiency !== null ? row.efficiency - previous.efficiency : null);
+        const tone = toneDelta === null ? '' : toneDelta > 0 ? ' is-up' : toneDelta < 0 ? ' is-down' : ' is-flat';
+        const primary = mode === 'total'
+          ? numberText(row.efficiency)
+          : mode === 'component'
+            ? numberText(row[metric.key])
+            : `${numberText(row.efficiency)} / ${numberText(row[metric.key])}`;
+        const secondary = mode === 'total'
+          ? (totalDelta ? `EE ${totalDelta}` : 'First stored day')
+          : mode === 'component'
+            ? (metricDelta ? `${metric.label} ${metricDelta}` : 'First stored day')
+            : [totalDelta ? `EE ${totalDelta}` : '', metricDelta ? `${metric.label} ${metricDelta}` : ''].filter(Boolean).join(' · ') || 'First stored day';
+        const breakdown = metrics.map((item) => `${item.label}: ${numberText(row[item.key])}`).join('\n');
+        const title = `${row.username} [${row.userId}]\nTorn day: ${row.date}\nObserved: ${Utils.dateTime(row.observedAt)}\nTotal EE: ${numberText(row.efficiency)}${totalDelta ? ` (${totalDelta})` : ''}\n${breakdown}\nWage: ${row.wage === null || row.wage === undefined ? 'Unknown' : Utils.money(row.wage)}`;
+        return `<td class="pp-ee-cell${tone}" title="${Utils.esc(title)}"><b>${Utils.esc(primary)}</b><small>${Utils.esc(secondary)}</small></td>`;
+      };
+      const orderedPeople = (people || []).slice().sort((a, b) => String(a.name || '').localeCompare(String(b.name || '')));
+      return `<div class="pp-ee-history">
+        <div class="pp-graph-head">
+          <div><h3>Employee Efficiency history</h3><p>Employees run down the Y axis; completed Torn days run across the X axis. Cells show the selected value and its change from the prior stored day.</p></div>
+          <div class="pp-ee-controls">
+            <select class="pp-select pp-select-fit" style="--select-width:13ch" data-ui-field="staffEeMode" title="Choose total EE, one raw component, or both">
+              <option value="total" ${mode === 'total' ? 'selected' : ''}>Total EE</option>
+              <option value="component" ${mode === 'component' ? 'selected' : ''}>Component</option>
+              <option value="both" ${mode === 'both' ? 'selected' : ''}>Both</option>
+            </select>
+            <select class="pp-select pp-select-fit" style="--select-width:20ch" data-ui-field="staffEeMetric" title="Choose the raw Torn EE component" ${mode === 'total' ? 'disabled' : ''}>${metrics.map((item) => `<option value="${Utils.esc(item.key)}" ${item.key === metric.key ? 'selected' : ''}>${Utils.esc(item.label)}</option>`).join('')}</select>
+            <select class="pp-select pp-select-fit" style="--select-width:10ch" data-ui-field="staffEeRange" title="Choose visible history range">
+              <option value="14" ${range === '14' ? 'selected' : ''}>14 days</option><option value="30" ${range === '30' ? 'selected' : ''}>30 days</option><option value="90" ${range === '90' ? 'selected' : ''}>90 days</option><option value="all" ${range === 'all' ? 'selected' : ''}>All</option>
+            </select>
+          </div>
+        </div>
+        <div class="pp-ee-wrap"><table class="pp-ee-grid"><thead><tr><th class="pp-ee-name">Employee ↓ / Torn day →</th>${dates.map((date) => `<th title="${Utils.esc(Utils.dateShort(date))}">${Utils.esc(Utils.dateMonthDay(date))}</th>`).join('')}</tr></thead><tbody>${orderedPeople.map((person) => {
+          const userId = String(person && (person.id || person.userId || person.playerId) || '').trim();
+          const fallback = (rowsByUser.get(userId) || []).slice(-1)[0] || {};
+          return `<tr><th class="pp-ee-name" title="${Utils.esc(`${person.name || fallback.username || userId} [${userId}]`)}">${Utils.esc(person.name || fallback.username || userId)}</th>${dates.map((date) => cellFor(byKey.get(`${userId}:${date}`))).join('')}</tr>`;
+        }).join('')}</tbody></table></div>
+        <div class="pp-ee-legend"><span class="is-up">Increase</span><span class="is-down">Decrease</span><span>Unchanged or first stored day</span><span>Hover a cell for the complete EE breakdown and wage</span></div>
+      </div>`;
+    },
+
     peoplePage(kind) {
       const state = UI.state;
       const isDirector = kind === 'directors';
@@ -8524,6 +8770,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
                 <button type="button" class="pp-subtab ${activeSubtab === 'current' ? 'is-active' : ''}" data-subtab="${isDirector ? 'director' : 'staff'}:current">Current</button>
                 <button type="button" class="pp-subtab ${activeSubtab === 'past' ? 'is-active' : ''}" data-subtab="${isDirector ? 'director' : 'staff'}:past">Past</button>
               </div>
+              ${isDirector ? '' : UI.employeeEfficiencyHistoryGraph(rows)}
               ${UI.peopleTable(rows, isDirector, activeSubtab)}
             </div>
           </section>
@@ -9018,7 +9265,13 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
       const total = Utils.num(effectiveness && effectiveness.total, Utils.num(person && (person.efficiency || person.employeeEfficiency), 0));
       if (!total) return '<span class="pp-note">Not detected</span>';
       const tooltip = effectiveness ? UI.effectivenessTooltip(effectiveness) : '';
-      const attrs = tooltip ? ` tabindex="0" data-tooltip-html="${Utils.esc(tooltip)}"` : '';
+      const details = effectiveness && effectiveness.details && typeof effectiveness.details === 'object'
+        ? Object.entries(effectiveness.details).map(([key, value]) => `${UI.effectivenessLabel(key)} ${UI.effectivenessValue(value)}`).join(', ')
+        : '';
+      const fallbackTitle = details ? `Effectiveness ${UI.effectivenessValue(total)}: ${details}` : `Effectiveness ${UI.effectivenessValue(total)}`;
+      const attrs = tooltip
+        ? ` tabindex="0" aria-label="${Utils.esc(fallbackTitle)}" data-tooltip-html="${Utils.esc(tooltip)}"`
+        : ` aria-label="${Utils.esc(fallbackTitle)}"`;
       const classes = `pp-effectiveness-tip${align === 'left' ? ' is-left' : ''}`;
       return `<span class="${classes}"${attrs}>${Utils.esc(total)}</span>`;
     },
@@ -10094,6 +10347,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         if (!/^\d+$/.test(userId) || seen.has(userId)) return;
         seen.add(userId);
         const effectiveness = person.effectiveness || {};
+        const effectivenessDetails = effectiveness.details && typeof effectiveness.details === 'object' ? effectiveness.details : {};
         rows.push({
           userId,
           username: person.name || person.playerName || userId,
@@ -10102,9 +10356,9 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
           manual: Utils.num(person.man || person.manual || person.manualLabor, 0),
           intelligence: Utils.num(person.int || person.intelligence, 0),
           endurance: Utils.num(person.end || person.endurance, 0),
-          merits: UI.personMerits(person),
-          addiction: Utils.num(person.addiction || effectiveness.addiction, 0),
-          inactivity: Utils.num(person.inactivity || person.inactiveDays || effectiveness.inactivity, 0),
+          merits: Utils.num(effectivenessDetails.merits, UI.personMerits(person)),
+          addiction: Utils.num(effectivenessDetails.addiction, Utils.num(person.addiction, 0)),
+          inactivity: Utils.num(effectivenessDetails.inactivity, 0),
           wage: Utils.num(person.wage, 0),
           efficiency: Utils.num(person.efficiency || person.employeeEfficiency || effectiveness.total, 0),
           racingRank: person.racingRank || '',
@@ -10112,15 +10366,57 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
           lastActionTimestamp: Utils.int(person.lastActionTimestamp || (person.lastAction && person.lastAction.timestamp), 0),
           daysInCompany: Utils.int(person.daysInCompany || person.days_in_company || person.days, 0),
           strikeHistory: Utils.clone(Array.isArray(person.strikeHistory) ? person.strikeHistory : []),
-          raw: { strikeHistory: Utils.clone(Array.isArray(person.strikeHistory) ? person.strikeHistory : []) }
+          raw: {
+            effectiveness: { total: Utils.num(effectiveness.total, null), ...Utils.clone(effectivenessDetails) },
+            strikeHistory: Utils.clone(Array.isArray(person.strikeHistory) ? person.strikeHistory : [])
+          }
         });
       });
       return rows;
     },
-    staffPayloadForApi() {
+    employeeDailyHistoryForApi(people, observedAt) {
+      const at = String(observedAt || Utils.nowIso());
+      if (Utils.tctCalculationInProgress(at)) return [];
+      // Name the 24-hour company period by its next 18:00 TCT closing date.
+      const date = Utils.tctCompanyDayKey(at);
+      return Company.dedupePeople(people || []).map((person) => {
+        const userId = String(person && (person.id || person.userId || person.playerId) || '').trim();
+        const effectiveness = person && person.effectiveness && typeof person.effectiveness === 'object' ? person.effectiveness : {};
+        const details = effectiveness.details && typeof effectiveness.details === 'object' ? effectiveness.details : {};
+        if (!/^\d+$/.test(userId) || !Object.keys(details).length) return null;
+        return {
+          date,
+          historyDate: date,
+          userId,
+          username: person.name || person.playerName || userId,
+          observedAt: at,
+          efficiency: Utils.num(effectiveness.total, null),
+          workingStats: Utils.num(details.working_stats, null),
+          settledIn: Utils.num(details.settled_in, null),
+          book: Utils.num(details.book, null),
+          merits: Utils.num(details.merits, null),
+          directorEducation: Utils.num(details.director_education, null),
+          management: Utils.num(details.management, null),
+          wrongGender: Utils.num(details.wrong_gender, null),
+          addiction: Utils.num(details.addiction, null),
+          inactivity: Utils.num(details.inactivity, null),
+          wage: person.wageFromApi ? Utils.num(person.wage, 0) : null,
+          periodLabel: 'next-closing-date',
+          source: 'torn-company-employees'
+        };
+      }).filter(Boolean);
+    },
+    recordEmployeeDailyHistory(people, observedAt) {
+      const rows = UI.employeeDailyHistoryForApi(people, observedAt);
+      UI.state.staff.efficiencyHistory = Store.mergeEmployeeDailyHistory(UI.state.staff.efficiencyHistory || [], rows);
+      return rows;
+    },
+    staffPayloadForApi(options) {
+      const opts = options || {};
       return {
         members: UI.staffMembersForApi(),
-        snapshots: UI.staffSnapshotsForApi()
+        snapshots: UI.staffSnapshotsForApi(),
+        dailyHistory: Store.normaliseEmployeeDailyHistory(opts.dailyHistory || [])
       };
     },
     staffCardEditFields(updates) {
@@ -10822,6 +11118,22 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         <div class="pp-content">
           <div class="pp-changelog">
             <details open>
+              <summary>v3.0.2 - Daily Employee Efficiency history</summary>
+              <ul><li>Employees and Business sync now preserve one VM-backed record per employee and completed Torn day, using the 18:10 TCT calculation boundary.</li><li>Daily records retain total EE, every raw signed EE component, and the employee's Torn wage.</li><li>The Staff container now includes a name-by-date history graph with Total EE, individual component, combined, and date-range controls.</li></ul>
+            </details>
+            <details>
+              <summary>v3.0.1 - Full Efficiency tooltip restored</summary>
+              <ul><li>Restored the full styled Efficiency breakdown card and removed the browser-native text tooltip that could cover it.</li></ul>
+            </details>
+            <details>
+              <summary>v3.0.0 - Efficiency tooltip reliability</summary>
+              <ul><li>Major changes: Efficiency tooltips now resolve their active Pythagoras root from the hovered element, including popup mode, instead of relying on a potentially stale root reference.</li><li>Major changes: Tooltip styling and maximum stacking order are applied defensively so the panel or Torn overlays cannot hide the tooltip.</li><li>Minor changes: Efficiency values now include an accessible native-title fallback with the full effectiveness breakdown.</li></ul>
+            </details>
+            <details>
+              <summary>v2.9.9 - Advertising history integrity fix</summary>
+              <ul><li>Major changes: Missing budget and wage values are no longer converted into known zeroes during history normalisation.</li><li>Major changes: Cloud history now accepts advertisingBudget, advertisementBudget, adBudget, snake_case, and nested raw payload variants without losing the real value.</li><li>Minor changes: Unknown-only operating-cost rows are excluded from API uploads, and legacy company-history blobs are removed from local profile settings after bootstrap.</li></ul>
+            </details>
+            <details>
               <summary>v2.9.8 - Persistence and operations polish</summary>
               <ul><li>Major changes: Wage, stock, collapsed-panel, and Daily/Weekly graph preferences now persist across fast navigation and refreshes.</li><li>Major changes: Legacy news duplicates and bracketed zero advertising-budget rows are repaired, while dated wages and advertising totals are included in database sync payloads.</li><li>Major changes: Staff efficiency, stat-based role suggestions, available-train queues, training-order status sync, and the requested Settings/Timeline visual layouts were reworked.</li></ul>
             </details>
@@ -11111,10 +11423,16 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
 
     ensureTooltip(doc) {
       if (UI.tooltipEl && UI.tooltipEl.isConnected && UI.tooltipEl.ownerDocument === doc) return UI.tooltipEl;
+      UI.installCss(doc);
       const tip = doc.createElement('div');
       tip.className = 'pp-hover-tooltip';
+      tip.setAttribute('role', 'tooltip');
       tip.hidden = true;
-      doc.body.appendChild(tip);
+      tip.style.display = 'none';
+      tip.style.position = 'fixed';
+      tip.style.zIndex = '2147483647';
+      tip.style.pointerEvents = 'none';
+      (doc.body || doc.documentElement).appendChild(tip);
       UI.tooltipEl = tip;
       return tip;
     },
@@ -11138,23 +11456,36 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
 
     showTooltip(anchor) {
       if (!anchor || !anchor.dataset.tooltipHtml) return;
-      const root = UI.currentRoot();
-      const tip = UI.ensureTooltip(anchor.ownerDocument);
-      const styles = (anchor.ownerDocument.defaultView || window).getComputedStyle(root);
-      tip.style.setProperty('--tip-accent', (styles.getPropertyValue('--accent') || '#46c58f').trim());
-      tip.style.setProperty('--tip-warn', (styles.getPropertyValue('--warn') || '#d8a545').trim());
-      tip.style.setProperty('--tip-bad', (styles.getPropertyValue('--bad') || '#d95d5d').trim());
-      tip.style.setProperty('--tip-panel', (styles.getPropertyValue('--panel') || '#171a1a').trim());
-      tip.style.setProperty('--tip-text', (styles.getPropertyValue('--text') || '#eff2ef').trim());
-      tip.style.setProperty('--tip-muted', (styles.getPropertyValue('--muted') || '#a8b0aa').trim());
+      anchor.removeAttribute('title');
+      const doc = anchor.ownerDocument;
+      const win = doc.defaultView || window;
+      const root = anchor.closest(`#${APP.id}`) || doc.getElementById(APP.id) || UI.currentRoot();
+      const tip = UI.ensureTooltip(doc);
+      let styles = null;
+      try { if (root) styles = win.getComputedStyle(root); } catch (error) { /* Optional across popup document boundaries. */ }
+      const cssValue = (name, fallback) => {
+        if (!styles) return fallback;
+        const value = String(styles.getPropertyValue(name) || '').trim();
+        return value || fallback;
+      };
+      tip.style.setProperty('--tip-accent', cssValue('--accent', '#46c58f'));
+      tip.style.setProperty('--tip-warn', cssValue('--warn', '#d8a545'));
+      tip.style.setProperty('--tip-bad', cssValue('--bad', '#d95d5d'));
+      tip.style.setProperty('--tip-panel', cssValue('--panel', '#171a1a'));
+      tip.style.setProperty('--tip-text', cssValue('--text', '#eff2ef'));
+      tip.style.setProperty('--tip-muted', cssValue('--muted', '#a8b0aa'));
       tip.innerHTML = anchor.dataset.tooltipHtml;
       tip.hidden = false;
+      tip.style.display = 'block';
       UI.activeTooltipAnchor = anchor;
       UI.positionTooltip(anchor);
     },
 
     hideTooltip() {
-      if (UI.tooltipEl) UI.tooltipEl.hidden = true;
+      if (UI.tooltipEl) {
+        UI.tooltipEl.hidden = true;
+        UI.tooltipEl.style.display = 'none';
+      }
       UI.activeTooltipAnchor = null;
     },
 
@@ -13081,6 +13412,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
     },
 
     applyBusinessData(data) {
+      const observedAt = Utils.nowIso();
       const previousProfileEmployees = UI.state.company.profile.employees || [];
       const result = Company.profile(data, UI.state);
       const employees = Company.dedupePeople((result.profile.employees || []).concat(Timeline.employeesFromApi(data)));
@@ -13140,7 +13472,8 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
       Ledger.syncTrainingLog(UI.state);
       Planner.build(UI.state);
       UI.prepareTrainingQueue({ force: true });
-      return { riskStrikes };
+      const dailyHistory = UI.recordEmployeeDailyHistory(employees, observedAt);
+      return { riskStrikes, dailyHistory, observedAt };
     },
 
     async syncBusiness() {
@@ -13165,7 +13498,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         const warnings = Company.stockWarnings(UI.state);
         Store.save(UI.state);
         Store.updateSyncCache(UI.state, ['business', 'employees', 'stock', 'planner']);
-        await UI.uploadSyncState(syncId, { business: true, staff: true, stock: true });
+        await UI.uploadSyncState(syncId, { business: true, staff: UI.staffPayloadForApi({ dailyHistory: result.dailyHistory || [] }), stock: true });
         const strikeText = result.riskStrikes ? ` ${result.riskStrikes} staff risk strike${result.riskStrikes === 1 ? '' : 's'} recorded.` : '';
         const message = warnings.length ? `Business synced. ${warnings.length} stock row${warnings.length === 1 ? '' : 's'} need attention.${strikeText}` : `Business Profile synced.${strikeText}`;
         UI.saveRender(message);
@@ -13254,6 +13587,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         const data = await ApiClient.companyEmployees(UI.state.settings.apiKey);
         UI.syncStep(syncId, 'Parsing employee rows.', 50);
         const employees = Timeline.employeesFromApi(data);
+        const dailyHistory = UI.recordEmployeeDailyHistory(employees, Utils.nowIso());
         UI.state.staff.current = Company.mergeStaff(UI.state.staff.current, employees);
         UI.state.company.profile.employees = Company.mergeStaff(UI.state.company.profile.employees, employees);
         UI.state.company.profile.lastSynced = Utils.nowIso();
@@ -13266,7 +13600,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         Ledger.syncTrainingLog(UI.state);
         Store.save(UI.state);
         Store.updateSyncCache(UI.state, ['employees', 'business', 'trainingLog']);
-        await UI.uploadSyncState(syncId, { business: true, staff: true });
+        await UI.uploadSyncState(syncId, { business: true, staff: UI.staffPayloadForApi({ dailyHistory }) });
         const message = `Synced ${UI.state.staff.current.length} employees.${riskStrikes ? ` ${riskStrikes} staff risk strike${riskStrikes === 1 ? '' : 's'} recorded.` : ''}`;
         UI.saveRender(message);
         UI.finishSync(syncId, message);

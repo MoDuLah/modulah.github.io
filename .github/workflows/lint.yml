@@ -10,16 +10,18 @@ jobs:
   lint:
     name: Code Quality Check
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
 
       - name: Setup Node.js
         uses: actions/setup-node@v7
         with:
-          node-version: '22'
-          cache: 'npm'
+          node-version: "22"
+          cache: "npm"
 
       - name: Check if package.json exists
         id: check_package
@@ -35,18 +37,51 @@ jobs:
         if: steps.check_package.outputs.has_package == 'true'
         run: npm ci || npm install
 
-      - name: Run ESLint
+      - name: Resolve comparison base
+        id: comparison
+        shell: bash
+        run: |
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            base_sha="${{ github.event.pull_request.base.sha }}"
+          else
+            base_sha="${{ github.event.before }}"
+          fi
+
+          if [[ -z "$base_sha" || "$base_sha" =~ ^0+$ ]] || ! git cat-file -e "$base_sha^{commit}" 2>/dev/null; then
+            base_sha="$(git rev-parse HEAD^ 2>/dev/null || git rev-parse HEAD)"
+          fi
+
+          echo "base_sha=$base_sha" >> "$GITHUB_OUTPUT"
+          echo "Comparing $base_sha to $GITHUB_SHA"
+
+      - name: Check changed-file whitespace
+        run: git diff --check "${{ steps.comparison.outputs.base_sha }}" "$GITHUB_SHA"
+
+      - name: Lint changed JavaScript lines
         if: steps.check_package.outputs.has_package == 'true'
-        run: npm run lint:js
-        continue-on-error: false
+        env:
+          LINT_BASE_SHA: ${{ steps.comparison.outputs.base_sha }}
+          LINT_HEAD_SHA: ${{ github.sha }}
+        run: node .github/scripts/lint-changed.mjs
 
-      - name: Run Stylelint
-        run: npm run lint:css
-        continue-on-error: true
+      - name: Lint changed CSS files
+        if: steps.check_package.outputs.has_package == 'true'
+        shell: bash
+        run: |
+          mapfile -d '' files < <(git diff --name-only -z --diff-filter=ACMR "${{ steps.comparison.outputs.base_sha }}" "$GITHUB_SHA" -- '*.css')
+          if (( ${#files[@]} )); then
+            npx stylelint "${files[@]}"
+          else
+            echo "No changed CSS files."
+          fi
 
-      - name: Run HTMLHint
-        run: npm run lint:html
-        continue-on-error: true
-
-      - name: Run Prettier check
-        run: npm run format:check
+      - name: Lint changed HTML files
+        if: steps.check_package.outputs.has_package == 'true'
+        shell: bash
+        run: |
+          mapfile -d '' files < <(git diff --name-only -z --diff-filter=ACMR "${{ steps.comparison.outputs.base_sha }}" "$GITHUB_SHA" -- '*.html')
+          if (( ${#files[@]} )); then
+            npx htmlhint "${files[@]}"
+          else
+            echo "No changed HTML files."
+          fi
