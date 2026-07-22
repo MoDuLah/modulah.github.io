@@ -11462,7 +11462,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
       const root = anchor.closest(`#${APP.id}`) || doc.getElementById(APP.id) || UI.currentRoot();
       const tip = UI.ensureTooltip(doc);
       let styles = null;
-      try { if (root) styles = win.getComputedStyle(root); } catch (error) {}
+      try { if (root) styles = win.getComputedStyle(root); } catch (error) { /* Optional across popup document boundaries. */ }
       const cssValue = (name, fallback) => {
         if (!styles) return fallback;
         const value = String(styles.getPropertyValue(name) || '').trim();
