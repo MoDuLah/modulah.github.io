@@ -51,6 +51,14 @@
 - **Miscellaneous**: Release Pit Guru v2.3.0 replay records fixes
 - **Miscellaneous**: Bound Pit Guru history and route capture
 
+## v2.3.1 (2026-07-22)
+
+### Miscellaneous
+
+- **Miscellaneous**: Release Pit Guru v2.3.1 window sizing hotfix
+- **Miscellaneous**: Release Pit Guru v2.3.0 replay records fixes
+
+
 
 
 
