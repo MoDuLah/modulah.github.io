@@ -94,7 +94,7 @@ app.use((req, res, next) => {
 });
 
 app.use(express.static(__dirname));
-app.use(csrfProtect); // Apply CSRF protection to all routes
+// app.use(csrfProtect); // Apply CSRF protection to all routes
 
 function run(sql, params = []) {
   return new Promise((resolve, reject) => {
