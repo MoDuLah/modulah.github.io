@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         MoDuL's Pit Guru
 // @namespace    modul.torn.racing
-// @version      2.3.1
+// @version      2.3.2
 // @description  Live Torn race timing, gaps, sectors, speed and estimated telemetry analysis
 // @author       MoDuL
 // @copyright    2026 MoDuL. All rights reserved.
@@ -565,7 +565,8 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         return bigRaceSafeModeStatus_();
     };
 
-    const MPG_VERSION = "2.3.1";
+    const MPG_VERSION = "2.3.2";
+    const PREDICTION_MODEL_VERSION = "pit-guru-local-v2";
     var TAG = "[MoDuL's Pit Guru v" + MPG_VERSION + "]";
 
     const PitGuruRaceEngine = (() => {
@@ -667,7 +668,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
                 .map(v => n_(v))
                 .filter(v => Number.isFinite(v) && v > 0);
             const trackPieces = trackIntervals.length;
-            const laps = Math.max(1, Math.round(n_(trackData.laps ?? raceData.laps ?? dataParsed?.laps ?? options.laps, 1)));
+            const laps = Math.max(1, Math.round(n_(options.laps ?? trackData.laps ?? raceData.laps ?? dataParsed?.laps, 1)));
             const expectedSegments = trackPieces * laps;
             const trackLength = trackIntervals.reduce((sum, v) => sum + v, 0);
             const carInfo = raceData.carInfo || {};
@@ -1273,7 +1274,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
     let preRaceParticipantsScanRaceKey = "";
     let preRaceParticipantsScanCount = 0;
     let visibleRaceDriverSlotsCache = { at: 0, value: { current: NaN, total: NaN } };
-    let visibleRaceInfoCache = { at: 0, href: "", raceId: "", text: "" };
+    let visibleRaceInfoCache = { at: 0, href: "", raceId: "", text: "", track: "", laps: 0 };
     const driverIdLookupCache = new Map();
     let analysisHooked = false;
     let pageRaceDataBridgeInstalled = false;
@@ -1391,7 +1392,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         preRaceParticipantsScanAt = 0;
         preRaceParticipantsScanRaceKey = "";
         preRaceParticipantsScanCount = 0;
-        visibleRaceInfoCache = { at: 0, href: "", raceId: "", text: "" };
+        visibleRaceInfoCache = { at: 0, href: "", raceId: "", text: "", track: "", laps: 0 };
         driverIdLookupCache.clear();
         driverIntelPoolStableKey = "";
         driverIntelPoolStableAt = 0;
@@ -2024,7 +2025,7 @@ self.onmessage=event=>{const id=event.data&&event.data.id;try{const root=JSON.pa
         pgPlayerCacheNotificationKeys = new Set();
         pgLocalTrackRouteSavedKeys = new Set();
         pgLocalRaceIntelCache = null;
-        pgLocalTrackHistoryCache = { track: "", rows: [], fetchedAt: 0, loading: false, error: "" };
+        pgLocalTrackHistoryCache = { track: "", rows: [], pace: [], fetchedAt: 0, loading: false, error: "" };
         pgLocalTrackHistoryCacheByTrack = {};
         pgLocalTracksCache = {
             rows: [],
@@ -2799,6 +2800,21 @@ self.onmessage=event=>{const id=event.data&&event.data.id;try{const root=JSON.pa
             baseTrack: normalizeTrackLabel_(m[1]),
             lapCount: parseInt(m[2], 10)
         };
+    }
+
+    function raceHeadingMetaFromText_(text) {
+        const raw = String(text || "").replace(/\s+/g, " ").trim();
+        if (!raw) return { track: "", laps: 0 };
+        const tracks = Object.values(TRACK_META)
+            .map(meta => String(meta?.name || "").trim())
+            .filter(Boolean)
+            .sort((a, b) => b.length - a.length);
+        for (const track of tracks) {
+            const escaped = track.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+            const match = raw.match(new RegExp(`\\b${escaped}\\s*-\\s*(\\d{1,4})\\s+laps?\\b`, "i"));
+            if (match) return { track, laps: Math.max(1, parseInt(match[1], 10) || 0) };
+        }
+        return { track: "", laps: 0 };
     }
 
     function getOfficialLapCount_(track) {
@@ -4639,8 +4655,11 @@ self.onmessage=event=>{const id=event.data&&event.data.id;try{const root=JSON.pa
 
     function applyPreRaceSummaryMeta_(summary) {
         if (!summary || typeof summary !== "object") return false;
-        const track = normalizeTrackLabel_(summary.track || "");
-        const laps = Math.max(0, Number(summary.laps || 0) || 0);
+        const visibleInfo = visibleRacePageInfo_(true);
+        const track = normalizeTrackLabel_(visibleInfo?.track || summary.track || "");
+        const visibleLaps = visibleRaceLapCount_(track);
+        const suppliedLaps = Math.max(0, Number(summary.laps || 0) || 0);
+        const laps = visibleLaps || suppliedLaps;
         const userId = String(summary.userId || "").trim();
         const userName = String(summary.userName || "").trim();
         const userCar = toOgCarName_(summary.userCar || "");
@@ -4989,12 +5008,15 @@ self.onmessage=event=>{const id=event.data&&event.data.id;try{const root=JSON.pa
 
     function extractLapsFromPayloadOrUi_(payload) {
         const log = extractRaceLogData_(payload);
+        const trackName = extractTrackNameFromPayloadOrMeta_(payload);
+        const visibleLaps = visibleRaceLapCount_(trackName);
+        if (visibleLaps) return visibleLaps;
         const candidates = [payload?.laps, payload?.race?.laps, payload?.raceData?.laps, payload?.trackData?.laps, log.laps];
         for (const c of candidates) {
             const n = Number(c);
             if (Number.isFinite(n) && n > 0) return Math.floor(n);
         }
-        return getOfficialLapCount_(extractTrackNameFromPayloadOrMeta_(payload)) || 1;
+        return getOfficialLapCount_(trackName) || 1;
     }
 
     function findLatestRaceDataPayload_() {
@@ -6962,15 +6984,22 @@ self.onmessage=event=>{const id=event.data&&event.data.id;try{const root=JSON.pa
             raceMeta?.replayInfo?.type,
             raceMeta?.type
         ];
+        let explicitType = "";
         for (const candidate of candidates) {
             const value = String(candidate || "").trim().toLowerCase();
-            if (value === "custom" || value === "official") return value;
+            if (value === "custom" || value === "official") { explicitType = value; break; }
         }
         try {
             const visibleType = String(tornRacePanelText_() || "").match(/\bType\s*:?\s*(Custom|Official)\b/i)?.[1];
-            if (visibleType) return normalizeRaceTypeValue_(visibleType, fallback);
+            if (visibleType) explicitType = normalizeRaceTypeValue_(visibleType, fallback);
         } catch { }
-        return normalizeRaceTypeValue_(fallback);
+        const track = extractTrackNameFromPayloadOrMeta_(p);
+        const configuredLaps = Number(visibleRaceLapCount_(track) || raceMeta?.laps || p?.laps || p?.raceData?.laps || p?.trackData?.laps || log.laps || 0);
+        const officialLaps = Number(getOfficialLapCount_(track));
+        if (Number.isFinite(configuredLaps) && configuredLaps > 0 && Number.isFinite(officialLaps) && officialLaps > 0 && Math.round(configuredLaps) !== Math.round(officialLaps)) {
+            return "custom";
+        }
+        return normalizeRaceTypeValue_(explicitType || fallback);
     }
 
     function buildAggregateWorkerSource_() {
@@ -7259,9 +7288,14 @@ self.onmessage=event=>{try{self.postMessage({ok:true,result:aggregate(event.data
         }
     }
 
-    function driverHistoryKey_(driverId, name, trackName) {
+    function driverHistoryKey_(driverId, name, trackName, providedScope = null) {
         const driverKey = String(driverId || "").trim() || `name:${normalizeDriverName_(name || "")}`;
-        const trackKey = getRecordTrackScope_("race", trackName || "") || "UnknownTrack";
+        const scope = providedScope || currentRaceHistoryScope_(trackName || "");
+        const baseTrack = stripTrackLapSuffix_(trackName || "");
+        const scopedTrack = scope.raceType === "custom" && scope.laps
+            ? formatRaceTrackLabel_(baseTrack, scope.laps)
+            : baseTrack;
+        const trackKey = getRecordTrackScope_("race", scopedTrack, scope.raceType) || "UnknownTrack";
         return `${trackKey}|${driverKey}`;
     }
 
@@ -7386,7 +7420,8 @@ self.onmessage=event=>{try{self.postMessage({ok:true,result:aggregate(event.data
     function visibleRaceTrackName_() {
         const txt = visualProgressPanelText_();
         const m = txt.match(/\bTrack:\s*([^|]+?)(?:\s+\w+:|$)/i) || txt.match(/^\s*([A-Za-z ]+)\s*-\s*\d+\s+laps?\b/i);
-        return m ? normalizeTrackLabel_(m[1]) : "";
+        if (m) return normalizeTrackLabel_(m[1]);
+        return visibleRacePageInfo_().track || "";
     }
 
     function visibleRaceDriverName_() {
@@ -7736,7 +7771,7 @@ self.onmessage=event=>{try{self.postMessage({ok:true,result:aggregate(event.data
     }
 
     let pgLocalRaceIntelCache = null;
-    let pgLocalTrackHistoryCache = { track: "", rows: [], fetchedAt: 0, loading: false, error: "" };
+    let pgLocalTrackHistoryCache = { track: "", rows: [], pace: [], fetchedAt: 0, loading: false, error: "" };
     let pgLocalTrackHistoryCacheByTrack = {};
 
     function pgLocalNorm_(value) {
@@ -7748,8 +7783,8 @@ self.onmessage=event=>{try{self.postMessage({ok:true,result:aggregate(event.data
         const parsed = parseTrackLabel_(trackName || analysis?.trackName || raceMeta?.track || visibleRaceTrackName_() || "");
         const baseTrack = parsed.baseTrack || stripTrackLapSuffix_(parsed.raw) || parsed.raw || trackName || "";
         const typeText = String(meta.type || raceMeta?.replayInfo?.type || "").trim().toLowerCase();
-        const raceType = typeText === "custom" ? "custom" : "official";
         let laps = Number(
+            visibleRaceLapCount_(baseTrack) ||
             analysis?.laps ||
             raceMeta?.laps ||
             raceMeta?.replayInfo?.laps ||
@@ -7757,6 +7792,10 @@ self.onmessage=event=>{try{self.postMessage({ok:true,result:aggregate(event.data
             parsed.lapCount ||
             0
         );
+        const officialLaps = Number(getOfficialLapCount_(baseTrack));
+        const raceType = typeText === "custom" || (
+            Number.isFinite(laps) && laps > 0 && Number.isFinite(officialLaps) && officialLaps > 0 && Math.round(laps) !== Math.round(officialLaps)
+        ) ? "custom" : "official";
         if (!(Number.isFinite(laps) && laps > 0) && raceType === "official") laps = Number(getOfficialLapCount_(baseTrack));
         return {
             raceType,
@@ -7801,6 +7840,7 @@ self.onmessage=event=>{try{self.postMessage({ok:true,result:aggregate(event.data
             cache?.loading ? 1 : 0,
             cache?.fetchedAt || 0,
             Array.isArray(cache?.rows) ? cache.rows.length : 0,
+            Array.isArray(cache?.pace) ? cache.pace.length : 0,
             cache?.error || ""
         ].join(":");
     }
@@ -7816,6 +7856,8 @@ self.onmessage=event=>{try{self.postMessage({ok:true,result:aggregate(event.data
             podiums: Number(row.podiums || 0),
             crashes: Number(row.crashes || 0),
             avgFinish: Number.isFinite(Number(row.avgFinish ?? row.avg_finish)) ? Number(row.avgFinish ?? row.avg_finish) : null,
+            avgFinishPercentile: Number.isFinite(Number(row.avgFinishPercentile ?? row.avg_finish_percentile)) ? Number(row.avgFinishPercentile ?? row.avg_finish_percentile) : null,
+            avgFieldSize: Number.isFinite(Number(row.avgFieldSize ?? row.avg_field_size)) ? Number(row.avgFieldSize ?? row.avg_field_size) : null,
             bestLapMs: Number(row.bestLapMs ?? row.best_lap_ms) || 0,
             bestRaceMs: Number(row.bestRaceMs ?? row.best_race_ms) || 0,
             lastCar: row.lastCar || row.last_car || "",
@@ -7823,6 +7865,10 @@ self.onmessage=event=>{try{self.postMessage({ok:true,result:aggregate(event.data
             lastRacingSkill: Number.isFinite(Number(row.lastRacingSkill ?? row.last_racing_skill)) ? Number(row.lastRacingSkill ?? row.last_racing_skill) : NaN,
             lastRaceAtIso: row.lastRaceAtIso || row.last_race_at_iso || row.last_seen_at || "",
             riskScore: Number.isFinite(Number(row.riskScore ?? row.risk_score)) ? Number(row.riskScore ?? row.risk_score) : NaN,
+            predictionSamples: Number(row.predictionSamples ?? row.prediction_samples) || 0,
+            avgPredictionError: Number.isFinite(Number(row.avgPredictionError ?? row.avg_prediction_error)) ? Number(row.avgPredictionError ?? row.avg_prediction_error) : null,
+            avgPredictionBias: Number.isFinite(Number(row.avgPredictionBias ?? row.avg_prediction_bias)) ? Number(row.avgPredictionBias ?? row.avg_prediction_bias) : null,
+            avgPredictionBiasPct: Number.isFinite(Number(row.avgPredictionBiasPct ?? row.avg_prediction_bias_pct)) ? Number(row.avgPredictionBiasPct ?? row.avg_prediction_bias_pct) : null,
             source: row.source || "sqlite"
         };
     }
@@ -7839,6 +7885,69 @@ self.onmessage=event=>{try{self.postMessage({ok:true,result:aggregate(event.data
             return nn && pgLocalNorm_(h.driverName || "") === nn;
         });
         return pgLocalHistoryToDriverHistory_(row);
+    }
+
+    function pgLocalTrackPaceIndex_(trackName) {
+        const cache = pgLocalTrackHistoryCacheFor_(trackName);
+        if (!cache) return null;
+        const rows = Array.isArray(cache.pace) ? cache.pace : [];
+        const key = `${cache.key || ""}|${cache.fetchedAt || 0}|${rows.length}`;
+        if (cache.paceIndex?.key === key) return cache.paceIndex;
+        const byId = new Map();
+        const byName = new Map();
+        const overallTimes = [];
+        const carTimes = new Map();
+        for (const raw of rows) {
+            const time = Number(raw?.avgBestLapMs ?? raw?.avg_best_lap_ms);
+            if (!(Number.isFinite(time) && time > 0)) continue;
+            const row = {
+                driverId: String(raw?.driverId || raw?.driver_id || "").trim(),
+                driverName: String(raw?.driverName || raw?.driver_name || "").trim(),
+                car: toOgCarName_(raw?.car || ""),
+                samples: Math.max(0, Number(raw?.samples) || 0),
+                avgBestLapMs: time
+            };
+            if (row.driverId) {
+                if (!byId.has(row.driverId)) byId.set(row.driverId, []);
+                byId.get(row.driverId).push(row);
+            }
+            const nameKey = normalizeDriverName_(row.driverName);
+            if (nameKey) {
+                if (!byName.has(nameKey)) byName.set(nameKey, []);
+                byName.get(nameKey).push(row);
+            }
+            overallTimes.push(time);
+            const carKey = pgLocalNorm_(row.car);
+            if (carKey) {
+                if (!carTimes.has(carKey)) carTimes.set(carKey, []);
+                carTimes.get(carKey).push(time);
+            }
+        }
+        cache.paceIndex = { key, byId, byName, overallTimes, carTimes };
+        return cache.paceIndex;
+    }
+
+    function pgLocalGetTrackPaceForDriver_(driver, trackName) {
+        if (!pgLocalTrackHistoryMatches_(trackName)) return null;
+        const index = pgLocalTrackPaceIndex_(trackName);
+        if (!index) return null;
+        const id = String(driver?.driverId || "").trim();
+        const name = normalizeDriverName_(driver?.name || driver?.driverName || "");
+        const rows = (id && index.byId.get(id)) || (name && index.byName.get(name)) || [];
+        if (!rows.length) return null;
+        const carKey = pgLocalNorm_(toOgCarName_(driver?.car || ""));
+        const sameCar = carKey ? rows.filter(row => pgLocalNorm_(row.car) === carKey) : [];
+        const chosen = sameCar.length ? sameCar : rows;
+        const samples = chosen.reduce((sum, row) => sum + Math.max(1, row.samples || 0), 0);
+        const weightedMs = chosen.reduce((sum, row) => sum + (row.avgBestLapMs * Math.max(1, row.samples || 0)), 0) / Math.max(1, samples);
+        return {
+            avgBestLapMs: weightedMs,
+            samples,
+            comparisonTimes: sameCar.length && (index.carTimes.get(carKey) || []).length >= 5
+                ? index.carTimes.get(carKey)
+                : index.overallTimes,
+            sameCar: !!sameCar.length
+        };
     }
 
     async function pgLocalEnsureTrackHistory_(trackName, force = false) {
@@ -7861,6 +7970,7 @@ self.onmessage=event=>{try{self.postMessage({ok:true,result:aggregate(event.data
                 raceType: result.raceType || scope.raceType,
                 laps: result.laps ?? scope.laps,
                 rows: Array.isArray(result.drivers) ? result.drivers : [],
+                pace: Array.isArray(result.pace) ? result.pace : [],
                 fetchedAt: Date.now(),
                 loading: false,
                 error: ""
@@ -7875,6 +7985,7 @@ self.onmessage=event=>{try{self.postMessage({ok:true,result:aggregate(event.data
                 raceType: scope.raceType,
                 laps: scope.laps,
                 rows: existing?.rows || [],
+                pace: existing?.pace || [],
                 fetchedAt: Date.now(),
                 loading: false,
                 error: pgErrorMessage_(e, "Local history unavailable")
@@ -8102,24 +8213,76 @@ self.onmessage=event=>{try{self.postMessage({ok:true,result:aggregate(event.data
         return clamp_(Math.log10(starts + 1) / 4, 0, 1);
     }
 
+    function predictionRacingSkill_(d) {
+        const intel = d?.driverIntel || getDriverIntelForDriver_(d);
+        const direct = d?.racingSkill == null || d?.racingSkill === "" ? NaN : Number(d.racingSkill);
+        const cached = intel?.racingSkill == null || intel?.racingSkill === "" ? NaN : Number(intel.racingSkill);
+        return Number.isFinite(direct) ? direct : (Number.isFinite(cached) ? cached : NaN);
+    }
+
+    function predictionSkillScore_(d, drivers) {
+        const rs = predictionRacingSkill_(d);
+        if (!Number.isFinite(rs)) return 0.45;
+        const absolute = Math.sqrt(clamp_(rs / 100, 0, 1));
+        const skills = (drivers || []).map(predictionRacingSkill_).filter(Number.isFinite);
+        if (skills.length < 2) return absolute;
+        const lower = skills.filter(value => value < rs).length;
+        const tied = skills.filter(value => value === rs).length;
+        const percentile = clamp_((lower + Math.max(0, tied - 1) / 2) / Math.max(1, skills.length - 1), 0, 1);
+        return (absolute * 0.55) + (percentile * 0.45);
+    }
+
+    function predictionHistoryScore_(history, grid) {
+        if (!history?.races) return 0.5;
+        const percentile = Number(history.avgFinishPercentile ?? history.avg_finish_percentile);
+        const historyGrid = Math.max(1, Number(history.avgFieldSize ?? history.avg_field_size) || grid || 1);
+        const fallback = clamp_(1 - ((Number(history.avgFinish) || historyGrid) - 1) / Math.max(1, historyGrid - 1), 0, 1);
+        const raw = Number.isFinite(percentile) ? clamp_(percentile, 0, 1) : fallback;
+        return confidenceShrinkScore_(raw, history.races || 0, 0.5, 6);
+    }
+
+    function predictionLapPaceScore_(driver, trackName) {
+        const pace = pgLocalGetTrackPaceForDriver_(driver, trackName);
+        const values = Array.isArray(pace?.comparisonTimes) ? pace.comparisonTimes.filter(value => Number.isFinite(value) && value > 0) : [];
+        const time = Number(pace?.avgBestLapMs);
+        if (!(Number.isFinite(time) && time > 0) || values.length < 2) return 0.5;
+        const slower = values.filter(value => value > time).length;
+        const tied = values.filter(value => value === time).length;
+        const percentile = clamp_((slower + Math.max(0, tied - 1) / 2) / Math.max(1, values.length - 1), 0, 1);
+        return confidenceShrinkScore_(percentile, pace.samples || 0, 0.5, 5);
+    }
+
+    function predictionLearningAdjustment_(history, localIntel, grid) {
+        const candidates = [localIntel?.calibration?.scope, history, localIntel?.calibration?.global].filter(Boolean);
+        let selected = candidates.find(item => Number(item.predictionSamples ?? item.samples ?? item.prediction_samples) >= 2) || candidates[0] || null;
+        if (!selected) return 0;
+        const samples = Math.max(0, Number(selected.predictionSamples ?? selected.samples ?? selected.prediction_samples) || 0);
+        if (!samples) return 0;
+        let signedPct = Number(selected.avgPredictionBiasPct ?? selected.avg_prediction_bias_pct);
+        if (!Number.isFinite(signedPct)) {
+            const signedPositions = Number(selected.avgPredictionBias ?? selected.avg_prediction_bias);
+            if (!Number.isFinite(signedPositions)) return 0;
+            signedPct = signedPositions / Math.max(1, Number(grid || 1) - 1);
+        }
+        const confidence = clamp_(samples / (samples + 8), 0, 1);
+        return clamp_(-signedPct * 0.10 * confidence, -0.06, 0.06);
+    }
+
     function predictionScoreForDriver_(d, drivers = analysis?.drivers || [], trackName = analysis?.trackName || raceMeta?.track || "") {
         const intel = useApiPredictions ? (d.driverIntel || getDriverIntelForDriver_(d)) : null;
         const rs = Number.isFinite(d.racingSkill) ? d.racingSkill : Number(intel?.racingSkill);
-        const skill = Number.isFinite(rs) ? Math.sqrt(clamp_(rs / 100, 0, 1)) : 0.45;
+        const skill = predictionSkillScore_(d, drivers);
         const win = predictionWinScore_(intel);
         const experience = predictionExperienceScore_(intel);
 
         const grid = Math.max(1, drivers.length || 1);
 
         const history = useHistoryPredictions ? getDriverTrackHistory_(d.driverId, d.name, trackName) : null;
-        const rawHistoryScore = history?.races
-            ? clamp_(1 - ((history.avgFinish || grid) - 1) / Math.max(1, grid - 1), 0, 1)
-            : 0.5;
-        const historyScore = confidenceShrinkScore_(rawHistoryScore, history?.races || 0, 0.5, 6);
-
-        const riskPenalty = history?.riskScore
-            ? clamp_((history.riskScore / 100) * clamp_((history.races || 0) / 10, 0, 1), 0, 0.12)
-            : 0;
+        const historyScore = predictionHistoryScore_(history, grid);
+        const lapPaceScore = useHistoryPredictions ? predictionLapPaceScore_(d, trackName) : 0.5;
+        const historyRaces = Math.max(0, Number(history?.races) || 0);
+        const crashRate = historyRaces ? clamp_((Number(history?.crashes) || 0) / historyRaces, 0, 1) : 0;
+        const riskPenalty = clamp_(crashRate * clamp_(historyRaces / (historyRaces + 6), 0, 1) * 0.06, 0, 0.06);
 
         let carTrackScore = 0.5;
         let localServerScore = 0.5;
@@ -8141,10 +8304,12 @@ self.onmessage=event=>{try{self.postMessage({ok:true,result:aggregate(event.data
                 1
             );
 
-            const localTrackScoreRaw = localTrack?.races
-                ? clamp_(1 - ((Number(localTrack.avg_finish) || grid) - 1) / Math.max(1, grid - 1), 0, 1)
-                : 0.5;
-            const localTrackScore = confidenceShrinkScore_(localTrackScoreRaw, Number(localTrack?.races) || 0, 0.5, 6);
+            const localTrackScore = predictionHistoryScore_({
+                races: Number(localTrack?.races) || 0,
+                avgFinish: Number(localTrack?.avg_finish),
+                avgFinishPercentile: Number(localTrack?.avg_finish_percentile),
+                avgFieldSize: Number(localTrack?.avg_field_size)
+            }, grid);
 
             const localTrackCarScoreRaw = Number.isFinite(Number(localTrackCar?.result_score))
                 ? clamp_(Number(localTrackCar.result_score) / 100, 0, 1)
@@ -8165,13 +8330,16 @@ self.onmessage=event=>{try{self.postMessage({ok:true,result:aggregate(event.data
             carTrackScore = (carTrackScore * (1 - localWeight)) + (localScore * localWeight);
         }
 
+        const learningAdjustment = useHistoryPredictions ? predictionLearningAdjustment_(history, localIntel, grid) : 0;
         let score =
-            (skill * 0.42) +
-            (win * 0.18) +
-            (experience * 0.12) +
-            (historyScore * 0.18) +
-            (carTrackScore * 0.10) -
-            riskPenalty;
+            (skill * 0.58) +
+            (win * 0.07) +
+            (experience * 0.04) +
+            (historyScore * 0.10) +
+            (carTrackScore * 0.09) +
+            (lapPaceScore * 0.12) -
+            riskPenalty +
+            learningAdjustment;
 
         if (!intel && !Number.isFinite(rs)) score -= 0.04;
 
@@ -8213,22 +8381,93 @@ self.onmessage=event=>{try{self.postMessage({ok:true,result:aggregate(event.data
             .map((x, i) => Object.assign(x, { predictedPos: i + 1 }));
     }
 
+    function predictionSnapshotDriverKeys_(driver) {
+        const keys = [];
+        const id = String(driver?.driverId || "").trim();
+        const name = normalizeDriverName_(driver?.name || driver?.driverName || "");
+        if (id) keys.push(`id:${id}`);
+        if (name) keys.push(`name:${name}`);
+        return keys;
+    }
+
+    function rememberPredictionSnapshot_(ranked, trackName = "") {
+        if (!Array.isArray(ranked) || !ranked.length || analysis || visualRaceHasStarted_()) return false;
+        ensureRaceMeta_();
+        if (!raceMeta) return false;
+        const raceId = String(getRaceId_() || raceMeta.raceId || "").trim();
+        const track = stripTrackLapSuffix_(trackName || raceMeta.track || visibleRaceTrackName_() || "");
+        const laps = Number(visibleRaceLapCount_(track) || raceMeta.laps || 0) || 0;
+        const positions = {};
+        for (const row of ranked) {
+            const position = Math.max(1, Math.round(Number(row?.predictedPos) || 0));
+            for (const key of predictionSnapshotDriverKeys_(row?.d)) positions[key] = position;
+        }
+        if (!Object.keys(positions).length) return false;
+        const snapshot = {
+            raceId,
+            track,
+            laps,
+            startAtIso: raceMeta.startAtIso || "",
+            modelVersion: PREDICTION_MODEL_VERSION,
+            capturedAtIso: new Date().toISOString(),
+            positions
+        };
+        const previous = raceMeta.predictionSnapshot || null;
+        if (
+            previous && String(previous.raceId || "") === raceId &&
+            makeTrackLookupKey_(previous.track || "") === makeTrackLookupKey_(track) &&
+            Number(previous.laps || 0) === laps &&
+            previous.modelVersion === PREDICTION_MODEL_VERSION &&
+            JSON.stringify(previous.positions || {}) === JSON.stringify(positions)
+        ) return false;
+        raceMeta.predictionSnapshot = snapshot;
+        saveRaceMeta_(raceMeta);
+        return true;
+    }
+
+    function predictionPositionsForOutcome_(drivers, trackName = "") {
+        ensureRaceMeta_();
+        const snapshot = raceMeta?.predictionSnapshot || null;
+        const currentRaceId = String(analysis?.raceId || getRaceId_() || raceMeta?.raceId || "").trim();
+        const track = stripTrackLapSuffix_(trackName || analysis?.trackName || raceMeta?.track || "");
+        const laps = Number(analysis?.laps || raceMeta?.laps || 0) || 0;
+        const sameRace = !!snapshot && (
+            (currentRaceId && snapshot.raceId && currentRaceId === String(snapshot.raceId)) ||
+            (!snapshot.raceId && makeTrackLookupKey_(snapshot.track) === makeTrackLookupKey_(track) && Number(snapshot.laps || 0) === laps)
+        );
+        if (sameRace && snapshot.positions && typeof snapshot.positions === "object") {
+            const result = new Map();
+            for (const driver of drivers || []) {
+                const position = predictionSnapshotDriverKeys_(driver).map(key => Number(snapshot.positions[key])).find(Number.isFinite);
+                if (Number.isFinite(position) && position > 0) result.set(normalizeDriverName_(driver.name), Math.round(position));
+            }
+            if (result.size) return { positions: result, modelVersion: snapshot.modelVersion || PREDICTION_MODEL_VERSION, frozen: true };
+        }
+        return {
+            positions: new Map(rankedPredictionDrivers_(drivers, track).map(row => [normalizeDriverName_(row.d.name), row.predictedPos])),
+            modelVersion: PREDICTION_MODEL_VERSION,
+            frozen: false
+        };
+    }
+
     function updateDriverHistoryFromAnalysis_() {
         if (!analysis?.drivers?.length) return;
         ensureDriverHistoryLoaded_("updateDriverHistoryFromAnalysis");
         const raceId = analysis.raceId || raceMeta?.raceId || `${analysis.trackName}:${analysis.drivers.map(d => d.finalTime).join(",")}`;
         const historyRaceKey = String(raceId || `${analysis.trackName}:${analysis.drivers.map(d => d.finalTime).join(",")}`).trim();
-        const predicted = new Map(rankedPredictionDrivers_().map(x => [normalizeDriverName_(x.d.name), x.predictedPos]));
+        const forecast = predictionPositionsForOutcome_(analysis.drivers, analysis.trackName || raceMeta?.track || "");
+        const predicted = forecast.positions;
         const finalOrder = getLiveOrder_(Infinity, true);
         const trackName = analysis.trackName || raceMeta?.track || "";
+        const historyScope = currentRaceHistoryScope_(trackName);
         const atIso = new Date().toISOString();
         for (const x of finalOrder) {
             const d = x.driver;
-            const key = driverHistoryKey_(d.driverId, d.name, trackName);
+            const key = driverHistoryKey_(d.driverId, d.name, trackName, historyScope);
             const prev = driverHistory[key] || {
                 driverId: String(d.driverId || ""),
                 driverName: d.name,
-                track: getRecordTrackScope_("race", trackName),
+                track: getRecordTrackScope_("race", historyScope.raceType === "custom" && historyScope.laps ? formatRaceTrackLabel_(trackName, historyScope.laps) : trackName, historyScope.raceType),
                 races: 0,
                 wins: 0,
                 podiums: 0,
@@ -8238,6 +8477,8 @@ self.onmessage=event=>{try{self.postMessage({ok:true,result:aggregate(event.data
                 bestRaceMs: 0,
                 predictionSamples: 0,
                 predictionAbsErrorTotal: 0,
+                predictionSignedErrorTotal: 0,
+                predictionSignedPctTotal: 0,
                 riskScore: 0,
                 notes: []
             };
@@ -8262,12 +8503,25 @@ self.onmessage=event=>{try{self.postMessage({ok:true,result:aggregate(event.data
                 prev.crashes = (prev.crashes || 0) + (d.crashed ? 1 : 0);
                 prev.totalFinish = (prev.totalFinish || 0) + actual;
                 prev.avgFinish = prev.totalFinish / prev.races;
+                const fieldSize = Math.max(1, finalOrder.length || 1);
+                const finishPercentile = fieldSize > 1 ? 1 - ((actual - 1) / (fieldSize - 1)) : 1;
+                prev.finishPercentileTotal = (prev.finishPercentileTotal || 0) + finishPercentile;
+                prev.fieldSizeTotal = (prev.fieldSizeTotal || 0) + fieldSize;
+                prev.avgFinishPercentile = prev.finishPercentileTotal / prev.races;
+                prev.avgFieldSize = prev.fieldSizeTotal / prev.races;
                 prev.bestLapMs = !prev.bestLapMs || (d.bestLapSeconds && d.bestLapSeconds * 1000 < prev.bestLapMs) ? Math.round((d.bestLapSeconds || 0) * 1000) : prev.bestLapMs;
                 prev.bestRaceMs = !prev.bestRaceMs || (d.finalTime && d.finalTime * 1000 < prev.bestRaceMs) ? Math.round((d.finalTime || 0) * 1000) : prev.bestRaceMs;
                 prev.predictionSamples = (prev.predictionSamples || 0) + 1;
                 prev.predictionAbsErrorTotal = (prev.predictionAbsErrorTotal || 0) + err;
+                const signedError = actual - pred;
+                const signedPct = fieldSize > 1 ? signedError / (fieldSize - 1) : 0;
+                prev.predictionSignedErrorTotal = (prev.predictionSignedErrorTotal || 0) + signedError;
+                prev.predictionSignedPctTotal = (prev.predictionSignedPctTotal || 0) + signedPct;
                 prev.avgPredictionError = prev.predictionAbsErrorTotal / prev.predictionSamples;
-                prev.riskScore = clamp_((prev.avgPredictionError || 0) * 18 + ((prev.crashes || 0) / Math.max(1, prev.races)) * 30, 0, 100);
+                prev.avgPredictionBias = prev.predictionSignedErrorTotal / prev.predictionSamples;
+                prev.avgPredictionBiasPct = prev.predictionSignedPctTotal / prev.predictionSamples;
+                const crashConfidence = prev.races / Math.max(1, prev.races + 4);
+                prev.riskScore = clamp_(((prev.crashes || 0) / Math.max(1, prev.races)) * crashConfidence * 100, 0, 100);
                 const note = `${fmtWhen_(atIso)}: predicted P${pred}, finished P${actual}${d.crashed ? " (DNF)" : ""}.`;
                 prev.notes = [note].concat(prev.notes || []).slice(0, 8);
                 if (historyRaceKey) prev.raceKeys = [historyRaceKey].concat(raceKeys).filter(Boolean).slice(0, 50);
@@ -8385,12 +8639,8 @@ self.onmessage=event=>{try{self.postMessage({ok:true,result:aggregate(event.data
             throw new Error('Cannot build local DB payload: missing track');
         }
 
-        const predicted = new Map(
-            rankedPredictionDrivers_().map(x => [
-                normalizeDriverName_(x.d.name),
-                x.predictedPos
-            ])
-        );
+        const forecast = predictionPositionsForOutcome_(analysis.drivers, trackName);
+        const predicted = forecast.positions;
 
         const finalOrder = getLiveOrder_(Infinity, true);
 
@@ -8463,7 +8713,7 @@ self.onmessage=event=>{try{self.postMessage({ok:true,result:aggregate(event.data
                 },
                 prediction: {
                     predictedPosition: pred,
-                    modelVersion: "pit-guru-local-v1"
+                    modelVersion: forecast.modelVersion || PREDICTION_MODEL_VERSION
                 }
             };
         }).filter(p => p.driverId || p.driverName);
@@ -9105,7 +9355,7 @@ return {
         const href = String(location.href || "");
         if (!canScanTornPage_()) {
             if (visibleRaceInfoCache.href === href) return visibleRaceInfoCache;
-            return { at: now, href, raceId: urlRaceId_(), text: "" };
+            return { at: now, href, raceId: urlRaceId_(), text: "", track: "", laps: 0 };
         }
         if (!force && visibleRaceInfoCache.href === href && now - visibleRaceInfoCache.at < visibleRaceScanMs) {
             return visibleRaceInfoCache;
@@ -9145,12 +9395,23 @@ return {
                 } catch {}
             }
         }
-        visibleRaceInfoCache = { at: now, href, raceId, text };
+        const heading = raceHeadingMetaFromText_(text);
+        visibleRaceInfoCache = { at: now, href, raceId, text, track: heading.track, laps: heading.laps };
         return visibleRaceInfoCache;
     }
 
     function visibleRaceId_() {
         return visibleRacePageInfo_().raceId || "";
+    }
+
+    function visibleRaceLapCount_(trackName = "") {
+        const info = visibleRacePageInfo_();
+        const laps = Number(info?.laps || 0);
+        if (!(Number.isFinite(laps) && laps > 0)) return 0;
+        const wanted = makeTrackLookupKey_(stripTrackLapSuffix_(trackName || ""));
+        const visible = makeTrackLookupKey_(info?.track || "");
+        if (wanted && visible && wanted !== visible) return 0;
+        return Math.round(laps);
     }
 
     function isReplayPage_() {
@@ -15493,6 +15754,7 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
             });
             ranked.sort((a, b) => b.score - a.score);
             ranked.forEach((row, index) => { row.predictedPos = index + 1; });
+            rememberPredictionSnapshot_(ranked, trackName);
             const scored = [];
             await runBatched_(ranked, x => {
                 const intel = useApiPredictions ? (x.d.driverIntel || getDriverIntelForDriver_(x.d)) : null;
@@ -15526,6 +15788,7 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
         if (!set.drivers.length) {
             return `<div class="mpg-note">Waiting for the race driver list. Predictions appear as soon as Pit Guru can see participants, before the race starts.</div>`;
         }
+        if (useHistoryPredictions && set.trackName) pgLocalEnsureTrackHistory_(set.trackName).catch(() => {});
         let scored = [];
         if (set.drivers.length >= LARGE_FIELD_THRESHOLD && PHASE_REWRITE_FLAGS.chunkedLargeGridPredictions) {
             const modelKey = predictionRenderModelKey_(set);
@@ -15542,6 +15805,7 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
                 const history = useHistoryPredictions ? getDriverTrackHistory_(x.d.driverId, x.d.name, set.trackName || "") : null;
                 return Object.assign({}, x, { intel, skill, history, displayScore: Math.max(0.01, x.score) });
             });
+            rememberPredictionSnapshot_(scored, set.trackName);
         }
         const total = scored.reduce((s, x) => s + x.displayScore, 0) || 1;
         const predWin = focusedOrderWindow_(scored, { force: largeFieldMode_() });
@@ -15569,7 +15833,9 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
                 ? ` Driver Intel: huge grid mode is active (${set.drivers.length} drivers); automatic profile fetching is paused to keep Torn responsive. Use row Fetch for individual drivers.`
                 : ` Driver Intel: ${uncached} uncached profile${uncached === 1 ? "" : "s"}${missingProfileIds ? `, ${missingProfileIds} visible row${missingProfileIds === 1 ? "" : "s"} without a profile ID` : ""}; Pit Guru auto-fetches one call per uncached driver after the grid settles.`
             : " Add an API key in Settings to auto-fetch Driver Intel before the race.";
-        const historyNote = useHistoryPredictions ? " Same-track driver history is included when available." : " Same-track history is currently disabled in Settings.";
+        const historyNote = useHistoryPredictions
+            ? " Same-scope finishes are field-size normalized; same-track lap pace applies across any lap count, and completed forecast errors provide a bounded learning correction."
+            : " Same-track history and outcome calibration are currently disabled in Settings.";
         const sourceNote = set.source === "visible"
             ? "Pre-race grid snapshot — no race result data is needed for this forecast."
             : "Forecast only — based on visible/API driver stats and local history, not the generated race result.";
@@ -16156,7 +16422,7 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
         }
         if (raceLengthEl) {
             const km = getLapKm_(headerTrackName) || analysis?.trackMeta?.lapKm;
-            const laps = analysis?.laps || getOfficialLapCount_(headerTrackName) || Number(raceMeta?.laps) || 0;
+            const laps = analysis?.laps || Number(raceMeta?.laps) || visibleRaceLapCount_(headerTrackName) || getOfficialLapCount_(headerTrackName) || 0;
             raceLengthEl.textContent = km && laps ? formatDistanceKm_(km * laps) : "—";
         }
 
