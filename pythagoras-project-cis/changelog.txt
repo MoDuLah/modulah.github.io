@@ -1,3 +1,12 @@
+## v3.0.4 (2026-07-26)
+
+### Mobile settings and exact training counts
+
+- Settings forms now collapse to full-width phone columns without narrow implicit grid tracks.
+- Training log sync combines company news with Torn's exact company training-action log.
+- Unique action IDs recover same-second trains while daily totals merge without double-counting.
+- Exact rows survive cloud reloads and immediately correct linked Training Ledger usage.
+
 ## v3.0.3 (2026-07-22)
 
 ### Employee Efficiency component trends
