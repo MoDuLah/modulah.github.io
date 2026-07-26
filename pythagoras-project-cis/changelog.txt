@@ -1,3 +1,13 @@
+## v3.0.4b (2026-07-26)
+
+### Exact training counts in News
+
+- Company News now reconciles training rows against Torn's exact action log by employee and date.
+- Grouped News shows the exact daily total instead of the timestamp-collapsed company-news count.
+- Raw News shows every unique Torn training action after sync, including multiple actions in the same second.
+- Previously saved exact rows immediately replace lossy News rows with a correct daily summary.
+- Exact action IDs and timestamps persist through local and cloud reloads without being deduplicated away.
+
 ## v3.0.4 (2026-07-26)
 
 ### Mobile settings and exact training counts
