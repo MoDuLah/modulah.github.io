@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Pythagoras Project - CIS
 // @namespace    https://torn.com/
-// @version      3.0.4
+// @version      3.0.4b
 // @description  Company Intelligence System for Torn company training, staff, analytics, and local reporting.
 // @author       MoDuL [4022159]
 // @match        https://www.torn.com/companies.php*
@@ -47,7 +47,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
     notificationDismissalsKey: 'pp_cis_notification_dismissals_v1',
     uiPreferencesKey: 'pp_cis_ui_preferences_v1',
     stockEditsKey: 'pp_cis_stock_edits_v1',
-    version: '3.0.4',
+    version: '3.0.4b',
     popupName: 'pythagoras-cis-popup'
   };
 
@@ -4475,13 +4475,26 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
           aliases: Company.aliasList(person, action.playerName),
           position: action.position || person.role || 'Employee',
           count: 0,
+          exactCount: 0,
           eventIds: [],
+          exactEvents: [],
           statsReceived: { man: 0, int: 0, end: 0 },
           source: 'user_log'
         };
+        const actionCount = Math.max(1, Utils.int(action.count, 1));
+        const actionId = String(action.id || '').trim();
         row.timestamp = Math.max(row.timestamp || 0, action.timestamp || 0);
-        row.count += Math.max(1, Utils.int(action.count, 1));
-        row.eventIds.push(action.id);
+        row.count += actionCount;
+        row.exactCount += actionCount;
+        if (actionId) row.eventIds.push(actionId);
+        row.exactEvents.push({
+          id: actionId,
+          timestamp: Utils.int(action.timestamp, 0),
+          userId: String(action.userId || person.id || '').trim(),
+          playerName: person.name || action.playerName || action.userId || '',
+          position: action.position || person.role || 'Employee',
+          count: actionCount
+        });
         row.statsReceived.man += Utils.num(action.statsReceived && action.statsReceived.man, 0);
         row.statsReceived.int += Utils.num(action.statsReceived && action.statsReceived.int, 0);
         row.statsReceived.end += Utils.num(action.statsReceived && action.statsReceived.end, 0);
@@ -4789,7 +4802,8 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
       });
       const bySemanticKey = new Map();
       Array.from(byKey.values()).forEach((event) => {
-        const key = Timeline.semanticDedupeKey(event) || Timeline.eventDedupeKey(event);
+        const exactSource = event && event.source === 'user_log' && Timeline.sourceEventId(event);
+        const key = exactSource ? Timeline.eventDedupeKey(event) : (Timeline.semanticDedupeKey(event) || Timeline.eventDedupeKey(event));
         bySemanticKey.set(key, Timeline.betterEvent(bySemanticKey.get(key), event));
       });
       return Array.from(bySemanticKey.values()).sort((a, b) => Utils.int(b.timestamp, 0) - Utils.int(a.timestamp, 0));
@@ -4925,9 +4939,22 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         const key = `${row.date}:${identity}`;
         const previous = byKey.get(key);
         if (!previous) {
-          byKey.set(key, Object.assign({}, row, { id: row.id || key, eventIds: Array.isArray(row.eventIds) ? row.eventIds.slice() : [] }));
+          byKey.set(key, Object.assign({}, row, {
+            id: row.id || key,
+            eventIds: Array.from(new Set(Array.isArray(row.eventIds) ? row.eventIds.filter(Boolean) : [])),
+            exactEvents: Array.isArray(row.exactEvents) ? row.exactEvents.map((event) => Object.assign({}, event)) : []
+          }));
           return;
         }
+        const exactEvents = new Map();
+        (previous.exactEvents || []).concat(row.exactEvents || []).forEach((event, index) => {
+          if (!event) return;
+          const eventId = String(event.id || '').trim();
+          const eventKey = eventId
+            ? `id:${eventId}`
+            : `event:${Utils.int(event.timestamp, 0)}:${String(event.userId || '')}:${Utils.int(event.count, 1)}:${index}`;
+          exactEvents.set(eventKey, Object.assign({}, event));
+        });
         const next = Object.assign({}, previous, {
           timestamp: Math.max(Utils.int(previous.timestamp, 0), Utils.int(row.timestamp, 0)),
           userId: previous.userId || row.userId || '',
@@ -4935,8 +4962,10 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
           position: previous.position || row.position || 'Employee',
           contractType: previous.contractType || row.contractType || '',
           count: Math.max(Utils.int(previous.count, 0), Utils.int(row.count, 0)),
+          exactCount: Math.max(Utils.int(previous.exactCount, 0), Utils.int(row.exactCount, 0)),
           source: previous.source && row.source && previous.source !== row.source ? 'mixed' : (previous.source || row.source || ''),
-          eventIds: (previous.eventIds || []).concat(row.eventIds || []).filter(Boolean)
+          eventIds: Array.from(new Set((previous.eventIds || []).concat(row.eventIds || []).filter(Boolean))),
+          exactEvents: Array.from(exactEvents.values()).sort((a, b) => Utils.int(a.timestamp, 0) - Utils.int(b.timestamp, 0))
         });
         if (row.statsReceived || previous.statsReceived) {
           next.statsReceived = {
@@ -5144,8 +5173,80 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
       }
       return null;
     },
+    trainingAccessKey(subject, state, identityMaps) {
+      const date = Utils.dateInput(subject && subject.date) || Utils.dayKey(subject && subject.timestamp);
+      if (!date) return '';
+      const identity = Company.resolveIdentity(subject || {}, state, identityMaps);
+      return identity ? `${date}:${identity}` : '';
+    },
     accessEvents(events, state) {
-      return Array.isArray(events) ? events : [];
+      const storedEvents = Array.isArray(events) ? events : [];
+      if (!state || !state.staff) return storedEvents;
+      const identityMaps = Company.identityMaps(state);
+      const exactByKey = new Map();
+      (Array.isArray(state.trainingLog) ? state.trainingLog : []).forEach((row) => {
+        if (!row || !['user_log', 'mixed'].includes(String(row.source || ''))) return;
+        const exactCount = Math.max(0, Utils.int(row.exactCount, 0) || Utils.int(row.count, 0));
+        const key = Timeline.trainingAccessKey(row, state, identityMaps);
+        if (!key || !exactCount) return;
+        const previous = exactByKey.get(key);
+        if (!previous || exactCount >= previous.exactCount) exactByKey.set(key, { row, exactCount });
+      });
+      if (!exactByKey.size) return storedEvents;
+
+      const reconciled = storedEvents.filter((event) => {
+        if (Timeline.displayType(event) !== 'training') return true;
+        return !exactByKey.has(Timeline.trainingAccessKey(event, state, identityMaps));
+      });
+      exactByKey.forEach(({ row, exactCount }, key) => {
+        const exactEvents = [];
+        const seen = new Set();
+        (Array.isArray(row.exactEvents) ? row.exactEvents : []).forEach((event) => {
+          if (!event) return;
+          const eventId = String(event.id || '').trim();
+          const dedupeKey = eventId || `${Utils.int(event.timestamp, 0)}:${String(event.userId || '')}:${exactEvents.length}`;
+          if (seen.has(dedupeKey)) return;
+          seen.add(dedupeKey);
+          exactEvents.push(event);
+        });
+        const exactEventCount = exactEvents.reduce((sum, event) => sum + Math.max(1, Utils.int(event.count, 1)), 0);
+        if (exactEvents.length && exactEventCount === exactCount) {
+          exactEvents.forEach((event, index) => {
+            const eventId = String(event.id || `${key}:${index + 1}`);
+            reconciled.push({
+              id: `user-log:${eventId}`,
+              sourceEventId: `user-log:${eventId}`,
+              timestamp: Utils.int(event.timestamp, 0) || Utils.int(row.timestamp, 0),
+              type: 'training',
+              category: 'training',
+              userId: String(event.userId || row.userId || ''),
+              playerName: event.playerName || row.playerName || '',
+              position: event.position || row.position || 'Employee',
+              trainCount: Math.max(1, Utils.int(event.count, 1)),
+              source: 'user_log',
+              exactTraining: true,
+              createdAt: Utils.nowIso()
+            });
+          });
+          return;
+        }
+        const summaryId = String(row.id || key).replace(/[^a-z0-9:_-]+/gi, '-');
+        reconciled.push({
+          id: `user-log-summary:${summaryId}`,
+          sourceEventId: `user-log-summary:${summaryId}`,
+          timestamp: Utils.int(row.timestamp, 0) || Utils.dateTimestamp(`${row.date}T12:00:00`),
+          type: 'training',
+          category: 'training',
+          userId: String(row.userId || ''),
+          playerName: row.playerName || '',
+          position: row.position || 'Employee',
+          trainCount: exactCount,
+          source: 'user_log',
+          exactTraining: true,
+          createdAt: Utils.nowIso()
+        });
+      });
+      return reconciled.sort((a, b) => Utils.int(b.timestamp, 0) - Utils.int(a.timestamp, 0));
     },
     analyticsFromEvents(events, state) {
       events = Timeline.dedupeEvents(Timeline.accessEvents(events || [], state));
@@ -7384,7 +7485,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         <div class="pp-grid pp-timeline-grid">
           <section class="pp-panel is-half pp-timeline-panel" data-tour="company-timeline">
             <div class="pp-head is-stack">
-              <div><h2>Company timeline</h2><p>Sync company news with one manual API request.</p></div>
+              <div><h2>Company timeline</h2><p>Company news is reconciled with exact Torn training actions when available.</p></div>
               <div class="pp-row-actions pp-timeline-actions">
                 ${UI.timelineFilterSelect()}
                 <button class="pp-btn" type="button" data-action="toggle-timeline-grouped" title="Toggle grouped or raw timeline rows">${UI.state.ui.timelineGrouped === false ? 'Raw' : 'Grouped'}</button>
@@ -11349,6 +11450,10 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         <div class="pp-content">
           <div class="pp-changelog">
             <details open>
+              <summary>v3.0.4b - Exact training counts in News</summary>
+              <ul><li>Company News now reconciles each employee and date against Torn&apos;s exact training-action log instead of continuing to show timestamp-collapsed totals.</li><li>Grouped News shows the exact daily total, while Raw News shows every unique Torn training action after sync.</li><li>Previously saved exact training rows immediately replace lossy News rows with a correct daily summary, and same-second action IDs are preserved through timeline dedupe.</li></ul>
+            </details>
+            <details>
               <summary>v3.0.4 - Mobile settings and exact training counts</summary>
               <ul><li>Settings forms now collapse to full-width mobile columns without narrow implicit grid tracks.</li><li>Training log sync uses Torn's exact training-action log to recover same-second trains that company news can collapse.</li><li>Exact user-log rows survive cloud workspace reloads and immediately correct linked ledger usage without double-counting news.</li></ul>
             </details>
