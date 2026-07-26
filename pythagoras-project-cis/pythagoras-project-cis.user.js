@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Pythagoras Project - CIS
 // @namespace    https://torn.com/
-// @version      3.0.3
+// @version      3.0.4
 // @description  Company Intelligence System for Torn company training, staff, analytics, and local reporting.
 // @author       MoDuL [4022159]
 // @match        https://www.torn.com/companies.php*
@@ -47,7 +47,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
     notificationDismissalsKey: 'pp_cis_notification_dismissals_v1',
     uiPreferencesKey: 'pp_cis_ui_preferences_v1',
     stockEditsKey: 'pp_cis_stock_edits_v1',
-    version: '3.0.3',
+    version: '3.0.4',
     popupName: 'pythagoras-cis-popup'
   };
 
@@ -123,6 +123,8 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
       stockSettings: {},
       stockHistory: [],
       adBudgetHistory: [],
+      adBudgetChangeEvents: [],
+      adBudgetLogSync: { firstBackfillDone: false, lastSynced: '', oldestTimestamp: 0, latestTimestamp: 0, fetchedPages: 0, lastError: '' },
       operatingCostHistory: [],
       newsSync: { firstBackfillDone: false, earliestTimestamp: 0, oldestTimestamp: 0, latestTimestamp: 0, lastSynced: '', fetchedPages: 0, reportGapAttempts: {} },
       syncWatermarks: {}
@@ -278,7 +280,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
     .pp-grid{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:12px;align-items:start;min-width:0}.pp-panel{position:relative;grid-column:span 12;align-self:start;border:1px solid var(--line);border-radius:8px;background:var(--panel);overflow:hidden;min-width:0;max-width:100%}.pp-edit-mode .pp-panel{resize:both;overflow:auto;min-width:260px;min-height:120px;box-shadow:inset -1px -1px 0 rgba(70,197,143,.4)}.pp-edit-mode .pp-panel:after{content:'';position:absolute;right:5px;bottom:5px;width:13px;height:13px;border-right:2px solid var(--accent);border-bottom:2px solid var(--accent);opacity:.85;pointer-events:none}.pp-panel.is-collapsed .pp-content{display:none}.pp-panel.is-half{grid-column:span 6}.pp-panel.is-third{grid-column:span 4}.pp-collapse-toggle,.pp-hint-toggle{position:absolute;top:8px;z-index:3;display:grid;place-items:center;width:26px;min-width:26px;height:26px;min-height:26px;padding:0;margin:0;border-color:var(--accent);color:var(--accent);line-height:1}.pp-collapse-toggle{right:8px}.pp-hint-toggle{right:40px}
     .pp-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:16px 82px 14px 14px;border-bottom:1px solid var(--line);background:var(--panel2);min-width:0}.pp-head.is-stack{display:grid;grid-template-columns:minmax(0,1fr);gap:10px}.pp-head.is-stack .pp-row-actions{justify-content:flex-start}.pp-head>*,.pp-field>*,.pp-kv span{min-width:0}.pp-head>div:first-child{flex:1 1 auto}.pp-head>.pp-row-actions{flex:0 1 auto;justify-content:flex-end;align-items:flex-start}.pp-head h2,.pp-head h3{margin:0;font-size:14px;line-height:1.25;color:#fff}.pp-head p,.pp-note{margin:4px 0 0;color:var(--muted);font-size:12px}.pp-content{padding:12px;min-width:0}
     .pp-form{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px;align-items:end;min-width:0}.pp-field{display:grid;gap:5px;min-width:0;overflow:hidden}.pp-field.span-2{grid-column:span 2}.pp-field.span-3{grid-column:span 3}.pp-field.span-4{grid-column:span 4}.pp-field.span-6{grid-column:span 6}.pp-field label,.pp-field>span{color:var(--muted);font-size:12px}.pp-priority-grid{display:grid;grid-column:1/-1;grid-template-columns:minmax(190px,1fr) minmax(190px,1fr);gap:9px}.pp-priority-grid .pp-field{border:1px solid var(--line);border-radius:8px;background:#121615;padding:9px 10px}.pp-priority-grid .pp-input,.pp-priority-grid .pp-select{width:min(100%,240px)}.pp-title-switch{display:inline-flex;align-items:center;gap:7px;white-space:nowrap;color:var(--muted);font-size:12px}.pp-discount-row{display:grid;grid-column:1/-1;grid-template-columns:repeat(5,minmax(125px,1fr));gap:9px}.pp-discount-row .pp-field{border:1px solid var(--line);border-radius:8px;background:#121615;padding:9px}.pp-notification-grid{display:grid;grid-column:1/-1;grid-template-columns:repeat(2,minmax(260px,1fr));gap:9px}.pp-notification-rule{display:grid;grid-template-columns:minmax(120px,220px) auto;align-items:end;gap:10px;border:1px solid var(--line);border-radius:8px;background:#121615;padding:10px}.pp-notification-rule .pp-input{width:min(100%,180px)}.pp-notification-rule .pp-row-actions{flex-wrap:nowrap}.pp-notification-rule .pp-row-actions .pp-input{width:7ch;max-width:7ch}.pp-notification-switch{display:grid;gap:5px;align-self:end;color:var(--muted);font-size:12px}.pp-ledger-scroll{max-height:430px;overflow:auto}.pp-ledger-scroll .pp-table thead th{position:sticky;top:0;z-index:2}
-    .pp-form-title{grid-column:span 6;color:#fff;font-weight:700;border-top:1px solid var(--line);padding-top:10px;margin-top:4px}.pp-form-title:first-child{border-top:0;padding-top:0;margin-top:0}
+    .pp-form-title{grid-column:1/-1;color:#fff;font-weight:700;border-top:1px solid var(--line);padding-top:10px;margin-top:4px}.pp-form-title:first-child{border-top:0;padding-top:0;margin-top:0}
     .pp-loyalty-list{display:flex;flex-wrap:wrap;gap:8px}.pp-loyalty-list .pp-row-actions{border:1px solid var(--line);border-radius:8px;background:#121615;padding:8px}.pp-loyalty-list .pp-select{width:auto}
     .pp-input,.pp-select,.pp-textarea{width:calc(100% - 8px);max-width:calc(100% - 8px);min-height:34px;border:1px solid var(--line);border-radius:6px;background:#0f1111;color:var(--text);padding:7px 9px;margin-left:4px;margin-right:4px;outline:none}.pp-input[type="date"]::-webkit-calendar-picker-indicator{filter:invert(1);opacity:.78}.pp-textarea{min-height:78px;resize:vertical}.pp-select-fit{width:var(--select-width,auto);max-width:calc(100% - 8px)}.pp-input:focus,.pp-select:focus,.pp-textarea:focus{border-color:rgba(70,197,143,.82);box-shadow:0 0 0 2px rgba(70,197,143,.12)}.pp-input:disabled,.pp-select:disabled,.pp-textarea:disabled{opacity:.74;color:var(--muted);background:var(--panel2);cursor:not-allowed}
     .pp-color-pair{display:grid;grid-template-columns:minmax(0,1fr) 42px;gap:6px}.pp-color-picker{width:42px;min-height:34px;border:1px solid var(--line);border-radius:6px;background:#0f1111;padding:3px;cursor:pointer}
@@ -319,7 +321,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
     .pp-hover-tooltip-empty{color:var(--tip-muted,#a8b0aa)}
     @media (max-width:860px){#pythagoras-cis{top:8px;right:8px;left:8px!important;width:auto;max-height:calc(100vh - 16px);resize:none}.pp-titlebar{grid-template-columns:1fr;cursor:default}.pp-actions{justify-content:flex-start}.pp-panel.is-half,.pp-panel.is-third{grid-column:span 12}.pp-form{grid-template-columns:repeat(2,minmax(0,1fr))}.pp-field.span-2,.pp-field.span-3,.pp-field.span-4,.pp-field.span-6,.pp-settings-nav,.pp-action-grid,.pp-report-options{grid-column:span 2}.pp-statline,.pp-settings-nav,.pp-action-grid,.pp-report-options,.pp-operational,.pp-theme-editor{grid-template-columns:repeat(2,minmax(0,1fr))}.pp-priority-grid,.pp-notification-grid{grid-template-columns:1fr}.pp-discount-row{grid-template-columns:repeat(2,minmax(0,1fr))}.pp-timeline-panel,.pp-analytics-panel{height:min(72vh,680px)}}
     @media (max-width:860px){.pp-sync-center{grid-template-columns:1fr}.pp-sync-console{max-height:150px}}
-    @media (max-width:560px){#pythagoras-cis{top:0;right:0;left:0!important;width:100vw;max-height:100vh;border-radius:0}.pp-body{padding:8px}.pp-head{padding:14px 76px 12px 10px}.pp-grid,.pp-ledger-add-form,.pp-statline,.pp-operational,.pp-settings-nav,.pp-action-grid,.pp-report-options,.pp-theme-editor,.pp-discount-row{grid-template-columns:1fr}.pp-field,.pp-field.span-2,.pp-field.span-3,.pp-field.span-4,.pp-field.span-6,.pp-ledger-preview-field{grid-column:span 1}.pp-ledger-add-form .pp-input,.pp-ledger-add-form .pp-select{width:calc(100vw - 44px);max-width:calc(100vw - 44px)}.pp-calendar{grid-template-columns:1fr;overflow-x:visible}.pp-table{min-width:680px}.pp-modal-card{width:calc(100vw - 16px);max-height:calc(100vh - 16px)}.pp-notification-rule{grid-template-columns:1fr}.pp-toast{right:10px;bottom:10px}}
+    @media (max-width:560px){#pythagoras-cis{top:0;right:0;left:0!important;width:100vw;max-height:100vh;border-radius:0}.pp-body{padding:8px}.pp-head{padding:14px 76px 12px 10px}.pp-grid,.pp-form,.pp-ledger-add-form,.pp-statline,.pp-operational,.pp-settings-nav,.pp-action-grid,.pp-report-options,.pp-theme-editor,.pp-discount-row{grid-template-columns:1fr}.pp-field,.pp-field.span-2,.pp-field.span-3,.pp-field.span-4,.pp-field.span-6,.pp-ledger-preview-field{grid-column:span 1}.pp-ledger-add-form .pp-input,.pp-ledger-add-form .pp-select{width:calc(100vw - 44px);max-width:calc(100vw - 44px)}.pp-calendar{grid-template-columns:1fr;overflow-x:visible}.pp-table{min-width:680px}.pp-modal-card{width:calc(100vw - 16px);max-height:calc(100vh - 16px)}.pp-notification-rule{grid-template-columns:1fr}.pp-toast{right:10px;bottom:10px}}
   `;
 
   const Utils = {
@@ -970,14 +972,21 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
           observedAt,
           advertisingBudget: Math.round(budget),
           advertisingBudgetKnown: known,
-          source: String(raw.source || rawMeta.source || 'business-sync').trim() || 'business-sync'
+          source: String(raw.source || rawMeta.source || 'business-sync').trim() || 'business-sync',
+          exact: raw.exact === true || rawMeta.exact === true || String(raw.source || rawMeta.source || '').includes('torn-user-log-6283'),
+          sourceLogId: String(raw.sourceLogId || raw.source_log_id || rawMeta.sourceLogId || rawMeta.source_log_id || '').trim(),
+          oldBudget: Utils.num(raw.oldBudget ?? raw.old_budget ?? rawMeta.oldBudget ?? rawMeta.old_budget, null),
+          logTimestamp: Utils.int(raw.logTimestamp || raw.log_timestamp || rawMeta.logTimestamp || rawMeta.log_timestamp, 0)
         };
         const existing = byDate.get(date);
-        if (!existing || Utils.dateTimestamp(row.observedAt) >= Utils.dateTimestamp(existing.observedAt)) byDate.set(date, row);
+        const shouldReplace = !existing
+          || (row.exact && !existing.exact)
+          || (row.exact === existing.exact && Utils.dateTimestamp(row.observedAt) >= Utils.dateTimestamp(existing.observedAt));
+        if (shouldReplace) byDate.set(date, row);
       });
       const sorted = Array.from(byDate.values()).sort((a, b) => String(a.date).localeCompare(String(b.date)));
       sorted.forEach((row, index) => {
-        if (Utils.num(row.advertisingBudget, 0) > 0) return;
+        if (Utils.num(row.advertisingBudget, 0) > 0 || row.exact) return;
         let previous = null;
         let next = null;
         for (let cursor = index - 1; cursor >= 0; cursor -= 1) {
@@ -1005,6 +1014,75 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
     },
     mergeAdBudgetHistory(base, extra) {
       return Store.normaliseAdBudgetHistory([].concat(Array.isArray(base) ? base : [], Array.isArray(extra) ? extra : []));
+    },
+    normaliseAdBudgetChangeEvents(rows, companyId) {
+      const expectedCompanyId = String(companyId || '').trim();
+      const byId = new Map();
+      (Array.isArray(rows) ? rows : []).forEach((raw, index) => {
+        if (!raw || typeof raw !== 'object') return;
+        const details = raw.details && typeof raw.details === 'object' ? raw.details : {};
+        const data = raw.data && typeof raw.data === 'object' ? raw.data : raw;
+        const logId = Utils.int(details.id || raw.log || raw.log_id || raw.logId, 0);
+        if (logId !== 6283) return;
+        const eventCompanyId = String(data.company || data.company_id || raw.companyId || raw.company_id || '').trim();
+        if (expectedCompanyId && eventCompanyId && eventCompanyId !== expectedCompanyId) return;
+        const timestamp = Utils.int(raw.timestamp || raw.time || raw.date, 0);
+        const oldBudget = Utils.num(data.old_budget ?? data.oldBudget, null);
+        const newBudget = Utils.num(data.new_budget ?? data.newBudget, null);
+        if (!timestamp || oldBudget === null || newBudget === null || oldBudget < 0 || newBudget < 0) return;
+        const id = String(raw.id || raw.log_id || `6283:${timestamp}:${oldBudget}:${newBudget}:${index}`).trim();
+        byId.set(id, {
+          id,
+          logId: 6283,
+          timestamp,
+          observedAt: new Date(timestamp * 1000).toISOString(),
+          companyDay: Utils.tctCompanyDayKey(timestamp * 1000),
+          companyId: eventCompanyId || expectedCompanyId,
+          oldBudget: Math.round(oldBudget),
+          newBudget: Math.round(newBudget),
+          title: String(details.title || 'Company advertising budget'),
+          source: 'torn-user-log-6283'
+        });
+      });
+      return Array.from(byId.values()).sort((a, b) => a.timestamp - b.timestamp || String(a.id).localeCompare(String(b.id)));
+    },
+    mergeAdBudgetChangeEvents(base, extra, companyId) {
+      return Store.normaliseAdBudgetChangeEvents([].concat(Array.isArray(base) ? base : [], Array.isArray(extra) ? extra : []), companyId);
+    },
+    adBudgetHistoryFromChangeEvents(events, companyStart) {
+      const rows = Store.normaliseAdBudgetChangeEvents(events);
+      if (!rows.length) return [];
+      const first = rows[0];
+      const previousDayDate = new Date(`${first.companyDay}T00:00:00.000Z`);
+      previousDayDate.setUTCDate(previousDayDate.getUTCDate() - 1);
+      const previousDay = previousDayDate.toISOString().slice(0, 10);
+      const foundedDate = Utils.dateInput(companyStart);
+      const baselineDate = foundedDate && foundedDate <= previousDay ? foundedDate : previousDay;
+      const history = [{
+        date: baselineDate,
+        observedAt: new Date(Math.max(0, first.timestamp - 1) * 1000).toISOString(),
+        advertisingBudget: first.oldBudget,
+        advertisingBudgetKnown: true,
+        exact: true,
+        sourceLogId: first.id,
+        oldBudget: first.oldBudget,
+        logTimestamp: Math.max(0, first.timestamp - 1),
+        source: 'torn-user-log-6283-baseline'
+      }];
+      rows.forEach((event) => {
+        history.push({
+          date: event.companyDay,
+          observedAt: event.observedAt,
+          advertisingBudget: event.newBudget,
+          advertisingBudgetKnown: true,
+          exact: true,
+          sourceLogId: event.id,
+          oldBudget: event.oldBudget,
+          logTimestamp: event.timestamp,
+          source: 'torn-user-log-6283'
+        });
+      });
+      return Store.normaliseAdBudgetHistory(history);
     },
     normaliseOperatingCostHistory(rows) {
       const byDate = new Map();
@@ -1416,6 +1494,8 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         if (business.companyProfile) state.company.profile = Store.merge(state.company.profile || {}, business.companyProfile);
         if (business.companyDetailed) state.company.detailed = Store.merge(state.company.detailed || {}, business.companyDetailed);
         if (Array.isArray(business.adBudgetHistory)) state.company.adBudgetHistory = Store.mergeAdBudgetHistory(state.company.adBudgetHistory || [], business.adBudgetHistory);
+        if (Array.isArray(business.adBudgetChangeEvents)) state.company.adBudgetChangeEvents = Store.mergeAdBudgetChangeEvents(state.company.adBudgetChangeEvents || [], business.adBudgetChangeEvents, state.settings && state.settings.companyId);
+        if (business.adBudgetLogSync) state.company.adBudgetLogSync = Store.merge(state.company.adBudgetLogSync || {}, business.adBudgetLogSync);
         if (Array.isArray(business.operatingCostHistory)) state.company.operatingCostHistory = Store.mergeOperatingCostHistory(state.company.operatingCostHistory || [], business.operatingCostHistory);
         if (business.settings) state.settings = Store.merge(state.settings || {}, business.settings);
       }
@@ -1457,6 +1537,8 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
           companyProfile: Utils.clone(state.company.profile || {}),
           companyDetailed: Utils.clone(state.company.detailed || {}),
           adBudgetHistory: Utils.clone(state.company.adBudgetHistory || []),
+          adBudgetChangeEvents: Utils.clone(state.company.adBudgetChangeEvents || []),
+          adBudgetLogSync: Utils.clone(state.company.adBudgetLogSync || {}),
           operatingCostHistory: Utils.clone(state.company.operatingCostHistory || []),
           settings: {
             companyId: state.settings.companyId || '',
@@ -1798,6 +1880,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
       let next = Store.applyProfile(Store.applyAdminConfig(Store.migrate(Store.merge(Utils.clone(DEFAULTS), state || {}))), localProfile);
       const localStaffEdits = next.staff && next.staff.localEdits && typeof next.staff.localEdits === 'object' && !Array.isArray(next.staff.localEdits) ? Utils.clone(next.staff.localEdits) : {};
       const localStaffEditVersion = Utils.int(next.staff && next.staff.localEditVersion, 0);
+      const localTrainingLogRows = (next.trainingLog || []).filter((row) => row && (row.source === 'user_log' || row.source === 'mixed')).map((row) => Utils.clone(row));
       const data = response.data || {};
       const company = data.company || {};
       const settings = data.settings && typeof data.settings === 'object' && !Array.isArray(data.settings) ? data.settings : {};
@@ -1844,6 +1927,14 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
       next.company.adBudgetHistory = Store.mergeAdBudgetHistory(next.company.adBudgetHistory || [], []
         .concat(Array.isArray(settings.adBudgetHistory) ? settings.adBudgetHistory : [])
         .concat(Array.isArray(data.adBudgetHistory) ? data.adBudgetHistory : []));
+      next.company.adBudgetChangeEvents = Store.mergeAdBudgetChangeEvents(next.company.adBudgetChangeEvents || [], []
+        .concat(Array.isArray(settings.adBudgetChangeEvents) ? settings.adBudgetChangeEvents : [])
+        .concat(Array.isArray(data.adBudgetChangeEvents) ? data.adBudgetChangeEvents : []), next.settings.companyId || next.company.profile.id);
+      next.company.adBudgetLogSync = Store.merge(next.company.adBudgetLogSync || {}, settings.adBudgetLogSync || data.adBudgetLogSync || {});
+      next.company.adBudgetHistory = Store.mergeAdBudgetHistory(next.company.adBudgetHistory || [], Store.adBudgetHistoryFromChangeEvents(
+        next.company.adBudgetChangeEvents,
+        next.company.profile.foundedAt || next.company.profile.created || next.company.profile.foundedTimestamp
+      ));
       next.company.operatingCostHistory = Store.mergeOperatingCostHistory(next.company.operatingCostHistory || [], []
         .concat(Array.isArray(settings.operatingCostHistory) ? settings.operatingCostHistory : [])
         .concat(Array.isArray(data.operatingCostHistory) ? data.operatingCostHistory : [])
@@ -1863,7 +1954,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
       const timeline = (data.events || []).map((row) => Store.dbEventToTimeline(row));
       const reports = (data.dailyReports || []).map((row) => Store.reportToTimeline(row));
       next.staff.timeline = Timeline.mergeTimeline(timeline, reports);
-      next.trainingLog = timeline.filter((event) => event.type === 'training');
+      next.trainingLog = Timeline.mergeTrainingRows(Timeline.trainingLogsFromEvents(timeline, next).concat(localTrainingLogRows), next);
       next.analytics.weeks = Timeline.analyticsFromEvents(next.staff.timeline, next);
       next.ledger = Store.mergeLedgerRows((data.trainingOrders || []).map((row) => Store.dbOrderToLedger(row)), Store.loadLedgerPending().orders);
       if (watermarks.events) {
@@ -2015,6 +2106,12 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
       }
       Store.applyStockSettings(state);
       state.company.adBudgetHistory = Store.normaliseAdBudgetHistory(state.company.adBudgetHistory || []);
+      state.company.adBudgetChangeEvents = Store.normaliseAdBudgetChangeEvents(state.company.adBudgetChangeEvents || [], settings.companyId || state.company.profile.id);
+      state.company.adBudgetLogSync = Store.merge(Utils.clone(DEFAULTS.company.adBudgetLogSync), state.company.adBudgetLogSync || {});
+      state.company.adBudgetHistory = Store.mergeAdBudgetHistory(state.company.adBudgetHistory, Store.adBudgetHistoryFromChangeEvents(
+        state.company.adBudgetChangeEvents,
+        state.company.profile.foundedAt || state.company.profile.created || state.company.profile.foundedTimestamp
+      ));
       state.company.operatingCostHistory = Store.normaliseOperatingCostHistory(state.company.operatingCostHistory || []);
       state.company.newsSync = Store.merge(Utils.clone(DEFAULTS.company.newsSync), state.company.newsSync || {});
       state.company.newsSync.reportGapAttempts = state.company.newsSync.reportGapAttempts && typeof state.company.newsSync.reportGapAttempts === 'object' && !Array.isArray(state.company.newsSync.reportGapAttempts)
@@ -2451,6 +2548,11 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
     },
     companyNews(key, params) {
       return ApiClient.companyV2('news', key, params);
+    },
+    companyLog(logId, key, params) {
+      const id = Utils.int(logId, 0);
+      if (!id) return Promise.reject(new Error('A Torn company log ID is required.'));
+      return ApiClient.requestV2('user/log', key, Object.assign({ log: id, limit: 100 }, params || {}));
     },
     postJson(rawUrl, payload, timeout) {
       let url;
@@ -4386,6 +4488,21 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         byKey.set(key, row);
       });
       return Array.from(byKey.values()).sort((a, b) => String(b.date).localeCompare(String(a.date)) || String(a.playerName).localeCompare(String(b.playerName)));
+    },
+    companyTrainingRowsFromUserLog(data, state) {
+      const people = Company.dedupePeople([]
+        .concat(state && state.staff && state.staff.current || [])
+        .concat(state && state.staff && state.staff.past || [])
+        .concat(state && state.company && state.company.profile && state.company.profile.employees || []));
+      const peopleById = new Map(people.map((person) => [String(person && person.id || '').trim(), person]).filter(([id]) => id));
+      const actions = Timeline.staffActionsFromUserLog(data, {}, state).filter((action) => action.type === 'training').map((action) => {
+        const person = peopleById.get(String(action.userId || '').trim()) || {};
+        return Object.assign({}, action, {
+          playerName: person.name || action.playerName || action.userId || '',
+          position: person.role || action.position || 'Employee'
+        });
+      });
+      return Timeline.trainingRowsFromStaffActions(actions, {});
     },
     trainingNewsForPerson(person, state) {
       const id = String(person && person.id || '').trim();
@@ -6727,9 +6844,10 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
           tab: 'settings',
           selector: '[data-tour="sync-training-log"]',
           title: 'Sync training log',
-          text: 'Sync training log converts stored training news into structured local train records.',
+          text: 'Sync training log combines company news with Torn\'s exact training-action log into structured local train records.',
           notes: [
             'Rows are linked by Torn user ID where possible, not just by name.',
+            'The action log prevents same-second trains from being collapsed by the company-news feed and requires Full/custom user log access.',
             'Training counts feed STR and PTR columns based on each staff member contract type.',
             'The Training log view groups recent days into pill-style daily entries.'
           ]
@@ -7696,6 +7814,56 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
       const syncedAt = Utils.dateTimestamp(profile.lastSynced);
       const currentRating = Utils.int(profile.rating || UI.state.settings.companyStars, 0);
       return syncedAt && syncedAt <= at ? Utils.clamp(currentRating, 0, 10) : 0;
+    },
+    async syncAdBudgetChangeHistory(options) {
+      const opts = options || {};
+      const companyId = String(UI.state.settings.companyId || UI.state.company.profile.id || '').trim();
+      const sync = Store.merge(Utils.clone(DEFAULTS.company.adBudgetLogSync), UI.state.company.adBudgetLogSync || {});
+      const existing = Store.normaliseAdBudgetChangeEvents(UI.state.company.adBudgetChangeEvents || [], companyId);
+      const existingIds = new Set(existing.map((row) => row.id));
+      const fullBackfill = opts.backfill === undefined ? !sync.firstBackfillDone : opts.backfill === true;
+      const maxPages = fullBackfill ? 100 : 1;
+      let pages = 0;
+      let nextUrl = '';
+      let fetched = [];
+      do {
+        const data = pages === 0
+          ? await ApiClient.companyLog(6283, UI.state.settings.apiKey, { limit: 100 })
+          : await ApiClient.requestV2Url(nextUrl, UI.state.settings.apiKey);
+        const pageRows = Timeline.userLogRows(data).map(([, item]) => item).filter(Boolean);
+        fetched = fetched.concat(pageRows);
+        pages += 1;
+        nextUrl = ApiClient.safeNextLink(data);
+        if (nextUrl && pages < maxPages) await Utils.sleep(600);
+      } while (nextUrl && pages < maxPages);
+
+      const incoming = Store.normaliseAdBudgetChangeEvents(fetched, companyId);
+      const merged = Store.mergeAdBudgetChangeEvents(existing, incoming, companyId);
+      UI.state.company.adBudgetChangeEvents = merged;
+      UI.state.company.adBudgetHistory = Store.mergeAdBudgetHistory(
+        UI.state.company.adBudgetHistory || [],
+        Store.adBudgetHistoryFromChangeEvents(
+          merged,
+          UI.state.company.profile.foundedAt || UI.state.company.profile.created || UI.state.company.profile.foundedTimestamp
+        )
+      );
+      const timestamps = merged.map((row) => Utils.int(row.timestamp, 0)).filter(Boolean);
+      UI.state.company.adBudgetLogSync = Object.assign(sync, {
+        firstBackfillDone: sync.firstBackfillDone || (fullBackfill && !nextUrl),
+        lastSynced: Utils.nowIso(),
+        oldestTimestamp: timestamps.length ? Math.min.apply(null, timestamps) : 0,
+        latestTimestamp: timestamps.length ? Math.max.apply(null, timestamps) : 0,
+        fetchedPages: Utils.int(sync.fetchedPages, 0) + pages,
+        lastError: ''
+      });
+      return {
+        added: merged.filter((row) => !existingIds.has(row.id)).length,
+        fetched: incoming.length,
+        stored: merged.length,
+        pages,
+        fullBackfill,
+        complete: !nextUrl
+      };
     },
     recordAdBudgetHistory(source, observedAt) {
       const detailed = UI.state.company.detailed || {};
@@ -10614,6 +10782,8 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         profile,
         detailed,
         adBudgetHistory: UI.adBudgetHistoryForApi(),
+        adBudgetChangeEvents: Store.normaliseAdBudgetChangeEvents(UI.state.company.adBudgetChangeEvents || [], profile.id || detailed.id || UI.state.settings.companyId),
+        adBudgetLogSync: Utils.clone(UI.state.company.adBudgetLogSync || {}),
         operatingCostHistory: UI.operatingCostHistoryForApi(),
         settings: sanitized.settings || {}
       };
@@ -11179,6 +11349,10 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         <div class="pp-content">
           <div class="pp-changelog">
             <details open>
+              <summary>v3.0.4 - Mobile settings and exact training counts</summary>
+              <ul><li>Settings forms now collapse to full-width mobile columns without narrow implicit grid tracks.</li><li>Training log sync uses Torn's exact training-action log to recover same-second trains that company news can collapse.</li><li>Exact user-log rows survive cloud workspace reloads and immediately correct linked ledger usage without double-counting news.</li></ul>
+            </details>
+            <details>
               <summary>v3.0.3 - Employee Efficiency component trends</summary>
               <ul><li>Employee history now runs newest to oldest, keeping the latest completed Torn day closest to the employee names.</li><li>A 7-day history range is available alongside the existing 14, 30, 90, and all-time ranges; free accounts are strictly limited to their latest seven company days.</li><li>The employee selector keeps the current-staff comparison grid for All and shows all nine raw EE components as dated lines for an individual current employee. The choice is session-only and resets to All after reload.</li></ul>
             </details>
@@ -12231,7 +12405,12 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
               updated.wage = action.newWage;
             }
           });
-          if (trainingRows.length) UI.state.trainingLog = Timeline.mergeTrainingRows((UI.state.trainingLog || []).concat(trainingRows), UI.state);
+          if (trainingRows.length) {
+            UI.state.trainingLog = Timeline.mergeTrainingRows((UI.state.trainingLog || []).concat(trainingRows), UI.state);
+            Ledger.syncTrainingLog(UI.state);
+            UI.recordLedgerPending();
+            UI.scheduleLedgerCloudSave(100);
+          }
           const inferredRanks = Timeline.inferRoleRankMap(actions, person, UI.state);
           const updates = {
             roleLogSyncedAt: Utils.nowIso(),
@@ -12994,6 +13173,20 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         const businessStale = UI.syncStatus('business') !== 'fresh';
         const stockStale = UI.syncStatus('stock') !== 'fresh';
         const employeesStale = UI.syncStatus('employees') !== 'fresh';
+        if (!businessStale) {
+          try {
+            UI.syncStep(syncId, 'Checking advertisement-budget change log.', 52);
+            const budgetLog = await UI.syncAdBudgetChangeHistory();
+            if (budgetLog.added) {
+              Store.save(UI.state);
+              Store.updateSyncCache(UI.state, 'business');
+              await UI.uploadSyncState(syncId, { business: true });
+            }
+          } catch (error) {
+            UI.state.company.adBudgetLogSync = Object.assign({}, UI.state.company.adBudgetLogSync || {}, { lastError: error.message || String(error) });
+            console.warn('[Pythagoras Project - CIS] Advertisement-budget log sync skipped.', error);
+          }
+        }
         if (businessStale) {
           UI.syncStep(syncId, 'Business data is stale; running business sync.', 58);
           await UI.syncBusiness();
@@ -13034,6 +13227,17 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         UI.state.staff.timeline = Timeline.reclassify(Timeline.mergeTimeline(UI.state.staff.timeline, incoming));
         Timeline.rebuildPeople(UI.state);
         UI.state.analytics.weeks = Timeline.analyticsFromEvents(UI.state.staff.timeline, UI.state);
+        let exactRows = [];
+        let exactLogError = '';
+        try {
+          UI.syncStep(syncId, 'Requesting exact Torn training actions.', 48);
+          const logData = await ApiClient.companyLog(6263, UI.state.settings.apiKey, { limit: 100 });
+          exactRows = Timeline.companyTrainingRowsFromUserLog(logData, UI.state);
+          if (exactRows.length) UI.state.trainingLog = Timeline.mergeTrainingRows((UI.state.trainingLog || []).concat(exactRows), UI.state);
+        } catch (error) {
+          exactLogError = error && error.message ? error.message : String(error || 'Training action log unavailable.');
+          console.warn('[Pythagoras Project - CIS] Exact training action log sync skipped.', error);
+        }
         if (incoming.length) {
           const timestamps = incoming.map((event) => Utils.int(event.timestamp, 0)).filter(Boolean);
           if (timestamps.length) {
@@ -13046,7 +13250,8 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         UI.state.company.newsSync.lastSynced = Utils.nowIso();
         UI.state.company.newsSync.fetchedPages += 1;
         const logs = Ledger.syncTrainingLog(UI.state);
-        UI.syncStep(syncId, 'Rebuilding train schedule.', 60);
+        UI.recordLedgerPending();
+        UI.syncStep(syncId, 'Rebuilding train schedule.', 68);
         Planner.build(UI.state);
         UI.captureOperatingCostHistory('training-log-sync');
         const stored = (UI.state.trainingLog || []).length;
@@ -13056,7 +13261,12 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
           events: incoming,
           reports: UI.reportsFromEventsForApi(incoming)
         });
-        const message = `Synced ${logs.length} visible training log row${logs.length === 1 ? '' : 's'} from ${incoming.length} latest company news entr${incoming.length === 1 ? 'y' : 'ies'} (${stored} stored).`;
+        await UI.uploadLedgerCloudSave();
+        const exactTrainCount = exactRows.reduce((sum, row) => sum + Utils.int(row.count, 0), 0);
+        const exactText = exactRows.length
+          ? ` Exact action logs supplied ${exactTrainCount} train${exactTrainCount === 1 ? '' : 's'} across ${exactRows.length} daily row${exactRows.length === 1 ? '' : 's'}.`
+          : (exactLogError ? ' Exact counts were unavailable; a Full/custom key with user log access is required.' : ' No recent exact training actions were returned.');
+        const message = `Synced ${logs.length} visible training log row${logs.length === 1 ? '' : 's'} from ${incoming.length} latest company news entr${incoming.length === 1 ? 'y' : 'ies'} (${stored} stored).${exactText}`;
         UI.saveRender(message);
         UI.finishSync(syncId, message);
       } catch (error) {
@@ -13558,14 +13768,29 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
           stock: stockData && (stockData.stock || stockData.company_stock || stockData),
           employees: employeeData && (employeeData.employees || employeeData.company_employees || employeeData)
         };
-        UI.syncStep(syncId, 'Parsing business profile data.', 45);
+        UI.syncStep(syncId, 'Parsing business profile data.', 42);
         const result = UI.applyBusinessData(data) || {};
+        let budgetLog = null;
+        let budgetLogWarning = '';
+        try {
+          UI.syncStep(syncId, 'Fetching advertisement-budget change history from Torn log 6283.', 56);
+          budgetLog = await UI.syncAdBudgetChangeHistory();
+        } catch (error) {
+          budgetLogWarning = error && error.message ? error.message : String(error);
+          UI.state.company.adBudgetLogSync = Object.assign({}, UI.state.company.adBudgetLogSync || {}, { lastError: budgetLogWarning });
+          console.warn('[Pythagoras Project - CIS] Advertisement-budget log sync skipped.', error);
+        }
         const warnings = Company.stockWarnings(UI.state);
         Store.save(UI.state);
         Store.updateSyncCache(UI.state, ['business', 'employees', 'stock', 'planner']);
         await UI.uploadSyncState(syncId, { business: true, staff: UI.staffPayloadForApi({ dailyHistory: result.dailyHistory || [] }), stock: true });
         const strikeText = result.riskStrikes ? ` ${result.riskStrikes} staff risk strike${result.riskStrikes === 1 ? '' : 's'} recorded.` : '';
-        const message = warnings.length ? `Business synced. ${warnings.length} stock row${warnings.length === 1 ? '' : 's'} need attention.${strikeText}` : `Business Profile synced.${strikeText}`;
+        const budgetText = budgetLog
+          ? ` ${budgetLog.stored} exact advertisement-budget change${budgetLog.stored === 1 ? '' : 's'} stored${budgetLog.added ? ` (${budgetLog.added} new)` : ''}.`
+          : budgetLogWarning
+            ? ' Advertisement-budget history was skipped because this key cannot read log 6283.'
+            : '';
+        const message = warnings.length ? `Business synced. ${warnings.length} stock row${warnings.length === 1 ? '' : 's'} need attention.${strikeText}${budgetText}` : `Business Profile synced.${strikeText}${budgetText}`;
         UI.saveRender(message);
         UI.finishSync(syncId, message);
       } catch (error) {
@@ -13592,6 +13817,12 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         UI.syncStep(syncId, 'Parsing company detail fields.', 55);
         UI.state.company.detailed = Company.detailed(data, UI.state);
         UI.recordAdBudgetHistory('company-detail-sync', UI.state.company.detailed.lastSynced);
+        try {
+          await UI.syncAdBudgetChangeHistory();
+        } catch (error) {
+          UI.state.company.adBudgetLogSync = Object.assign({}, UI.state.company.adBudgetLogSync || {}, { lastError: error.message || String(error) });
+          console.warn('[Pythagoras Project - CIS] Advertisement-budget log sync skipped.', error);
+        }
         if (UI.state.company.detailed.id && !UI.state.settings.companyId) UI.state.settings.companyId = UI.state.company.detailed.id;
         Planner.build(UI.state);
         Store.save(UI.state);
