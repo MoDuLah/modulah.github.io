@@ -48,6 +48,13 @@
 - **Miscellaneous**: Release Pythagoras CIS v2.9.8
 - **Miscellaneous**: Update Pythagoras CIS site to v2.9.7
 
+## v3.0.4 (2026-07-26)
+
+### Miscellaneous
+
+- **Miscellaneous**: Release Pythagoras CIS v3.0.4
+
+
 
 
 
