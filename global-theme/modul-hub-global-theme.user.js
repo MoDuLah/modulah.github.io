@@ -20,7 +20,7 @@
   if (window.MoDuLHubGlobalTheme) return;
 
   const VERSION = '0.2.10';
-  const THEME_CONTRACT_VERSION = '1.0.0';
+  const THEME_CONTRACT_VERSION = '1.1.0';
   const CSS_VAR_PREFIX = '--mh-';
   const STORAGE_KEY = 'modulHubGlobalTheme.v2';
   const STYLE_ID = 'modul-hub-global-theme-style';
