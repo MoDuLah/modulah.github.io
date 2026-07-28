@@ -93,6 +93,13 @@
 - **Miscellaneous**: Release Pit Guru 2.3.2 prediction fixes
 - **Miscellaneous**: Release Pit Guru v2.3.1 window sizing hotfix
 
+## v2.3.2 (2026-07-28)
+
+### Miscellaneous
+
+- **Miscellaneous**: Release Pit Guru 2.3.2 prediction fixes
+
+
 
 
 
