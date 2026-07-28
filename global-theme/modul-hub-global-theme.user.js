@@ -1513,7 +1513,9 @@ ${selectorDescAndSelfAll(target, THEME_SELECTORS.success)} {
         moved: false
       };
       btn.classList.add('mhc-dragging');
-      try { btn.setPointerCapture(e.pointerId); } catch (_) { }
+      try { btn.setPointerCapture(e.pointerId); } catch (_) {
+        // Pointer capture is optional in userscript host browsers.
+      }
     });
 
     btn.addEventListener('pointermove', e => {
@@ -1534,7 +1536,9 @@ ${selectorDescAndSelfAll(target, THEME_SELECTORS.success)} {
       const completed = drag;
       drag = null;
       btn.classList.remove('mhc-dragging');
-      try { btn.releasePointerCapture(e.pointerId); } catch (_) { }
+      try { btn.releasePointerCapture(e.pointerId); } catch (_) {
+        // The host may already have released pointer capture.
+      }
       if (!completed.moved) return;
       currentConfig.triggerPosition = completed.position;
       gmSet(STORAGE_KEY, currentConfig);
