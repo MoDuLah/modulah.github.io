@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         MoDuL Hub Global Theme
 // @namespace    modul.hub.global-theme
-// @version      0.2.9
+// @version      0.2.10
 // @description  One-place live palette, font, radius, unit-aware spacing, padding, margin, and compatibility controller for MoDuL Torn userscripts.
 // @author       MoDuL
 // @match        https://www.torn.com/*
@@ -19,7 +19,7 @@
 
   if (window.MoDuLHubGlobalTheme) return;
 
-  const VERSION = '0.2.9';
+  const VERSION = '0.2.10';
   const THEME_CONTRACT_VERSION = '1.0.0';
   const CSS_VAR_PREFIX = '--mh-';
   const STORAGE_KEY = 'modulHubGlobalTheme.v2';
@@ -109,6 +109,8 @@
     states: {
       accent: 'accent',
       muted: 'muted',
+      active: 'active',
+      selected: 'selected',
       success: 'success',
       warning: 'warning',
       danger: 'danger',
@@ -131,6 +133,10 @@
       ':is(button,.button,[role="button"])',
       `:is(.${THEME_CLASSES.button})`,
       ':is([data-mh-component="button"])'
+    ],
+    selectedButton: [
+      ':is(button.active,button.is-active,.button.active,.button.is-active,[role="tab"][aria-selected="true"],[role="button"][aria-selected="true"])',
+      ':is([data-mh-component="button"][data-mh-state="active"],[data-mh-component="button"][data-mh-state="selected"],[data-mh-component="button"][aria-selected="true"])'
     ],
     select: [
       ':is(select)',
@@ -181,6 +187,10 @@
     tableHead: '#13200d',
     control: '#17250f',
     controlHover: '#203414',
+    controlActive: '#44f582',
+    controlActiveText: '#071107',
+    controlActiveBorder: '#44f582',
+    controlActiveRing: 'rgba(68, 245, 130, 0.30)',
     border: '#8fbf26',
     borderSoft: 'rgba(159, 212, 47, 0.32)',
     borderStrong: '#9fd42f',
@@ -443,7 +453,7 @@
 
   const COLOUR_GROUPS = Object.freeze([
     ['Backgrounds', ['bg', 'bgSoft', 'panel', 'panel2', 'elevated', 'tableBg', 'tableHead']],
-    ['Controls & Borders', ['control', 'controlHover', 'border', 'borderSoft', 'borderStrong']],
+    ['Controls & Borders', ['control', 'controlHover', 'controlActive', 'controlActiveText', 'controlActiveBorder', 'controlActiveRing', 'border', 'borderSoft', 'borderStrong']],
     ['Typography Colours', ['text', 'textSoft', 'textMuted']],
     ['Accent & States', ['accent', 'accent2', 'success', 'warning', 'danger', 'info']],
     ['Effects', ['overlay', 'shadow']]
@@ -478,6 +488,7 @@
   const LABELS = Object.freeze({
     bg: 'Page Background', bgSoft: 'Soft Background', panel: 'Panel Surface', panel2: 'Input / Sub Panel', elevated: 'Elevated Surface',
     tableBg: 'Table Body', tableHead: 'Table Header', control: 'Control Background', controlHover: 'Control Hover',
+    controlActive: 'Selected Control', controlActiveText: 'Selected Control Text', controlActiveBorder: 'Selected Control Border', controlActiveRing: 'Selected Control Glow',
     border: 'Border', borderSoft: 'Soft Border', borderStrong: 'Strong Border', text: 'Main Text', textSoft: 'Soft Text', textMuted: 'Muted Text',
     accent: 'Main Accent', accent2: 'Bright Accent', success: 'Success', warning: 'Warning', danger: 'Danger', info: 'Info',
     overlay: 'Modal Overlay', shadow: 'Panel Shadow', radiusSm: 'Radius Small', radiusMd: 'Radius Medium', radiusLg: 'Radius Large', radiusXl: 'Radius XL',
@@ -529,6 +540,19 @@
         const key = def.prefix + side;
         if (!hasOwn(raw, key)) vars[key] = sides[idx];
       });
+    }
+  }
+
+  function normaliseSelectedControlVars(vars, rawVars) {
+    const raw = rawVars && typeof rawVars === 'object' ? rawVars : {};
+    const hasOwn = (obj, key) => Object.prototype.hasOwnProperty.call(obj, key);
+    if (!hasOwn(raw, 'controlActive')) vars.controlActive = vars.accent || DEFAULT_VARS.controlActive;
+    if (!hasOwn(raw, 'controlActiveText')) vars.controlActiveText = vars.bg || DEFAULT_VARS.controlActiveText;
+    if (!hasOwn(raw, 'controlActiveBorder')) vars.controlActiveBorder = vars.accent2 || vars.accent || DEFAULT_VARS.controlActiveBorder;
+    if (!hasOwn(raw, 'controlActiveRing')) {
+      vars.controlActiveRing = vars.accent2
+        ? `color-mix(in srgb, ${vars.accent2} 30%, transparent)`
+        : DEFAULT_VARS.controlActiveRing;
     }
   }
 
@@ -586,7 +610,7 @@
 
   const SCRIPT_TARGETS = Object.freeze([
     { id: 'eggsterminator', name: 'EggsTerminator', short: 'Eggs', selectors: ['.eeh-float', '.eeh-panel', '[id^="eeh-"]', '[class^="eeh-"]', '[class*=" eeh-"]'], defaultAccent: '#a7a7a7' },
-    { id: 'landlordTenant', name: 'Landlord - Tenant', short: 'Landlord', selectors: ['.tlt-shell', '.tlt-panel', '[id^="tlt-"]', '[class^="tlt-"]', '[class*=" tlt-"]'], defaultAccent: '#2f8b96' },
+    { id: 'landlordTenant', name: 'Tornfolio', short: 'Tornfolio', selectors: ['.tlt-shell', '.tlt-panel', '[id^="tlt-"]', '[class^="tlt-"]', '[class*=" tlt-"]'], defaultAccent: '#2f8b96' },
     { id: 'bountyLedger', name: "MoDuL's Bounty Ledger", short: 'Bounty', selectors: ['.mbl-shell', '.mbl-panel', '[id^="mbl-"]', '[class^="mbl-"]', '[class*=" mbl-"]', '.bounty-ledger'], defaultAccent: '#e5bd54' },
     { id: 'customRaceFilter', name: "MoDuL's Custom Race Filter", short: 'Race Filter', selectors: ['.rfAdvWrap', '.rfBtns', '.rfCol', '[class^="rf"]', '[class*=" rf"]'], defaultAccent: '#44f582' },
     { id: 'pitGuru', name: "MoDuL's Pit Guru", short: 'Pit Guru', selectors: ['#mpgPanel', '#mpgRoot', '[id^="mpg"]', '[class^="mpg"]', '[class*=" mpg"]'], defaultAccent: '#ffc83d' },
@@ -631,6 +655,7 @@
     const rawVars = cfg.vars && typeof cfg.vars === 'object' ? cfg.vars : {};
     const vars = { ...DEFAULT_VARS, ...rawVars };
     normaliseBoxVars(vars, rawVars);
+    normaliseSelectedControlVars(vars, rawVars);
     const scripts = clone(DEFAULT_SCRIPTS);
     Object.entries(cfg.scripts || {}).forEach(([id, value]) => {
       if (scripts[id]) scripts[id] = { ...scripts[id], ...value };
@@ -882,6 +907,12 @@
   background: var(--mh-control-hover, #203414);
   border-color: var(--mh-script-accent, var(--mh-accent, #9fd42f));
 }
+:where(.${THEME_CLASSES.button}.active, .${THEME_CLASSES.button}.is-active, [data-mh-component="button"][aria-selected="true"], [data-mh-component="button"][data-mh-state="active"], [data-mh-component="button"][data-mh-state="selected"]) {
+  background: var(--mh-control-active, var(--mh-script-accent, var(--mh-accent, #9fd42f)));
+  color: var(--mh-control-active-text, var(--mh-bg, #071107));
+  border-color: var(--mh-control-active-border, var(--mh-accent-2, #44f582));
+  box-shadow: 0 0 0 2px var(--mh-control-active-ring, color-mix(in srgb, var(--mh-accent-2, #44f582) 30%, transparent));
+}
 :where(.${THEME_CLASSES.table}, [data-mh-component="table"]) {
   width: 100%;
   border-collapse: collapse;
@@ -985,6 +1016,12 @@ ${selectorDesc(target, 'select option:checked')} {
 ${selectorDescAndSelfAll(target, THEME_SELECTORS.button.map(sel => `${sel}:hover`))} {
   background: var(--mh-control-hover, #203414) !important;
   border-color: var(--mh-script-accent, var(--mh-accent, #9fd42f)) !important;
+}
+${selectorDescAndSelfAll(target, THEME_SELECTORS.selectedButton)} {
+  background: var(--mh-control-active, var(--mh-script-accent, var(--mh-accent, #9fd42f))) !important;
+  color: var(--mh-control-active-text, var(--mh-bg, #071107)) !important;
+  border-color: var(--mh-control-active-border, var(--mh-accent-2, #44f582)) !important;
+  box-shadow: 0 0 0 2px var(--mh-control-active-ring, color-mix(in srgb, var(--mh-accent-2, #44f582) 30%, transparent)) !important;
 }
 ${selectorDescAndSelfAll(target, THEME_SELECTORS.table)} {
   border-color: var(--mh-border-soft, rgba(159,212,47,.32)) !important;
@@ -1618,6 +1655,7 @@ ${selectorDescAndSelfAll(target, THEME_SELECTORS.success)} {
       card.addEventListener('click', () => {
         editing.activePreset = preset.id;
         editing.vars = { ...editing.vars, ...preset.vars };
+        normaliseSelectedControlVars(editing.vars, preset.vars);
         applyTheme(editing, 'preview-preset');
         renderAll(overlay, editing);
         setDirty(overlay, true);

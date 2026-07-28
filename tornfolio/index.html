@@ -116,5 +116,41 @@
       <p>Part of MoDuL's Hub.</p>
     </footer>
   </div>
+  <script>
+    (() => {
+      const links = Array.from(document.querySelectorAll('.site-nav-link[href^="#"]'));
+      const sections = links
+        .map((link) => document.getElementById(link.getAttribute('href').slice(1)))
+        .filter(Boolean);
+
+      function setActive(id) {
+        links.forEach((link) => {
+          const active = link.getAttribute('href') === `#${id}`;
+          link.classList.toggle('is-active', active);
+          if (active) link.setAttribute('aria-current', 'true');
+          else link.removeAttribute('aria-current');
+        });
+      }
+
+      function syncActive() {
+        const hash = window.location.hash.replace('#', '');
+        if (hash && sections.some((section) => section.id === hash)) {
+          setActive(hash);
+          return;
+        }
+
+        let current = sections[0];
+        const marker = Math.max(120, window.innerHeight * 0.28);
+        for (const section of sections) {
+          if (section.getBoundingClientRect().top <= marker) current = section;
+        }
+        if (current) setActive(current.id);
+      }
+
+      window.addEventListener('hashchange', syncActive);
+      window.addEventListener('scroll', syncActive, { passive: true });
+      syncActive();
+    })();
+  </script>
 </body>
 </html>

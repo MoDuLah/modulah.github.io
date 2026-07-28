@@ -12,6 +12,19 @@ body.script-page {
   background-image: url("../../images/landlord-tenant-ledger/landlord-tenant-ledger-logo.png");
 }
 
+.site-nav-link.is-active,
+.site-nav-link[aria-current="true"] {
+  background: linear-gradient(135deg, var(--accent-2), var(--accent));
+  color: #0b1408;
+  border-color: transparent;
+  box-shadow: 0 0 0 2px rgba(98, 240, 139, 0.18);
+}
+
+.site-nav-link.is-active:hover,
+.site-nav-link[aria-current="true"]:hover {
+  color: #0b1408;
+}
+
 body.script-page[data-script-slug="tornfolio"] .hero-panel::before {
   background-image:
     radial-gradient(circle at 28% 18%, rgba(255,255,255,0.26), rgba(255,255,255,0) 34%),
