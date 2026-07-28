@@ -78,6 +78,14 @@
 - **Miscellaneous**: Release Pythagoras CIS v3.0.4b
 - **Miscellaneous**: Release Pythagoras CIS v3.0.4
 
+## v3.0.4b (2026-07-28)
+
+### Miscellaneous
+
+- **Miscellaneous**: Release Pythagoras CIS v3.0.4b
+- **Miscellaneous**: Release Pythagoras CIS v3.0.4
+
+
 
 
 
