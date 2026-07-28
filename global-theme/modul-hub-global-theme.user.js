@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         MoDuL Hub Global Theme
 // @namespace    modul.hub.global-theme
-// @version      0.2.8
+// @version      0.2.9
 // @description  One-place live palette, font, radius, unit-aware spacing, padding, margin, and compatibility controller for MoDuL Torn userscripts.
 // @author       MoDuL
 // @match        https://www.torn.com/*
@@ -19,7 +19,7 @@
 
   if (window.MoDuLHubGlobalTheme) return;
 
-  const VERSION = '0.2.8';
+  const VERSION = '0.2.9';
   const THEME_CONTRACT_VERSION = '1.0.0';
   const CSS_VAR_PREFIX = '--mh-';
   const STORAGE_KEY = 'modulHubGlobalTheme.v2';
@@ -617,6 +617,15 @@
     return JSON.parse(JSON.stringify(obj));
   }
 
+  function normaliseTriggerPosition(position) {
+    if (!position || typeof position !== 'object') return 'right';
+    const x = Number(position && position.x);
+    const y = Number(position && position.y);
+    return Number.isFinite(x) && Number.isFinite(y)
+      ? { x: Math.round(x), y: Math.round(y) }
+      : 'right';
+  }
+
   function mergeConfig(raw) {
     const cfg = raw && typeof raw === 'object' ? raw : {};
     const rawVars = cfg.vars && typeof cfg.vars === 'object' ? cfg.vars : {};
@@ -633,7 +642,7 @@
       vars,
       scripts,
       bridgeEnabled: cfg.bridgeEnabled !== false,
-      triggerPosition: cfg.triggerPosition || 'right',
+      triggerPosition: normaliseTriggerPosition(cfg.triggerPosition),
       lastFontPreset: cfg.lastFontPreset || 'system'
     };
   }
@@ -736,7 +745,9 @@
     if (!trigger) return;
     const off = mergeConfig(config).enabled === false;
     trigger.classList.toggle('mhc-off', off);
-    trigger.title = off ? 'MoDuL Hub Global Theme is OFF — click to enable/edit (Alt+M)' : 'Open MoDuL Hub Global Theme (Alt+M)';
+    trigger.title = off
+      ? 'MoDuL Hub Global Theme is OFF — click to enable/edit or drag to move (Alt+M)'
+      : 'Click to open or drag to move MoDuL Hub Global Theme (Alt+M)';
     const label = trigger.querySelector('.mhc-trigger-label');
     if (label) label.textContent = off ? 'MoDuL Hub Off' : 'MoDuL Hub';
   }
@@ -1027,9 +1038,13 @@ ${selectorDescAndSelfAll(target, THEME_SELECTORS.success)} {
   box-shadow: var(--mh-shadow, 0 18px 45px rgba(0,0,0,.55));
   font-family: var(--mh-font-body, Arial, Helvetica, sans-serif);
   font-size: 12px;
-  cursor: pointer;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
   backdrop-filter: blur(8px);
 }
+#${TRIGGER_ID}.mhc-dragging { cursor: grabbing; }
 #${TRIGGER_ID}:hover { background: var(--mh-control-hover, #203414); border-color: var(--mh-accent, #9fd42f); }
 #${TRIGGER_ID} .mhc-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--mh-accent, #9fd42f); box-shadow: 0 0 10px color-mix(in srgb, var(--mh-accent, #9fd42f) 80%, transparent); }
 #${TRIGGER_ID}.mhc-off {
@@ -1456,15 +1471,108 @@ ${selectorDescAndSelfAll(target, THEME_SELECTORS.success)} {
     else document.addEventListener('DOMContentLoaded', fn, { once: true });
   }
 
+  function applyTriggerPosition(btn, position) {
+    const normalised = normaliseTriggerPosition(position);
+    if (normalised === 'right') {
+      btn.style.removeProperty('left');
+      btn.style.removeProperty('top');
+      btn.style.removeProperty('right');
+      btn.style.removeProperty('transform');
+      return normalised;
+    }
+
+    const rect = btn.getBoundingClientRect();
+    const viewportWidth = document.documentElement.clientWidth || window.innerWidth;
+    const viewportHeight = document.documentElement.clientHeight || window.innerHeight;
+    const next = {
+      x: Math.round(Math.min(Math.max(0, viewportWidth - rect.width), Math.max(0, normalised.x))),
+      y: Math.round(Math.min(Math.max(0, viewportHeight - rect.height), Math.max(0, normalised.y)))
+    };
+    btn.style.left = `${next.x}px`;
+    btn.style.top = `${next.y}px`;
+    btn.style.right = 'auto';
+    btn.style.transform = 'none';
+    return next;
+  }
+
+  function bindTriggerDragging(btn) {
+    const dragThreshold = 4;
+    let drag = null;
+    let suppressClickUntil = 0;
+
+    btn.addEventListener('pointerdown', e => {
+      if (e.button !== 0 || e.isPrimary === false) return;
+      const rect = btn.getBoundingClientRect();
+      drag = {
+        pointerId: e.pointerId,
+        startX: e.clientX,
+        startY: e.clientY,
+        offsetX: e.clientX - rect.left,
+        offsetY: e.clientY - rect.top,
+        position: { x: rect.left, y: rect.top },
+        moved: false
+      };
+      btn.classList.add('mhc-dragging');
+      try { btn.setPointerCapture(e.pointerId); } catch (_) { }
+    });
+
+    btn.addEventListener('pointermove', e => {
+      if (!drag || e.pointerId !== drag.pointerId) return;
+      if (!drag.moved) {
+        drag.moved = Math.hypot(e.clientX - drag.startX, e.clientY - drag.startY) >= dragThreshold;
+      }
+      if (!drag.moved) return;
+      e.preventDefault();
+      drag.position = applyTriggerPosition(btn, {
+        x: e.clientX - drag.offsetX,
+        y: e.clientY - drag.offsetY
+      });
+    });
+
+    const finishDrag = e => {
+      if (!drag || e.pointerId !== drag.pointerId) return;
+      const completed = drag;
+      drag = null;
+      btn.classList.remove('mhc-dragging');
+      try { btn.releasePointerCapture(e.pointerId); } catch (_) { }
+      if (!completed.moved) return;
+      currentConfig.triggerPosition = completed.position;
+      gmSet(STORAGE_KEY, currentConfig);
+      suppressClickUntil = Date.now() + 500;
+    };
+
+    btn.addEventListener('pointerup', finishDrag);
+    btn.addEventListener('pointercancel', finishDrag);
+    btn.addEventListener('click', e => {
+      if (Date.now() < suppressClickUntil) {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        return;
+      }
+      openUI();
+    }, true);
+  }
+
+  function keepTriggerInViewport() {
+    const btn = document.getElementById(TRIGGER_ID);
+    if (!btn || normaliseTriggerPosition(currentConfig.triggerPosition) === 'right') return;
+    const previous = currentConfig.triggerPosition;
+    const next = applyTriggerPosition(btn, previous);
+    if (next.x === previous.x && next.y === previous.y) return;
+    currentConfig.triggerPosition = next;
+    gmSet(STORAGE_KEY, currentConfig);
+  }
+
   function ensureTrigger() {
     if (document.getElementById(TRIGGER_ID)) return;
     const btn = document.createElement('button');
     btn.id = TRIGGER_ID;
     btn.type = 'button';
-    btn.title = 'Open MoDuL Hub Global Theme (Alt+M)';
+    btn.title = 'Click to open or drag to move MoDuL Hub Global Theme (Alt+M)';
     btn.innerHTML = '<span class="mhc-dot"></span><span class="mhc-trigger-label">MoDuL Hub</span>';
-    btn.addEventListener('click', openUI, true);
+    bindTriggerDragging(btn);
     document.body.appendChild(btn);
+    currentConfig.triggerPosition = applyTriggerPosition(btn, currentConfig.triggerPosition);
     updateTriggerState(currentConfig);
   }
 
@@ -2082,6 +2190,7 @@ ${selectorDescAndSelfAll(target, THEME_SELECTORS.success)} {
       });
       observer.observe(document.body, { childList: true, subtree: true });
     });
+    window.addEventListener('resize', keepTriggerInViewport, { passive: true });
     registerMenu();
     dispatchThemeReady('bootstrap');
   }
