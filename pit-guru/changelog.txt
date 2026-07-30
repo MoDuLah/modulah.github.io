@@ -1,3 +1,11 @@
+## v2.3.4 (2026-07-30)
+
+- Fixed broken car images in Predictions and Past Races.
+- Car item IDs now prefer the configured Pit Guru Player's hosted asset and retry Torn's canonical item image if needed.
+- Relative, escaped, protocol-relative, and legacy HTTP Torn image URLs are normalized before rendering.
+- If neither image source loads, Pit Guru hides the broken-image glyph and keeps the car name visible.
+- Added focused prediction image regression coverage.
+
 ## v2.3.3 (2026-07-30)
 
 - Records Race IDs now open the selected replay directly in the Pit Guru Player instead of navigating to Torn.
