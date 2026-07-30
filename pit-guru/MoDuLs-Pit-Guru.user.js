@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         MoDuL's Pit Guru
 // @namespace    modul.torn.racing
-// @version      2.3.3
+// @version      2.3.4
 // @description  Live Torn race timing, gaps, sectors, speed and estimated telemetry analysis
 // @author       MoDuL
 // @copyright    2026 MoDuL. All rights reserved.
@@ -570,7 +570,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         return bigRaceSafeModeStatus_();
     };
 
-    const MPG_VERSION = "2.3.3";
+    const MPG_VERSION = "2.3.4";
     const PREDICTION_MODEL_VERSION = "pit-guru-local-v2";
     var TAG = "[MoDuL's Pit Guru v" + MPG_VERSION + "]";
 
@@ -5177,11 +5177,68 @@ self.onmessage=event=>{const id=event.data&&event.data.id;try{const root=JSON.pa
         return cachedOptionalImageUrl_("profile", raw, raw);
     }
 
-    function optionalImageTag_(url, className = "carIcon", alt = "") {
-        const raw = String(url || "").trim();
-        if (!raw || !analysisImagesEnabled_()) return "";
-        const cached = cachedOptionalImageUrl_("item", raw, raw);
-        return `<img class="${escAttr_(className)}" src="${escAttr_(cached)}" alt="${escAttr_(alt)}" loading="lazy" decoding="async">`;
+    function carImageItemId_(url, itemId = "") {
+        const direct = String(itemId || "").trim();
+        if (/^\d+$/.test(direct)) return direct;
+        const raw = String(url || "").trim().replace(/\\\//g, "/");
+        const match = raw.match(/\/(?:images\/items|assets\/cars)\/(\d+)(?:\/large)?\.png(?:[?#]|$)/i);
+        return match ? match[1] : "";
+    }
+
+    function normalizedCarImageUrl_(url) {
+        const raw = String(url || "").trim().replace(/\\\//g, "/");
+        if (!raw) return "";
+        if (/^\/\//.test(raw)) return `https:${raw}`;
+        if (/^http:\/\/(?:www\.)?torn\.com\//i.test(raw)) return raw.replace(/^http:/i, "https:");
+        if (/^\//.test(raw)) return `https://www.torn.com${raw}`;
+        try {
+            const parsed = new URL(raw, "https://www.torn.com/");
+            return parsed.protocol === "http:" || parsed.protocol === "https:" || parsed.protocol === "data:" || parsed.protocol === "blob:"
+                ? parsed.toString()
+                : "";
+        } catch {
+            return "";
+        }
+    }
+
+    function carImageRenderUrls_(url, itemId = "") {
+        const id = carImageItemId_(url, itemId);
+        const normalized = normalizedCarImageUrl_(url);
+        if (!id) return { primary: normalized, fallback: "" };
+        const hosted = pgPlayerUrl_(`/assets/cars/${encodeURIComponent(id)}.png`);
+        const torn = `https://www.torn.com/images/items/${encodeURIComponent(id)}/large.png`;
+        return {
+            primary: hosted || normalized || torn,
+            fallback: torn !== hosted ? torn : (normalized !== hosted ? normalized : "")
+        };
+    }
+
+    let optionalImageFallbacksInstalled_ = false;
+    function ensureOptionalImageFallbacks_() {
+        if (optionalImageFallbacksInstalled_) return;
+        optionalImageFallbacksInstalled_ = true;
+        document.addEventListener("error", event => {
+            const img = event?.target;
+            if (!img || String(img.tagName || "").toLowerCase() !== "img" || !img.hasAttribute?.("data-mpg-img-fallback")) return;
+            const fallback = String(img.getAttribute("data-mpg-img-fallback") || "").trim();
+            if (fallback && img.getAttribute("data-mpg-img-fallback-used") !== "1") {
+                img.setAttribute("data-mpg-img-fallback-used", "1");
+                img.src = fallback;
+                return;
+            }
+            img.style.display = "none";
+            img.setAttribute("aria-hidden", "true");
+        }, true);
+    }
+
+    function optionalImageTag_(url, className = "carIcon", alt = "", itemId = "") {
+        if (!analysisImagesEnabled_()) return "";
+        const images = carImageRenderUrls_(url, itemId);
+        if (!images.primary) return "";
+        ensureOptionalImageFallbacks_();
+        const primary = cachedOptionalImageUrl_("item", images.primary, images.primary);
+        const fallback = images.fallback ? cachedOptionalImageUrl_("item-fallback", images.fallback, images.fallback) : "";
+        return `<img class="${escAttr_(className)}" src="${escAttr_(primary)}" data-mpg-img-fallback="${escAttr_(fallback)}" alt="${escAttr_(alt)}" loading="lazy" decoding="async">`;
     }
 
     function largeFieldMode_() {
@@ -14282,15 +14339,17 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
     function carCell_(d) {
         const car = toOgCarName_(d?.car || "");
         const suffix = d?.carSource ? ` <span class="muted">(last seen)</span>` : "";
-        const img = car && d?.carImg ? optionalImageTag_(d.carImg, "carIcon") : "";
+        const itemId = d?.itemID || d?.itemId || d?.item_id || "";
+        const img = car && (d?.carImg || itemId) ? optionalImageTag_(d?.carImg || "", "carIcon", "", itemId) : "";
         return `${img ? `${img} ` : ""}${esc_(car || "--")}${car ? suffix : ""}`;
     }
 
     function carComboCell_(dOrCar, img = "", source = "") {
         const car = toOgCarName_(typeof dOrCar === "string" ? dOrCar : (dOrCar?.car || ""));
         const carImg = String(img || (typeof dOrCar === "string" ? "" : dOrCar?.carImg) || "").trim();
+        const itemId = typeof dOrCar === "string" ? carImageItemId_(carImg) : (dOrCar?.itemID || dOrCar?.itemId || dOrCar?.item_id || carImageItemId_(carImg));
         const suffix = source || (typeof dOrCar === "string" ? "" : dOrCar?.carSource) ? ` <span class="muted">(last seen)</span>` : "";
-        const imgHtml = carImg ? optionalImageTag_(carImg, "carIcon") : "";
+        const imgHtml = carImg || itemId ? optionalImageTag_(carImg, "carIcon", "", itemId) : "";
         const imgWrap = imgHtml ? `<span class="mpg-car-img">${imgHtml}</span>` : "";
         return `<span class="mpg-car-combo">${imgWrap}<span class="mpg-car-name">${esc_(car || "--")}${suffix}</span></span>`;
     }
