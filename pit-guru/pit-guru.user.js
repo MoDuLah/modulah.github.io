@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         MoDuL's Pit Guru
 // @namespace    modul.torn.racing
-// @version      2.3.2
+// @version      2.3.3
 // @description  Live Torn race timing, gaps, sectors, speed and estimated telemetry analysis
 // @author       MoDuL
 // @copyright    2026 MoDuL. All rights reserved.
@@ -122,6 +122,11 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
 
     function pgPlayerUrl_(path = "") {
         return pgJoinUrl_(pgPlayerBase_(), path);
+    }
+
+    function pgPlayerRaceUrl_(raceId) {
+        const rid = String(raceId || "").trim();
+        return rid ? pgPlayerUrl_(`/?raceID=${encodeURIComponent(rid)}`) : pgPlayerBase_();
     }
 
     function pgHostedSession_() {
@@ -565,7 +570,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         return bigRaceSafeModeStatus_();
     };
 
-    const MPG_VERSION = "2.3.2";
+    const MPG_VERSION = "2.3.3";
     const PREDICTION_MODEL_VERSION = "pit-guru-local-v2";
     var TAG = "[MoDuL's Pit Guru v" + MPG_VERSION + "]";
 
@@ -4473,7 +4478,7 @@ self.onmessage=event=>{const id=event.data&&event.data.id;try{const root=JSON.pa
         }
         const payload = latestRaceDataPayload || analysis?.payload || null;
         const rid = String(directRaceIdFromPayload_(payload) || directCurrentRaceId || urlRaceId_() || visibleRaceId_() || raceMeta?.raceId || "").trim();
-        const target = rid ? pgPlayerUrl_(`/?raceID=${encodeURIComponent(rid)}`) : pgPlayerBase_();
+        const target = pgPlayerRaceUrl_(rid);
         const popup = window.open("about:blank", "_blank");
         try {
             if (popup?.document) {
@@ -16534,7 +16539,7 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
                     const displayRs = recordDisplayRacingSkill_(r);
                     const rs = displayRs == null ? "--" : formatDriverRs_(displayRs).replace(/^RS:\s*/i, "");
                     const recRid = String(r.raceId || "").trim();
-                    const raceCell = recRid ? `<a class="recRaceLink" href="https://www.torn.com/page.php?sid=racing&raceID=${encodeURIComponent(recRid)}" target="_blank" title="View Replay">${esc_(recRid)}</a>` : "";
+                    const raceCell = recRid ? `<a class="recRaceLink" href="${escAttr_(pgPlayerRaceUrl_(recRid))}" target="_blank" rel="noopener noreferrer" title="Open in Pit Guru Player">${esc_(recRid)}</a>` : "";
                     const actionCell = `<button class="recDelBtn" data-id="${escAttr_(r.id)}" data-source="${escAttr_(r.source || "")}" data-mode="${escAttr_(mode)}" data-race-id="${escAttr_(r.raceId || "")}" data-driver-id="${escAttr_(r.driverId || "")}" data-car="${escAttr_(r.car || "")}" title="Delete saved record">🗑️</button>`;
                     return `<tr>
             <td class="recNum">${i + 1}</td>

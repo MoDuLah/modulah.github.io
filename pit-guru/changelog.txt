@@ -1,3 +1,9 @@
+## v2.3.3 (2026-07-30)
+
+- Records Race IDs now open the selected replay directly in the Pit Guru Player instead of navigating to Torn.
+- Player links retain the active Public, Local, SSH, or Custom endpoint configuration.
+- Added regression coverage for the generated Player URL and rendered Records link.
+
 ## v2.3.2 (2026-07-26)
 
 - Preferred Torn's visible configured lap count over official track metadata for the current custom race, race length, type, and history scope.
