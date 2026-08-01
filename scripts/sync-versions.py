@@ -73,17 +73,30 @@ def get_latest_version_from_changelog(changelog_path):
     with open(changelog_path, 'r', encoding='utf-8') as f:
         content = f.read()
     
-    # Try multiple patterns:
-    # 1. Line-start versions (v1.2.3 or 1.2.3 at start of line)
-    matches = re.findall(r'^v?(\d+\.\d+(?:\.\d+)?)', content, re.MULTILINE)
-    
-    # 2. Markdown headers (## 1.2.3 or ## v1.2.3)
-    if not matches:
-        matches = re.findall(r'##\s*v?(\d+\.\d+(?:\.\d+)?)', content)
+    # Generated changelogs place the current release in the first version
+    # heading. Prefer that heading over older plain-text history farther down.
+    header_match = re.search(
+        r'^#{1,6}\s+v?(\d+\.\d+(?:\.\d+)?[a-z0-9.-]*)\b',
+        content,
+        re.IGNORECASE | re.MULTILINE,
+    )
+    if header_match:
+        return header_match.group(1)
+
+    # Fall back to line-start versions for legacy changelogs.
+    matches = re.findall(
+        r'^v?(\d+\.\d+(?:\.\d+)?[a-z0-9.-]*)\b',
+        content,
+        re.IGNORECASE | re.MULTILINE,
+    )
     
     # 3. Fallback: any "vX.Y.Z" pattern
     if not matches:
-        matches = re.findall(r'v(\d+\.\d+(?:\.\d+)?)', content)
+        matches = re.findall(
+            r'v(\d+\.\d+(?:\.\d+)?[a-z0-9.-]*)\b',
+            content,
+            re.IGNORECASE,
+        )
     
     if not matches:
         return None

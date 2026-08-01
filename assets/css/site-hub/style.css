@@ -292,3 +292,16 @@ a:hover { text-decoration: underline; }
 .script-card-logo--pit-guru { background-image: url("../../images/pit-guru/pit-guru-logo.png"); }
 .script-card-logo--pythagoras-project-cis { background-image: url("../../images/pythagoras-project-cis/pythagoras-project-logo.png"); }
 .script-card-logo--landlord-tenant-ledger { background-image: url("../../images/landlord-tenant-ledger/landlord-tenant-ledger-logo.png"); }
+.script-card-logo--tornfolio { background-image: url("../../images/landlord-tenant-ledger/landlord-tenant-ledger-logo.png"); }
+.script-card-logo--jobcentre-plus,
+.script-card-logo--cracked {
+  display: grid;
+  place-items: center;
+  background-image: linear-gradient(135deg, rgba(98, 240, 139, .2), rgba(217, 239, 82, .08));
+  color: var(--accent);
+  font-size: .95rem;
+  font-weight: 800;
+  letter-spacing: -.04em;
+}
+.script-card-logo--jobcentre-plus::before { content: "JC+"; }
+.script-card-logo--cracked::before { content: "C#"; }
