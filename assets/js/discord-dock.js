@@ -6,9 +6,9 @@
     { slug: "custom-race-filter", name: "Custom Race Filter", invite: "https://discord.gg/cR8ZTU6V58" },
     { slug: "restore-og-names", name: "Restore OG Names", invite: "https://discord.gg/m3QJykpjUP" },
     { slug: "race-theme-changer", name: "Race Theme Changer", invite: "https://discord.gg/aRHPQ2aqs2" },
-    { slug: "pit-guru", name: "Pit Guru", invite: "https://discord.gg/JP8FQBATMV" }
+    { slug: "pit-guru", name: "MoDuL's Hub", invite: "https://discord.gg/JP8FQBATMV" }
   ];
-  var DEFAULT_DISCORD = { slug: "pit-guru", name: "Pit Guru", invite: "https://discord.gg/JP8FQBATMV" };
+  var DEFAULT_DISCORD = { slug: "pit-guru", name: "MoDuL's Hub", invite: "https://discord.gg/JP8FQBATMV" };
 
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", init, { once: true });
