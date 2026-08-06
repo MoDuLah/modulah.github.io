@@ -1,576 +1,1471 @@
-<!doctype html>
-<html lang="en">
-<head>
-  <meta charset="utf-8">
-  <title>MoDuL's Hub</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="MoDuL's hub for Torn racing, stock, travel, company, employment, and supporter tools.">
-  <link rel="stylesheet" href="assets/css/site-hub/style.css">
-</head>
-<!-- Google tag (gtag.js) -->
-<script async src="https://www.googletagmanager.com/gtag/js?id=G-2L7FR2L6XK"></script>
+<!DOCTYPE html><html class="dark" lang="en" style=""><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<title>MODUL_HUB // COMMAND_CENTRE</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700&amp;family=JetBrains+Mono:wght@400;500;700&amp;family=Inter:wght@400;500;600&amp;family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@100..900&amp;family=JetBrains+Mono:wght@100..900&amp;family=Sora:wght@100..900&amp;display=swap" rel="stylesheet">
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary-fixed": "#9cf0ff",
+                        "error-container": "#93000a",
+                        "on-primary-fixed": "#001f24",
+                        "surface-tint": "#00daf3",
+                        "on-secondary-container": "#0f6d00",
+                        "surface-container-lowest": "#0c0e10",
+                        "surface-container-highest": "#333537",
+                        "surface-variant": "#333537",
+                        "on-primary": "#00363d",
+                        "secondary-fixed": "#79ff5b",
+                        "tertiary-fixed": "#ffdeac",
+                        "surface-container-high": "#282a2c",
+                        "outline-variant": "#3b494c",
+                        "secondary-fixed-dim": "#2ae500",
+                        "on-tertiary-container": "#775200",
+                        "tertiary-container": "#ffc769",
+                        "on-surface-variant": "#bac9cc",
+                        "on-surface": "#e2e2e5",
+                        "on-secondary-fixed-variant": "#095300",
+                        "on-primary-fixed-variant": "#004f58",
+                        "inverse-surface": "#e2e2e5",
+                        "on-error": "#690005",
+                        "tertiary": "#ffe9cd",
+                        "on-secondary": "#053900",
+                        "background": "#111416",
+                        "secondary": "#d7ffc5",
+                        "inverse-on-surface": "#2f3133",
+                        "inverse-primary": "#006875",
+                        "surface-dim": "#111416",
+                        "on-error-container": "#ffdad6",
+                        "error": "#ffb4ab",
+                        "on-tertiary-fixed": "#281900",
+                        "outline": "#849396",
+                        "tertiary-fixed-dim": "#ffba38",
+                        "primary": "#c3f5ff",
+                        "on-background": "#e2e2e5",
+                        "on-secondary-fixed": "#022100",
+                        "primary-fixed-dim": "#00daf3",
+                        "surface": "#111416",
+                        "surface-bright": "#37393c",
+                        "secondary-container": "#2ff801",
+                        "primary-container": "#00e5ff",
+                        "surface-container": "#1e2022",
+                        "surface-container-low": "#1a1c1e",
+                        "on-tertiary-fixed-variant": "#604100",
+                        "on-tertiary": "#432c00",
+                        "on-primary-container": "#00626e"
+                    },
+                    borderRadius: {
+                        DEFAULT: "0.125rem",
+                        lg: "0.25rem",
+                        xl: "0.5rem",
+                        full: "0.75rem"
+                    },
+                    spacing: {
+                        gutter: "16px",
+                        "margin-sm": "16px",
+                        "margin-md": "32px",
+                        "panel-padding": "20px",
+                        unit: "4px",
+                        "margin-lg": "48px"
+                    },
+                    fontFamily: {
+                        "headline-xl": ["Sora"],
+                        "label-caps": ["JetBrains Mono"],
+                        "body-md": ["Inter"],
+                        "code-sm": ["JetBrains Mono"],
+                        "headline-lg-mobile": ["Sora"],
+                        "headline-lg": ["Sora"]
+                    },
+                    fontSize: {
+                        "headline-xl": ["40px", { lineHeight: "48px", letterSpacing: "-0.02em", fontWeight: "700" }],
+                        "label-caps": ["11px", { lineHeight: "16px", letterSpacing: "0.1em", fontWeight: "700" }],
+                        "body-md": ["16px", { lineHeight: "24px", fontWeight: "400" }],
+                        "code-sm": ["13px", { lineHeight: "18px", letterSpacing: "0.05em", fontWeight: "500" }],
+                        "headline-lg-mobile": ["22px", { lineHeight: "28px", fontWeight: "600" }],
+                        "headline-lg": ["28px", { lineHeight: "36px", letterSpacing: "-0.01em", fontWeight: "600" }]
+                    }
+                }
+            }
+        };
+    </script>
+<style>
+        .glass-panel {
+            background: rgba(13, 17, 23, 0.7);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            transition: all 0.3s ease;
+        }
+        .glass-panel:hover {
+            border-color: #98f05f;
+            box-shadow: inset 0 0 10px rgba(152, 240, 95, 0.1);
+        }
+        .grid-bg {
+            background-image: linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+                              linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+            background-size: 32px 32px;
+        }
+        .flicker-hover:hover {
+            animation: flicker 0.15s infinite alternate;
+        }
+        @keyframes flicker {
+            0% { opacity: 0.8; }
+            100% { opacity: 1; text-shadow: 0 0 8px currentColor; }
+        }
+        .blink-cursor {
+            animation: blink 1s step-end infinite;
+        }
+        @keyframes blink {
+            50% { opacity: 0; }
+        }
+        .status-chip {
+            border-left: 1px solid;
+            background: rgba(var(--chip-color), 0.1);
+        }
+        .status-chip.live { --chip-color: 42, 229, 0; border-color: #2ae500; color: #2ae500; }
+        .status-chip.supporter { --chip-color: 255, 0, 255; border-color: #ff00ff; color: #ff00ff; }
+        .status-chip.dev { --chip-color: 255, 186, 56; border-color: #ffba38; color: #ffba38; }
+        .status-chip.archive { --chip-color: 147, 0, 10; border-color: #93000a; color: #ffb4ab; }
+        
+        .cyber-button-primary {
+            background-color: #98f05f;
+            color: #111416;
+            transition: all 0.2s;
+            position: relative;
+            overflow: hidden;
+        }
+        .cyber-button-primary:hover {
+            box-shadow: 0 0 15px rgba(152, 240, 95, 0.5);
+            background-color: #a7f775;
+        }
+        .cyber-button-secondary {
+            background-color: transparent;
+            border: 1px solid #98f05f;
+            color: #98f05f;
+            transition: all 0.2s;
+            position: relative;
+            overflow: hidden;
+        }
+        .cyber-button-secondary:hover {
+            background-color: rgba(152, 240, 95, 0.1);
+            box-shadow: inset 0 0 10px rgba(152, 240, 95, 0.2);
+        }
+
+        /* Edit: Scanline shimmer effect */
+        .shimmer-btn::after {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: linear-gradient(transparent, rgba(255,255,255,0.3), transparent);
+            transform: rotate(45deg) translateY(-100%);
+            transition: transform 0s;
+        }
+        .shimmer-btn:hover::after {
+            transform: rotate(45deg) translateY(100%);
+            transition: transform 0.5s ease-in-out;
+        }
+
+        /* Edit: Typing animation */
+        .typing-line {
+            overflow: hidden;
+            white-space: nowrap;
+            opacity: 0;
+            animation: typing 1s steps(40, end) forwards;
+        }
+        @keyframes typing {
+            0% { width: 0; opacity: 1; }
+            100% { width: 100%; opacity: 1; }
+        }
+
+        /* Edit: Module card hover & Active State */
+        .module-card {
+            transition: all 0.5s ease;
+            position: relative;
+            overflow: hidden;
+        }
+        .module-card:hover {
+            opacity: 0.1;
+        }
+        .module-card.active {
+            transform: translateY(-4px);
+            border-color: #98f05f;
+            box-shadow: 0 0 15px rgba(152, 240, 95, 0.3), inset 0 0 10px rgba(152, 240, 95, 0.1);
+            filter: brightness(1.1);
+            animation: neon-flicker 1.5s infinite alternate;
+        }
+        
+        .module-card.active::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 2px;
+            background: #98f05f;
+            box-shadow: 0 0 10px #98f05f;
+            animation: scanline 2s linear infinite;
+        }
+
+        @keyframes scanline {
+            0% { left: -100%; }
+            100% { left: 100%; }
+        }
+
+        @keyframes neon-flicker {
+            0%, 19%, 21%, 23%, 25%, 54%, 56%, 100% { border-color: #98f05f; box-shadow: 0 0 15px rgba(152, 240, 95, 0.3), inset 0 0 10px rgba(152, 240, 95, 0.1); }
+            20%, 24%, 55% { border-color: rgba(152, 240, 95, 0.4); box-shadow: none; }
+        }
+
+        /* Edit: Rhythmic pulse for status indicators */
+        .pulse-green {
+            animation: pulse-rhythmic 2s infinite ease-in-out;
+        }
+        @keyframes pulse-rhythmic {
+            0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(152, 240, 95, 0.7); }
+            70% { transform: scale(1); box-shadow: 0 0 0 10px rgba(152, 240, 95, 0); }
+            100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(152, 240, 95, 0); }
+        }
+
+        /* Edit: Page entrance transitions */
+        .fade-slide-up {
+            opacity: 0;
+            transform: translateY(20px);
+            animation: fadeSlideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+        .fade-slide-down {
+            opacity: 1;
+            transform: translateY(0);
+            animation: fadeSlideDown 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+        @keyframes fadeSlideUp {
+            to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes fadeSlideDown {
+            to { opacity: 0; transform: translateY(20px); }
+        }
+
+        /* Edit: Staggered feed items */
+        .feed-item {
+            opacity: 0;
+            transform: translateX(-10px);
+            animation: feedFadeIn 0.5s ease forwards;
+        }
+        @keyframes feedFadeIn {
+            to { opacity: 1; transform: translateX(0); }
+        }
+        
+        .script-details {
+            display: none;
+            animation: fadeSlideUp 0.4s ease forwards;
+        }
+        .script-details.active {
+            display: block;
+        }
+        .module-grid {
+            display: grid;
+        }
+        .module-grid.hidden {
+            display: none;
+        }
+
+        /* Edit: Custom thin neon scrollbar */
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #98f05f;
+            border-radius: 4px;
+        }
+    </style>
+<link href="https://fonts.googleapis.com/css2?family=VT323&amp;display=swap" rel="stylesheet" class=""></head>
+<body class="bg-transparent text-on-surface font-body-md h-screen relative overflow-hidden flex flex-col selection:bg-[#98f05f] selection:text-background">
+<!-- Shader Background -->
+<!-- STITCH_SHADER_START:ANIMATION_67 class="absolute inset-0 w-full h-full z-[-1]" -->
+<div class="absolute inset-0 w-full h-full z-[-1]" style="display:block;">
+<canvas id="shader-canvas-ANIMATION_67" style="display:block;width:100%;height:100%" width="1280" height="1024"></canvas>
 <script>
-  window.dataLayer = window.dataLayer || [];
-  function gtag(){dataLayer.push(arguments);}
-  gtag('js', new Date());
+(function() {
+  const canvas = document.getElementById('shader-canvas-ANIMATION_67');
 
-  gtag('config', 'G-2L7FR2L6XK');
+  // Sync the WebGL drawing-buffer size with the CSS-driven layout size.
+  // This fires on initial layout and whenever the element is resized.
+  function syncSize() {
+    const w = canvas.clientWidth  || 1280;
+    const h = canvas.clientHeight || 720;
+    if (canvas.width !== w || canvas.height !== h) {
+      canvas.width  = w;
+      canvas.height = h;
+    }
+  }
+  if (typeof ResizeObserver !== 'undefined') {
+    new ResizeObserver(syncSize).observe(canvas);
+  }
+  syncSize();
+
+  const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+  if (!gl) return;
+  const vs = `attribute vec2 a_position;
+varying vec2 v_texCoord;
+void main() {
+  v_texCoord = a_position * 0.5 + 0.5;
+  gl_Position = vec4(a_position, 0.0, 1.0);
+}`;
+  const fs = `precision highp float;
+uniform float u_time;
+uniform vec2 u_resolution;
+varying vec2 v_texCoord;
+
+float hash(vec2 p) {
+    p = fract(p * vec2(123.34, 456.21));
+    p += dot(p, p + 45.32);
+    return fract(p.x * p.y);
+}
+
+void main() {
+    vec2 uv = v_texCoord;
+    
+    // Minimal deep charcoal base with transparency potential
+    // We keep it dark but let the glow do the work
+    vec3 color = vec3(0.02, 0.03, 0.04); 
+    
+    // Grid setup for data pulses
+    vec2 grid = uv * vec2(50.0, 25.0);
+    vec2 ipos = floor(grid);
+    vec2 fpos = fract(grid);
+    
+    // Vertical "ghost" streams
+    float speed = hash(vec2(ipos.x, 0.0)) * 0.3 + 0.1;
+    float time = u_time * speed;
+    float pulse = step(0.98, hash(ipos + floor(time * 2.0)));
+    
+    // Neon Green palette: #98f05f
+    vec3 neon = vec3(0.596, 0.941, 0.373);
+    
+    // Subtle vertical movement
+    float y_flow = fract(uv.y + time * 0.5);
+    float trail = smoothstep(0.0, 0.3, y_flow) * (1.0 - y_flow);
+    
+    // Add very light, minimal atmospheric noise
+    float n = hash(uv + u_time * 0.01);
+    
+    // Combine for a lightweight glow effect
+    color += neon * trail * pulse * 0.15;
+    color += neon * (1.0 - length(uv - 0.5)) * 0.02; // Soft center glow
+    
+    // Scanline detail
+    float scanline = sin(uv.y * u_resolution.y * 0.8) * 0.01;
+    color += scanline;
+    
+    // Alpha management: slightly transparent so it blends
+    float alpha = 0.95; 
+
+    gl_FragColor = vec4(color, alpha);
+}`;
+  function cs(type, src) {
+    const s = gl.createShader(type);
+    gl.shaderSource(s, src);
+    gl.compileShader(s);
+    return s;
+  }
+  const prog = gl.createProgram();
+  gl.attachShader(prog, cs(gl.VERTEX_SHADER, vs));
+  gl.attachShader(prog, cs(gl.FRAGMENT_SHADER, fs));
+  gl.linkProgram(prog);
+  gl.useProgram(prog);
+  const buf = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1, 1,-1, -1,1, 1,1]), gl.STATIC_DRAW);
+  const pos = gl.getAttribLocation(prog, 'a_position');
+  gl.enableVertexAttribArray(pos);
+  gl.vertexAttribPointer(pos, 2, gl.FLOAT, false, 0, 0);
+  const uTime = gl.getUniformLocation(prog, 'u_time');
+  const uRes = gl.getUniformLocation(prog, 'u_resolution');
+  const uMouse = gl.getUniformLocation(prog, 'u_mouse');
+
+  // u_mouse is in pixel coordinates matching u_resolution (ShaderToy convention).
+  // Shaders that need normalized coords should use: u_mouse / u_resolution.
+  let mouse = { x: canvas.width / 2, y: canvas.height / 2 };
+  window.addEventListener('mousemove', (event) => {
+    const rect = canvas.getBoundingClientRect();
+    if (rect.width && rect.height) {
+      const nx = (event.clientX - rect.left) / rect.width;
+      const ny = 1.0 - (event.clientY - rect.top) / rect.height;
+      mouse.x = nx * canvas.width;
+      mouse.y = ny * canvas.height;
+    }
+  });
+
+  function render(t) {
+    if (typeof ResizeObserver === 'undefined') syncSize();
+    gl.viewport(0, 0, canvas.width, canvas.height);
+    if (uTime) gl.uniform1f(uTime, t * 0.001);
+    if (uRes) gl.uniform2f(uRes, canvas.width, canvas.height);
+    if (uMouse) gl.uniform2f(uMouse, mouse.x, mouse.y);
+    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+    requestAnimationFrame(render);
+  }
+  render(0);
+})();
 </script>
-<body class="hub-page">
-  <div class="hub-shell">
-    <header class="hub-nav" aria-label="Site navigation">
-      <div class="hub-brand">
-        <img class="hub-brand-mark" src="assets/images/moduls-hub-logo.png" alt="MoDuL's Hub logo">
-        <div>
-          <h1 class="hub-brand-title">MoDuL's Hub</h1>
-          <p class="hub-brand-subtitle">Torn tools, racing helpers, and supporter scripts</p>
+</div>
+<!-- STITCH_SHADER_END:ANIMATION_67 -->
+<!-- Top Navigation Container (Shared Component implementation) -->
+<header class="fixed top-0 w-full z-50 bg-background/70 backdrop-blur-xl border-b border-white/10 shadow-[inset_0_0_10px_rgba(152,240,95,0.1)]">
+<nav class="flex justify-between items-center h-14 px-gutter w-full max-w-[1920px] mx-auto">
+<!-- Brand -->
+<div class="flex items-center gap-2">
+<img alt="MoDuL's Hub Logo" class="h-8 w-auto object-contain shrink-0" src="https://lh3.googleusercontent.com/aida-public/AB6AXuC3R7FNSm90CjYTMyIr3QACrWCicSXN-NVA-mx3pu0UF_2po_l1EYw1YQ8BdpxqSJ1pDO5SMldo9fwHHRmJMDauVo26_nd14Pfz7Ut-Z0XIeoiEwVeGVws1qmTDUPEWT8np-Ecu272JlBCrdoJ-t1oQeDEkDumTYJt1b8jIJ7clgBy97feBLUfzXW98YD9cb5oo7olLyOe24-KkDgiGSITMnLzbNeCXec2Uyximki0tJlYlW9MwXVPUr0LI3axRv7ZpvAWKuef1QidG8w"><span class="font-headline-lg text-headline-lg text-[#98f05f] cursor-pointer text-[32px] tracking-wider" onclick="resetView()" style="font-family: VT323, monospace;">M o D u L 's H u b</span>
+</div>
+<!-- Desktop Links -->
+<ul class="hidden md:flex items-center gap-6">
+<li class=""><a class="font-label-caps text-label-caps text-[#98f05f] border-b border-[#98f05f]/50 pb-1 cursor-pointer active:scale-95 hover:text-[#98f05f] hover:bg-white/5 transition-all duration-300" href="#" onclick="resetView()">Overview</a></li>
+<li class=""><a class="font-label-caps text-label-caps text-on-surface-variant cursor-pointer active:scale-95 hover:text-[#98f05f] hover:bg-white/5 transition-all duration-300 px-2 py-1" onclick="filterByTier('SUPPORTER')">Supporter</a></li>
+<li class=""><a class="font-label-caps text-label-caps text-on-surface-variant cursor-pointer active:scale-95 hover:text-[#98f05f] hover:bg-white/5 transition-all duration-300 px-2 py-1" onclick="filterByTier('FREE')">Free</a></li>
+<li class=""><a class="font-label-caps text-label-caps text-on-surface-variant cursor-pointer active:scale-95 hover:text-[#98f05f] hover:bg-white/5 transition-all duration-300 px-2 py-1" onclick="filterByTier('WEB TOOLS')">Web Tools</a></li>
+<li class=""><a class="font-label-caps text-label-caps text-on-surface-variant cursor-pointer active:scale-95 hover:text-[#98f05f] hover:bg-white/5 transition-all duration-300 px-2 py-1" onclick="filterByTier('ARCHIVE')">Archive</a></li>
+<li class=""><a class="font-label-caps text-label-caps text-on-surface-variant cursor-pointer active:scale-95 hover:text-[#98f05f] hover:bg-white/5 transition-all duration-300 px-2 py-1" href="#">Discord</a></li>
+</ul>
+<!-- Trailing Actions -->
+<div class="flex items-center gap-4">
+<div class="hidden md:flex gap-2">
+<span class="material-symbols-outlined text-on-surface-variant hover:text-[#98f05f] cursor-pointer transition-colors" data-icon="sensors">sensors</span>
+<div class="relative flex flex-col items-center">
+<span class="material-symbols-outlined text-on-surface-variant hover:text-[#98f05f] cursor-pointer transition-colors" data-icon="schedule" onclick="this.nextElementSibling.classList.toggle('hidden')">schedule</span>
+<div class="absolute top-full mt-1 bg-black/80 border border-[#98f05f]/30 px-2 py-0.5 rounded font-mono text-[10px] text-[#98f05f] whitespace-nowrap shadow-[0_0_10px_rgba(152,240,95,0.2)]">
+<span class="" id="header-digital-clock">12:45:08</span>
+</div>
+</div>
+</div>
+<div class="relative group">
+<button class="h-7 px-4 bg-transparent border border-[#98f05f] text-[#98f05f] font-label-caps text-[10px] rounded-DEFAULT hover:bg-[#98f05f]/10 hover:shadow-[0_0_10px_rgba(152,240,95,0.3)] transition-all active:scale-95 uppercase flex items-center gap-2" onclick="this.nextElementSibling.classList.toggle('hidden')" type="button">
+<span class="material-symbols-outlined text-[14px]">lock_open</span>
+        SECURE_ACCESS
+    </button>
+<div class="hidden absolute right-0 mt-2 w-48 glass-panel p-4 rounded-lg border-[#98f05f]/50 z-50 flex flex-col gap-3 shadow-[0_10px_30px_rgba(0,0,0,0.5)]">
+<div class="flex flex-col gap-1">
+<label class="text-[9px] text-[#98f05f]/70 font-label-caps uppercase">User_ID</label>
+<input class="w-full h-7 bg-[#0d160b] border border-[#98f05f]/30 rounded-DEFAULT px-2 font-mono text-[10px] text-[#98f05f] focus:outline-none focus:border-[#98f05f]" placeholder="000000" type="text">
+</div>
+<div class="flex flex-col gap-1">
+<label class="text-[9px] text-[#98f05f]/70 font-label-caps uppercase">Access_Key</label>
+<input class="w-full h-7 bg-[#0d160b] border border-[#98f05f]/30 rounded-DEFAULT px-2 font-mono text-[10px] text-[#98f05f] focus:outline-none focus:border-[#98f05f]" placeholder="********" type="password">
+</div>
+<button class="w-full h-8 bg-[#98f05f] text-background font-label-caps text-[10px] rounded-DEFAULT hover:bg-[#a7f775] transition-all uppercase mt-1">
+            INITIALIZE_LOGIN
+        </button>
+</div>
+</div>
+</div>
+</nav>
+</header>
+<!-- Main Content Canvas -->
+<main class="relative z-10 pb-4 px-gutter md:px-margin-md max-w-[1920px] mx-auto flex-1 flex flex-col w-full overflow-hidden gap-4 pt-16">
+<!-- Hero Section -->
+<section class="flex flex-col lg:flex-row gap-gutter fade-slide-up shrink-0 md:gap-4" style="animation-delay: 0.1s;">
+<!-- Title & CLI -->
+<div class="flex-1 flex flex-col gap-3">
+<div>
+<h1 class="font-headline-lg-mobile md:font-headline-xl text-headline-lg-mobile md:text-headline-xl text-[#98f05f] mb-2 drop-shadow-[0_0_8px_rgba(152,240,95,0.3)] uppercase"><div><span class="" style="letter-spacing: -0.02em;">COMMAND_CENTRE</span></div></h1>
+<p class="font-body-md text-on-surface-variant text-opacity-80">
+                        Integrated software ecosystem for Torn: Racing, Companies, Properties managment, Travel and Automation.
+                    </p>
+</div>
+<!-- CLI Terminal -->
+<div class="glass-panel rounded-lg flex-1 font-code-sm text-code-sm flex flex-col bg-black border-[#98f05f]/30 relative min-h-[120px] overflow-y-auto custom-scrollbar p-3 max-h-[250px]"><div class="absolute top-2 left-3 z-0 opacity-40 pointer-events-none text-[10px]">Cyberdine.OS</div>
+<div class="border-b border-white/10 pb-2 mb-3 flex items-center justify-between relative z-10 mt-4"><span class="text-outline-variant font-label-caps text-label-caps uppercase">System Boot Sequence</span><div class="flex items-center gap-4 font-code-sm text-[10px] uppercase tracking-wider"><div class="flex items-center gap-1.5"><span class="text-[#98f05f]/60">[ HEALTH:</span><span class="text-[#98f05f] flex items-center gap-1">OPTIMAL <span class="w-1 h-1 rounded-full bg-[#98f05f] animate-pulse"></span></span><span class="text-[#98f05f]/60">]</span></div><div class="flex items-center gap-1.5"><span class="text-[#98f05f]/60">[ W_I/O:</span><span class="text-[#98f05f]">4.2 MB/s</span><span class="text-[#98f05f]/60">]</span></div><div class="flex items-center gap-1.5"><span class="text-[#98f05f]/60">[ ↓</span><span class="text-[#98f05f]">128 MB/S</span><span class="text-[#98f05f]/60">| ↑</span><span class="text-[#98f05f]">12 MB/S ]</span></div></div></div>
+<div class="text-[#98f05f] flex-1 font-mono tracking-tight relative z-10 overflow-y-auto custom-scrollbar text-[11px]" data-stitch-orig-opacity="1" id="cli-output" style="opacity: 1;">
+                    <div class="opacity-70 typing-line" style="animation-duration: 0.3s;">&gt; INITIALISING MODUL SYSTEMS... <span class="text-secondary-fixed-dim">[OK]</span></div>
+                    <div class="opacity-70 typing-line" style="animation-duration: 0.3s;">&gt; CONNECTING TO REGISTRY... <span class="text-secondary-fixed-dim">[OK]</span></div>
+                    <div class="opacity-100 typing-line text-outline-variant" style="animation-duration: 0.2s;">&gt; INITIALIZING MODULE: PYTHAGORAS PROJECT - CIS... <span class="text-[#98f05f]">[OK]</span></div><div class="opacity-100 typing-line text-outline-variant" style="animation-duration: 0.2s;">&gt; INITIALIZING MODULE: STOCK-X... <span class="text-[#98f05f]">[OK]</span></div><div class="opacity-100 typing-line text-outline-variant" style="animation-duration: 0.2s;">&gt; INITIALIZING MODULE: SMUGGLER... <span class="text-[#98f05f]">[OK]</span></div><div class="opacity-100 typing-line text-outline-variant" style="animation-duration: 0.2s;">&gt; INITIALIZING MODULE: MODUL'S PIT GURU... <span class="text-[#98f05f]">[OK]</span></div><div class="opacity-100 typing-line text-outline-variant" style="animation-duration: 0.2s;">&gt; INITIALIZING MODULE: JOBCENTRE+... <span class="text-[#98f05f]">[OK]</span></div><div class="opacity-100 typing-line text-outline-variant" style="animation-duration: 0.2s;">&gt; INITIALIZING MODULE: CUSTOM RACE FILTER... <span class="text-[#98f05f]">[OK]</span></div><div class="opacity-100 typing-line text-outline-variant" style="animation-duration: 0.2s;">&gt; INITIALIZING MODULE: PYTHAGORAS PROJECT - DASHBOARD... <span class="text-[#98f05f]">[OK]</span></div><div class="opacity-100 typing-line text-outline-variant" style="animation-duration: 0.2s;">&gt; INITIALIZING MODULE: TORNFOLIO... <span class="text-[#98f05f]">[OK]</span></div><div class="opacity-100 typing-line text-outline-variant" style="animation-duration: 0.2s;">&gt; INITIALIZING MODULE: LAP RECORDER... <span class="text-[#98f05f]">[OK]</span></div><div class="opacity-100 typing-line text-outline-variant" style="animation-duration: 0.2s;">&gt; INITIALIZING MODULE: MODUL HUB CONTROL ROOM... <span class="text-[#98f05f]">[OK]</span></div><div class="opacity-100 typing-line text-outline-variant" style="animation-duration: 0.2s;">&gt; INITIALIZING MODULE: CRACKED... <span class="text-[#98f05f]">[OK]</span></div><div class="opacity-100 typing-line text-outline-variant" style="animation-duration: 0.2s;">&gt; INITIALIZING MODULE: RACE TRACKER... <span class="text-[#98f05f]">[OK]</span></div><div class="opacity-100 typing-line" id="cli-loading-line">&gt; MODULES LOADED (15)... <span class="text-[#98f05f] glow">[OK]</span></div><div class="opacity-100 typing-line text-outline-variant" style="animation-duration: 0.2s;">&gt; INITIALIZING MODULE: EGGSTERMINATOR... <span class="text-[#98f05f]">[OK]</span></div><div class="opacity-100 typing-line text-outline-variant" style="animation-duration: 0.2s;">&gt; INITIALIZING MODULE: RACE THEME CHANGER... <span class="text-[#98f05f]">[OK]</span></div><div class="opacity-100 typing-line text-outline-variant" style="animation-duration: 0.2s;">&gt; INITIALIZING MODULE: RESTORE OG NAMES... <span class="text-[#98f05f]">[OK]</span></div><div class="opacity-100 typing-line text-outline-variant" style="animation-duration: 0.2s;">&gt; INITIALIZING MODULE: STOCK-X... <span class="text-[#98f05f]">[OK]</span></div><div class="opacity-100 typing-line text-outline-variant" style="animation-duration: 0.2s;">&gt; INITIALIZING MODULE: SMUGGLER... <span class="text-[#98f05f]">[OK]</span></div><div class="opacity-100 typing-line text-outline-variant" style="animation-duration: 0.2s;">&gt; INITIALIZING MODULE: JOBCENTRE+... <span class="text-[#98f05f]">[OK]</span></div><div class="opacity-100 typing-line text-outline-variant" style="animation-duration: 0.2s;">&gt; INITIALIZING MODULE: PYTHAGORAS PROJECT - DASHBOARD... <span class="text-[#98f05f]">[OK]</span></div><div class="opacity-100 typing-line text-outline-variant" style="animation-duration: 0.2s;">&gt; INITIALIZING MODULE: LAP RECORDER... <span class="text-[#98f05f]">[OK]</span></div><div class="opacity-100 typing-line" id="cli-loading-line">&gt; MODULES LOADED (15)... <span class="text-[#98f05f] glow">[OK]</span></div><div class="typing-line" id="cli-cursor-line">&gt; _<span class="blink-cursor inline-block w-2 h-3 bg-[#98f05f] translate-y-0.5 ml-1"></span></div>
+                </div>
+</div>
+<!-- Hero Actions -->
+<div class="flex flex-wrap gap-4">
+<button class="cyber-button-primary shimmer-btn font-label-caps text-label-caps uppercase px-6 py-3 rounded-DEFAULT flex items-center gap-2 flicker-hover" onclick="filterByTier('FREE')">
+<span class="material-symbols-outlined text-[18px]">explore</span> Browse Free
+                    </button>
+<button class="cyber-button-secondary shimmer-btn font-label-caps text-label-caps uppercase px-6 py-3 rounded-DEFAULT flex items-center gap-2 flicker-hover" onclick="filterByTier('SUPPORTER')">
+<span class="material-symbols-outlined text-[18px]">workspace_premium</span> Browse Supporter
+                    </button>
+<button class="cyber-button-secondary shimmer-btn font-label-caps text-label-caps uppercase px-6 py-3 rounded-DEFAULT flex items-center gap-2 flicker-hover" onclick="filterByTier('WEB TOOLS')"><span class="material-symbols-outlined text-[18px]">grid_view</span> Web Tools</button><button class="glass-panel text-on-surface-variant hover:text-[#98f05f] font-label-caps text-label-caps uppercase px-6 py-3 rounded-DEFAULT transition-colors" onclick="filterByTier('ARCHIVE')">
+                        Archive
+                    </button>
+<button class="glass-panel text-on-surface-variant hover:text-[#98f05f] font-label-caps text-label-caps uppercase px-6 py-3 rounded-DEFAULT transition-colors">
+                        Join Discord
+                    </button>
+</div>
+</div>
+<!-- Diagnostics Sidebar -->
+<div class="w-full lg:w-80 flex flex-col gap-unit">
+<!-- Status Panel 1 -->
+<div class="glass-panel rounded-t-xl border-b-0 relative overflow-hidden group fade-slide-up p-3" style="animation-delay: 0.2s;">
+<div class="absolute inset-0 bg-[#98f05f]/5 translate-x-[-100%] group-hover:translate-x-0 transition-transform duration-500"></div>
+<div class="relative z-10 flex justify-between items-start mb-2">
+<span class="font-label-caps text-label-caps text-on-surface-variant uppercase">Registry Status</span>
+<div class="w-2 h-2 rounded-full bg-[#98f05f] pulse-green"></div>
+</div>
+<div class="font-headline-lg-mobile text-headline-lg-mobile text-on-surface relative z-10">OPTIMAL</div>
+<div class="font-code-sm text-code-sm text-outline-variant mt-1 relative z-10">Ping: 12ms | Uptime: 99.9%</div>
+</div>
+<!-- Status Panel 2 -->
+<div class="glass-panel border-b-0 relative overflow-hidden group fade-slide-up p-3" style="animation-delay: 0.3s;">
+<div class="absolute inset-0 bg-[#98f05f]/5 translate-x-[-100%] group-hover:translate-x-0 transition-transform duration-500"></div>
+<div class="relative z-10 flex justify-between items-start mb-2">
+<span class="font-label-caps text-label-caps text-on-surface-variant uppercase">Network Nodes</span>
+<span class="material-symbols-outlined text-[#98f05f] text-[16px] pulse-green rounded-full bg-transparent">hub</span>
+</div>
+<div class="font-headline-lg-mobile text-headline-lg-mobile text-on-surface relative z-10">1,248</div>
+<div class="font-code-sm text-code-sm text-outline-variant mt-1 relative z-10">Active instances global</div>
+</div>
+<!-- Status Panel 3 -->
+<div class="glass-panel relative overflow-hidden group fade-slide-up p-3 border-b-0" style="animation-delay: 0.4s;">
+<div class="absolute inset-0 bg-[#98f05f]/5 translate-x-[-100%] group-hover:translate-x-0 transition-transform duration-500"></div>
+<div class="relative z-10 flex justify-between items-start mb-2">
+<span class="font-label-caps text-label-caps text-on-surface-variant uppercase">Supporter Nodes</span>
+<span class="material-symbols-outlined text-[#ff00ff] text-[16px]">verified</span>
+</div>
+<div class="font-headline-lg-mobile text-headline-lg-mobile text-on-surface relative z-10">342</div>
+<div class="font-code-sm text-code-sm text-outline-variant mt-1 relative z-10">Premium access verified</div>
+</div>
+<div class="glass-panel rounded-b-lg relative overflow-hidden group fade-slide-up p-3 border-b-0" style="animation-delay: 0.5s;"><div class="absolute inset-0 bg-[#98f05f]/5 translate-x-[-100%] group-hover:translate-x-0 transition-transform duration-500"></div><div class="relative z-10 flex justify-between items-start mb-2"><span class="font-label-caps text-label-caps text-on-surface-variant uppercase">API Calls</span><span class="material-symbols-outlined text-[#98f05f] text-[16px] pulse-green rounded-full bg-transparent">dynamic_feed</span></div><div class="font-headline-lg-mobile text-headline-lg-mobile text-on-surface relative z-10">42,891</div><div class="font-code-sm text-code-sm text-outline-variant mt-1 relative z-10">Requests processed last 24h</div></div></div>
+</section>
+<!-- Main Grid Layout -->
+<div class="grid grid-cols-1 xl:grid-cols-12 gap-gutter md:gap-margin-sm flex-1 min-h-0">
+<!-- Activity Feed (Left Column) -->
+<aside class="xl:col-span-3 flex flex-col gap-4 fade-slide-up h-full overflow-hidden" style="animation-delay: 0.5s;">
+<div class="glass-panel rounded-lg h-full flex flex-col">
+<div class="border-b border-white/10 p-4 bg-surface-container-lowest/50 rounded-t-lg shrink-0">
+<h2 class="font-label-caps text-label-caps text-[#98f05f] uppercase tracking-wider flex items-center gap-2">
+<span class="material-symbols-outlined text-[16px]">history</span>
+                            System Activity Feed
+                        </h2>
+</div>
+<div class="p-4 flex-1 overflow-y-auto custom-scrollbar font-code-sm text-code-sm flex flex-col gap-4">
+<div class="flex gap-3 relative before:content-[''] before:absolute before:left-1.5 before:top-5 before:bottom-[-20px] before:w-px before:bg-white/10 last:before:hidden feed-item" style="animation-delay: 0.6s;">
+<div class="w-3 h-3 rounded-full border border-[#98f05f] bg-background shrink-0 mt-1 z-10"></div>
+<div>
+<div class="text-on-surface">JobCentre+ <span class="text-[#98f05f]">UPDATE</span></div>
+<div class="text-outline-variant mt-1">Aug 1 // Build deployed to stable branch. Minor bug fixes.</div>
+</div>
+</div>
+<div class="flex gap-3 relative before:content-[''] before:absolute before:left-1.5 before:top-5 before:bottom-[-20px] before:w-px before:bg-white/10 last:before:hidden feed-item" style="animation-delay: 0.7s;">
+<div class="w-3 h-3 rounded-full border border-secondary-fixed bg-background shrink-0 mt-1 z-10"></div>
+<div>
+<div class="text-on-surface">Pit Guru <span class="text-secondary-fixed">v2.3.4</span></div>
+<div class="text-outline-variant mt-1">July 30 // Telemetry optimization patch.</div>
+</div>
+</div>
+<div class="flex gap-3 relative before:content-[''] before:absolute before:left-1.5 before:top-5 before:bottom-[-20px] before:w-px before:bg-white/10 last:before:hidden feed-item" style="animation-delay: 0.8s;">
+<div class="w-3 h-3 rounded-full border border-[#98f05f] bg-background shrink-0 mt-1 z-10"></div>
+<div>
+<div class="text-on-surface">Pythagoras Project <span class="text-[#98f05f]">v3.0.4b</span></div>
+<div class="text-outline-variant mt-1">July 26 // CIS integration complete.</div>
+</div>
+</div>
+<div class="flex gap-3 relative before:content-[''] before:absolute before:left-1.5 before:top-5 before:bottom-[-20px] before:w-px before:bg-white/10 last:before:hidden feed-item" style="animation-delay: 0.9s;">
+<div class="w-3 h-3 rounded-full border border-outline bg-background shrink-0 mt-1 z-10"></div>
+<div>
+<div class="text-on-surface opacity-50">System Maintenance</div>
+<div class="text-outline-variant mt-1 opacity-50">July 20 // Routine DB cleanup.</div>
+</div>
+</div>
+</div>
+</div>
+</aside>
+<!-- Project Modules (Right Area) -->
+<div class="xl:col-span-9 fade-slide-up flex flex-col h-full overflow-hidden min-h-0" id="module-container" style="animation-delay: 0.6s;">
+<div class="border-b border-white/10 pb-2 mb-4 flex justify-between items-end shrink-0">
+<h2 class="font-label-caps text-label-caps text-outline-variant uppercase tracking-wider" id="module-header-title">Module Interface Array</h2>
+<div class="flex items-center gap-2 font-code-sm text-code-sm" id="module-sort-group"><span class="text-outline-variant uppercase mr-2" id="module-filter-text">FILTER: [ALL]</span><div class="relative group/sort"><button class="px-3 py-0.5 rounded border border-[#98f05f] text-[#98f05f] hover:shadow-[0_0_8px_rgba(152,240,95,0.3)] transition-all active:scale-95 flex items-center gap-1 uppercase"><span class="">NEW-OLD</span><span class="material-symbols-outlined text-[14px]">expand_more</span></button><div class="hidden group-hover/sort:block absolute top-full right-0 mt-1 w-32 glass-panel border-[#98f05f]/30 z-50 shadow-[0_10px_30px_rgba(0,0,0,0.5)]"><div class="flex flex-col"><button class="px-3 py-2 text-left hover:bg-[#98f05f]/10 hover:text-[#98f05f] transition-colors border-b border-white/5">NEW-OLD</button><button class="px-3 py-2 text-left hover:bg-[#98f05f]/10 hover:text-[#98f05f] transition-colors border-b border-white/5">OLD-NEW</button><button class="px-3 py-2 text-left hover:bg-[#98f05f]/10 hover:text-[#98f05f] transition-colors border-b border-white/5">A-Z</button><button class="px-3 py-2 text-left hover:bg-[#98f05f]/10 hover:text-[#98f05f] transition-colors">Z-A</button></div></div></div></div>
+</div>
+<!-- Module Grid wrapper for scroll -->
+<div class="flex-1 overflow-y-auto custom-scrollbar pr-2">
+<!-- Module Grid -->
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-unit module-grid" id="module-grid">
+                        <div class="glass-panel module-card p-5 rounded-lg flex flex-col group cursor-pointer h-full fade-slide-up " onclick="activateScript('pythagoras')">
+                            <div class="flex justify-between items-start mb-4">
+                                <div class="w-10 h-10 rounded border border-white/10 bg-surface-container-lowest/50 flex items-center justify-center group-hover:border-[#98f05f]/50 transition-colors">
+                                    <svg class="w-6 h-6 text-[#98f05f]" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+                                        <polygon points="12 2 22 20 2 20"></polygon><circle cx="12" cy="14" r="2"></circle>
+                                    </svg>
+                                </div>
+                                <span class="status-chip supporter font-label-caps text-label-caps px-2 py-0.5">SUPPORTER</span>
+                            </div>
+                            <div class="flex-1 ">
+                                <h3 class="font-headline-lg-mobile text-headline-lg-mobile text-on-surface mb-1 group-hover:text-[#98f05f] transition-colors">Pythagoras Project - CIS</h3>
+                                <p class="font-code-sm text-code-sm text-outline-variant">Company Intelligence System, featuring detailed training ledger and member tracking capabilities.</p>
+                            </div>
+                            <div class="mt-4 pt-4 border-t border-white/5 font-code-sm text-code-sm text-[#98f05f]/80 flex justify-between ">
+                                <span class="">VER: v3.0.4b</span>
+                                <span class="material-symbols-outlined text-[16px] opacity-0 group-hover:opacity-100 transition-opacity">arrow_forward</span>
+                            </div>
+                        </div>
+                        <div class="glass-panel module-card p-5 rounded-lg flex flex-col group cursor-pointer h-full fade-slide-up border-dashed opacity-70" onclick="activateScript('stockx')">
+                            <div class="flex justify-between items-start mb-4">
+                                <div class="w-10 h-10 rounded border border-white/10 bg-surface-container-lowest/50 flex items-center justify-center group-hover:border-[#98f05f]/50 transition-colors">
+                                    <svg class="w-6 h-6 text-[#98f05f]" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+                                        <path d="M3 3v18h18M18 9l-5 5-4-4-5 5"></path>
+                                    </svg>
+                                </div>
+                                <span class="status-chip dev font-label-caps text-label-caps px-2 py-0.5">DEV</span>
+                            </div>
+                            <div class="flex-1 group-hover:opacity-100 transition-opacity">
+                                <h3 class="font-headline-lg-mobile text-headline-lg-mobile text-on-surface mb-1 group-hover:text-[#98f05f] transition-colors">Stock-X</h3>
+                                <p class="font-code-sm text-code-sm text-outline-variant">Market tracking and prediction algorithm suite.</p>
+                            </div>
+                            <div class="mt-4 pt-4 border-t border-white/5 font-code-sm text-code-sm text-[#98f05f]/80 flex justify-between group-hover:opacity-100 transition-opacity">
+                                <span class="">VER: [DEV]</span>
+                                <span class="material-symbols-outlined text-[16px] opacity-0 group-hover:opacity-100 transition-opacity">build</span>
+                            </div>
+                        </div>
+                        <div class="glass-panel module-card p-5 rounded-lg flex flex-col group cursor-pointer h-full fade-slide-up " onclick="activateScript('smuggler')">
+                            <div class="flex justify-between items-start mb-4">
+                                <div class="w-10 h-10 rounded border border-white/10 bg-surface-container-lowest/50 flex items-center justify-center group-hover:border-[#98f05f]/50 transition-colors">
+                                    <svg class="w-6 h-6 text-[#98f05f]" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+                                        <path d="M22 12h-4l-3-9L9 3l-3 9H2"></path>
+                                    </svg>
+                                </div>
+                                <span class="status-chip live font-label-caps text-label-caps px-2 py-0.5">LIVE</span>
+                            </div>
+                            <div class="flex-1 ">
+                                <h3 class="font-headline-lg-mobile text-headline-lg-mobile text-on-surface mb-1 group-hover:text-[#98f05f] transition-colors">Smuggler</h3>
+                                <p class="font-code-sm text-code-sm text-outline-variant">Travel and inventory optimization agent.</p>
+                            </div>
+                            <div class="mt-4 pt-4 border-t border-white/5 font-code-sm text-code-sm text-[#98f05f]/80 flex justify-between ">
+                                <span class="">VER: v3.0.6</span>
+                                <span class="material-symbols-outlined text-[16px] opacity-0 group-hover:opacity-100 transition-opacity">arrow_forward</span>
+                            </div>
+                        </div>
+                        <div class="glass-panel module-card p-5 rounded-lg flex flex-col group cursor-pointer h-full fade-slide-up " onclick="activateScript('pitGuru')">
+                            <div class="flex justify-between items-start mb-4">
+                                <div class="w-10 h-10 rounded border border-white/10 bg-surface-container-lowest/50 flex items-center justify-center group-hover:border-[#98f05f]/50 transition-colors">
+                                    <svg class="w-6 h-6 text-[#98f05f]" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+                                        <rect height="18" rx="2" width="18" x="3" y="3"></rect><path d="M9 3v18M15 3v18M3 9h18M3 15h18" stroke-dasharray="2 2"></path>
+                                    </svg>
+                                </div>
+                                <span class="status-chip supporter font-label-caps text-label-caps px-2 py-0.5">SUPPORTER</span>
+                            </div>
+                            <div class="flex-1 ">
+                                <h3 class="font-headline-lg-mobile text-headline-lg-mobile text-on-surface mb-1 group-hover:text-[#98f05f] transition-colors">MoDuL's Pit Guru</h3>
+                                <p class="font-code-sm text-code-sm text-outline-variant">Comprehensive pit crew optimization heuristics.</p>
+                            </div>
+                            <div class="mt-4 pt-4 border-t border-white/5 font-code-sm text-code-sm text-[#98f05f]/80 flex justify-between ">
+                                <span class="">VER: v2.3.4</span>
+                                <span class="material-symbols-outlined text-[16px] opacity-0 group-hover:opacity-100 transition-opacity">arrow_forward</span>
+                            </div>
+                        </div>
+                        <div class="glass-panel module-card p-5 rounded-lg flex flex-col group cursor-pointer h-full fade-slide-up " onclick="activateScript('jobCentrePlus')">
+                            <div class="flex justify-between items-start mb-4">
+                                <div class="w-10 h-10 rounded border border-white/10 bg-surface-container-lowest/50 flex items-center justify-center group-hover:border-[#98f05f]/50 transition-colors">
+                                    <svg class="w-6 h-6 text-[#98f05f]" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+                                        <path d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
+                                    </svg>
+                                </div>
+                                <span class="status-chip live font-label-caps text-label-caps px-2 py-0.5">LIVE</span>
+                            </div>
+                            <div class="flex-1 ">
+                                <h3 class="font-headline-lg-mobile text-headline-lg-mobile text-on-surface mb-1 group-hover:text-[#98f05f] transition-colors">JobCentre+</h3>
+                                <p class="font-code-sm text-code-sm text-outline-variant">Advanced company application and recruitment tool.</p>
+                            </div>
+                            <div class="mt-4 pt-4 border-t border-white/5 font-code-sm text-code-sm text-[#98f05f]/80 flex justify-between ">
+                                <span class="">VER: v1.2.0</span>
+                                <span class="material-symbols-outlined text-[16px] opacity-0 group-hover:opacity-100 transition-opacity">arrow_forward</span>
+                            </div>
+                        </div>
+                        <div class="glass-panel module-card p-5 rounded-lg flex flex-col group cursor-pointer h-full fade-slide-up " onclick="activateScript('customRaceFilter')">
+                            <div class="flex justify-between items-start mb-4">
+                                <div class="w-10 h-10 rounded border border-white/10 bg-surface-container-lowest/50 flex items-center justify-center group-hover:border-[#98f05f]/50 transition-colors">
+                                    <svg class="w-6 h-6 text-[#98f05f]" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+                                        <path d="M4 6h16M4 12h16m-7 6h7" stroke-linecap="square"></path><circle cx="7" cy="18" r="2"></circle>
+                                    </svg>
+                                </div>
+                                <span class="status-chip supporter font-label-caps text-label-caps px-2 py-0.5">SUPPORTER</span>
+                            </div>
+                            <div class="flex-1 ">
+                                <h3 class="font-headline-lg-mobile text-headline-lg-mobile text-on-surface mb-1 group-hover:text-[#98f05f] transition-colors">Custom Race Filter</h3>
+                                <p class="font-code-sm text-code-sm text-outline-variant">Advanced race telemetry sorting and filtering engine.</p>
+                            </div>
+                            <div class="mt-4 pt-4 border-t border-white/5 font-code-sm text-code-sm text-[#98f05f]/80 flex justify-between ">
+                                <span class="">VER: v2.5.2</span>
+                                <span class="material-symbols-outlined text-[16px] opacity-0 group-hover:opacity-100 transition-opacity">arrow_forward</span>
+                            </div>
+                        </div>
+                        <div class="glass-panel module-card p-5 rounded-lg flex flex-col group cursor-pointer h-full fade-slide-up " onclick="activateScript('pythagorasDashboard')">
+                            <div class="flex justify-between items-start mb-4">
+                                <div class="w-10 h-10 rounded border border-white/10 bg-surface-container-lowest/50 flex items-center justify-center group-hover:border-[#98f05f]/50 transition-colors">
+                                    <svg class="w-6 h-6 text-[#98f05f]" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+                                        <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="3" y1="9" x2="21" y2="9"></line><line x1="9" y1="21" x2="9" y2="9"></line>
+                                    </svg>
+                                </div>
+                                <span class="status-chip live font-label-caps text-label-caps px-2 py-0.5">LIVE</span>
+                            </div>
+                            <div class="flex-1 ">
+                                <h3 class="font-headline-lg-mobile text-headline-lg-mobile text-on-surface mb-1 group-hover:text-[#98f05f] transition-colors">Pythagoras Project - Dashboard</h3>
+                                <p class="font-code-sm text-code-sm text-outline-variant">Web-based interface for CIS data aggregation.</p>
+                            </div>
+                            <div class="mt-4 pt-4 border-t border-white/5 font-code-sm text-code-sm text-[#98f05f]/80 flex justify-between ">
+                                <span class="">VER: v1.0.0</span>
+                                <span class="material-symbols-outlined text-[16px] opacity-0 group-hover:opacity-100 transition-opacity">arrow_forward</span>
+                            </div>
+                        </div>
+                        <div class="glass-panel module-card p-5 rounded-lg flex flex-col group cursor-pointer h-full fade-slide-up border-dashed opacity-70" onclick="activateScript('tornfolio')">
+                            <div class="flex justify-between items-start mb-4">
+                                <div class="w-10 h-10 rounded border border-white/10 bg-surface-container-lowest/50 flex items-center justify-center group-hover:border-[#98f05f]/50 transition-colors">
+                                    <svg class="w-6 h-6 text-[#98f05f]" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+                                        <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
+                                    </svg>
+                                </div>
+                                <span class="status-chip dev font-label-caps text-label-caps px-2 py-0.5">DEV</span>
+                            </div>
+                            <div class="flex-1 group-hover:opacity-100 transition-opacity">
+                                <h3 class="font-headline-lg-mobile text-headline-lg-mobile text-on-surface mb-1 group-hover:text-[#98f05f] transition-colors">Tornfolio</h3>
+                                <p class="font-code-sm text-code-sm text-outline-variant">Asset management and networth tracking node.</p>
+                            </div>
+                            <div class="mt-4 pt-4 border-t border-white/5 font-code-sm text-code-sm text-[#98f05f]/80 flex justify-between group-hover:opacity-100 transition-opacity">
+                                <span class="">VER: [ALPHA]</span>
+                                <span class="material-symbols-outlined text-[16px] opacity-0 group-hover:opacity-100 transition-opacity">build</span>
+                            </div>
+                        </div>
+                        <div class="glass-panel module-card p-5 rounded-lg flex flex-col group cursor-pointer h-full fade-slide-up " onclick="activateScript('lap-recorder')">
+                            <div class="flex justify-between items-start mb-4">
+                                <div class="w-10 h-10 rounded border border-white/10 bg-surface-container-lowest/50 flex items-center justify-center group-hover:border-[#98f05f]/50 transition-colors">
+                                    <svg class="w-6 h-6 text-[#98f05f]" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+                                        <image href="https://lh3.googleusercontent.com/aida-public/AB6AXuDbmK_RbWVhpeeraxON2kBwiL_RLDAQABFzld8-0m_qY4CGc21KEcPSm-QEDdw89B26ALU27BpFgwExTXyMUzwt30onBeHesQm_Y9coECCkA6k8DPwMpOyQhct2g4HwI5hH188xCdpbSySk_hLo7uOJ0lbUL0D7bg_iRnV4uhZBazvYrC_mzdOCDDrdk76lkAVfmMj7qy7rME_W2P906o8l5WcpWBG2GfkYtFhOIlYfUOETDUVVGjgaexsevCTTGG3xZA" x="0" y="0" width="24" height="24"></image>
+                                    </svg>
+                                </div>
+                                <span class="status-chip archive font-label-caps text-label-caps px-2 py-0.5">ARCHIVE</span>
+                            </div>
+                            <div class="flex-1 ">
+                                <h3 class="font-headline-lg-mobile text-headline-lg-mobile text-on-surface mb-1 group-hover:text-[#98f05f] transition-colors">Lap Recorder</h3>
+                                <p class="font-code-sm text-code-sm text-outline-variant">The lap-capture project that helped shape the next generation of racing tools. Retired from active promotion, but preserved on the hub as part of the journey.</p>
+                            </div>
+                            <div class="mt-4 pt-4 border-t border-white/5 font-code-sm text-code-sm text-[#98f05f]/80 flex justify-between ">
+                                <span class="">VER: v1.7.1</span>
+                                <span class="material-symbols-outlined text-[16px] opacity-0 group-hover:opacity-100 transition-opacity">arrow_forward</span>
+                            </div>
+                        </div>
+                        <div class="glass-panel module-card p-5 rounded-lg flex flex-col group cursor-pointer h-full fade-slide-up " onclick="activateScript('modulHubControl')">
+                            <div class="flex justify-between items-start mb-4">
+                                <div class="w-10 h-10 rounded border border-white/10 bg-surface-container-lowest/50 flex items-center justify-center group-hover:border-[#98f05f]/50 transition-colors">
+                                    <svg class="w-6 h-6 text-[#98f05f]" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+                                        <path d="M3 3h18v18H3z"></path>
+                                    </svg>
+                                </div>
+                                <span class="status-chip live font-label-caps text-label-caps px-2 py-0.5">LIVE</span>
+                            </div>
+                            <div class="flex-1 ">
+                                <h3 class="font-headline-lg-mobile text-headline-lg-mobile text-on-surface mb-1 group-hover:text-[#98f05f] transition-colors">MoDuL Hub Control Room</h3>
+                                <p class="font-code-sm text-code-sm text-outline-variant">Centralized control system for MoDuL utilities.</p>
+                            </div>
+                            <div class="mt-4 pt-4 border-t border-white/5 font-code-sm text-code-sm text-[#98f05f]/80 flex justify-between ">
+                                <span class="">VER: v0.2.10</span>
+                                <span class="material-symbols-outlined text-[16px] opacity-0 group-hover:opacity-100 transition-opacity">arrow_forward</span>
+                            </div>
+                        </div>
+                        <div class="glass-panel module-card p-5 rounded-lg flex flex-col group cursor-pointer h-full fade-slide-up " onclick="activateScript('cracked')">
+                            <div class="flex justify-between items-start mb-4">
+                                <div class="w-10 h-10 rounded border border-white/10 bg-surface-container-lowest/50 flex items-center justify-center group-hover:border-[#98f05f]/50 transition-colors">
+                                    <svg class="w-6 h-6 text-[#98f05f]" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+                                        <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"></path>
+                                    </svg>
+                                </div>
+                                <span class="status-chip live font-label-caps text-label-caps px-2 py-0.5">LIVE</span>
+                            </div>
+                            <div class="flex-1 ">
+                                <h3 class="font-headline-lg-mobile text-headline-lg-mobile text-on-surface mb-1 group-hover:text-[#98f05f] transition-colors">cRaCked</h3>
+                                <p class="font-code-sm text-code-sm text-outline-variant">High-performance cracking utility framework.</p>
+                            </div>
+                            <div class="mt-4 pt-4 border-t border-white/5 font-code-sm text-code-sm text-[#98f05f]/80 flex justify-between ">
+                                <span class="">VER: v1.3.1</span>
+                                <span class="material-symbols-outlined text-[16px] opacity-0 group-hover:opacity-100 transition-opacity">arrow_forward</span>
+                            </div>
+                        </div>
+                        <div class="glass-panel module-card p-5 rounded-lg flex flex-col group cursor-pointer h-full fade-slide-up border-dashed opacity-70" onclick="activateScript('raceTracker')">
+                            <div class="flex justify-between items-start mb-4">
+                                <div class="w-10 h-10 rounded border border-white/10 bg-surface-container-lowest/50 flex items-center justify-center group-hover:border-[#98f05f]/50 transition-colors">
+                                    <svg class="w-6 h-6 text-[#98f05f]" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+                                        <path d="M4 19l16-14m0 0v8m0-8h-8"></path>
+                                    </svg>
+                                </div>
+                                <span class="status-chip dev font-label-caps text-label-caps px-2 py-0.5">DEV</span>
+                            </div>
+                            <div class="flex-1 group-hover:opacity-100 transition-opacity">
+                                <h3 class="font-headline-lg-mobile text-headline-lg-mobile text-on-surface mb-1 group-hover:text-[#98f05f] transition-colors">Race Tracker</h3>
+                                <p class="font-code-sm text-code-sm text-outline-variant">Real-time vector tracking for active circuits.</p>
+                            </div>
+                            <div class="mt-4 pt-4 border-t border-white/5 font-code-sm text-code-sm text-[#98f05f]/80 flex justify-between group-hover:opacity-100 transition-opacity">
+                                <span class="">VER: [DEV]</span>
+                                <span class="material-symbols-outlined text-[16px] opacity-0 group-hover:opacity-100 transition-opacity">build</span>
+                            </div>
+                        </div>
+                        <div class="glass-panel module-card p-5 rounded-lg flex flex-col group cursor-pointer h-full fade-slide-up " onclick="activateScript('eggsTerminator')">
+                            <div class="flex justify-between items-start mb-4">
+                                <div class="w-10 h-10 rounded border border-white/10 bg-surface-container-lowest/50 flex items-center justify-center group-hover:border-[#98f05f]/50 transition-colors">
+                                    <svg class="w-6 h-6 text-[#98f05f]" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+                                        <circle cx="12" cy="12" r="8"></circle><path d="M12 4v16M4 12h16"></path>
+                                    </svg>
+                                </div>
+                                <span class="status-chip live font-label-caps text-label-caps px-2 py-0.5">LIVE</span>
+                            </div>
+                            <div class="flex-1 ">
+                                <h3 class="font-headline-lg-mobile text-headline-lg-mobile text-on-surface mb-1 group-hover:text-[#98f05f] transition-colors">EggsTerminator</h3>
+                                <p class="font-code-sm text-code-sm text-outline-variant">Automated seasonal event scanning utility.</p>
+                            </div>
+                            <div class="mt-4 pt-4 border-t border-white/5 font-code-sm text-code-sm text-[#98f05f]/80 flex justify-between ">
+                                <span class="">VER: v2.5.12</span>
+                                <span class="material-symbols-outlined text-[16px] opacity-0 group-hover:opacity-100 transition-opacity">arrow_forward</span>
+                            </div>
+                        </div>
+                        <div class="glass-panel module-card p-5 rounded-lg flex flex-col group cursor-pointer h-full fade-slide-up " onclick="activateScript('raceThemeChanger')">
+                            <div class="flex justify-between items-start mb-4">
+                                <div class="w-10 h-10 rounded border border-white/10 bg-surface-container-lowest/50 flex items-center justify-center group-hover:border-[#98f05f]/50 transition-colors">
+                                    <svg class="w-6 h-6 text-[#98f05f]" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+                                        <path d="M12 2v20m-7-7l7 7 7-7"></path>
+                                    </svg>
+                                </div>
+                                <span class="status-chip live font-label-caps text-label-caps px-2 py-0.5">LIVE</span>
+                            </div>
+                            <div class="flex-1 ">
+                                <h3 class="font-headline-lg-mobile text-headline-lg-mobile text-on-surface mb-1 group-hover:text-[#98f05f] transition-colors">Race Theme Changer</h3>
+                                <p class="font-code-sm text-code-sm text-outline-variant">Custom aesthetic overrides for race UI.</p>
+                            </div>
+                            <div class="mt-4 pt-4 border-t border-white/5 font-code-sm text-code-sm text-[#98f05f]/80 flex justify-between ">
+                                <span class="">VER: v1.2.6</span>
+                                <span class="material-symbols-outlined text-[16px] opacity-0 group-hover:opacity-100 transition-opacity">arrow_forward</span>
+                            </div>
+                        </div>
+                        <div class="glass-panel module-card p-5 rounded-lg flex flex-col group cursor-pointer h-full fade-slide-up " onclick="activateScript('restoreOgNames')">
+                            <div class="flex justify-between items-start mb-4">
+                                <div class="w-10 h-10 rounded border border-white/10 bg-surface-container-lowest/50 flex items-center justify-center group-hover:border-[#98f05f]/50 transition-colors">
+                                    <svg class="w-6 h-6 text-[#98f05f]" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+                                        <path d="M3 10h18M3 14h18"></path>
+                                    </svg>
+                                </div>
+                                <span class="status-chip live font-label-caps text-label-caps px-2 py-0.5">LIVE</span>
+                            </div>
+                            <div class="flex-1 ">
+                                <h3 class="font-headline-lg-mobile text-headline-lg-mobile text-on-surface mb-1 group-hover:text-[#98f05f] transition-colors">Restore OG Names</h3>
+                                <p class="font-code-sm text-code-sm text-outline-variant">Reverts dynamic naming changes back to original.</p>
+                            </div>
+                            <div class="mt-4 pt-4 border-t border-white/5 font-code-sm text-code-sm text-[#98f05f]/80 flex justify-between ">
+                                <span class="">VER: v1.3.1</span>
+                                <span class="material-symbols-outlined text-[16px] opacity-0 group-hover:opacity-100 transition-opacity">arrow_forward</span>
+                            </div>
+                        </div>
+                        <div class="glass-panel module-card p-5 rounded-lg flex flex-col group cursor-pointer h-full fade-slide-up border-dashed opacity-70" onclick="activateScript('stockx')">
+                            <div class="flex justify-between items-start mb-4">
+                                <div class="w-10 h-10 rounded border border-white/10 bg-surface-container-lowest/50 flex items-center justify-center group-hover:border-[#98f05f]/50 transition-colors">
+                                    <svg class="w-6 h-6 text-[#98f05f]" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+                                        <path d="M3 3v18h18M18 9l-5 5-4-4-5 5"></path>
+                                    </svg>
+                                </div>
+                                <span class="status-chip dev font-label-caps text-label-caps px-2 py-0.5">DEV</span>
+                            </div>
+                            <div class="flex-1 group-hover:opacity-100 transition-opacity">
+                                <h3 class="font-headline-lg-mobile text-headline-lg-mobile text-on-surface mb-1 group-hover:text-[#98f05f] transition-colors">Stock-X</h3>
+                                <p class="font-code-sm text-code-sm text-outline-variant">Market tracking and prediction algorithm suite.</p>
+                            </div>
+                            <div class="mt-4 pt-4 border-t border-white/5 font-code-sm text-code-sm text-[#98f05f]/80 flex justify-between group-hover:opacity-100 transition-opacity">
+                                <span class="">VER: [DEV]</span>
+                                <span class="material-symbols-outlined text-[16px] opacity-0 group-hover:opacity-100 transition-opacity">build</span>
+                            </div>
+                        </div>
+                        <div class="glass-panel module-card p-5 rounded-lg flex flex-col group cursor-pointer h-full fade-slide-up " onclick="activateScript('smuggler')">
+                            <div class="flex justify-between items-start mb-4">
+                                <div class="w-10 h-10 rounded border border-white/10 bg-surface-container-lowest/50 flex items-center justify-center group-hover:border-[#98f05f]/50 transition-colors">
+                                    <svg class="w-6 h-6 text-[#98f05f]" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+                                        <path d="M22 12h-4l-3-9L9 3l-3 9H2"></path>
+                                    </svg>
+                                </div>
+                                <span class="status-chip live font-label-caps text-label-caps px-2 py-0.5">LIVE</span>
+                            </div>
+                            <div class="flex-1 ">
+                                <h3 class="font-headline-lg-mobile text-headline-lg-mobile text-on-surface mb-1 group-hover:text-[#98f05f] transition-colors">Smuggler</h3>
+                                <p class="font-code-sm text-code-sm text-outline-variant">Travel and inventory optimization agent.</p>
+                            </div>
+                            <div class="mt-4 pt-4 border-t border-white/5 font-code-sm text-code-sm text-[#98f05f]/80 flex justify-between ">
+                                <span class="">VER: v3.0.6</span>
+                                <span class="material-symbols-outlined text-[16px] opacity-0 group-hover:opacity-100 transition-opacity">arrow_forward</span>
+                            </div>
+                        </div>
+                        <div class="glass-panel module-card p-5 rounded-lg flex flex-col group cursor-pointer h-full fade-slide-up " onclick="activateScript('jobCentrePlus')">
+                            <div class="flex justify-between items-start mb-4">
+                                <div class="w-10 h-10 rounded border border-white/10 bg-surface-container-lowest/50 flex items-center justify-center group-hover:border-[#98f05f]/50 transition-colors">
+                                    <svg class="w-6 h-6 text-[#98f05f]" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+                                        <path d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
+                                    </svg>
+                                </div>
+                                <span class="status-chip live font-label-caps text-label-caps px-2 py-0.5">LIVE</span>
+                            </div>
+                            <div class="flex-1 ">
+                                <h3 class="font-headline-lg-mobile text-headline-lg-mobile text-on-surface mb-1 group-hover:text-[#98f05f] transition-colors">JobCentre+</h3>
+                                <p class="font-code-sm text-code-sm text-outline-variant">Advanced company application and recruitment tool.</p>
+                            </div>
+                            <div class="mt-4 pt-4 border-t border-white/5 font-code-sm text-code-sm text-[#98f05f]/80 flex justify-between ">
+                                <span class="">VER: v1.2.0</span>
+                                <span class="material-symbols-outlined text-[16px] opacity-0 group-hover:opacity-100 transition-opacity">arrow_forward</span>
+                            </div>
+                        </div>
+                        <div class="glass-panel module-card p-5 rounded-lg flex flex-col group cursor-pointer h-full fade-slide-up " onclick="activateScript('pythagorasDashboard')">
+                            <div class="flex justify-between items-start mb-4">
+                                <div class="w-10 h-10 rounded border border-white/10 bg-surface-container-lowest/50 flex items-center justify-center group-hover:border-[#98f05f]/50 transition-colors">
+                                    <svg class="w-6 h-6 text-[#98f05f]" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+                                        <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="3" y1="9" x2="21" y2="9"></line><line x1="9" y1="21" x2="9" y2="9"></line>
+                                    </svg>
+                                </div>
+                                <span class="status-chip live font-label-caps text-label-caps px-2 py-0.5">LIVE</span>
+                            </div>
+                            <div class="flex-1 ">
+                                <h3 class="font-headline-lg-mobile text-headline-lg-mobile text-on-surface mb-1 group-hover:text-[#98f05f] transition-colors">Pythagoras Project - Dashboard</h3>
+                                <p class="font-code-sm text-code-sm text-outline-variant">Web-based interface for CIS data aggregation.</p>
+                            </div>
+                            <div class="mt-4 pt-4 border-t border-white/5 font-code-sm text-code-sm text-[#98f05f]/80 flex justify-between ">
+                                <span class="">VER: v1.0.0</span>
+                                <span class="material-symbols-outlined text-[16px] opacity-0 group-hover:opacity-100 transition-opacity">arrow_forward</span>
+                            </div>
+                        </div>
+                        <div class="glass-panel module-card p-5 rounded-lg flex flex-col group cursor-pointer h-full fade-slide-up " onclick="activateScript('lap-recorder')">
+                            <div class="flex justify-between items-start mb-4">
+                                <div class="w-10 h-10 rounded border border-white/10 bg-surface-container-lowest/50 flex items-center justify-center group-hover:border-[#98f05f]/50 transition-colors">
+                                    <svg class="w-6 h-6 text-[#98f05f]" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+                                        <image href="https://lh3.googleusercontent.com/aida-public/AB6AXuDbmK_RbWVhpeeraxON2kBwiL_RLDAQABFzld8-0m_qY4CGc21KEcPSm-QEDdw89B26ALU27BpFgwExTXyMUzwt30onBeHesQm_Y9coECCkA6k8DPwMpOyQhct2g4HwI5hH188xCdpbSySk_hLo7uOJ0lbUL0D7bg_iRnV4uhZBazvYrC_mzdOCDDrdk76lkAVfmMj7qy7rME_W2P906o8l5WcpWBG2GfkYtFhOIlYfUOETDUVVGjgaexsevCTTGG3xZA" x="0" y="0" width="24" height="24"></image>
+                                    </svg>
+                                </div>
+                                <span class="status-chip archive font-label-caps text-label-caps px-2 py-0.5">ARCHIVE</span>
+                            </div>
+                            <div class="flex-1 ">
+                                <h3 class="font-headline-lg-mobile text-headline-lg-mobile text-on-surface mb-1 group-hover:text-[#98f05f] transition-colors">Lap Recorder</h3>
+                                <p class="font-code-sm text-code-sm text-outline-variant">The lap-capture project that helped shape the next generation of racing tools. Retired from active promotion, but preserved on the hub as part of the journey.</p>
+                            </div>
+                            <div class="mt-4 pt-4 border-t border-white/5 font-code-sm text-code-sm text-[#98f05f]/80 flex justify-between ">
+                                <span class="">VER: v1.7.1</span>
+                                <span class="material-symbols-outlined text-[16px] opacity-0 group-hover:opacity-100 transition-opacity">arrow_forward</span>
+                            </div>
+                        </div></div>
+<!-- Script Details Container -->
+<div class="script-details glass-panel p-6 rounded-lg w-full" id="script-details-container"><div class="flex items-center mb-6 border-b border-white/5 pb-4">
+<button class="group flex items-center gap-2 px-3 py-1.5 rounded border border-outline-variant hover:border-[#98f05f] hover:bg-[#98f05f]/5 transition-all duration-200 active:scale-95" onclick="const terminal = document.getElementById('cli-output'); const cursorLine = document.getElementById('cli-cursor-line'); const newLine = document.createElement('div'); newLine.className = 'opacity-100 typing-line text-error'; newLine.innerHTML = '&gt; UNLOADING MODULE... [CLEANUP_COMPLETE]'; terminal.insertBefore(newLine, cursorLine); terminal.parentElement.scrollTop = terminal.parentElement.scrollHeight; setTimeout(() =&gt; resetView(), 300);">
+<span class="material-symbols-outlined text-[18px] text-outline-variant group-hover:text-[#98f05f] transition-colors">arrow_back</span>
+<span class="font-label-caps text-label-caps text-outline-variant group-hover:text-[#98f05f] uppercase tracking-widest">SYS_RETURN_REGISTRY</span>
+</button>
+</div><div class="flex flex-col gap-8 font-headline-lg">
+<div class="flex flex-col md:flex-row justify-between items-start gap-6 border-b border-white/10 pb-6">
+<div class="flex-1">
+<div class="flex items-center gap-4 mb-3">
+<button class="flex items-center gap-2 text-outline-variant hover:text-[#98f05f] transition-colors font-label-caps text-label-caps uppercase" onclick="const terminal = document.getElementById('cli-output'); const cursorLine = document.getElementById('cli-cursor-line'); const newLine = document.createElement('div'); newLine.className = 'opacity-100 typing-line text-error'; newLine.innerHTML = '&gt; UNLOADING MODULE... [CLEANUP_COMPLETE]'; terminal.insertBefore(newLine, cursorLine); terminal.parentElement.scrollTop = terminal.parentElement.scrollHeight; setTimeout(() =&gt; resetView(), 300);">
+<span class="material-symbols-outlined text-[18px]">arrow_back</span> Return to Registry
+        </button>
+</div>
+<div class="flex items-center gap-4 mb-2">
+<h2 class="text-headline-xl text-[#98f05f] uppercase tracking-tighter" id="detail-title">MoDuL's Pit Guru</h2>
+<span class="status-chip supporter font-label-caps text-label-caps px-3 py-1" id="detail-badge">SUPPORTER</span>
+<span class="text-outline-variant font-code-sm" id="detail-version">v2.3.4</span>
+</div>
+<p class="text-on-surface-variant max-w-3xl leading-relaxed" id="detail-desc">Comprehensive pit crew optimization heuristics.</p>
+</div>
+<div class="flex flex-col gap-3 shrink-0">
+<a class="cyber-button-primary shimmer-btn font-label-caps text-label-caps uppercase px-8 py-4 rounded-DEFAULT flex items-center justify-center gap-2 flicker-hover" href="https://greasyfork.org/en/scripts/580933-pythagoras-project-cis" target="_blank">
+<span class="material-symbols-outlined text-[20px]">download</span> INSTALL SCRIPT
+      </a>
+<a class="cyber-button-secondary font-label-caps text-label-caps uppercase px-8 py-4 rounded-DEFAULT flex items-center justify-center gap-2" href="https://pp-api.sokin.xyz/dashboard" target="_blank">
+<span class="material-symbols-outlined text-[20px]">dashboard</span> WEB DASHBOARD
+      </a>
+</div>
+</div>
+<div class="hidden" id="detail-custom-content"></div>
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-gutter" id="detail-default-content">
+<div class="flex flex-col gap-4">
+<h3 class="font-label-caps text-label-caps text-[#98f05f] uppercase tracking-widest flex items-center gap-2">
+<span class="material-symbols-outlined text-[18px]">help</span> Frequently Asked Questions
+      </h3>
+<div class="flex flex-col gap-2">
+<details class="glass-panel p-4 rounded group cursor-pointer">
+<summary class="font-body-md text-on-surface group-hover:text-[#98f05f] transition-colors flex justify-between items-center">What is Pythagoras CIS? <span class="material-symbols-outlined text-[18px] group-open:rotate-180 transition-transform">expand_more</span></summary>
+<div class="mt-3 text-on-surface-variant text-code-sm leading-relaxed border-t border-white/5 pt-3">
+            Pythagoras CIS is a Tampermonkey userscript designed for Torn company management. It provides a cloud-backed workspace for managing the training ledger, FIFO train planner, staff and director history, daily report analytics, licensing, backups, and themed reports.
+          </div>
+</details>
+<details class="glass-panel p-4 rounded group cursor-pointer">
+<summary class="font-body-md text-on-surface group-hover:text-[#98f05f] transition-colors flex justify-between items-center">Where is my data stored? <span class="material-symbols-outlined text-[18px] group-open:rotate-180 transition-transform">expand_more</span></summary>
+<div class="mt-3 text-on-surface-variant text-code-sm leading-relaxed border-t border-white/5 pt-3">
+            Company data is stored in a PostgreSQL-backed cloud workspace keyed by company ID. Every company-owned row includes its company ID, and server-side access checks decide which Torn user can open that workspace.
+          </div>
+</details>
+<details class="glass-panel p-4 rounded group cursor-pointer">
+<summary class="font-body-md text-on-surface group-hover:text-[#98f05f] transition-colors flex justify-between items-center">How does the Train Planner work? <span class="material-symbols-outlined text-[18px] group-open:rotate-180 transition-transform">expand_more</span></summary>
+<div class="mt-3 text-on-surface-variant text-code-sm leading-relaxed border-t border-white/5 pt-3">
+            The planner follows a FIFO (First In, First Out) approach for paid training entries. Paid users are prioritised up to the configured daily cap, after which remaining capacity is allocated to sponsored rotation users.
+          </div>
+</details>
+</div>
+</div>
+<div class="flex flex-col gap-4">
+<h3 class="font-label-caps text-label-caps text-[#98f05f] uppercase tracking-widest flex items-center gap-2">
+<span class="material-symbols-outlined text-[18px]">history</span> Recent Changelog
+      </h3>
+<div class="flex flex-col gap-2" id="detail-history-content">
+<div class="glass-panel p-4 rounded border-l-2 border-[#98f05f]">
+<div class="flex justify-between items-center mb-2">
+<span class="text-[#98f05f] font-code-sm">v3.0.4b</span>
+<span class="text-outline-variant text-[11px] uppercase">Latest</span>
+</div>
+<ul class="text-on-surface-variant text-code-sm list-disc list-inside flex flex-col gap-1">
+<li class="">Company News now reconciles training rows against Torn's exact action log.</li>
+<li class="">Grouped News shows the exact daily total instead of collapsed counts.</li>
+<li class="">Raw News shows every unique Torn training action after sync.</li>
+</ul>
+</div>
+<div class="glass-panel p-4 rounded opacity-70">
+<div class="flex justify-between items-center mb-2">
+<span class="text-on-surface font-code-sm">v3.0.4</span>
+</div>
+<ul class="text-on-surface-variant text-code-sm list-disc list-inside flex flex-col gap-1">
+<li class="">Mobile settings forms now collapse to full-width phone columns.</li>
+<li class="">Training log sync combines company news with exact training-action log.</li>
+</ul>
+</div>
+</div>
+</div>
+</div>
+</div></div>
+</div>
+</div>
+</div>
+</main>
+<!-- Footer Container (Shared Component implementation) -->
+<footer class="w-full py-4 border-t border-white/5 bg-background relative z-10 flex flex-col md:flex-row justify-between items-center px-margin-md gap-4 fade-slide-up shrink-0" style="animation-delay: 0.8s;">
+<div class="font-label-caps text-label-caps text-on-surface animate-pulse-slow">
+            BUILD: v2.4.0-CYBER
         </div>
-      </div>
+<ul class="flex items-center gap-6">
+<li class=""><a class="font-code-sm text-code-sm text-outline hover:text-[#98f05f] transition-colors" href="#">Torn Profile</a></li>
+<li class=""><a class="font-code-sm text-code-sm text-outline hover:text-[#98f05f] transition-colors" href="#">Legal</a></li>
+<li class=""><a class="font-code-sm text-code-sm text-outline hover:text-[#98f05f] transition-colors" href="#">Privacy</a></li>
+</ul>
+</footer>
+<script>
+        const scripts = [
+            {
+                id: 'pythagoras',
+                tier: 'supporter',
+                title: 'Pythagoras Project - CIS',
+                desc: 'Company Intelligence System, featuring detailed training ledger and member tracking capabilities.',
+                version: 'v3.0.4b',
+                category: 'Company Intelligence',
+                badge: 'supporter',
+                badgeText: 'SUPPORTER',
+                iconPath: '<polygon points="12 2 22 20 2 20"></polygon><circle cx="12" cy="14" r="2"></circle>',
+                config: '{"ledger_sync": true, "api_polling": 30000, "modules": ["training", "roster"]}'
+            },
+            {
+                id: 'pitGuru',
+                tier: 'supporter',
+                title: 'MoDuL\'s Pit Guru',
+                desc: 'Comprehensive pit crew optimization heuristics.',
+                version: 'v2.3.4',
+                category: 'Crew optimization',
+                badge: 'supporter',
+                badgeText: 'SUPPORTER',
+                iconPath: '<rect height="18" rx="2" width="18" x="3" y="3"></rect><path d="M9 3v18M15 3v18M3 9h18M3 15h18" stroke-dasharray="2 2"></path>',
+                config: '{"heuristic_depth": "max", "crew_sync": true}'
+            },
+            {
+                id: 'customRaceFilter',
+                tier: 'supporter',
+                title: 'Custom Race Filter',
+                desc: 'Advanced race telemetry sorting and filtering engine.',
+                version: 'v2.5.2',
+                category: 'Telemetry engine',
+                badge: 'supporter',
+                badgeText: 'SUPPORTER',
+                iconPath: '<path d="M4 6h16M4 12h16m-7 6h7" stroke-linecap="square"></path><circle cx="7" cy="18" r="2"></circle>',
+                config: '{"filter_hz": 120, "auto_sort": true, "track_cache": "memory"}'
+            },
+            {
+                id: 'tornfolio',
+                tier: 'supporter',
+                title: 'Tornfolio',
+                desc: 'Asset management and networth tracking node.',
+                version: '[ALPHA]',
+                category: 'Asset management',
+                badge: 'dev',
+                badgeText: 'DEV',
+                iconPath: '<path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>',
+                config: '{"chart_renderer": "webgl", "historical_data": 365}'
+            },
+            {
+                id: 'modulHubControl',
+                tier: 'free',
+                title: 'MoDuL Hub Control Room',
+                desc: 'Centralized control system for MoDuL utilities.',
+                version: 'v0.2.10',
+                category: 'Utility',
+                badge: 'live',
+                badgeText: 'LIVE',
+                iconPath: '<path d="M3 3h18v18H3z"></path>',
+                config: '{}'
+            },
+            {
+                id: 'cracked',
+                tier: 'free',
+                title: 'cRaCked',
+                desc: 'High-performance cracking utility framework.',
+                version: 'v1.3.1',
+                category: 'Utility',
+                badge: 'live',
+                badgeText: 'LIVE',
+                iconPath: '<path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"></path>',
+                config: '{"threads": 4, "mode": "stealth"}'
+            },
+            {
+                id: 'raceTracker',
+                tier: 'free',
+                title: 'Race Tracker',
+                desc: 'Real-time vector tracking for active circuits.',
+                version: '[DEV]',
+                category: 'Circuit tracking',
+                badge: 'dev',
+                badgeText: 'DEV',
+                iconPath: '<path d="M4 19l16-14m0 0v8m0-8h-8"></path>',
+                config: '{"vector_smoothing": true, "refresh_rate": 100}'
+            },
+            {
+                id: 'eggsTerminator',
+                tier: 'free',
+                title: 'EggsTerminator',
+                desc: 'Automated seasonal event scanning utility.',
+                version: 'v2.5.12',
+                category: 'Seasonal event scanning',
+                badge: 'live',
+                badgeText: 'LIVE',
+                iconPath: '<circle cx="12" cy="12" r="8"></circle><path d="M12 4v16M4 12h16"></path>',
+                config: '{"scan_radius": "global", "alert_type": "visual_audio"}'
+            },
+            {
+                id: 'raceThemeChanger',
+                tier: 'free',
+                title: 'Race Theme Changer',
+                desc: 'Custom aesthetic overrides for race UI.',
+                version: 'v1.2.6',
+                category: 'UI Mod',
+                badge: 'live',
+                badgeText: 'LIVE',
+                iconPath: '<path d="M12 2v20m-7-7l7 7 7-7"></path>',
+                config: '{}'
+            },
+            {
+                id: 'restoreOgNames',
+                tier: 'free',
+                title: 'Restore OG Names',
+                desc: 'Reverts dynamic naming changes back to original.',
+                version: 'v1.3.1',
+                category: 'Utility',
+                badge: 'live',
+                badgeText: 'LIVE',
+                iconPath: '<path d="M3 10h18M3 14h18"></path>',
+                config: '{}'
+            },
+            {
+                id: 'stockx',
+                tier: 'free',
+                title: 'Stock-X',
+                desc: 'Market tracking and prediction algorithm suite.',
+                version: '[DEV]',
+                category: 'Market tracking',
+                badge: 'dev',
+                badgeText: 'DEV',
+                iconPath: '<path d="M3 3v18h18M18 9l-5 5-4-4-5 5"></path>',
+                config: '{}'
+            },
+            {
+                id: 'smuggler',
+                tier: 'free',
+                title: 'Smuggler',
+                desc: 'Travel and inventory optimization agent.',
+                version: 'v3.0.6',
+                category: 'Travel Utility',
+                badge: 'live',
+                badgeText: 'LIVE',
+                iconPath: '<path d="M22 12h-4l-3-9L9 3l-3 9H2"></path>',
+                config: '{}'
+            },
+            {
+                id: 'jobCentrePlus',
+                tier: 'web tools',
+                title: 'JobCentre+',
+                desc: 'Advanced company application and recruitment tool.',
+                version: 'v1.2.0',
+                category: 'Company Recruitment',
+                badge: 'live',
+                badgeText: 'LIVE',
+                iconPath: '<path d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>',
+                config: '{"auto_apply": true, "filter_stats": true}'
+            },
+            {
+                id: 'pythagorasDashboard',
+                tier: 'web tools',
+                title: 'Pythagoras Project - Dashboard',
+                desc: 'Web-based interface for CIS data aggregation.',
+                version: 'v1.0.0',
+                category: 'Dashboard',
+                badge: 'live',
+                badgeText: 'LIVE',
+                iconPath: '<rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="3" y1="9" x2="21" y2="9"></line><line x1="9" y1="21" x2="9" y2="9"></line>',
+                config: '{}'
+            },
+            {
+                id: 'lap-recorder',
+                tier: 'archive',
+                title: 'Lap Recorder',
+                desc: 'The lap-capture project that helped shape the next generation of racing tools. Retired from active promotion, but preserved on the hub as part of the journey.',
+                version: 'v1.7.1',
+                category: 'Archived racing project',
+                badge: 'archive',
+                badgeText: 'ARCHIVE',
+                iconPath: '<image href="https://lh3.googleusercontent.com/aida-public/AB6AXuDbmK_RbWVhpeeraxON2kBwiL_RLDAQABFzld8-0m_qY4CGc21KEcPSm-QEDdw89B26ALU27BpFgwExTXyMUzwt30onBeHesQm_Y9coECCkA6k8DPwMpOyQhct2g4HwI5hH188xCdpbSySk_hLo7uOJ0lbUL0D7bg_iRnV4uhZBazvYrC_mzdOCDDrdk76lkAVfmMj7qy7rME_W2P906o8l5WcpWBG2GfkYtFhOIlYfUOETDUVVGjgaexsevCTTGG3xZA" x="0" y="0" width="24" height="24" />',
+                config: '{"status": "archived"}',
+                history: ['v1.7.1 - Theme-thread helper line', 'v1.7.0 - Larger recorder window', 'v1.6.9 - Official layout correction'],
+                customContent: `
+                    <article class="content-card content-card-full mb-6">
+                      <h3 class="font-label-caps text-label-caps text-[#98f05f] uppercase tracking-widest mb-4">Project Termination Notice</h3>
+                      <div class="text-on-surface-variant text-code-sm leading-relaxed space-y-4">
+                          <p>After a long run of updates, fixes, experiments, and community feedback, I decided to officially terminate the Lap Recorder project.</p>
+                          <p>This script started as a simple way to record and organise lap times, but over time it grew into something much bigger than its original purpose. It helped shape ideas, exposed limits, revealed better methods, and most importantly showed me what a proper racing tool should become.</p>
+                          <p>For everyone who used it, tested it, reported bugs, suggested features, or simply trusted it during their racing grind: thank you. Your feedback pushed the project further than I originally expected.</p>
+                          <p><strong>But this is not the end of the road.</strong> MoDuL's Pit Guru is already being forged in the garage.</p>
+                          <p>MoDuL's Pit Guru is not meant to simply replace Lap Recorder. It is meant to go beyond it: faster, stronger, cleaner, smarter, and built to understand the race rather than only record what happened.</p>
+                      </div>
+                    </article>
+                    <article class="content-card content-card-full">
+                      <h3 class="font-label-caps text-label-caps text-[#98f05f] uppercase tracking-widest mb-4">What it leaves behind</h3>
+                      <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-on-surface-variant text-code-sm leading-relaxed">
+                        <div class="glass-panel p-4 rounded">
+                          <h4 class="text-on-surface font-semibold mb-2">Lap capture foundation</h4>
+                          <p>Lap Recorder built the early workflow for capturing lap times, comparing runs, and keeping race context tied to the session.</p>
+                        </div>
+                        <div class="glass-panel p-4 rounded">
+                          <h4 class="text-on-surface font-semibold mb-2">Replay lessons</h4>
+                          <p>It helped expose how replay timing, pause handling, finish detection, and race-state drift need to be treated in a better long-term tool.</p>
+                        </div>
+                        <div class="glass-panel p-4 rounded">
+                          <h4 class="text-on-surface font-semibold mb-2">Records and exports</h4>
+                          <p>The project proved there was real value in keeping local history, reusable reports, and track-aware results all in one place.</p>
+                        </div>
+                        <div class="glass-panel p-4 rounded">
+                          <h4 class="text-on-surface font-semibold mb-2">Direction for the future</h4>
+                          <p>The biggest thing it leaves behind is direction. Lap Recorder showed what the next racing project needs to become.</p>
+                        </div>
+                      </div>
+                    </article>
+                `
+            }
+        ];
 
-      <nav class="hub-nav-links">
-        <a class="hub-nav-link" href="https://pp-api.sokin.xyz/jobcentreplus/" target="_blank" rel="noopener noreferrer">JobCentre+</a>
-        <a class="hub-nav-link" href="global-theme/">Theme</a>
-        <a class="hub-nav-link" href="#supporter-scripts">Supporter</a>
-        <a class="hub-nav-link" href="#free-scripts">Free</a>
-        <a class="hub-nav-link" href="#past-projects">Past Projects</a>
-      </nav>
-    </header>
+        let currentFilter = 'ALL';
 
-    <main>
-      <section class="hero">
-        <div class="hero-copy">
-          <p class="hero-kicker">Scripts</p>
-          <h2 class="hero-title">Torn tools, neatly split by purpose.</h2>
-          <p class="hero-text">Browse the latest public versions, current development builds, and direct script pages from one live hub, with each project clearly marked by release status and purpose.</p>
-          <div class="hero-actions">
-            <a class="button-primary" href="#free-scripts">Browse Free Scripts</a>
-            <a class="button-secondary" href="#supporter-scripts">Browse Supporter Scripts</a>
-            <a class="button-secondary" href="#past-projects">Browse Past Projects</a>
-            <a class="button-discord" href="https://discord.gg/JP8FQBATMV" target="_blank" rel="noopener noreferrer">
-              <svg class="button-icon" viewBox="0 0 127.14 96.36" aria-hidden="true" focusable="false">
-                <path d="M107.7 8.07A105.15 105.15 0 0 0 81.47 0a72.06 72.06 0 0 0-3.36 6.83 97.68 97.68 0 0 0-29.11 0A72.37 72.37 0 0 0 45.64 0a105.89 105.89 0 0 0-26.25 8.09C2.79 32.65-1.71 56.6.54 80.21A105.73 105.73 0 0 0 32.71 96.36a77.7 77.7 0 0 0 6.89-11.11 68.42 68.42 0 0 1-10.85-5.18c.91-.66 1.8-1.35 2.66-2.06a75.57 75.57 0 0 0 64.32 0c.87.71 1.76 1.4 2.66 2.06a68.68 68.68 0 0 1-10.87 5.19 77 77 0 0 0 6.89 11.1 105.25 105.25 0 0 0 32.19-16.14c2.64-27.38-4.51-51.11-18.9-72.15ZM42.45 65.69c-6.26 0-11.43-5.75-11.43-12.81s5.05-12.82 11.43-12.82 11.54 5.8 11.43 12.82-5.04 12.81-11.43 12.81Zm42.24 0c-6.26 0-11.43-5.75-11.43-12.81s5-12.82 11.43-12.82 11.54 5.8 11.43 12.82-5.04 12.81-11.43 12.81Z"></path>
-              </svg>
-              Join my Discord server
-            </a>
-          </div>
-        </div>
+        function filterByTier(tier) {
+            currentFilter = tier;
+            document.getElementById('module-header-title').innerText = `Module Interface Array [${tier}]`;
+            document.getElementById('module-filter-text').innerText = `FILTER: [${tier}]`;
+            
+            // hide script details if open
+            document.getElementById('module-grid').classList.remove('hidden');
+            document.getElementById('script-details-container').classList.remove('active');
+            
+            renderModules();
+        }
 
-        <aside class="hero-panel" aria-label="Hub notes">
-          <div class="hero-panel-art">
-            <img class="hero-panel-logo" src="assets/images/moduls-hub-logo.png" alt="MoDuL's Hub main logo">
-          </div>
-          <h2>Quick guide</h2>
-          <ul class="hero-list">
-            <li><span class="hero-dot" aria-hidden="true"></span>
-              <span>Each script card now shows its live version or current development status.</span>
-            </li>
-            <li><span class="hero-dot" aria-hidden="true"></span>
-              <span>The release snapshot below tracks the latest script updates across the full hub.</span>
-            </li>
-            <li><span class="hero-dot" aria-hidden="true"></span>
-              <span>Racing, travel, stock, event, company, property, and employment tools stay grouped by purpose for faster browsing.</span>
-            </li>
-            <li><span class="hero-dot" aria-hidden="true"></span>
-              <span>JobCentre+ is now live, connecting verified Torn players and company directors through one focused employment marketplace.</span>
-            </li>
-          </ul>
-        </aside>
-      </section>
+        // Keep this for backwards compatibility with any remaining static links
+        function filterByStatus(status) {
+            filterByTier(status);
+        }
 
-      <section class="updates-band" aria-labelledby="updates-title">
-        <div class="updates-header">
-          <p class="hero-kicker">Live Snapshot</p>
-          <h2 id="updates-title">Latest releases and services</h2>
-          <p>Latest public releases, live services, archive notices, and current development status across the hub as of August 1, 2026.</p>
-        </div>
+        function renderModules() {
+            const grid = document.getElementById('module-grid');
+            const terminal = document.getElementById('cli-output');
+            const oldCards = grid.querySelectorAll('.module-card');
+            
+            // Unload animation for existing cards
+            oldCards.forEach(card => {
+                card.classList.remove('fade-slide-up');
+                card.classList.add('fade-slide-down');
+            });
 
-        <div class="updates-grid">
-          <article class="update-item">
-            <div class="update-item-top">
-              <h3 class="update-title">JobCentre+</h3>
-              <span class="update-status update-status-live">Now Live</span>
-            </div>
-            <p class="update-meta">Torn employment marketplace · Updated August 1, 2026</p>
-            <p class="update-copy">JobCentre+ brings verified player profiles, focused company vacancies, direct applications, and private dashboards together in a privacy-first marketplace.</p>
-          </article>
+            // Wait for unload animation to complete
+            setTimeout(() => {
+                grid.innerHTML = '';
+                
+                let filteredScripts = scripts;
+                if(currentFilter !== 'ALL') {
+                    filteredScripts = scripts.filter(s => s.tier.toUpperCase() === currentFilter);
+                }
+                
+                // Reset terminal for boot sequence
+                terminal.innerHTML = `
+                    <div class="opacity-70 typing-line" style="animation-duration: 0.3s;">&gt; INITIALISING MODUL SYSTEMS... <span class="text-secondary-fixed-dim">[OK]</span></div>
+                    <div class="opacity-70 typing-line" style="animation-duration: 0.3s;">&gt; CONNECTING TO REGISTRY... <span class="text-secondary-fixed-dim">[OK]</span></div>
+                    <div class="typing-line" id="cli-cursor-line">&gt; _<span class="blink-cursor inline-block w-2 h-3 bg-[#98f05f] translate-y-0.5 ml-1"></span></div>
+                `;
 
-          <article class="update-item">
-            <div class="update-item-top">
-              <h3 class="update-title">cRaCked</h3>
-              <span class="update-status update-status-live">v1.3.1</span>
-            </div>
-            <p class="update-meta">New public release · Updated August 1, 2026</p>
-            <p class="update-copy">The cracking helper is now public with a community word pool, probability-ranked suggestions, encrypted-slot awareness, and safe positional estimates.</p>
-          </article>
+                // Sequentially load modules with dynamic boot sequence
+                filteredScripts.forEach((script, index) => {
+                    setTimeout(() => {
+                        const cardHtml = `
+                        <div class="glass-panel module-card p-5 rounded-lg flex flex-col group cursor-pointer h-full fade-slide-up ${script.badge === 'dev' ? 'border-dashed opacity-70' : ''}" onclick="activateScript('${script.id}')">
+                            <div class="flex justify-between items-start mb-4">
+                                <div class="w-10 h-10 rounded border border-white/10 bg-surface-container-lowest/50 flex items-center justify-center group-hover:border-[#98f05f]/50 transition-colors">
+                                    <svg class="w-6 h-6 text-[#98f05f]" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+                                        ${script.iconPath}
+                                    </svg>
+                                </div>
+                                <span class="status-chip ${script.badge} font-label-caps text-label-caps px-2 py-0.5">${script.badgeText}</span>
+                            </div>
+                            <div class="flex-1 ${script.badge === 'dev' ? 'group-hover:opacity-100 transition-opacity' : ''}">
+                                <h3 class="font-headline-lg-mobile text-headline-lg-mobile text-on-surface mb-1 group-hover:text-[#98f05f] transition-colors">${script.title}</h3>
+                                <p class="font-code-sm text-code-sm text-outline-variant">${script.desc}</p>
+                            </div>
+                            <div class="mt-4 pt-4 border-t border-white/5 font-code-sm text-code-sm text-[#98f05f]/80 flex justify-between ${script.badge === 'dev' ? 'group-hover:opacity-100 transition-opacity' : ''}">
+                                <span class="">VER: ${script.version}</span>
+                                <span class="material-symbols-outlined text-[16px] opacity-0 group-hover:opacity-100 transition-opacity">${script.badge === 'dev' ? 'build' : 'arrow_forward'}</span>
+                            </div>
+                        </div>`;
+                        
+                        grid.insertAdjacentHTML('beforeend', cardHtml);
+                        
+                        // Add line to terminal
+                        const cursorLine = document.getElementById('cli-cursor-line');
+                        const newLine = document.createElement('div');
+                        newLine.className = 'opacity-100 typing-line text-outline-variant';
+                        newLine.style.animationDuration = '0.2s';
+                        newLine.innerHTML = `&gt; INITIALIZING MODULE: ${script.title.toUpperCase()}... <span class="text-[#98f05f]">[OK]</span>`;
+                        terminal.insertBefore(newLine, cursorLine);
+                        
+                        // Auto-scroll terminal
+                        terminal.scrollTop = terminal.scrollHeight;
+                        
+                    }, index * 150); // Stagger delay
+                });
+                
+                // Final loading line
+                setTimeout(() => {
+                    const cursorLine = document.getElementById('cli-cursor-line');
+                    const newLine = document.createElement('div');
+                    newLine.className = 'opacity-100 typing-line';
+                    newLine.id = 'cli-loading-line';
+                    newLine.innerHTML = `&gt; MODULES LOADED (${filteredScripts.length})... <span class="text-[#98f05f] glow">[OK]</span>`;
+                    terminal.insertBefore(newLine, cursorLine);
+                    terminal.scrollTop = terminal.scrollHeight;
+                }, filteredScripts.length * 150 + 200);
 
-          <article class="update-item">
-            <div class="update-item-top">
-              <h3 class="update-title">MoDuL Hub Control Room</h3>
-              <span class="update-status update-status-live">v0.2.10</span>
-            </div>
-            <p class="update-meta">Global theme contract · Updated July 28, 2026</p>
-            <p class="update-copy">Control Room now adds a draggable, position-saving launcher and dedicated selected-control colours while keeping the shared `mh-*` theme contract in one place.</p>
-          </article>
+            }, oldCards.length > 0 ? 300 : 0);
+        }
 
-          <article class="update-item">
-            <div class="update-item-top">
-              <h3 class="update-title">Custom Race Filter</h3>
-              <span class="update-status update-status-live">v2.5.2</span>
-            </div>
-            <p class="update-meta">Current supporter build · Updated July 14, 2026</p>
-            <p class="update-copy">CRF v2.5.2 makes compact join icons handle their own click navigation so refreshed Torn handlers cannot swallow the click.</p>
-          </article>
+        function activateScript(scriptKey) {
+            const data = scripts.find(s => s.id === scriptKey);
+            if(!data) return;
 
-          <article class="update-item">
-            <div class="update-item-top">
-              <h3 class="update-title">Pythagoras Project - CIS</h3>
-              <span class="update-status update-status-dev">v3.0.4b</span>
-            </div>
-                <p class="update-meta">Current supporter build · Updated July 26, 2026</p>
-            <p class="update-copy">CIS v3.0.4b reconciles Company News with Torn's exact training-action log, so grouped and raw news match the corrected Training Ledger totals.</p>
-          </article>
+            // Handle UI Switch
+            document.getElementById('module-grid').classList.add('hidden');
+            const detailContainer = document.getElementById('script-details-container');
+            detailContainer.classList.add('active');
+            
+            document.getElementById('module-header-title').innerText = 'System Status: ' + data.title.toUpperCase();
+            document.getElementById('module-filter-text').innerText = 'BACK TO OVERVIEW [X]';
 
-          <article class="update-item">
-            <div class="update-item-top">
-              <h3 class="update-title">Race Tracker</h3>
-              <span class="update-status update-status-dev">In Development</span>
-            </div>
-            <p class="update-meta">Toolkit status · Sheet, FAQ, screenshots, and changelog live</p>
-            <p class="update-copy">The workbook is still being refined, while the public sheet copy flow and documentation are already live on the hub.</p>
-          </article>
+            // Populate Data
+            document.getElementById('detail-title').innerText = data.title;
+            document.getElementById('detail-desc').innerText = data.desc;
+            document.getElementById('detail-version').innerText = data.version;
+            
+            const badge = document.getElementById('detail-badge');
+            badge.className = `status-chip ${data.badge} font-label-caps text-label-caps px-3 py-1`;
+            badge.innerText = data.badgeText;
 
-          <article class="update-item">
-            <div class="update-item-top">
-              <h3 class="update-title">MoDuL's Pit Guru</h3>
-              <span class="update-status update-status-live">v2.3.4</span>
-            </div>
-            <p class="update-meta">Current supporter build · Updated July 30, 2026</p>
-            <p class="update-copy">Pit Guru v2.3.4 repairs car images in Predictions and Past Races, while v2.3.3 sends Records race IDs straight to the configured replay player.</p>
-          </article>
+            const customContainer = document.getElementById('detail-custom-content');
+            const defaultContent = document.getElementById('detail-default-content');
+            
+            if (data.customContent) {
+                customContainer.innerHTML = data.customContent;
+                customContainer.classList.remove('hidden');
+                defaultContent.classList.add('hidden');
+            } else {
+                customContainer.innerHTML = '';
+                customContainer.classList.add('hidden');
+                defaultContent.classList.remove('hidden');
+                
+                if (data.history) {
+                    const historyContent = document.getElementById('detail-history-content');
+                    historyContent.innerHTML = data.history.map((h, i) => `
+                        <div class="glass-panel p-4 rounded ${i === 0 ? 'border-l-2 border-[#98f05f]' : 'opacity-70'}">
+                            <div class="flex justify-between items-center mb-2">
+                                <span class="${i === 0 ? 'text-[#98f05f]' : 'text-on-surface'} font-code-sm">${h.split(' - ')[0]}</span>
+                                ${i === 0 ? '<span class="text-outline-variant text-[11px] uppercase">Latest</span>' : ''}
+                            </div>
+                            <ul class="text-on-surface-variant text-code-sm list-disc list-inside flex flex-col gap-1">
+                                <li>${h.split(' - ')[1]}</li>
+                            </ul>
+                        </div>
+                    `).join('');
+                }
+            }
 
-          <article class="update-item">
-            <div class="update-item-top">
-              <h3 class="update-title">Tornfolio</h3>
-              <span class="update-status update-status-dev">Under development</span>
-            </div>
-            <p class="update-meta">Private preview · Updated July 28, 2026</p>
-            <p class="update-copy">The former Landlord Tenant Ledger is now Tornfolio, with its own access pass and a clearer focus on homes, leases, tenants, rent, and sale ideas.</p>
-          </article>
+            // Trigger Boot Sequence
+            const terminal = document.getElementById('cli-output');
+            const cursorLine = document.getElementById('cli-cursor-line');
+            
+            const newLine = document.createElement('div');
+            newLine.className = 'opacity-100 typing-line text-[#98f05f]';
+            newLine.innerHTML = `> INITIALIZING MODULE [${data.title.toUpperCase()}] <span class="text-[#98f05f]/70 glow">v${data.version}</span>...`;
+            
+            terminal.insertBefore(newLine, cursorLine);
+            
+            // Scroll to bottom of terminal
+            terminal.scrollTop = terminal.scrollHeight;
+        }
 
-          <article class="update-item">
-            <div class="update-item-top">
-              <h3 class="update-title">Lap Recorder</h3>
-              <span class="update-status update-status-archive">Archived</span>
-            </div>
-            <p class="update-meta">Past project · Archived May 13, 2026</p>
-            <p class="update-copy">Lap Recorder has crossed the finish line and moved into the new Past Projects section, where its screenshots, history, and lessons stay online while MoDuL's Pit Guru takes the next racing-analysis lane forward.</p>
-          </article>
+        function resetView() {
+            currentFilter = 'ALL';
+            document.getElementById('module-grid').classList.remove('hidden');
+            document.getElementById('script-details-container').classList.remove('active');
+            document.getElementById('module-header-title').innerText = 'Module Interface Array';
+            document.getElementById('module-filter-text').innerText = 'FILTER: [ALL]';
+            renderModules();
+        }
 
-          <article class="update-item">
-            <div class="update-item-top">
-              <h3 class="update-title">EggsTerminator</h3>
-              <span class="update-status update-status-live">v2.5.12</span>
-            </div>
-            <p class="update-meta">Live release · Updated Apr 28, 2026</p>
-            <p class="update-copy">The latest event build keeps stable state-aware navigation, manual egg log sync, and separate found and collected counters in place.</p>
-          </article>
+        // Initialize modules on load and handle CLI interaction simulation
+        document.addEventListener('DOMContentLoaded', () => {
+            renderModules();
+            
+            const terminal = document.getElementById('cli-output');
+            if(!terminal) return;
+            
+            // Add a slight flicker effect occasionally
+            setInterval(() => {
+                if(Math.random() > 0.9) {
+                    terminal.style.opacity = '0.8';
+                    setTimeout(() => terminal.style.opacity = '1', 50);
+                }
+            }, 2000);
+        });
+    </script>
 
-          <article class="update-item">
-            <div class="update-item-top">
-              <h3 class="update-title">Race Theme Changer</h3>
-              <span class="update-status update-status-live">v1.2.6</span>
-            </div>
-            <p class="update-meta">Live release · Updated Apr 20, 2026</p>
-            <p class="update-copy">The live branch continues the PDA-safe race-class theme flow, including the themed details bar and updated class visuals.</p>
-          </article>
 
-          <article class="update-item">
-            <div class="update-item-top">
-              <h3 class="update-title">Restore OG Names</h3>
-              <span class="update-status update-status-live">v1.3.1</span>
-            </div>
-            <p class="update-meta">Live release · Updated Feb 10, 2026</p>
-            <p class="update-copy">The current release keeps cross-page OG car naming live, including the wider Torn coverage and docks support added in the 1.3 branch.</p>
-          </article>
 
-          <article class="update-item">
-            <div class="update-item-top">
-              <h3 class="update-title">Stock-X</h3>
-              <span class="update-status update-status-dev">In Development</span>
-            </div>
-            <p class="update-meta">Project status · v1.0.0 page, FAQ, changelog, forum post, and Discord announcement live</p>
-            <p class="update-copy">The stock workflow build is still in progress, but the public rollout material now covers vaulting, withdrawals, ROI guidance, benefit-lock protection, and the Trade Assistant while download routing stays pending review.</p>
-          </article>
 
-          <article class="update-item">
-            <div class="update-item-top">
-              <h3 class="update-title">Smuggler</h3>
-              <span class="update-status update-status-live">v3.0.6</span>
-            </div>
-            <p class="update-meta">Live release · Updated July 1, 2026</p>
-            <p class="update-copy">Smuggler now keeps its active flight session stable across normal page changes, so return legs stop swapping origin and destination, the progress bar stays present, and the Torn badge no longer refetches on every refresh tick.</p>
-          </article>
-        </div>
-      </section>
 
-      <div class="tiers">
 
-        <section class="tier-section" id="supporter-scripts" aria-labelledby="supporter-scripts-title">
-          <div class="tier-header">
-            <div class="tier-title-wrap">
-              <h2 id="supporter-scripts-title">Supporter Scripts</h2>
-              <p>Premium or supporter-tier projects, kept separate from the free tools.</p>
-            </div>
-            <span class="tier-badge supporter">Supporter</span>
-          </div>
-          <div class="script-grid">
-            <article class="script-card">
-              <div class="script-card-head">
-                <span class="script-card-logo script-card-logo--custom-race-filter" aria-hidden="true"></span>
-                <div class="script-card-title-wrap">
-                  <h3 class="script-card-title">Custom Race Filter</h3>
-                  <p class="script-card-tag">Supporter script</p>
-                  <div class="script-card-meta" aria-label="Release status">
-                    <span class="script-card-badge script-card-badge-version">v2.5.2</span>
-                    <span class="script-card-badge script-card-badge-updated">Updated July 14</span>
-                  </div>
-                </div>
-              </div>
-              <p class="script-card-text">A supporter racing helper for Torn that keeps race lists focused around the criteria you care about, with Discord licensing, manual race refresh, and compact join controls.</p>
-              <ul class="script-feature-list">
-                <li>Custom race-list filtering for faster browsing</li>
-                <li>OG-name-aware car filtering and supporter extras</li>
-                <li>Inline licence flow with safer Torn-owned user ID detection</li>
-              </ul>
-              <div class="script-card-actions">
-                <a class="script-link" href="custom-race-filter/">Open Page</a>
-                <a class="script-link" href="custom-race-filter/faq.html">FAQ</a>
-              </div>
-            </article>
-            <article class="script-card">
-              <div class="script-card-head">
-                <span class="script-card-logo script-card-logo--pit-guru" aria-hidden="true"></span>
-                <div class="script-card-title-wrap">
-                  <h3 class="script-card-title">MoDuL's Pit Guru</h3>
-                  <p class="script-card-tag">Supporter script</p>
-                  <div class="script-card-meta" aria-label="Release status">
-                    <span class="script-card-badge script-card-badge-version">v2.3.4</span>
-                    <span class="script-card-badge script-card-badge-docs">Docs Live</span>
-                  </div>
-                </div>
-              </div>
-              <p class="script-card-text">The supporter racing-analysis tool growing out of Lap Recorder, now on v2.3.4 with resilient car images, direct replay links, configurable large-race rendering, a public player, and persistent race history.</p>
-              <ul class="script-feature-list">
-                <li>Live race analysis focused on gaps, sectors, and speed</li>
-                <li>Current-page Torn data with result-visibility controls</li>
-                <li>Configurable focused drawing for large 50-100 driver races</li>
-                <li>Visible Driver Intel and hosted upload notifications</li>
-                <li>Public race player and persistent PostgreSQL race history</li>
-              </ul>
-              <div class="script-card-actions">
-                <a class="script-link" href="pit-guru/">Open Project</a>
-                <a class="script-link" href="https://pp-api.sokin.xyz/pit-guru/" target="_blank" rel="noopener noreferrer">Race Player</a>
-                <a class="script-link" href="pit-guru/pit-guru.user.js">Install v2.3.4</a>
-                <a class="script-link" href="pit-guru/faq.html">FAQ</a>
-              </div>
-            </article>
-            <article class="script-card">
-              <div class="script-card-head">
-                <span class="script-card-logo script-card-logo--pythagoras-project-cis" aria-hidden="true"></span>
-                <div class="script-card-title-wrap">
-                  <h3 class="script-card-title">Pythagoras Project - CIS</h3>
-                  <p class="script-card-tag">Supporter script</p>
-                  <div class="script-card-meta" aria-label="Release status">
-                    <span class="script-card-badge script-card-badge-version">v3.0.4b</span>
-                    <span class="script-card-badge script-card-badge-docs">Docs Live</span>
-                  </div>
-                </div>
-              </div>
-              <p class="script-card-text">A company intelligence workspace for Torn directors, now on v3.0.4b with exact action-log-backed counts in both Company News and the Training Ledger.</p>
-              <ul class="script-feature-list">
-                <li>Training ledger and FIFO planning tools</li>
-                <li>Staff, director, and company timeline views</li>
-                <li>Cloud workspace history, analytics, exports, and themed reports</li>
-              </ul>
-              <div class="script-card-actions">
-                <a class="script-link" href="pythagoras-project-cis/">Open Project</a>
-                <a class="script-link" href="https://greasyfork.org/en/scripts/580933-pythagoras-project-cis" target="_blank" rel="noopener noreferrer">Install v3.0.4b</a>
-                <a class="script-link" href="https://pp-api.sokin.xyz/dashboard" target="_blank" rel="noopener noreferrer">Dashboard</a>
-                <a class="script-link" href="pythagoras-project-cis/faq.html">FAQ</a>
-              </div>
-            </article>
-            <article class="script-card">
-              <div class="script-card-head">
-                <span class="script-card-logo script-card-logo--tornfolio" aria-hidden="true"></span>
-                <div class="script-card-title-wrap">
-                  <h3 class="script-card-title">Tornfolio</h3>
-                  <p class="script-card-tag">Supporter property tool</p>
-                  <div class="script-card-meta" aria-label="Release status">
-                    <span class="script-card-badge script-card-badge-dev">Under development</span>
-                    <span class="script-card-badge script-card-badge-docs">Private Preview</span>
-                  </div>
-                </div>
-              </div>
-              <p class="script-card-text">A Torn property, lease, and ROI manager for owners and renters, with clearer home records, partner properties, simple status filters, and rent or sale suggestions.</p>
-              <ul class="script-feature-list">
-                <li>Readable lease list for owners, renters, dates, rent, and days left</li>
-                <li>Fetch flow for owned homes, current home, and partner contracts</li>
-                <li>Quiet rent and sale suggestions for owned properties</li>
-              </ul>
-              <div class="script-card-actions">
-                <a class="script-link" href="tornfolio/">Open Project</a>
-                <span class="script-link script-link-disabled" aria-disabled="true">Under Development</span>
-              </div>
-            </article></div>
-        </section>
 
-        <section class="tier-section" id="free-scripts" aria-labelledby="free-scripts-title">
-          <div class="tier-header">
-            <div class="tier-title-wrap">
-              <h2 id="free-scripts-title">Free Tools</h2>
-              <p>Public scripts, services, pages, and tools ready to use from the main hub.</p>
-            </div>
-            <span class="tier-badge free">Free</span>
-          </div>
-          <div class="script-grid">
-            <article class="script-card">
-              <div class="script-card-head">
-                <span class="script-card-logo script-card-logo--jobcentre-plus" aria-hidden="true"></span>
-                <div class="script-card-title-wrap">
-                  <h3 class="script-card-title">JobCentre+</h3>
-                  <p class="script-card-tag">Torn employment marketplace</p>
-                  <div class="script-card-meta" aria-label="Release status">
-                    <span class="script-card-badge script-card-badge-dev">Live</span>
-                    <span class="script-card-badge script-card-badge-updated">Updated Aug 1</span>
-                  </div>
-                </div>
-              </div>
-              <p class="script-card-text">A privacy-first marketplace where verified Torn players can publish their working stats and preferences, while company directors post vacancies and receive focused applications.</p>
-              <ul class="script-feature-list">
-                <li>Torn-verified identity, employment, and working stats</li>
-                <li>Searchable vacancies and looking-for-work profiles</li>
-                <li>Private dashboards for applications and company adverts</li>
-              </ul>
-              <div class="script-card-actions">
-                <a class="script-link script-link-primary" href="https://pp-api.sokin.xyz/jobcentreplus/" target="_blank" rel="noopener noreferrer">Open JobCentre+</a>
-              </div>
-            </article>
 
-            <article class="script-card">
-              <div class="script-card-head">
-                <span class="script-card-logo script-card-logo--global-theme" aria-hidden="true"></span>
-                <div class="script-card-title-wrap">
-                  <h3 class="script-card-title">MoDuL Hub Control Room</h3>
-                  <p class="script-card-tag">Global theme userscript</p>
-                  <div class="script-card-meta" aria-label="Release status">
-                    <span class="script-card-badge script-card-badge-version">v0.2.10</span>
-                    <span class="script-card-badge script-card-badge-updated">Updated Jul 28</span>
-                  </div>
-                </div>
-              </div>
-              <p class="script-card-text">The shared theme source of truth for MoDuL Torn scripts, now with a draggable launcher, saved positioning, dedicated selected-control colours, and the canonical `mh-*` contract.</p>
-              <ul class="script-feature-list">
-                <li>One theme editor for shared `--mh-*` variables</li>
-                <li>Canonical table identifiers for future refactors</li>
-                <li>Exported contract API for all MoDuL scripts</li>
-                <li>Mouse, pen, and touch-friendly draggable launcher</li>
-              </ul>
-              <div class="script-card-actions">
-                <a class="script-link" href="global-theme/">Open Page</a>
-                <a class="script-link script-link-primary" href="global-theme/modul-hub-global-theme.user.js">Install v0.2.10</a>
-              </div>
-            </article>
-
-            <article class="script-card">
-              <div class="script-card-head">
-                <span class="script-card-logo script-card-logo--cracked" aria-hidden="true"></span>
-                <div class="script-card-title-wrap">
-                  <h3 class="script-card-title">cRaCked</h3>
-                  <p class="script-card-tag">Cracking helper</p>
-                  <div class="script-card-meta" aria-label="Release status">
-                    <span class="script-card-badge script-card-badge-version">v1.3.1</span>
-                    <span class="script-card-badge script-card-badge-updated">Updated Aug 1</span>
-                  </div>
-                </div>
-              </div>
-              <p class="script-card-text">A focused Torn cracking helper that combines a community word pool with probability-ranked suggestions and a visual read on difficult encrypted slots.</p>
-              <ul class="script-feature-list">
-                <li>Community-powered cracking word pool</li>
-                <li>Probability-ranked word suggestions</li>
-                <li>Encrypted-slot awareness and safe positional estimates</li>
-              </ul>
-              <div class="script-card-actions">
-                <a class="script-link script-link-primary" href="https://greasyfork.org/en/scripts/589397-cracked" target="_blank" rel="noopener noreferrer">Install v1.3.1</a>
-              </div>
-            </article>
-
-            <article class="script-card">
-              <div class="script-card-head">
-                <span class="script-card-logo script-card-logo--race-tracker" aria-hidden="true"></span>
-                <div class="script-card-title-wrap">
-                  <h3 class="script-card-title">Race Tracker</h3>
-                  <p class="script-card-tag">Google Sheets toolkit</p>
-                  <div class="script-card-meta" aria-label="Release status">
-                    <span class="script-card-badge script-card-badge-dev">In Development</span>
-                    <span class="script-card-badge script-card-badge-docs">Sheet Live</span>
-                  </div>
-                </div>
-              </div>
-              <p class="script-card-text">A structured racing spreadsheet for Torn with the workbook, FAQ, screenshots, and changelog live while the toolkit keeps developing.</p>
-              <ul class="script-feature-list">
-                <li>Race history imports and organised results views</li>
-                <li>Car, track, and upgrade analytics</li>
-                <li>Dashboard-style summaries for racing performance</li>
-              </ul>
-              <div class="script-card-actions"><a class="script-link" href="race-tracker/">Open Page</a><a class="script-link" href="https://docs.google.com/spreadsheets/d/1ANiFcBuMgpXYXGhycc4HaFHfUZsLjoKsLyRB5llFIz8/copy" target="_blank" rel="noopener noreferrer">Get Spreadsheet</a><span class="script-link script-link-disabled" aria-disabled="true">Under Development</span><a class="script-link" href="race-tracker/faq.html">FAQ</a></div>
-            </article>
-            <article class="script-card">
-              <div class="script-card-head">
-                <span class="script-card-logo script-card-logo--eggsterminator" aria-hidden="true"></span>
-                <div class="script-card-title-wrap">
-                  <h3 class="script-card-title">EggsTerminator</h3>
-                  <p class="script-card-tag">Userscript</p>
-                  <div class="script-card-meta" aria-label="Release status">
-                    <span class="script-card-badge script-card-badge-version">v2.5.12</span>
-                    <span class="script-card-badge script-card-badge-updated">Updated Apr 28</span>
-                  </div>
-                </div>
-              </div>
-              <p class="script-card-text">A state-aware Easter event helper that combines page navigation with egg visibility tools and tracking counters.</p>
-              <ul class="script-feature-list">
-                <li>State-aware page traversal</li>
-                <li>Found and collected counter tracking</li>
-                <li>Navigator and finder tools in one place</li>
-              </ul>
-              <div class="script-card-actions">
-                <a class="script-link" href="eggsterminator/">Open Page</a>
-                <a class="script-link" href="eggsterminator/faq.html">FAQ</a>
-              </div>
-            </article>
-            <article class="script-card">
-              <div class="script-card-head">
-                <span class="script-card-logo script-card-logo--race-theme-changer" aria-hidden="true"></span>
-                <div class="script-card-title-wrap">
-                  <h3 class="script-card-title">Race Theme Changer</h3>
-                  <p class="script-card-tag">Userscript</p>
-                  <div class="script-card-meta" aria-label="Release status">
-                    <span class="script-card-badge script-card-badge-version">v1.2.6</span>
-                    <span class="script-card-badge script-card-badge-updated">Updated Apr 20</span>
-                  </div>
-                </div>
-              </div>
-              <p class="script-card-text">A PDA-safe userscript that syncs Torn racing visuals, banners, and race details with the selected race class theme.</p>
-              <ul class="script-feature-list">
-                <li>Theme-aware visuals for Classes A-E</li>
-                <li>Permanent race details bar under the track</li>
-                <li>Touch-friendly controls for PDA and mobile</li>
-              </ul>
-              <div class="script-card-actions">
-                <a class="script-link" href="race-theme-changer/">Open Page</a>
-                <a class="script-link" href="race-theme-changer/faq.html">FAQ</a>
-              </div>
-            </article>
-            <article class="script-card">
-              <div class="script-card-head">
-                <span class="script-card-logo script-card-logo--restore-og-names" aria-hidden="true"></span>
-                <div class="script-card-title-wrap">
-                  <h3 class="script-card-title">Restore OG Names</h3>
-                  <p class="script-card-tag">Userscript</p>
-                  <div class="script-card-meta" aria-label="Release status">
-                    <span class="script-card-badge script-card-badge-version">v1.3.1</span>
-                    <span class="script-card-badge script-card-badge-updated">Updated Feb 10</span>
-                  </div>
-                </div>
-              </div>
-              <p class="script-card-text">A utility script aimed at restoring original naming style and improving familiarity across relevant Torn views.</p>
-              <ul class="script-feature-list"><li>Restores classic-style naming</li><li>Lightweight page enhancement</li><li>Focused on familiarity and clarity</li></ul>
-              <div class="script-card-actions"><a class="script-link" href="restore-og-names/">Open Page</a><a class="script-link" href="restore-og-names/faq.html">FAQ</a></div>
-            </article>
-            <article class="script-card">
-              <div class="script-card-head">
-                <span class="script-card-logo script-card-logo--stock-x" aria-hidden="true"></span>
-                <div class="script-card-title-wrap">
-                  <h3 class="script-card-title">Stock-X</h3>
-                  <p class="script-card-tag">Userscript</p>
-                  <div class="script-card-meta" aria-label="Release status">
-                    <span class="script-card-badge script-card-badge-version">v1.0.0</span>
-                    <span class="script-card-badge script-card-badge-docs">Docs Live</span>
-                  </div>
-                </div>
-              </div>
-              <p class="script-card-text">A stock-focused helper in active development, with changelog, forum, and Discord rollout material now in place while the workflow build keeps moving.</p>
-              <ul class="script-feature-list">
-                <li>Stock workflow helpers</li>
-                <li>Vault and ROI-focused utility</li>
-                <li>Designed around faster market checks</li>
-              </ul>
-              <div class="script-card-actions"><a class="script-link" href="stock-x/">Open Page</a><span class="script-link script-link-disabled" aria-disabled="true">Under Development</span><a class="script-link" href="stock-x/faq.html">FAQ</a></div>
-            </article>
-            <article class="script-card">
-              <div class="script-card-head">
-                <span class="script-card-logo script-card-logo--smuggler" aria-hidden="true"></span>
-                <div class="script-card-title-wrap">
-                  <h3 class="script-card-title">Smuggler</h3>
-                  <p class="script-card-tag">Userscript</p>
-                  <div class="script-card-meta" aria-label="Release status">
-                    <span class="script-card-badge script-card-badge-version">v3.0.6</span>
-                    <span class="script-card-badge script-card-badge-updated">Updated Jul 1</span>
-                  </div>
-                </div>
-              </div>
-              <p class="script-card-text">A Torn and TornPDA travel helper for repeat abroad runs, with destination planning, primary and fallback item flow, timing visibility, and step-based progression.</p>
-              <ul class="script-feature-list">
-                <li>Travel pill with countdown, ETA, and progress</li>
-                <li>Primary and fallback item workflow</li>
-                <li>Desktop hotkey plus TornPDA plane-button support</li>
-              </ul>
-              <div class="script-card-actions"><a class="script-link" href="smuggler/">Open Page</a><a class="script-link" href="smuggler/faq.html">FAQ</a></div>
-            </article>
-          </div>
-        </section>
-
-        <section class="tier-section" id="past-projects" aria-labelledby="past-projects-title">
-          <div class="tier-header">
-            <div class="tier-title-wrap">
-              <h2 id="past-projects-title">Past Projects</h2>
-              <p>Retired tools kept online for memory, screenshots, and development history.</p>
-            </div>
-            <span class="tier-badge past">Archive</span>
-          </div>
-          <div class="script-grid">
-            <article class="script-card">
-              <div class="script-card-head">
-                <span class="script-card-logo script-card-logo--lap-recorder" aria-hidden="true"></span>
-                <div class="script-card-title-wrap">
-                  <h3 class="script-card-title">Lap Recorder</h3>
-                  <p class="script-card-tag">Archived racing project</p>
-                  <div class="script-card-meta" aria-label="Archive status">
-                    <span class="script-card-badge script-card-badge-archive">Archived</span>
-                    <span class="script-card-badge script-card-badge-updated">May 13, 2026</span>
-                  </div>
-                </div>
-              </div>
-              <p class="script-card-text">The lap-capture project that helped shape the next generation of racing tools. Retired from active promotion, but preserved on the hub as part of the journey.</p>
-              <ul class="script-feature-list">
-                <li>Project termination notice and archive page</li>
-                <li>Screenshots and development history preserved</li>
-                <li>Key lessons carried forward into MoDuL's Pit Guru</li>
-              </ul>
-              <div class="script-card-actions">
-                <a class="script-link" href="lap-recorder/">Open Archive</a>
-                <a class="script-link" href="lap-recorder/faq.html">Archive FAQ</a>
-              </div>
-            </article>
-          </div>
-        </section>
-      </div>
-    </main>
-
-    <footer class="page-footer">
-      MoDuL's Hub • <a href="https://www.torn.com/profiles.php?XID=4022159"  target="_blank">MoDuL[4022159]</a> © All rights reserved.
-    </footer>
-
-  </div>
-  <script defer src="assets/js/discord-dock.js"></script>
-</body>
-</html>
+</body></html>
