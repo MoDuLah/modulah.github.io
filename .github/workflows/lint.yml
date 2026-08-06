@@ -6,10 +6,15 @@ on:
   pull_request:
     branches: [main, master]
 
+concurrency:
+  group: lint-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   lint:
     name: Code Quality Check
     runs-on: ubuntu-latest
+    timeout-minutes: 10
 
     steps:
       - name: Checkout repository
@@ -27,15 +32,15 @@ jobs:
         id: check_package
         run: |
           if [ -f "package.json" ]; then
-            echo "has_package=true" >> $GITHUB_OUTPUT
+            echo "has_package=true" >> "$GITHUB_OUTPUT"
           else
-            echo "has_package=false" >> $GITHUB_OUTPUT
-            echo "⚠️ No package.json found. Skipping linting."
+            echo "has_package=false" >> "$GITHUB_OUTPUT"
+            echo "No package.json found. Skipping linting."
           fi
 
       - name: Install dependencies
         if: steps.check_package.outputs.has_package == 'true'
-        run: npm ci || npm install
+        run: npm ci
 
       - name: Resolve comparison base
         id: comparison
