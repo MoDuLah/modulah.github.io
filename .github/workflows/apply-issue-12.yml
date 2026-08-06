@@ -1,0 +1,70 @@
+name: Apply issue 12 patch
+
+on:
+  push:
+    branches:
+      - fix/issue-12-module-source
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    name: Remove duplicate module sources
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout branch
+        uses: actions/checkout@v7
+
+      - name: Apply focused code.html patch
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+
+          path = Path('code.html')
+          text = path.read_text(encoding='utf-8')
+
+          cli_marker = '<div class="text-[#98f05f] flex-1 font-mono tracking-tight relative z-10 overflow-y-auto custom-scrollbar text-[11px]" data-stitch-orig-opacity="1" id="cli-output" style="opacity: 1;">'
+          cli_start = text.index(cli_marker) + len(cli_marker)
+          cli_end_marker = '</div>\n</div>\n<!-- Hero Actions -->'
+          cli_end = text.index(cli_end_marker, cli_start)
+          cli_content = '''
+                              <div class="opacity-70 typing-line" style="animation-duration: 0.3s;">&gt; INITIALISING MODUL SYSTEMS... <span class="text-secondary-fixed-dim">[OK]</span></div>
+                              <div class="opacity-70 typing-line" style="animation-duration: 0.3s;">&gt; CONNECTING TO REGISTRY... <span class="text-secondary-fixed-dim">[OK]</span></div>
+                              <div class="typing-line" id="cli-cursor-line">&gt; _<span class="blink-cursor inline-block w-2 h-3 bg-[#98f05f] translate-y-0.5 ml-1"></span></div>
+                          '''
+          text = text[:cli_start] + cli_content + text[cli_end:]
+
+          grid_marker = '<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-unit module-grid" id="module-grid">'
+          grid_start = text.index(grid_marker) + len(grid_marker)
+          grid_end_marker = '<!-- Script Details Container -->'
+          grid_end = text.index(grid_end_marker, grid_start)
+          grid_content = '''
+          <!-- Module cards are rendered from the scripts registry. -->
+          </div>
+          '''
+          text = text[:grid_start] + grid_content + text[grid_end:]
+
+          registry = text[text.index('const scripts = ['):text.index('let currentFilter')]
+          ids = re.findall(r"\bid:\s*'([^']+)'", registry)
+          assert len(ids) == 15 and len(set(ids)) == 15
+          assert "onclick=\"activateScript('pythagoras')\"" not in text
+          assert text.count('id="cli-cursor-line"') == 1
+          assert 'id="cli-loading-line"' not in text
+
+          path.write_text(text, encoding='utf-8')
+          PY
+
+          git diff --check
+
+      - name: Commit focused fix
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add code.html
+          git commit -m "Remove duplicate module markup and CLI entries"
+          git push
