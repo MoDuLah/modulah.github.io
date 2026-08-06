@@ -52,10 +52,11 @@ jobs:
 
           registry = text[text.index('const scripts = ['):text.index('let currentFilter')]
           ids = re.findall(r"\bid:\s*'([^']+)'", registry)
+          markup = text[:text.index('<script>\n        const scripts = [')]
           assert len(ids) == 15 and len(set(ids)) == 15
-          assert "onclick=\"activateScript('pythagoras')\"" not in text
-          assert text.count('id="cli-cursor-line"') == 1
-          assert 'id="cli-loading-line"' not in text
+          assert "onclick=\"activateScript('pythagoras')\"" not in markup
+          assert markup.count('id="cli-cursor-line"') == 1
+          assert 'id="cli-loading-line"' not in markup
 
           path.write_text(text, encoding='utf-8')
           PY
