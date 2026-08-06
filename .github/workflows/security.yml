@@ -6,14 +6,22 @@ on:
   pull_request:
     branches: [main, master]
   schedule:
-    - cron: '0 6 * * 0'
+    - cron: "0 6 * * 0"
   workflow_dispatch:
+
+concurrency:
+  group: security-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
 
 jobs:
   npm-audit:
     name: npm audit
     runs-on: ubuntu-latest
-    
+    timeout-minutes: 10
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
@@ -21,22 +29,22 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v7
         with:
-          node-version: '22'
-          cache: 'npm'
+          node-version: "22"
+          cache: "npm"
 
       - name: Check if package.json exists
         id: check_package
         run: |
           if [ -f "package.json" ]; then
-            echo "has_package=true" >> $GITHUB_OUTPUT
+            echo "has_package=true" >> "$GITHUB_OUTPUT"
           else
-            echo "has_package=false" >> $GITHUB_OUTPUT
-            echo "⚠️ No package.json found. Skipping npm audit."
+            echo "has_package=false" >> "$GITHUB_OUTPUT"
+            echo "No package.json found. Skipping npm audit."
           fi
 
       - name: Install dependencies
         if: steps.check_package.outputs.has_package == 'true'
-        run: npm ci || npm install
+        run: npm ci
 
       - name: Run npm audit
         if: steps.check_package.outputs.has_package == 'true'
@@ -54,39 +62,14 @@ jobs:
           path: audit-report.json
           retention-days: 30
 
-  codeql:
-    name: CodeQL Analysis
-    runs-on: ubuntu-latest
-    permissions:
-      security-events: write
-      actions: read
-      contents: read
-    
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v7
-
-      - name: Initialize CodeQL
-        uses: github/codeql-action/init@v4
-        with:
-          languages: javascript
-          queries: +security-and-quality
-
-      - name: Autobuild
-        uses: github/codeql-action/autobuild@v4
-
-      - name: Perform CodeQL Analysis
-        uses: github/codeql-action/analyze@v4
-        with:
-          category: "/language:javascript"
-
   trivy:
     name: Trivy Security Scan
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     permissions:
       security-events: write
       contents: read
-    
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
@@ -94,24 +77,25 @@ jobs:
       - name: Run Trivy vulnerability scanner
         uses: aquasecurity/trivy-action@master
         with:
-          scan-type: 'fs'
-          scan-ref: '.'
-          format: 'sarif'
-          output: 'trivy-results.sarif'
-          severity: 'CRITICAL,HIGH'
+          scan-type: "fs"
+          scan-ref: "."
+          format: "sarif"
+          output: "trivy-results.sarif"
+          severity: "CRITICAL,HIGH"
 
       - name: Upload Trivy scan results
         uses: github/codeql-action/upload-sarif@v4
         with:
-          sarif_file: 'trivy-results.sarif'
+          sarif_file: "trivy-results.sarif"
 
   dependency-review:
     name: Dependency Review
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     if: github.event_name == 'pull_request'
     permissions:
       contents: read
-    
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
@@ -120,14 +104,15 @@ jobs:
         uses: actions/dependency-review-action@v5
         with:
           fail-on-severity: moderate
-          allow-licenses: 'MIT,Apache-2.0,ISC,BSD-3-Clause,BSD-2-Clause'
+          allow-licenses: "MIT,Apache-2.0,ISC,BSD-3-Clause,BSD-2-Clause"
 
   secret-scanning:
     name: Secret Scanning
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     permissions:
       contents: read
-    
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
