@@ -8,6 +8,10 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: issue-16-publisher
+  cancel-in-progress: true
+
 jobs:
   apply:
     if: github.event.pull_request.head.ref == 'fix/issue-16-render-races'
