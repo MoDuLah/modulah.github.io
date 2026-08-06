@@ -22,8 +22,10 @@ jobs:
 
       - name: Apply validated patch
         run: |
-          sed -n "/^H4sI/,/^PATCH$/p" .github/workflows/apply-issue-14.yml | sed '$d' > /tmp/issue14.patch.gz.b64
+          cat .github/issue14-patch/chunk-00.b64 .github/issue14-patch/chunk-01.b64 > /tmp/issue14.patch.gz.b64
+          echo "d5d3d238abf909cfd6f77d4f7402d325dfd4e63fd05ea26911f9897554fc845b  /tmp/issue14.patch.gz.b64" | sha256sum -c -
           base64 -d /tmp/issue14.patch.gz.b64 | gzip -d > /tmp/issue14.patch
+          echo "c45c09743c4dd6c102de72d534fc4a0abfb202221ce1785c7ec9dcc8c50b9871  /tmp/issue14.patch" | sha256sum -c -
           git apply --check /tmp/issue14.patch
           git apply /tmp/issue14.patch
           git diff --check
