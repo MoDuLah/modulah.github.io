@@ -1227,16 +1227,36 @@ void main() {
 ];
 
         let currentFilter = 'ALL';
+        let currentView = 'registry';
+        let moduleRenderToken = 0;
+        let moduleRenderTimer = null;
+        let unloadTimer = null;
+
+        function cancelScheduledModuleRender() {
+            moduleRenderToken += 1;
+            if (moduleRenderTimer !== null) {
+                clearTimeout(moduleRenderTimer);
+                moduleRenderTimer = null;
+            }
+        }
+
+        function cancelScheduledUnload() {
+            if (unloadTimer !== null) {
+                clearTimeout(unloadTimer);
+                unloadTimer = null;
+            }
+        }
 
         function filterByTier(tier) {
+            cancelScheduledUnload();
+            currentView = 'registry';
             currentFilter = tier;
             document.getElementById('module-header-title').innerText = `Module Interface Array [${tier}]`;
             document.getElementById('module-filter-text').innerText = `FILTER: [${tier}]`;
-            
-            // hide script details if open
+
             document.getElementById('module-grid').classList.remove('hidden');
             document.getElementById('script-details-container').classList.remove('active');
-            
+
             renderModules();
         }
 
@@ -1246,37 +1266,37 @@ void main() {
         }
 
         function renderModules() {
+            cancelScheduledModuleRender();
+            const renderToken = moduleRenderToken;
             const grid = document.getElementById('module-grid');
             const terminal = document.getElementById('cli-output');
             const oldCards = grid.querySelectorAll('.module-card');
-            
-            // Unload animation for existing cards
+
             oldCards.forEach(card => {
                 card.classList.remove('fade-slide-up');
                 card.classList.add('fade-slide-down');
             });
 
-            // Wait for unload animation to complete
-            setTimeout(() => {
-                grid.innerHTML = '';
-                
-                let filteredScripts = scripts;
-                if(currentFilter !== 'ALL') {
-                    filteredScripts = scripts.filter(s => s.tier.toUpperCase() === currentFilter);
-                }
-                
-                // Reset terminal for boot sequence
+            const commitRender = () => {
+                moduleRenderTimer = null;
+                if (renderToken !== moduleRenderToken || currentView !== 'registry') return;
+
+                const filteredScripts = currentFilter === 'ALL'
+                    ? scripts
+                    : scripts.filter(script => script.tier.toUpperCase() === currentFilter);
+
+                grid.replaceChildren();
                 terminal.innerHTML = `
                     <div class="opacity-70 typing-line" style="animation-duration: 0.3s;">&gt; INITIALISING MODUL SYSTEMS... <span class="text-secondary-fixed-dim">[OK]</span></div>
                     <div class="opacity-70 typing-line" style="animation-duration: 0.3s;">&gt; CONNECTING TO REGISTRY... <span class="text-secondary-fixed-dim">[OK]</span></div>
                     <div class="typing-line" id="cli-cursor-line">&gt; _<span class="blink-cursor inline-block w-2 h-3 bg-[#98f05f] translate-y-0.5 ml-1"></span></div>
                 `;
 
-                // Sequentially load modules with dynamic boot sequence
+                const cursorLine = terminal.querySelector('#cli-cursor-line');
                 filteredScripts.forEach((script, index) => {
-                    setTimeout(() => {
-                        const cardHtml = `
-                        <div class="glass-panel module-card p-5 rounded-lg flex flex-col group cursor-pointer h-full fade-slide-up ${script.badge === 'dev' ? 'border-dashed opacity-70' : ''}" onclick="activateScript('${script.id}')">
+                    const animationDelay = index * 60;
+                    const cardHtml = `
+                        <div class="glass-panel module-card p-5 rounded-lg flex flex-col group cursor-pointer h-full fade-slide-up ${script.badge === 'dev' ? 'border-dashed opacity-70' : ''}" data-module-id="${script.id}" style="animation-delay: ${animationDelay}ms;" onclick="activateScript('${script.id}')">
                             <div class="flex justify-between items-start mb-4">
                                 <div class="w-10 h-10 rounded border border-white/10 bg-surface-container-lowest/50 flex items-center justify-center group-hover:border-[#98f05f]/50 transition-colors">
                                     <svg class="w-6 h-6 text-[#98f05f]" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
@@ -1290,39 +1310,34 @@ void main() {
                                 <p class="font-code-sm text-code-sm text-outline-variant">${script.desc}</p>
                             </div>
                             <div class="mt-4 pt-4 border-t border-white/5 font-code-sm text-code-sm text-[#98f05f]/80 flex justify-between ${script.badge === 'dev' ? 'group-hover:opacity-100 transition-opacity' : ''}">
-                                <span class="">${script.versionPrefix}: ${script.version}</span>
+                                <span>${script.versionPrefix}: ${script.version}</span>
                                 <span class="material-symbols-outlined text-[16px] opacity-0 group-hover:opacity-100 transition-opacity">${script.badge === 'dev' ? 'build' : 'arrow_forward'}</span>
                             </div>
                         </div>`;
-                        
-                        grid.insertAdjacentHTML('beforeend', cardHtml);
-                        
-                        // Add line to terminal
-                        const cursorLine = document.getElementById('cli-cursor-line');
-                        const newLine = document.createElement('div');
-                        newLine.className = 'opacity-100 typing-line text-outline-variant';
-                        newLine.style.animationDuration = '0.2s';
-                        newLine.innerHTML = `&gt; INITIALIZING MODULE: ${script.title.toUpperCase()}... <span class="text-[#98f05f]">[OK]</span>`;
-                        terminal.insertBefore(newLine, cursorLine);
-                        
-                        // Auto-scroll terminal
-                        terminal.scrollTop = terminal.scrollHeight;
-                        
-                    }, index * 150); // Stagger delay
-                });
-                
-                // Final loading line
-                setTimeout(() => {
-                    const cursorLine = document.getElementById('cli-cursor-line');
-                    const newLine = document.createElement('div');
-                    newLine.className = 'opacity-100 typing-line';
-                    newLine.id = 'cli-loading-line';
-                    newLine.innerHTML = `&gt; MODULES LOADED (${filteredScripts.length})... <span class="text-[#98f05f] glow">[OK]</span>`;
-                    terminal.insertBefore(newLine, cursorLine);
-                    terminal.scrollTop = terminal.scrollHeight;
-                }, filteredScripts.length * 150 + 200);
+                    grid.insertAdjacentHTML('beforeend', cardHtml);
 
-            }, oldCards.length > 0 ? 300 : 0);
+                    const moduleLine = document.createElement('div');
+                    moduleLine.className = 'opacity-100 typing-line text-outline-variant';
+                    moduleLine.style.animationDuration = '0.2s';
+                    moduleLine.style.animationDelay = `${animationDelay}ms`;
+                    moduleLine.innerHTML = `&gt; INITIALIZING MODULE: ${script.title.toUpperCase()}... <span class="text-[#98f05f]">[OK]</span>`;
+                    terminal.insertBefore(moduleLine, cursorLine);
+                });
+
+                const loadingLine = document.createElement('div');
+                loadingLine.className = 'opacity-100 typing-line';
+                loadingLine.id = 'cli-loading-line';
+                loadingLine.style.animationDelay = `${filteredScripts.length * 60 + 100}ms`;
+                loadingLine.innerHTML = `&gt; MODULES LOADED (${filteredScripts.length})... <span class="text-[#98f05f] glow">[OK]</span>`;
+                terminal.insertBefore(loadingLine, cursorLine);
+                terminal.scrollTop = terminal.scrollHeight;
+            };
+
+            if (oldCards.length > 0) {
+                moduleRenderTimer = setTimeout(commitRender, 300);
+            } else {
+                commitRender();
+            }
         }
 
         function createDetailAction(action) {
@@ -1388,6 +1403,9 @@ void main() {
         }
 
         function unloadActiveModule() {
+            if (unloadTimer !== null) return;
+
+            cancelScheduledModuleRender();
             const terminal = document.getElementById('cli-output');
             const cursorLine = document.getElementById('cli-cursor-line');
             const newLine = document.createElement('div');
@@ -1395,13 +1413,20 @@ void main() {
             newLine.textContent = '> UNLOADING MODULE... [CLEANUP_COMPLETE]';
             terminal.insertBefore(newLine, cursorLine);
             terminal.scrollTop = terminal.scrollHeight;
-            setTimeout(() => resetView(), 300);
+
+            unloadTimer = setTimeout(() => {
+                unloadTimer = null;
+                if (currentView === 'detail') resetView();
+            }, 300);
         }
 
         function activateScript(scriptKey) {
             const data = scripts.find(script => script.id === scriptKey);
             if (!data) return;
 
+            cancelScheduledUnload();
+            cancelScheduledModuleRender();
+            currentView = 'detail';
             document.getElementById('module-grid').classList.add('hidden');
             document.getElementById('script-details-container').classList.add('active');
             document.getElementById('module-header-title').innerText = 'System Status: ' + data.title.toUpperCase();
@@ -1446,6 +1471,8 @@ void main() {
         }
 
         function resetView() {
+            cancelScheduledUnload();
+            currentView = 'registry';
             currentFilter = 'ALL';
             document.getElementById('module-grid').classList.remove('hidden');
             document.getElementById('script-details-container').classList.remove('active');
