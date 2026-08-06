@@ -597,87 +597,42 @@ void main() {
 <!-- Module cards are rendered from the scripts registry. -->
 </div>
 <!-- Script Details Container -->
-<div class="script-details glass-panel p-6 rounded-lg w-full" id="script-details-container"><div class="flex items-center mb-6 border-b border-white/5 pb-4">
-<button class="group flex items-center gap-2 px-3 py-1.5 rounded border border-outline-variant hover:border-[#98f05f] hover:bg-[#98f05f]/5 transition-all duration-200 active:scale-95" onclick="const terminal = document.getElementById('cli-output'); const cursorLine = document.getElementById('cli-cursor-line'); const newLine = document.createElement('div'); newLine.className = 'opacity-100 typing-line text-error'; newLine.innerHTML = '&gt; UNLOADING MODULE... [CLEANUP_COMPLETE]'; terminal.insertBefore(newLine, cursorLine); terminal.parentElement.scrollTop = terminal.parentElement.scrollHeight; setTimeout(() =&gt; resetView(), 300);">
+<div class="script-details glass-panel p-6 rounded-lg w-full" id="script-details-container">
+<div class="flex items-center mb-6 border-b border-white/5 pb-4">
+<button class="group flex items-center gap-2 px-3 py-1.5 rounded border border-outline-variant hover:border-[#98f05f] hover:bg-[#98f05f]/5 transition-all duration-200 active:scale-95" onclick="unloadActiveModule()">
 <span class="material-symbols-outlined text-[18px] text-outline-variant group-hover:text-[#98f05f] transition-colors">arrow_back</span>
 <span class="font-label-caps text-label-caps text-outline-variant group-hover:text-[#98f05f] uppercase tracking-widest">SYS_RETURN_REGISTRY</span>
 </button>
-</div><div class="flex flex-col gap-8 font-headline-lg">
-<div class="flex flex-col md:flex-row justify-between items-start gap-6 border-b border-white/10 pb-6">
+</div>
+<div class="flex flex-col gap-8 font-headline-lg">
+<div class="flex flex-col xl:flex-row justify-between items-start gap-6 border-b border-white/10 pb-6">
 <div class="flex-1">
-<div class="flex items-center gap-4 mb-3">
-<button class="flex items-center gap-2 text-outline-variant hover:text-[#98f05f] transition-colors font-label-caps text-label-caps uppercase" onclick="const terminal = document.getElementById('cli-output'); const cursorLine = document.getElementById('cli-cursor-line'); const newLine = document.createElement('div'); newLine.className = 'opacity-100 typing-line text-error'; newLine.innerHTML = '&gt; UNLOADING MODULE... [CLEANUP_COMPLETE]'; terminal.insertBefore(newLine, cursorLine); terminal.parentElement.scrollTop = terminal.parentElement.scrollHeight; setTimeout(() =&gt; resetView(), 300);">
-<span class="material-symbols-outlined text-[18px]">arrow_back</span> Return to Registry
-        </button>
+<div class="flex flex-wrap items-center gap-4 mb-2">
+<h2 class="text-headline-xl text-[#98f05f] uppercase tracking-tighter" id="detail-title"></h2>
+<span class="status-chip font-label-caps text-label-caps px-3 py-1" id="detail-badge"></span>
+<span class="text-outline-variant font-code-sm" id="detail-version"></span>
 </div>
-<div class="flex items-center gap-4 mb-2">
-<h2 class="text-headline-xl text-[#98f05f] uppercase tracking-tighter" id="detail-title">MoDuL's Pit Guru</h2>
-<span class="status-chip supporter font-label-caps text-label-caps px-3 py-1" id="detail-badge">SUPPORTER</span>
-<span class="text-outline-variant font-code-sm" id="detail-version">v2.3.4</span>
+<p class="text-on-surface-variant max-w-3xl leading-relaxed" id="detail-desc"></p>
 </div>
-<p class="text-on-surface-variant max-w-3xl leading-relaxed" id="detail-desc">Comprehensive pit crew optimization heuristics.</p>
+<div class="flex flex-wrap gap-3 shrink-0 xl:max-w-[48%] xl:justify-end" id="detail-actions"></div>
 </div>
-<div class="flex flex-col gap-3 shrink-0">
-<a class="cyber-button-primary shimmer-btn font-label-caps text-label-caps uppercase px-8 py-4 rounded-DEFAULT flex items-center justify-center gap-2 flicker-hover" href="https://greasyfork.org/en/scripts/580933-pythagoras-project-cis" target="_blank">
-<span class="material-symbols-outlined text-[20px]">download</span> INSTALL SCRIPT
-      </a>
-<a class="cyber-button-secondary font-label-caps text-label-caps uppercase px-8 py-4 rounded-DEFAULT flex items-center justify-center gap-2" href="https://pp-api.sokin.xyz/dashboard" target="_blank">
-<span class="material-symbols-outlined text-[20px]">dashboard</span> WEB DASHBOARD
-      </a>
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-gutter">
+<section class="glass-panel p-5 rounded-lg">
+<h3 class="font-label-caps text-label-caps text-[#98f05f] uppercase tracking-widest flex items-center gap-2 mb-4">
+<span class="material-symbols-outlined text-[18px]">database</span> Module Facts
+</h3>
+<dl class="grid grid-cols-1 sm:grid-cols-2 gap-3 font-code-sm text-code-sm" id="detail-facts"></dl>
+</section>
+<section class="glass-panel p-5 rounded-lg">
+<h3 class="font-label-caps text-label-caps text-[#98f05f] uppercase tracking-widest flex items-center gap-2 mb-4">
+<span class="material-symbols-outlined text-[18px]">checklist</span> Capabilities
+</h3>
+<ul class="text-on-surface-variant text-code-sm list-disc list-inside flex flex-col gap-2" id="detail-features"></ul>
+</section>
 </div>
-</div>
-<div class="hidden" id="detail-custom-content"></div>
-<div class="grid grid-cols-1 lg:grid-cols-2 gap-gutter" id="detail-default-content">
-<div class="flex flex-col gap-4">
-<h3 class="font-label-caps text-label-caps text-[#98f05f] uppercase tracking-widest flex items-center gap-2">
-<span class="material-symbols-outlined text-[18px]">help</span> Frequently Asked Questions
-      </h3>
-<div class="flex flex-col gap-2">
-<details class="glass-panel p-4 rounded group cursor-pointer">
-<summary class="font-body-md text-on-surface group-hover:text-[#98f05f] transition-colors flex justify-between items-center">What is Pythagoras CIS? <span class="material-symbols-outlined text-[18px] group-open:rotate-180 transition-transform">expand_more</span></summary>
-<div class="mt-3 text-on-surface-variant text-code-sm leading-relaxed border-t border-white/5 pt-3">
-            Pythagoras CIS is a Tampermonkey userscript designed for Torn company management. It provides a cloud-backed workspace for managing the training ledger, FIFO train planner, staff and director history, daily report analytics, licensing, backups, and themed reports.
-          </div>
-</details>
-<details class="glass-panel p-4 rounded group cursor-pointer">
-<summary class="font-body-md text-on-surface group-hover:text-[#98f05f] transition-colors flex justify-between items-center">Where is my data stored? <span class="material-symbols-outlined text-[18px] group-open:rotate-180 transition-transform">expand_more</span></summary>
-<div class="mt-3 text-on-surface-variant text-code-sm leading-relaxed border-t border-white/5 pt-3">
-            Company data is stored in a PostgreSQL-backed cloud workspace keyed by company ID. Every company-owned row includes its company ID, and server-side access checks decide which Torn user can open that workspace.
-          </div>
-</details>
-<details class="glass-panel p-4 rounded group cursor-pointer">
-<summary class="font-body-md text-on-surface group-hover:text-[#98f05f] transition-colors flex justify-between items-center">How does the Train Planner work? <span class="material-symbols-outlined text-[18px] group-open:rotate-180 transition-transform">expand_more</span></summary>
-<div class="mt-3 text-on-surface-variant text-code-sm leading-relaxed border-t border-white/5 pt-3">
-            The planner follows a FIFO (First In, First Out) approach for paid training entries. Paid users are prioritised up to the configured daily cap, after which remaining capacity is allocated to sponsored rotation users.
-          </div>
-</details>
-</div>
-</div>
-<div class="flex flex-col gap-4">
-<h3 class="font-label-caps text-label-caps text-[#98f05f] uppercase tracking-widest flex items-center gap-2">
-<span class="material-symbols-outlined text-[18px]">history</span> Recent Changelog
-      </h3>
-<div class="flex flex-col gap-2" id="detail-history-content">
-<div class="glass-panel p-4 rounded border-l-2 border-[#98f05f]">
-<div class="flex justify-between items-center mb-2">
-<span class="text-[#98f05f] font-code-sm">v3.0.4b</span>
-<span class="text-outline-variant text-[11px] uppercase">Latest</span>
-</div>
-<ul class="text-on-surface-variant text-code-sm list-disc list-inside flex flex-col gap-1">
-<li class="">Company News now reconciles training rows against Torn's exact action log.</li>
-<li class="">Grouped News shows the exact daily total instead of collapsed counts.</li>
-<li class="">Raw News shows every unique Torn training action after sync.</li>
-</ul>
-</div>
-<div class="glass-panel p-4 rounded opacity-70">
-<div class="flex justify-between items-center mb-2">
-<span class="text-on-surface font-code-sm">v3.0.4</span>
-</div>
-<ul class="text-on-surface-variant text-code-sm list-disc list-inside flex flex-col gap-1">
-<li class="">Mobile settings forms now collapse to full-width phone columns.</li>
-<li class="">Training log sync combines company news with exact training-action log.</li>
-</ul>
-</div>
+<div class="hidden glass-panel p-5 rounded-lg border-l-2 border-tertiary-fixed-dim" id="detail-note">
+<h3 class="font-label-caps text-label-caps text-tertiary-fixed-dim uppercase tracking-widest mb-2">Availability Note</h3>
+<p class="text-on-surface-variant text-code-sm leading-relaxed" id="detail-note-text"></p>
 </div>
 </div>
 </div>
@@ -700,220 +655,576 @@ void main() {
 <script>
         const scripts = [
             {
-                id: 'pythagoras',
-                tier: 'supporter',
-                title: 'Pythagoras Project - CIS',
-                desc: 'Company Intelligence System, featuring detailed training ledger and member tracking capabilities.',
-                version: 'v3.0.4b',
-                category: 'Company Intelligence',
-                badge: 'supporter',
-                badgeText: 'SUPPORTER',
-                iconPath: '<polygon points="12 2 22 20 2 20"></polygon><circle cx="12" cy="14" r="2"></circle>',
-                config: '{"ledger_sync": true, "api_polling": 30000, "modules": ["training", "roster"]}'
+                        "id": "pythagoras",
+                        "tier": "supporter",
+                        "title": "Pythagoras Project - CIS",
+                        "desc": "A company intelligence workspace for Torn directors with exact action-log-backed training counts, staff history, analytics and shared reporting.",
+                        "version": "v3.0.4b",
+                        "versionPrefix": "VER",
+                        "category": "Company intelligence",
+                        "projectType": "Supporter userscript",
+                        "releaseState": "Current supporter build",
+                        "updated": "26 July 2026",
+                        "badge": "supporter",
+                        "badgeText": "SUPPORTER",
+                        "iconPath": "<polygon points=\"12 2 22 20 2 20\"></polygon><circle cx=\"12\" cy=\"14\" r=\"2\"></circle>",
+                        "features": [
+                                    "Training ledger and FIFO planning tools",
+                                    "Staff, director and company timeline views",
+                                    "Cloud workspace history, analytics, exports and themed reports"
+                        ],
+                        "actions": [
+                                    {
+                                                "label": "Open Project",
+                                                "href": "pythagoras-project-cis/",
+                                                "icon": "open_in_new",
+                                                "primary": false
+                                    },
+                                    {
+                                                "label": "Install v3.0.4b",
+                                                "href": "https://greasyfork.org/en/scripts/580933-pythagoras-project-cis",
+                                                "icon": "download",
+                                                "primary": true
+                                    },
+                                    {
+                                                "label": "Dashboard",
+                                                "href": "https://pp-api.sokin.xyz/dashboard",
+                                                "icon": "dashboard",
+                                                "primary": false
+                                    },
+                                    {
+                                                "label": "FAQ",
+                                                "href": "pythagoras-project-cis/faq.html",
+                                                "icon": "help",
+                                                "primary": false
+                                    }
+                        ]
             },
             {
-                id: 'pitGuru',
-                tier: 'supporter',
-                title: 'MoDuL\'s Pit Guru',
-                desc: 'Comprehensive pit crew optimization heuristics.',
-                version: 'v2.3.4',
-                category: 'Crew optimization',
-                badge: 'supporter',
-                badgeText: 'SUPPORTER',
-                iconPath: '<rect height="18" rx="2" width="18" x="3" y="3"></rect><path d="M9 3v18M15 3v18M3 9h18M3 15h18" stroke-dasharray="2 2"></path>',
-                config: '{"heuristic_depth": "max", "crew_sync": true}'
+                        "id": "pitGuru",
+                        "tier": "supporter",
+                        "title": "MoDuL's Pit Guru",
+                        "desc": "A supporter racing-analysis tool with live gaps, sectors, speed, predictions, replay links and persistent hosted race history.",
+                        "version": "v2.3.4",
+                        "versionPrefix": "VER",
+                        "category": "Racing analysis",
+                        "projectType": "Supporter userscript",
+                        "releaseState": "Current supporter build",
+                        "updated": "30 July 2026",
+                        "badge": "supporter",
+                        "badgeText": "SUPPORTER",
+                        "iconPath": "<rect height=\"18\" rx=\"2\" width=\"18\" x=\"3\" y=\"3\"></rect><path d=\"M9 3v18M15 3v18M3 9h18M3 15h18\" stroke-dasharray=\"2 2\"></path>",
+                        "features": [
+                                    "Live race analysis focused on gaps, sectors and speed",
+                                    "Configurable focused drawing for large 50–100 driver races",
+                                    "Public race player and persistent PostgreSQL-backed history"
+                        ],
+                        "actions": [
+                                    {
+                                                "label": "Open Project",
+                                                "href": "pit-guru/",
+                                                "icon": "open_in_new",
+                                                "primary": false
+                                    },
+                                    {
+                                                "label": "Install v2.3.4",
+                                                "href": "pit-guru/pit-guru.user.js",
+                                                "icon": "download",
+                                                "primary": true
+                                    },
+                                    {
+                                                "label": "Race Player",
+                                                "href": "https://pp-api.sokin.xyz/pit-guru/",
+                                                "icon": "sports_motorsports",
+                                                "primary": false
+                                    },
+                                    {
+                                                "label": "FAQ",
+                                                "href": "pit-guru/faq.html",
+                                                "icon": "help",
+                                                "primary": false
+                                    }
+                        ]
             },
             {
-                id: 'customRaceFilter',
-                tier: 'supporter',
-                title: 'Custom Race Filter',
-                desc: 'Advanced race telemetry sorting and filtering engine.',
-                version: 'v2.5.2',
-                category: 'Telemetry engine',
-                badge: 'supporter',
-                badgeText: 'SUPPORTER',
-                iconPath: '<path d="M4 6h16M4 12h16m-7 6h7" stroke-linecap="square"></path><circle cx="7" cy="18" r="2"></circle>',
-                config: '{"filter_hz": 120, "auto_sort": true, "track_cache": "memory"}'
+                        "id": "customRaceFilter",
+                        "tier": "supporter",
+                        "title": "Custom Race Filter",
+                        "desc": "A supporter racing helper that keeps Torn custom-race lists focused around selected criteria, licensing and compact join controls.",
+                        "version": "v2.5.2",
+                        "versionPrefix": "VER",
+                        "category": "Race-list filtering",
+                        "projectType": "Supporter userscript",
+                        "releaseState": "Current supporter build",
+                        "updated": "14 July 2026",
+                        "badge": "supporter",
+                        "badgeText": "SUPPORTER",
+                        "iconPath": "<path d=\"M4 6h16M4 12h16m-7 6h7\" stroke-linecap=\"square\"></path><circle cx=\"7\" cy=\"18\" r=\"2\"></circle>",
+                        "features": [
+                                    "Custom race-list filtering for faster browsing",
+                                    "OG-name-aware car filtering and supporter extras",
+                                    "Inline licence flow with safer Torn-owned user ID detection"
+                        ],
+                        "actions": [
+                                    {
+                                                "label": "Open Project",
+                                                "href": "custom-race-filter/",
+                                                "icon": "open_in_new",
+                                                "primary": true
+                                    },
+                                    {
+                                                "label": "GreasyFork Page",
+                                                "href": "https://greasyfork.org/en/scripts/562954-modul-s-custom-race-filter",
+                                                "icon": "download",
+                                                "primary": false
+                                    },
+                                    {
+                                                "label": "FAQ",
+                                                "href": "custom-race-filter/faq.html",
+                                                "icon": "help",
+                                                "primary": false
+                                    }
+                        ]
             },
             {
-                id: 'tornfolio',
-                tier: 'supporter',
-                title: 'Tornfolio',
-                desc: 'Asset management and networth tracking node.',
-                version: '[ALPHA]',
-                category: 'Asset management',
-                badge: 'dev',
-                badgeText: 'DEV',
-                iconPath: '<path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>',
-                config: '{"chart_renderer": "webgl", "historical_data": 365}'
+                        "id": "tornfolio",
+                        "tier": "supporter",
+                        "title": "Tornfolio",
+                        "desc": "A Torn property, lease and ROI manager for owners and renters, evolving from the former Landlord Tenant Ledger.",
+                        "version": "PRIVATE PREVIEW",
+                        "versionPrefix": "STATUS",
+                        "category": "Property management",
+                        "projectType": "Supporter property tool",
+                        "releaseState": "Under development",
+                        "updated": "28 July 2026",
+                        "badge": "dev",
+                        "badgeText": "DEV",
+                        "iconPath": "<path d=\"M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6\"></path>",
+                        "features": [
+                                    "Readable lease records for owners, renters, dates, rent and days left",
+                                    "Owned-home, current-home and partner-contract fetch flow",
+                                    "Rent and sale suggestions for owned properties"
+                        ],
+                        "actions": [
+                                    {
+                                                "label": "Open Project",
+                                                "href": "tornfolio/",
+                                                "icon": "open_in_new",
+                                                "primary": true
+                                    }
+                        ],
+                        "disabledActions": [
+                                    "Public install not released"
+                        ],
+                        "note": "Tornfolio is currently a private preview. The project page is public, but there is no public install link yet."
             },
             {
-                id: 'modulHubControl',
-                tier: 'free',
-                title: 'MoDuL Hub Control Room',
-                desc: 'Centralized control system for MoDuL utilities.',
-                version: 'v0.2.10',
-                category: 'Utility',
-                badge: 'live',
-                badgeText: 'LIVE',
-                iconPath: '<path d="M3 3h18v18H3z"></path>',
-                config: '{}'
+                        "id": "modulHubControl",
+                        "tier": "free",
+                        "title": "MoDuL Hub Control Room",
+                        "desc": "The shared theme source of truth for MoDuL Torn scripts, including palettes, typography, spacing, radius and the canonical mh-* contract.",
+                        "version": "v0.2.10",
+                        "versionPrefix": "VER",
+                        "category": "Shared theme system",
+                        "projectType": "Global theme userscript",
+                        "releaseState": "Live release",
+                        "updated": "28 July 2026",
+                        "badge": "live",
+                        "badgeText": "LIVE",
+                        "iconPath": "<path d=\"M3 3h18v18H3z\"></path>",
+                        "features": [
+                                    "One theme editor for shared --mh-* variables",
+                                    "Canonical identifiers and compatibility bridge for older scripts",
+                                    "Draggable launcher with saved positioning and touch support"
+                        ],
+                        "actions": [
+                                    {
+                                                "label": "Open Project",
+                                                "href": "global-theme/",
+                                                "icon": "open_in_new",
+                                                "primary": false
+                                    },
+                                    {
+                                                "label": "Install v0.2.10",
+                                                "href": "global-theme/modul-hub-global-theme.user.js",
+                                                "icon": "download",
+                                                "primary": true
+                                    }
+                        ]
             },
             {
-                id: 'cracked',
-                tier: 'free',
-                title: 'cRaCked',
-                desc: 'High-performance cracking utility framework.',
-                version: 'v1.3.1',
-                category: 'Utility',
-                badge: 'live',
-                badgeText: 'LIVE',
-                iconPath: '<path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"></path>',
-                config: '{"threads": 4, "mode": "stealth"}'
+                        "id": "cracked",
+                        "tier": "free",
+                        "title": "cRaCked",
+                        "desc": "A Torn cracking helper combining a community word pool, probability-ranked suggestions and encrypted-slot awareness.",
+                        "version": "v1.3.1",
+                        "versionPrefix": "VER",
+                        "category": "Cracking assistance",
+                        "projectType": "Free userscript",
+                        "releaseState": "Live release",
+                        "updated": "1 August 2026",
+                        "badge": "live",
+                        "badgeText": "LIVE",
+                        "iconPath": "<path d=\"M13 2L3 14h9l-1 8 10-12h-9l1-8z\"></path>",
+                        "features": [
+                                    "Community-powered cracking word pool",
+                                    "Probability-ranked word suggestions",
+                                    "Encrypted-slot awareness and safe positional estimates"
+                        ],
+                        "actions": [
+                                    {
+                                                "label": "Install v1.3.1",
+                                                "href": "https://greasyfork.org/en/scripts/589397-cracked",
+                                                "icon": "download",
+                                                "primary": true
+                                    }
+                        ]
             },
             {
-                id: 'raceTracker',
-                tier: 'free',
-                title: 'Race Tracker',
-                desc: 'Real-time vector tracking for active circuits.',
-                version: '[DEV]',
-                category: 'Circuit tracking',
-                badge: 'dev',
-                badgeText: 'DEV',
-                iconPath: '<path d="M4 19l16-14m0 0v8m0-8h-8"></path>',
-                config: '{"vector_smoothing": true, "refresh_rate": 100}'
+                        "id": "raceTracker",
+                        "tier": "free",
+                        "title": "Race Tracker",
+                        "desc": "A structured Google Sheets racing toolkit with public workbook copy flow, documentation, screenshots and analytics views.",
+                        "version": "IN DEVELOPMENT",
+                        "versionPrefix": "STATUS",
+                        "category": "Racing analytics",
+                        "projectType": "Google Sheets toolkit",
+                        "releaseState": "Sheet live; toolkit in development",
+                        "updated": "No release date published",
+                        "badge": "dev",
+                        "badgeText": "DEV",
+                        "iconPath": "<path d=\"M4 19l16-14m0 0v8m0-8h-8\"></path>",
+                        "features": [
+                                    "Race history imports and organised results views",
+                                    "Car, track and upgrade analytics",
+                                    "Dashboard-style summaries for racing performance"
+                        ],
+                        "actions": [
+                                    {
+                                                "label": "Open Project",
+                                                "href": "race-tracker/",
+                                                "icon": "open_in_new",
+                                                "primary": false
+                                    },
+                                    {
+                                                "label": "Get Spreadsheet",
+                                                "href": "https://docs.google.com/spreadsheets/d/1ANiFcBuMgpXYXGhycc4HaFHfUZsLjoKsLyRB5llFIz8/copy",
+                                                "icon": "table_view",
+                                                "primary": true
+                                    },
+                                    {
+                                                "label": "FAQ",
+                                                "href": "race-tracker/faq.html",
+                                                "icon": "help",
+                                                "primary": false
+                                    }
+                        ],
+                        "disabledActions": [
+                                    "Toolkit still in development"
+                        ]
             },
             {
-                id: 'eggsTerminator',
-                tier: 'free',
-                title: 'EggsTerminator',
-                desc: 'Automated seasonal event scanning utility.',
-                version: 'v2.5.12',
-                category: 'Seasonal event scanning',
-                badge: 'live',
-                badgeText: 'LIVE',
-                iconPath: '<circle cx="12" cy="12" r="8"></circle><path d="M12 4v16M4 12h16"></path>',
-                config: '{"scan_radius": "global", "alert_type": "visual_audio"}'
+                        "id": "eggsTerminator",
+                        "tier": "free",
+                        "title": "EggsTerminator",
+                        "desc": "A state-aware Easter event helper combining page navigation, egg visibility tools and separate found/collected tracking.",
+                        "version": "v2.5.12",
+                        "versionPrefix": "VER",
+                        "category": "Seasonal event utility",
+                        "projectType": "Free userscript",
+                        "releaseState": "Live release",
+                        "updated": "28 April 2026",
+                        "badge": "live",
+                        "badgeText": "LIVE",
+                        "iconPath": "<circle cx=\"12\" cy=\"12\" r=\"8\"></circle><path d=\"M12 4v16M4 12h16\"></path>",
+                        "features": [
+                                    "State-aware page traversal",
+                                    "Found and collected counter tracking",
+                                    "Navigator and finder tools in one interface"
+                        ],
+                        "actions": [
+                                    {
+                                                "label": "Open Project",
+                                                "href": "eggsterminator/",
+                                                "icon": "open_in_new",
+                                                "primary": false
+                                    },
+                                    {
+                                                "label": "Install v2.5.12",
+                                                "href": "https://greasyfork.org/en/scripts/572637-modul-s-egg-navigator-egg-finder",
+                                                "icon": "download",
+                                                "primary": true
+                                    },
+                                    {
+                                                "label": "FAQ",
+                                                "href": "eggsterminator/faq.html",
+                                                "icon": "help",
+                                                "primary": false
+                                    }
+                        ]
             },
             {
-                id: 'raceThemeChanger',
-                tier: 'free',
-                title: 'Race Theme Changer',
-                desc: 'Custom aesthetic overrides for race UI.',
-                version: 'v1.2.6',
-                category: 'UI Mod',
-                badge: 'live',
-                badgeText: 'LIVE',
-                iconPath: '<path d="M12 2v20m-7-7l7 7 7-7"></path>',
-                config: '{}'
+                        "id": "raceThemeChanger",
+                        "tier": "free",
+                        "title": "Race Theme Changer",
+                        "desc": "A PDA-safe userscript that synchronises Torn racing visuals, banners and race details with the selected race-class theme.",
+                        "version": "v1.2.6",
+                        "versionPrefix": "VER",
+                        "category": "Racing interface theme",
+                        "projectType": "Free userscript",
+                        "releaseState": "Live release",
+                        "updated": "20 April 2026",
+                        "badge": "live",
+                        "badgeText": "LIVE",
+                        "iconPath": "<path d=\"M12 2v20m-7-7l7 7 7-7\"></path>",
+                        "features": [
+                                    "Theme-aware visuals for Classes A–E",
+                                    "Permanent race details bar beneath the track",
+                                    "Touch-friendly controls for TornPDA and mobile"
+                        ],
+                        "actions": [
+                                    {
+                                                "label": "Open Project",
+                                                "href": "race-theme-changer/",
+                                                "icon": "open_in_new",
+                                                "primary": false
+                                    },
+                                    {
+                                                "label": "Install v1.2.6",
+                                                "href": "https://greasyfork.org/en/scripts/563548-modul-s-racing-theme-changer",
+                                                "icon": "download",
+                                                "primary": true
+                                    },
+                                    {
+                                                "label": "FAQ",
+                                                "href": "race-theme-changer/faq.html",
+                                                "icon": "help",
+                                                "primary": false
+                                    }
+                        ]
             },
             {
-                id: 'restoreOgNames',
-                tier: 'free',
-                title: 'Restore OG Names',
-                desc: 'Reverts dynamic naming changes back to original.',
-                version: 'v1.3.1',
-                category: 'Utility',
-                badge: 'live',
-                badgeText: 'LIVE',
-                iconPath: '<path d="M3 10h18M3 14h18"></path>',
-                config: '{}'
+                        "id": "restoreOgNames",
+                        "tier": "free",
+                        "title": "Restore OG Names",
+                        "desc": "A lightweight Torn userscript that restores original car naming across racing, markets, bazaars, logs and docks views.",
+                        "version": "v1.3.1",
+                        "versionPrefix": "VER",
+                        "category": "Naming compatibility",
+                        "projectType": "Free userscript",
+                        "releaseState": "Live release",
+                        "updated": "10 February 2026",
+                        "badge": "live",
+                        "badgeText": "LIVE",
+                        "iconPath": "<path d=\"M3 10h18M3 14h18\"></path>",
+                        "features": [
+                                    "Restores original car names across supported Torn pages",
+                                    "Compatible with Custom Race Filter and TornPDA",
+                                    "Includes item-market, bazaar, log and docks coverage"
+                        ],
+                        "actions": [
+                                    {
+                                                "label": "Open Project",
+                                                "href": "restore-og-names/",
+                                                "icon": "open_in_new",
+                                                "primary": false
+                                    },
+                                    {
+                                                "label": "Install v1.3.1",
+                                                "href": "https://greasyfork.org/en/scripts/563153-modul-s-restore-og-car-names",
+                                                "icon": "download",
+                                                "primary": true
+                                    },
+                                    {
+                                                "label": "FAQ",
+                                                "href": "restore-og-names/faq.html",
+                                                "icon": "help",
+                                                "primary": false
+                                    }
+                        ]
             },
             {
-                id: 'stockx',
-                tier: 'free',
-                title: 'Stock-X',
-                desc: 'Market tracking and prediction algorithm suite.',
-                version: '[DEV]',
-                category: 'Market tracking',
-                badge: 'dev',
-                badgeText: 'DEV',
-                iconPath: '<path d="M3 3v18h18M18 9l-5 5-4-4-5 5"></path>',
-                config: '{}'
+                        "id": "stockx",
+                        "tier": "free",
+                        "title": "Stock-X",
+                        "desc": "A stock-focused Torn helper in active development, with vault, ROI and trade-assistant documentation already published.",
+                        "version": "v1.0.0",
+                        "versionPrefix": "VER",
+                        "category": "Stock workflow",
+                        "projectType": "Free userscript",
+                        "releaseState": "In development; documentation live",
+                        "updated": "No public release date published",
+                        "badge": "dev",
+                        "badgeText": "DEV",
+                        "iconPath": "<path d=\"M3 3v18h18M18 9l-5 5-4-4-5 5\"></path>",
+                        "features": [
+                                    "Stock workflow and vault helpers",
+                                    "ROI-focused guidance and benefit-lock protection",
+                                    "Trade-assistant workflow for faster market checks"
+                        ],
+                        "actions": [
+                                    {
+                                                "label": "Open Project",
+                                                "href": "stock-x/",
+                                                "icon": "open_in_new",
+                                                "primary": true
+                                    },
+                                    {
+                                                "label": "FAQ",
+                                                "href": "stock-x/faq.html",
+                                                "icon": "help",
+                                                "primary": false
+                                    }
+                        ],
+                        "disabledActions": [
+                                    "Public download pending review"
+                        ],
+                        "note": "Stock-X documentation is live, but the current hub intentionally does not expose a public install route while the workflow remains in development."
             },
             {
-                id: 'smuggler',
-                tier: 'free',
-                title: 'Smuggler',
-                desc: 'Travel and inventory optimization agent.',
-                version: 'v3.0.6',
-                category: 'Travel Utility',
-                badge: 'live',
-                badgeText: 'LIVE',
-                iconPath: '<path d="M22 12h-4l-3-9L9 3l-3 9H2"></path>',
-                config: '{}'
+                        "id": "smuggler",
+                        "tier": "free",
+                        "title": "Smuggler",
+                        "desc": "A Torn and TornPDA travel helper for repeat abroad runs, destination planning, item workflows and flight timing.",
+                        "version": "v3.0.6",
+                        "versionPrefix": "VER",
+                        "category": "Travel utility",
+                        "projectType": "Free userscript",
+                        "releaseState": "Live release",
+                        "updated": "1 July 2026",
+                        "badge": "live",
+                        "badgeText": "LIVE",
+                        "iconPath": "<path d=\"M22 12h-4l-3-9L9 3l-3 9H2\"></path>",
+                        "features": [
+                                    "Travel pill with countdown, ETA and progress",
+                                    "Primary and fallback item workflow",
+                                    "Desktop hotkey and TornPDA plane-button support"
+                        ],
+                        "actions": [
+                                    {
+                                                "label": "Open Project",
+                                                "href": "smuggler/",
+                                                "icon": "open_in_new",
+                                                "primary": false
+                                    },
+                                    {
+                                                "label": "Install v3.0.6",
+                                                "href": "https://greasyfork.org/en/scripts/575111-modul-s-smuggler",
+                                                "icon": "download",
+                                                "primary": true
+                                    },
+                                    {
+                                                "label": "FAQ",
+                                                "href": "smuggler/faq.html",
+                                                "icon": "help",
+                                                "primary": false
+                                    }
+                        ]
             },
             {
-                id: 'jobCentrePlus',
-                tier: 'web tools',
-                title: 'JobCentre+',
-                desc: 'Advanced company application and recruitment tool.',
-                version: 'v1.2.0',
-                category: 'Company Recruitment',
-                badge: 'live',
-                badgeText: 'LIVE',
-                iconPath: '<path d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>',
-                config: '{"auto_apply": true, "filter_stats": true}'
+                        "id": "jobCentrePlus",
+                        "tier": "web tools",
+                        "title": "JobCentre+",
+                        "desc": "A privacy-first Torn employment marketplace for verified candidates, searchable vacancies, focused applications and director dashboards.",
+                        "version": "LIVE",
+                        "versionPrefix": "STATUS",
+                        "category": "Employment marketplace",
+                        "projectType": "Hosted web application",
+                        "releaseState": "Live service",
+                        "updated": "1 August 2026",
+                        "badge": "live",
+                        "badgeText": "LIVE",
+                        "iconPath": "<path d=\"M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z\"></path>",
+                        "features": [
+                                    "Torn-verified identity, employment and working stats",
+                                    "Searchable vacancies and looking-for-work profiles",
+                                    "Private dashboards for applications and company adverts"
+                        ],
+                        "actions": [
+                                    {
+                                                "label": "Open JobCentre+",
+                                                "href": "https://pp-api.sokin.xyz/jobcentreplus/",
+                                                "icon": "work",
+                                                "primary": true
+                                    }
+                        ]
             },
             {
-                id: 'pythagorasDashboard',
-                tier: 'web tools',
-                title: 'Pythagoras Project - Dashboard',
-                desc: 'Web-based interface for CIS data aggregation.',
-                version: 'v1.0.0',
-                category: 'Dashboard',
-                badge: 'live',
-                badgeText: 'LIVE',
-                iconPath: '<rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="3" y1="9" x2="21" y2="9"></line><line x1="9" y1="21" x2="9" y2="9"></line>',
-                config: '{}'
+                        "id": "pythagorasDashboard",
+                        "tier": "web tools",
+                        "title": "Pythagoras Project - Dashboard",
+                        "desc": "The hosted companion dashboard for authenticated Pythagoras CIS workspaces, company data, analytics and reports.",
+                        "version": "LIVE SERVICE",
+                        "versionPrefix": "STATUS",
+                        "category": "Company intelligence dashboard",
+                        "projectType": "Hosted web application",
+                        "releaseState": "Live companion service",
+                        "updated": "Current service",
+                        "badge": "live",
+                        "badgeText": "LIVE",
+                        "iconPath": "<rect x=\"3\" y=\"3\" width=\"18\" height=\"18\" rx=\"2\" ry=\"2\"></rect><line x1=\"3\" y1=\"9\" x2=\"21\" y2=\"9\"></line><line x1=\"9\" y1=\"21\" x2=\"9\" y2=\"9\"></line>",
+                        "features": [
+                                    "Authenticated CIS workspace access",
+                                    "Company analytics and shared reporting",
+                                    "Companion service for the Pythagoras userscript"
+                        ],
+                        "actions": [
+                                    {
+                                                "label": "Open Dashboard",
+                                                "href": "https://pp-api.sokin.xyz/dashboard",
+                                                "icon": "dashboard",
+                                                "primary": true
+                                    },
+                                    {
+                                                "label": "Open CIS Project",
+                                                "href": "pythagoras-project-cis/",
+                                                "icon": "open_in_new",
+                                                "primary": false
+                                    },
+                                    {
+                                                "label": "FAQ",
+                                                "href": "pythagoras-project-cis/faq.html",
+                                                "icon": "help",
+                                                "primary": false
+                                    }
+                        ]
             },
             {
-                id: 'lap-recorder',
-                tier: 'archive',
-                title: 'Lap Recorder',
-                desc: 'The lap-capture project that helped shape the next generation of racing tools. Retired from active promotion, but preserved on the hub as part of the journey.',
-                version: 'v1.7.1',
-                category: 'Archived racing project',
-                badge: 'archive',
-                badgeText: 'ARCHIVE',
-                iconPath: '<image href="https://lh3.googleusercontent.com/aida-public/AB6AXuDbmK_RbWVhpeeraxON2kBwiL_RLDAQABFzld8-0m_qY4CGc21KEcPSm-QEDdw89B26ALU27BpFgwExTXyMUzwt30onBeHesQm_Y9coECCkA6k8DPwMpOyQhct2g4HwI5hH188xCdpbSySk_hLo7uOJ0lbUL0D7bg_iRnV4uhZBazvYrC_mzdOCDDrdk76lkAVfmMj7qy7rME_W2P906o8l5WcpWBG2GfkYtFhOIlYfUOETDUVVGjgaexsevCTTGG3xZA" x="0" y="0" width="24" height="24" />',
-                config: '{"status": "archived"}',
-                history: ['v1.7.1 - Theme-thread helper line', 'v1.7.0 - Larger recorder window', 'v1.6.9 - Official layout correction'],
-                customContent: `
-                    <article class="content-card content-card-full mb-6">
-                      <h3 class="font-label-caps text-label-caps text-[#98f05f] uppercase tracking-widest mb-4">Project Termination Notice</h3>
-                      <div class="text-on-surface-variant text-code-sm leading-relaxed space-y-4">
-                          <p>After a long run of updates, fixes, experiments, and community feedback, I decided to officially terminate the Lap Recorder project.</p>
-                          <p>This script started as a simple way to record and organise lap times, but over time it grew into something much bigger than its original purpose. It helped shape ideas, exposed limits, revealed better methods, and most importantly showed me what a proper racing tool should become.</p>
-                          <p>For everyone who used it, tested it, reported bugs, suggested features, or simply trusted it during their racing grind: thank you. Your feedback pushed the project further than I originally expected.</p>
-                          <p><strong>But this is not the end of the road.</strong> MoDuL's Pit Guru is already being forged in the garage.</p>
-                          <p>MoDuL's Pit Guru is not meant to simply replace Lap Recorder. It is meant to go beyond it: faster, stronger, cleaner, smarter, and built to understand the race rather than only record what happened.</p>
-                      </div>
-                    </article>
-                    <article class="content-card content-card-full">
-                      <h3 class="font-label-caps text-label-caps text-[#98f05f] uppercase tracking-widest mb-4">What it leaves behind</h3>
-                      <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-on-surface-variant text-code-sm leading-relaxed">
-                        <div class="glass-panel p-4 rounded">
-                          <h4 class="text-on-surface font-semibold mb-2">Lap capture foundation</h4>
-                          <p>Lap Recorder built the early workflow for capturing lap times, comparing runs, and keeping race context tied to the session.</p>
-                        </div>
-                        <div class="glass-panel p-4 rounded">
-                          <h4 class="text-on-surface font-semibold mb-2">Replay lessons</h4>
-                          <p>It helped expose how replay timing, pause handling, finish detection, and race-state drift need to be treated in a better long-term tool.</p>
-                        </div>
-                        <div class="glass-panel p-4 rounded">
-                          <h4 class="text-on-surface font-semibold mb-2">Records and exports</h4>
-                          <p>The project proved there was real value in keeping local history, reusable reports, and track-aware results all in one place.</p>
-                        </div>
-                        <div class="glass-panel p-4 rounded">
-                          <h4 class="text-on-surface font-semibold mb-2">Direction for the future</h4>
-                          <p>The biggest thing it leaves behind is direction. Lap Recorder showed what the next racing project needs to become.</p>
-                        </div>
-                      </div>
-                    </article>
-                `
+                        "id": "lap-recorder",
+                        "tier": "archive",
+                        "title": "Lap Recorder",
+                        "desc": "The archived lap-capture project that helped shape the next generation of MoDuL racing tools.",
+                        "version": "ARCHIVED",
+                        "versionPrefix": "STATUS",
+                        "category": "Archived racing project",
+                        "projectType": "Past project",
+                        "releaseState": "Archived",
+                        "updated": "13 May 2026",
+                        "badge": "archive",
+                        "badgeText": "ARCHIVE",
+                        "iconPath": "<image href=\"https://lh3.googleusercontent.com/aida-public/AB6AXuDbmK_RbWVhpeeraxON2kBwiL_RLDAQABFzld8-0m_qY4CGc21KEcPSm-QEDdw89B26ALU27BpFgwExTXyMUzwt30onBeHesQm_Y9coECCkA6k8DPwMpOyQhct2g4HwI5hH188xCdpbSySk_hLo7uOJ0lbUL0D7bg_iRnV4uhZBazvYrC_mzdOCDDrdk76lkAVfmMj7qy7rME_W2P906o8l5WcpWBG2GfkYtFhOIlYfUOETDUVVGjgaexsevCTTGG3xZA\" x=\"0\" y=\"0\" width=\"24\" height=\"24\" />",
+                        "features": [
+                                    "Project termination notice and archive page",
+                                    "Screenshots and development history preserved",
+                                    "Key lessons carried forward into MoDuL's Pit Guru"
+                        ],
+                        "actions": [
+                                    {
+                                                "label": "Open Archive",
+                                                "href": "lap-recorder/",
+                                                "icon": "inventory_2",
+                                                "primary": true
+                                    },
+                                    {
+                                                "label": "Archive FAQ",
+                                                "href": "lap-recorder/faq.html",
+                                                "icon": "help",
+                                                "primary": false
+                                    }
+                        ],
+                        "note": "Lap Recorder is no longer maintained or promoted. Its archive remains online for screenshots, history and the development lessons carried into Pit Guru."
             }
-        ];
+];
 
         let currentFilter = 'ALL';
 
@@ -979,7 +1290,7 @@ void main() {
                                 <p class="font-code-sm text-code-sm text-outline-variant">${script.desc}</p>
                             </div>
                             <div class="mt-4 pt-4 border-t border-white/5 font-code-sm text-code-sm text-[#98f05f]/80 flex justify-between ${script.badge === 'dev' ? 'group-hover:opacity-100 transition-opacity' : ''}">
-                                <span class="">VER: ${script.version}</span>
+                                <span class="">${script.versionPrefix}: ${script.version}</span>
                                 <span class="material-symbols-outlined text-[16px] opacity-0 group-hover:opacity-100 transition-opacity">${script.badge === 'dev' ? 'build' : 'arrow_forward'}</span>
                             </div>
                         </div>`;
@@ -1014,66 +1325,123 @@ void main() {
             }, oldCards.length > 0 ? 300 : 0);
         }
 
-        function activateScript(scriptKey) {
-            const data = scripts.find(s => s.id === scriptKey);
-            if(!data) return;
+        function createDetailAction(action) {
+            const isExternal = /^https?:\/\//i.test(action.href);
+            const link = document.createElement('a');
+            link.href = action.href;
+            link.className = action.primary
+                ? 'cyber-button-primary shimmer-btn font-label-caps text-label-caps uppercase px-6 py-3 rounded-DEFAULT flex items-center justify-center gap-2 flicker-hover'
+                : 'cyber-button-secondary font-label-caps text-label-caps uppercase px-6 py-3 rounded-DEFAULT flex items-center justify-center gap-2';
 
-            // Handle UI Switch
+            if (isExternal) {
+                link.target = '_blank';
+                link.rel = 'noopener noreferrer';
+            }
+
+            const icon = document.createElement('span');
+            icon.className = 'material-symbols-outlined text-[20px]';
+            icon.textContent = action.icon || 'open_in_new';
+            link.append(icon, document.createTextNode(` ${action.label}`));
+            return link;
+        }
+
+        function renderModuleFacts(data) {
+            const facts = [
+                ['Project type', data.projectType],
+                ['Access', data.tier.toUpperCase()],
+                ['Release state', data.releaseState],
+                ['Updated', data.updated],
+                ['Category', data.category]
+            ];
+            const container = document.getElementById('detail-facts');
+            container.replaceChildren();
+
+            facts.forEach(([label, value]) => {
+                const item = document.createElement('div');
+                item.className = 'bg-surface-container-lowest/50 border border-white/5 p-3 rounded';
+
+                const term = document.createElement('dt');
+                term.className = 'text-outline-variant uppercase text-[10px] tracking-wider mb-1';
+                term.textContent = label;
+
+                const description = document.createElement('dd');
+                description.className = 'text-on-surface';
+                description.textContent = value;
+
+                item.append(term, description);
+                container.append(item);
+            });
+        }
+
+        function renderModuleActions(data) {
+            const container = document.getElementById('detail-actions');
+            container.replaceChildren();
+            data.actions.forEach(action => container.append(createDetailAction(action)));
+
+            (data.disabledActions || []).forEach(label => {
+                const disabled = document.createElement('span');
+                disabled.className = 'font-label-caps text-label-caps uppercase px-6 py-3 rounded-DEFAULT border border-outline-variant text-outline-variant opacity-60 cursor-not-allowed flex items-center justify-center gap-2';
+                disabled.setAttribute('aria-disabled', 'true');
+                disabled.textContent = label;
+                container.append(disabled);
+            });
+        }
+
+        function unloadActiveModule() {
+            const terminal = document.getElementById('cli-output');
+            const cursorLine = document.getElementById('cli-cursor-line');
+            const newLine = document.createElement('div');
+            newLine.className = 'opacity-100 typing-line text-error';
+            newLine.textContent = '> UNLOADING MODULE... [CLEANUP_COMPLETE]';
+            terminal.insertBefore(newLine, cursorLine);
+            terminal.scrollTop = terminal.scrollHeight;
+            setTimeout(() => resetView(), 300);
+        }
+
+        function activateScript(scriptKey) {
+            const data = scripts.find(script => script.id === scriptKey);
+            if (!data) return;
+
             document.getElementById('module-grid').classList.add('hidden');
-            const detailContainer = document.getElementById('script-details-container');
-            detailContainer.classList.add('active');
-            
+            document.getElementById('script-details-container').classList.add('active');
             document.getElementById('module-header-title').innerText = 'System Status: ' + data.title.toUpperCase();
             document.getElementById('module-filter-text').innerText = 'BACK TO OVERVIEW [X]';
 
-            // Populate Data
-            document.getElementById('detail-title').innerText = data.title;
-            document.getElementById('detail-desc').innerText = data.desc;
-            document.getElementById('detail-version').innerText = data.version;
-            
+            document.getElementById('detail-title').textContent = data.title;
+            document.getElementById('detail-desc').textContent = data.desc;
+            document.getElementById('detail-version').textContent = `${data.versionPrefix}: ${data.version}`;
+
             const badge = document.getElementById('detail-badge');
             badge.className = `status-chip ${data.badge} font-label-caps text-label-caps px-3 py-1`;
-            badge.innerText = data.badgeText;
+            badge.textContent = data.badgeText;
 
-            const customContainer = document.getElementById('detail-custom-content');
-            const defaultContent = document.getElementById('detail-default-content');
-            
-            if (data.customContent) {
-                customContainer.innerHTML = data.customContent;
-                customContainer.classList.remove('hidden');
-                defaultContent.classList.add('hidden');
+            renderModuleActions(data);
+            renderModuleFacts(data);
+
+            const features = document.getElementById('detail-features');
+            features.replaceChildren();
+            data.features.forEach(feature => {
+                const item = document.createElement('li');
+                item.textContent = feature;
+                features.append(item);
+            });
+
+            const note = document.getElementById('detail-note');
+            const noteText = document.getElementById('detail-note-text');
+            if (data.note) {
+                noteText.textContent = data.note;
+                note.classList.remove('hidden');
             } else {
-                customContainer.innerHTML = '';
-                customContainer.classList.add('hidden');
-                defaultContent.classList.remove('hidden');
-                
-                if (data.history) {
-                    const historyContent = document.getElementById('detail-history-content');
-                    historyContent.innerHTML = data.history.map((h, i) => `
-                        <div class="glass-panel p-4 rounded ${i === 0 ? 'border-l-2 border-[#98f05f]' : 'opacity-70'}">
-                            <div class="flex justify-between items-center mb-2">
-                                <span class="${i === 0 ? 'text-[#98f05f]' : 'text-on-surface'} font-code-sm">${h.split(' - ')[0]}</span>
-                                ${i === 0 ? '<span class="text-outline-variant text-[11px] uppercase">Latest</span>' : ''}
-                            </div>
-                            <ul class="text-on-surface-variant text-code-sm list-disc list-inside flex flex-col gap-1">
-                                <li>${h.split(' - ')[1]}</li>
-                            </ul>
-                        </div>
-                    `).join('');
-                }
+                noteText.textContent = '';
+                note.classList.add('hidden');
             }
 
-            // Trigger Boot Sequence
             const terminal = document.getElementById('cli-output');
             const cursorLine = document.getElementById('cli-cursor-line');
-            
             const newLine = document.createElement('div');
             newLine.className = 'opacity-100 typing-line text-[#98f05f]';
-            newLine.innerHTML = `> INITIALIZING MODULE [${data.title.toUpperCase()}] <span class="text-[#98f05f]/70 glow">v${data.version}</span>...`;
-            
+            newLine.textContent = `> INITIALIZING MODULE [${data.title.toUpperCase()}] ${data.versionPrefix}: ${data.version}...`;
             terminal.insertBefore(newLine, cursorLine);
-            
-            // Scroll to bottom of terminal
             terminal.scrollTop = terminal.scrollHeight;
         }
 
