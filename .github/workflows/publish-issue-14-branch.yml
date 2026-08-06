@@ -22,10 +22,10 @@ jobs:
 
       - name: Apply validated patch
         run: |
-          cat .github/issue14-patch/chunk-00.b64 .github/issue14-patch/chunk-01.b64 > /tmp/issue14.patch.gz.b64
-          echo "d5d3d238abf909cfd6f77d4f7402d325dfd4e63fd05ea26911f9897554fc845b  /tmp/issue14.patch.gz.b64" | sha256sum -c -
+          cat .github/issue14-exact/part-00.b64 .github/issue14-exact/part-01.b64 .github/issue14-exact/part-02.b64 .github/issue14-exact/part-03.b64 .github/issue14-exact/part-04.b64 > /tmp/issue14.patch.gz.b64
+          echo "add270510813507a1441cd7bd85083c2d98adfc7917c656838a1794d22282d18  /tmp/issue14.patch.gz.b64" | sha256sum -c -
           base64 -d /tmp/issue14.patch.gz.b64 | gzip -d > /tmp/issue14.patch
-          echo "c45c09743c4dd6c102de72d534fc4a0abfb202221ce1785c7ec9dcc8c50b9871  /tmp/issue14.patch" | sha256sum -c -
+          echo "bd53f6e9ff59faa8e8010a7a02cd7a29a082c761e6985a7ca4b629b06ca88696  /tmp/issue14.patch" | sha256sum -c -
           git apply --check /tmp/issue14.patch
           git apply /tmp/issue14.patch
           git diff --check
