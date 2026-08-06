@@ -1,0 +1,40 @@
+name: Publish issue 16 patch
+
+on:
+  pull_request:
+    types: [synchronize, reopened]
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: github.event.pull_request.head.ref == 'fix/issue-16-render-races'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout issue branch
+        uses: actions/checkout@v7
+        with:
+          ref: fix/issue-16-render-races
+
+      - name: Verify and apply patch
+        run: |
+          tr -d '\r\n' < .github/issue16.patch.gz.b64 > /tmp/issue16.patch.gz.b64
+          echo "829caaf879204aec8a389a459024cf3e50c74f7351d607d88c06e1266c0cb859  /tmp/issue16.patch.gz.b64" | sha256sum -c -
+          base64 -d /tmp/issue16.patch.gz.b64 | gzip -d > /tmp/issue16.patch
+          echo "b515e833eb5ce5c1877d552276d452e01ab78033d2467d9c0817dbb3865295c3  /tmp/issue16.patch" | sha256sum -c -
+          git apply --check /tmp/issue16.patch
+          git apply /tmp/issue16.patch
+          rm -f .github/issue16.patch.gz.b64 issue16-trigger.tmp
+          git diff --check
+
+      - name: Commit focused fix
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "Eliminate delayed module-render race conditions"
+          git push origin HEAD:fix/issue-16-render-races
