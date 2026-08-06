@@ -15,10 +15,14 @@ jobs:
     timeout-minutes: 5
 
     steps:
-      - name: Checkout issue branch
-        uses: actions/checkout@v7
-        with:
-          ref: fix/issue-16-render-races
+      - name: Checkout issue branch without marketplace actions
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          git init .
+          git remote add origin "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          git fetch --depth=1 origin fix/issue-16-render-races
+          git checkout -B fix/issue-16-render-races FETCH_HEAD
 
       - name: Verify and apply patch
         run: |
@@ -28,7 +32,7 @@ jobs:
           echo "b515e833eb5ce5c1877d552276d452e01ab78033d2467d9c0817dbb3865295c3  /tmp/issue16.patch" | sha256sum -c -
           git apply --check /tmp/issue16.patch
           git apply /tmp/issue16.patch
-          rm -f .github/issue16.patch.gz.b64 issue16-trigger.tmp
+          rm -f .github/issue16.patch.gz.b64 issue16-trigger*.tmp
           git diff --check
 
       - name: Commit focused fix
