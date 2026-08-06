@@ -6,11 +6,16 @@ on:
   pull_request:
     branches: [main, master]
 
+concurrency:
+  group: test-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   test:
     name: Run Tests
     runs-on: ubuntu-latest
-    
+    timeout-minutes: 10
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
@@ -18,30 +23,30 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v7
         with:
-          node-version: '22'
-          cache: 'npm'
+          node-version: "22"
+          cache: "npm"
 
       - name: Check if package.json exists
         id: check_package
         run: |
           if [ -f "package.json" ]; then
-            echo "has_package=true" >> $GITHUB_OUTPUT
+            echo "has_package=true" >> "$GITHUB_OUTPUT"
           else
-            echo "has_package=false" >> $GITHUB_OUTPUT
-            echo "⚠️ No package.json found. Skipping tests."
+            echo "has_package=false" >> "$GITHUB_OUTPUT"
+            echo "No package.json found. Skipping tests."
           fi
 
       - name: Install dependencies
         if: steps.check_package.outputs.has_package == 'true'
-        run: npm ci || npm install
+        run: npm ci
 
       - name: Run tests
         if: steps.check_package.outputs.has_package == 'true'
         run: npm test -- --passWithNoTests
 
       - name: Upload coverage report
+        if: always() && hashFiles('coverage/lcov.info') != ''
         uses: codecov/codecov-action@v7
-        if: always()
         with:
           files: ./coverage/lcov.info
           fail_ci_if_error: false
