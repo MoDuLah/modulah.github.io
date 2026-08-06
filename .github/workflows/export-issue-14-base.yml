@@ -1,0 +1,28 @@
+name: Export issue 14 base
+
+on:
+  pull_request:
+    types: [synchronize]
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  export:
+    if: github.event.pull_request.head.ref == 'fix/issue-14-real-module-details'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v7
+        with:
+          ref: main
+
+      - name: Upload exact code.html
+        uses: actions/upload-artifact@v7
+        with:
+          name: issue14-main-code
+          path: code.html
+          retention-days: 1
