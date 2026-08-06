@@ -6,11 +6,16 @@ on:
       - main
       - master
 
+concurrency:
+  group: semantic-release-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   semantic-version:
     name: Semantic Version & Changelog
     runs-on: ubuntu-latest
-    
+    timeout-minutes: 15
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
@@ -21,13 +26,32 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v7
         with:
-          node-version: '22'
+          node-version: "22"
+
+      - name: Check if PAT_TOKEN exists
+        id: check_token
+        run: |
+          if [ -n "${{ secrets.PAT_TOKEN }}" ]; then
+            echo "has_token=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_token=false" >> "$GITHUB_OUTPUT"
+            echo "PAT_TOKEN secret not found. Skipping semantic-release."
+          fi
 
       - name: Install semantic-release and plugins
+        if: steps.check_token.outputs.has_token == 'true'
         run: |
-          npm install -D semantic-release @semantic-release/git @semantic-release/changelog @semantic-release/github @semantic-release/commit-analyzer @semantic-release/release-notes-generator conventional-changelog-conventionalcommits
+          npm install --no-save \
+            semantic-release \
+            @semantic-release/git \
+            @semantic-release/changelog \
+            @semantic-release/github \
+            @semantic-release/commit-analyzer \
+            @semantic-release/release-notes-generator \
+            conventional-changelog-conventionalcommits
 
       - name: Create .releaserc configuration
+        if: steps.check_token.outputs.has_token == 'true'
         run: |
           cat > .releaserc.json << 'EOF'
           {
@@ -70,16 +94,6 @@ jobs:
             }
           }
           EOF
-
-      - name: Check if PAT_TOKEN exists
-        id: check_token
-        run: |
-          if [ -n "${{ secrets.PAT_TOKEN }}" ]; then
-            echo "has_token=true" >> $GITHUB_OUTPUT
-          else
-            echo "has_token=false" >> $GITHUB_OUTPUT
-            echo "⚠️ PAT_TOKEN secret not found. Skipping semantic-release."
-          fi
 
       - name: Run semantic-release
         if: steps.check_token.outputs.has_token == 'true'
