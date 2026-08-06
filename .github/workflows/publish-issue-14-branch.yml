@@ -1,15 +1,15 @@
-name: Publish issue 14 branch patch
+name: Clean issue 14 branch helpers
 
 on:
   pull_request:
-    types: [synchronize, reopened]
+    types: [synchronize]
     branches: [main]
 
 permissions:
   contents: write
 
 jobs:
-  publish:
+  clean:
     if: github.event.pull_request.head.ref == 'fix/issue-14-real-module-details'
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -20,20 +20,18 @@ jobs:
         with:
           ref: fix/issue-14-real-module-details
 
-      - name: Apply validated patch
+      - name: Remove temporary publication files
         run: |
-          cat .github/issue14-exact/part-00.b64 .github/issue14-exact/part-01.b64 .github/issue14-exact/part-02.b64 .github/issue14-exact/part-03.b64 .github/issue14-exact/part-04.b64 > /tmp/issue14.patch.gz.b64
-          echo "add270510813507a1441cd7bd85083c2d98adfc7917c656838a1794d22282d18  /tmp/issue14.patch.gz.b64" | sha256sum -c -
-          base64 -d /tmp/issue14.patch.gz.b64 | gzip -d > /tmp/issue14.patch
-          echo "bd53f6e9ff59faa8e8010a7a02cd7a29a082c761e6985a7ca4b629b06ca88696  /tmp/issue14.patch" | sha256sum -c -
-          git apply --check /tmp/issue14.patch
-          git apply /tmp/issue14.patch
+          rm -rf .github/issue14-exact .github/issue14-patch
+          rm -f .github/workflows/apply-issue-14.yml
+          rm -f .github/workflows/run-issue-14-on-push.yml
+          rm -f issue14-trigger*.tmp
           git diff --check
 
-      - name: Commit to feature branch
+      - name: Commit clean branch
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add code.html
-          git commit -m "Drive module details from real project data"
+          git add -A
+          git commit -m "Remove temporary issue 14 publication helpers"
           git push origin HEAD:fix/issue-14-real-module-details
