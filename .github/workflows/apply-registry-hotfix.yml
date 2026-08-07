@@ -10,6 +10,7 @@ permissions:
 
 jobs:
   apply:
+    # Ignore the cleanup commit produced by this workflow itself.
     if: github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
     timeout-minutes: 10
