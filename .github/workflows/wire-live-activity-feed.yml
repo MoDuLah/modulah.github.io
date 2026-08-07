@@ -1,0 +1,62 @@
+name: Wire live repository activity feed
+
+on:
+  pull_request:
+    branches:
+      - main
+    types:
+      - opened
+      - reopened
+      - ready_for_review
+
+permissions:
+  contents: write
+
+jobs:
+  wire-feed:
+    if: github.event.pull_request.draft == false && github.event.pull_request.head.repo.full_name == github.repository && github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout the pull request branch
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.ref }}
+
+      - name: Insert the live activity script into code.html
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path('code.html')
+          html = path.read_text(encoding='utf-8')
+          script = '<script src="assets/js/repository-activity.js" defer></script>'
+
+          if script not in html:
+              marker = '</head>'
+              if html.count(marker) != 1:
+                  raise SystemExit(f'Expected exactly one {marker}; found {html.count(marker)}.')
+              html = html.replace(marker, f'{script}\n{marker}', 1)
+              path.write_text(html, encoding='utf-8')
+          PY
+
+      - name: Validate the runtime feed source and script reference
+        run: |
+          node --check assets/js/repository-activity.js
+          test "$(grep -Fc '<script src="assets/js/repository-activity.js" defer></script>' code.html)" -eq 1
+          grep -q 'data-boot-section="activity"' code.html
+          grep -q 'fetchAllCommits' assets/js/repository-activity.js
+          grep -q 'Full Git Log' assets/js/repository-activity.js
+
+      - name: Delete this one-use workflow
+        run: rm .github/workflows/wire-live-activity-feed.yml
+
+      - name: Commit the production page wiring
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add code.html .github/workflows/wire-live-activity-feed.yml
+          git commit -m 'Load live repository activity on code page'
+          git push origin HEAD:${{ github.event.pull_request.head.ref }}
