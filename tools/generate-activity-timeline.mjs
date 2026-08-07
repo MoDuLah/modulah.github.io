@@ -11,6 +11,36 @@ const automatedTimelineCommit = 'chore: refresh system activity timeline';
 const activityStart = '<!-- Activity Feed (Left Column) -->';
 const activityEnd = '<!-- Project Modules (Right Area) -->';
 
+function resolveDeploymentRef() {
+  const githubRefName = String(process.env.GITHUB_REF_NAME || '').trim();
+  if (githubRefName) return githubRefName;
+
+  const githubRef = String(process.env.GITHUB_REF || '').trim();
+  if (githubRef.startsWith('refs/heads/')) {
+    return githubRef.slice('refs/heads/'.length);
+  }
+  if (githubRef.startsWith('refs/tags/')) {
+    return githubRef.slice('refs/tags/'.length);
+  }
+
+  try {
+    const branch = execFileSync('git', ['branch', '--show-current'], {
+      encoding: 'utf8'
+    }).trim();
+    if (branch && branch !== 'HEAD') return branch;
+  } catch {
+    // Fall through to the repository's established primary branch.
+  }
+
+  return 'main';
+}
+
+function encodeRefPath(ref) {
+  return ref.split('/').map(encodeURIComponent).join('/');
+}
+
+const deploymentRef = resolveDeploymentRef();
+
 function escapeHtml(value) {
   return String(value)
     .replaceAll('&', '&amp;')
@@ -189,7 +219,7 @@ function renderActivityAside(commits) {
   const earliest = commits.at(-1);
   const timeline = renderTimeline(commits);
   const historyRange = `${formatDate(earliest.committedAt, dateFormatter)} → ${formatDate(latest.committedAt, dateFormatter)}`;
-  const commitsUrl = `${repositoryUrl}/commits/main`;
+  const commitsUrl = `${repositoryUrl}/commits/${encodeRefPath(deploymentRef)}`;
 
   return `${activityStart}
 <aside aria-labelledby="system-activity-title" class="xl:col-span-3 flex flex-col gap-4 fade-slide-up h-full min-h-0 overflow-visible xl:overflow-hidden" data-boot-section="activity" id="system-activity-feed" style="animation-delay: 0.5s;">
