@@ -10,6 +10,7 @@ permissions:
 
 jobs:
   format:
+    # The bot-created formatting commit must not start this one-use job again.
     if: github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
     timeout-minutes: 10
