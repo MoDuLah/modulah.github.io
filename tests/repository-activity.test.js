@@ -5,6 +5,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 
 const source = fs.readFileSync(path.join(__dirname, "../assets/js/repository-activity.js"), "utf8");
+const cacheKey = "modulah:repository-activity:MoDuLah/modulah.github.io";
 
 function jsonResponse(body) {
   return {
@@ -97,5 +98,37 @@ describe("repository activity feed", () => {
       (link) => link.textContent === "Full Git Log"
     );
     expect(fullLog.href).toBe("https://github.com/MoDuLah/modulah.github.io/commits/main");
+  });
+
+  test("renders a fresh cache without making GitHub API requests", async () => {
+    localStorage.setItem(
+      cacheKey,
+      JSON.stringify({
+        savedAt: Date.now(),
+        branch: "main",
+        commits: [
+          {
+            sha: "fedcba9876543210",
+            subject: "Cached repository update",
+            committedAt: "2026-08-07T18:30:00Z",
+            url: "https://github.com/MoDuLah/modulah.github.io/commit/fedcba9876543210",
+          },
+        ],
+      })
+    );
+    global.fetch = jest.fn();
+
+    window.eval(source);
+
+    await waitFor(() => {
+      expect(document.getElementById("activity-commit-count").textContent).toBe("1 COMMITS");
+    });
+
+    const activityFeed = document.querySelector('[data-boot-section="activity"]');
+    expect(activityFeed.getAttribute("aria-busy")).toBe("false");
+    expect(global.fetch).not.toHaveBeenCalled();
+    expect(document.getElementById("fallback-entry")).toBeNull();
+    expect(document.body.textContent).toContain("Cached repository update");
+    expect(document.body.textContent).toContain("CACHED");
   });
 });
