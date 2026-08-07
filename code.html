@@ -1,4 +1,4 @@
-<!DOCTYPE html><html class="dark" lang="en" style=""><head>
+<!DOCTYPE html><html class="dark" lang="en" style="background:#111416;"><head>
 <meta charset="utf-8">
 <meta content="width=device-width, initial-scale=1.0" name="viewport">
 <title>MODUL_HUB // COMMAND_CENTRE</title>
@@ -110,6 +110,7 @@
         }
         .shader-background {
             position: fixed;
+            z-index: 0;
             inset: 0;
             width: 100vw;
             height: 100vh;
@@ -351,7 +352,7 @@
 <body class="bg-background text-on-surface font-body-md min-h-screen relative overflow-x-hidden flex flex-col selection:bg-[#98f05f] selection:text-background">
 <!-- Shader Background -->
 <!-- STITCH_SHADER_START:ANIMATION_67 class="absolute inset-0 w-full h-full z-[-1]" -->
-<div class="shader-background z-[-1]" style="display:block;background:#111416;">
+<div class="shader-background" style="display:block;background:#111416;">
 <canvas id="shader-canvas-ANIMATION_67" style="display:block;width:100%;height:100%;background:#111416" width="1280" height="1024"></canvas>
 <script>
 (function() {
@@ -581,8 +582,6 @@ void main() {
 <div class="glass-panel rounded-lg flex-1 font-code-sm text-code-sm flex flex-col bg-black border-[#98f05f]/30 relative min-h-[120px] overflow-y-auto custom-scrollbar p-3 max-h-[250px]"><div class="absolute top-2 left-3 z-0 opacity-40 pointer-events-none text-[10px]">Cyberdine.OS</div>
 <div class="border-b border-white/10 pb-2 mb-3 flex items-center justify-between relative z-10 mt-4"><span class="text-outline-variant font-label-caps text-label-caps uppercase">Registry Boot Sequence</span><span aria-live="polite" class="text-[#98f05f] font-code-sm text-[10px] uppercase tracking-wider" id="registry-summary">15 MODULES AVAILABLE</span></div>
 <div class="text-[#98f05f] flex-1 font-mono tracking-tight relative z-10 overflow-y-auto custom-scrollbar text-[11px]" data-stitch-orig-opacity="1" id="cli-output" style="opacity: 1;">
-                    <div class="opacity-70 typing-line" style="animation-duration: 0.3s;">&gt; INITIALISING MODUL SYSTEMS... <span class="text-secondary-fixed-dim">[OK]</span></div>
-                    <div class="opacity-70 typing-line" style="animation-duration: 0.3s;">&gt; CONNECTING TO REGISTRY... <span class="text-secondary-fixed-dim">[OK]</span></div>
                     <div class="typing-line" id="cli-cursor-line">&gt; _<span class="blink-cursor inline-block w-2 h-3 bg-[#98f05f] translate-y-0.5 ml-1"></span></div>
                 </div>
 </div>
