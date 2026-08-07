@@ -1,17 +1,20 @@
 name: Format live repository activity feed
 
 on:
-  push:
+  pull_request:
     branches:
-      - agent/live-repository-activity-feed
+      - main
+    types:
+      - synchronize
+      - reopened
+      - ready_for_review
 
 permissions:
   contents: write
 
 jobs:
   format:
-    # The bot-created formatting commit must not start this one-use job again.
-    if: github.actor != 'github-actions[bot]'
+    if: github.event.pull_request.draft == false && github.event.pull_request.head.repo.full_name == github.repository && github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
     timeout-minutes: 10
 
@@ -20,6 +23,7 @@ jobs:
         uses: actions/checkout@v7
         with:
           fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.ref }}
 
       - name: Set up Node.js 22
         uses: actions/setup-node@v7
@@ -47,4 +51,4 @@ jobs:
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add assets/js/repository-activity.js tests/repository-activity.test.js .github/workflows/format-live-activity-feed.yml
           git commit -m 'Format live repository activity sources'
-          git push origin HEAD
+          git push origin HEAD:${{ github.event.pull_request.head.ref }}
