@@ -373,6 +373,10 @@
         cached.commits,
         isFresh ? "CACHED" : "STALE CACHE"
       );
+      if (isFresh) {
+        feed.setAttribute("aria-busy", "false");
+        return;
+      }
     }
 
     feed.setAttribute("aria-busy", "true");
