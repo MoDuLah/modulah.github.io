@@ -4,10 +4,7 @@
 const fs = require("node:fs");
 const path = require("node:path");
 
-const source = fs.readFileSync(
-  path.join(__dirname, "../assets/js/repository-activity.js"),
-  "utf8"
-);
+const source = fs.readFileSync(path.join(__dirname, "../assets/js/repository-activity.js"), "utf8");
 
 function jsonResponse(body) {
   return {
@@ -56,8 +53,7 @@ describe("repository activity feed", () => {
         jsonResponse([
           {
             sha: "abcdef1234567890",
-            html_url:
-              "https://github.com/MoDuLah/modulah.github.io/commit/abcdef1234567890",
+            html_url: "https://github.com/MoDuLah/modulah.github.io/commit/abcdef1234567890",
             commit: {
               message: "Release live activity feed\n\nDetailed body",
               committer: { date: "2026-08-07T18:00:00Z" },
@@ -66,8 +62,7 @@ describe("repository activity feed", () => {
           },
           {
             sha: "1234567abcdef890",
-            html_url:
-              "https://github.com/MoDuLah/modulah.github.io/commit/1234567abcdef890",
+            html_url: "https://github.com/MoDuLah/modulah.github.io/commit/1234567abcdef890",
             commit: {
               message: "Initial repository commit",
               committer: { date: "2025-01-01T09:30:00Z" },
@@ -86,9 +81,7 @@ describe("repository activity feed", () => {
     window.eval(source);
 
     await waitFor(() => {
-      expect(document.getElementById("activity-commit-count").textContent).toBe(
-        "2 COMMITS"
-      );
+      expect(document.getElementById("activity-commit-count").textContent).toBe("2 COMMITS");
     });
 
     expect(global.fetch).toHaveBeenCalledTimes(2);
@@ -101,8 +94,6 @@ describe("repository activity feed", () => {
     const fullLog = [...document.querySelectorAll("a")].find(
       (link) => link.textContent === "Full Git Log"
     );
-    expect(fullLog.href).toBe(
-      "https://github.com/MoDuLah/modulah.github.io/commits/main"
-    );
+    expect(fullLog.href).toBe("https://github.com/MoDuLah/modulah.github.io/commits/main");
   });
 });
