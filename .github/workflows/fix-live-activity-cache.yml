@@ -35,37 +35,32 @@ jobs:
       - name: Stop network refresh when the five-minute cache is fresh
         run: |
           python3 - <<'PY'
+          import re
           from pathlib import Path
 
           path = Path('assets/js/repository-activity.js')
           source = path.read_text(encoding='utf-8')
-          old = '''      renderFeed(
-                feed,
-                cached.branch || fallbackBranch,
-                cached.commits,
-                isFresh ? "CACHED" : "STALE CACHE"
-              );
-            }
+          pattern = re.compile(
+              r'(?P<render>\s+isFresh \? "CACHED" : "STALE CACHE"\n\s+\);\n)'
+              r'(?P<indent> +)\}\n\n(?P=indent)feed\.setAttribute\("aria-busy", "true"\);'
+          )
+          matches = list(pattern.finditer(source))
+          if len(matches) != 1:
+              raise SystemExit(f'Expected one fresh-cache tail; found {len(matches)}.')
 
-            feed.setAttribute("aria-busy", "true");'''
-          new = '''      renderFeed(
-                feed,
-                cached.branch || fallbackBranch,
-                cached.commits,
-                isFresh ? "CACHED" : "STALE CACHE"
-              );
-              if (isFresh) {
-                feed.setAttribute("aria-busy", "false");
-                return;
-              }
-            }
+          def add_early_return(match):
+              indent = match.group('indent')
+              return (
+                  match.group('render')
+                  + f'{indent}  if (isFresh) {{\n'
+                  + f'{indent}    feed.setAttribute("aria-busy", "false");\n'
+                  + f'{indent}    return;\n'
+                  + f'{indent}  }}\n'
+                  + f'{indent}}}\n\n'
+                  + f'{indent}feed.setAttribute("aria-busy", "true");'
+              )
 
-            feed.setAttribute("aria-busy", "true");'''
-
-          if source.count(old) != 1:
-              raise SystemExit(f'Expected one fresh-cache block; found {source.count(old)}.')
-
-          path.write_text(source.replace(old, new, 1), encoding='utf-8')
+          path.write_text(pattern.sub(add_early_return, source, count=1), encoding='utf-8')
           PY
 
       - name: Format and validate the patched runtime
