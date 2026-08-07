@@ -2,10 +2,18 @@
 <meta charset="utf-8">
 <meta content="width=device-width, initial-scale=1.0" name="viewport">
 <title>MODUL_HUB // COMMAND_CENTRE</title>
+<meta name="description" content="MoDuL's Hub is a catalogue of Torn userscripts, racing tools, company intelligence projects and hosted services.">
+<meta name="theme-color" content="#111416">
+<meta property="og:title" content="MoDuL's Hub // Command Centre">
+<meta property="og:description" content="Explore MoDuL's Torn userscripts, tools and hosted services.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://modulah.github.io/code.html">
+<meta property="og:site_name" content="MoDuL's Hub">
+<meta name="twitter:card" content="summary">
+<link rel="canonical" href="https://modulah.github.io/code.html">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
 <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
-<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700&amp;family=JetBrains+Mono:wght@400;500;700&amp;family=Inter:wght@400;500;600&amp;family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
-<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@100..900&amp;family=JetBrains+Mono:wght@100..900&amp;family=Sora:wght@100..900&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@100..900&amp;family=JetBrains+Mono:wght@100..900&amp;family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;family=Sora:wght@100..900&amp;display=swap" rel="stylesheet">
 <script id="tailwind-config">
         tailwind.config = {
             darkMode: "class",
@@ -193,7 +201,9 @@
             overflow: hidden;
         }
         .module-card:hover {
-            opacity: 0.1;
+            transform: translateY(-4px);
+            border-color: #98f05f;
+            box-shadow: 0 0 15px rgba(152, 240, 95, 0.2), inset 0 0 10px rgba(152, 240, 95, 0.08);
         }
         .module-card.active {
             transform: translateY(-4px);
@@ -288,9 +298,37 @@
             background: #98f05f;
             border-radius: 4px;
         }
+        .module-card:focus-visible,
+        button:focus-visible,
+        a:focus-visible {
+            outline: 2px solid #98f05f;
+            outline-offset: 3px;
+        }
+        dialog {
+            color: #e2e2e5;
+            background: #111416;
+            border: 1px solid rgba(152, 240, 95, 0.5);
+            border-radius: 0.5rem;
+            max-width: min(32rem, calc(100% - 2rem));
+            padding: 0;
+        }
+        dialog::backdrop {
+            background: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(4px);
+        }
+        @media (prefers-reduced-motion: reduce) {
+            *,
+            *::before,
+            *::after {
+                animation-duration: 0.01ms !important;
+                animation-iteration-count: 1 !important;
+                scroll-behavior: auto !important;
+                transition-duration: 0.01ms !important;
+            }
+        }
     </style>
 <link href="https://fonts.googleapis.com/css2?family=VT323&amp;display=swap" rel="stylesheet" class=""></head>
-<body class="bg-transparent text-on-surface font-body-md h-screen relative overflow-hidden flex flex-col selection:bg-[#98f05f] selection:text-background">
+<body class="bg-transparent text-on-surface font-body-md min-h-screen relative overflow-x-hidden flex flex-col selection:bg-[#98f05f] selection:text-background">
 <!-- Shader Background -->
 <!-- STITCH_SHADER_START:ANIMATION_67 class="absolute inset-0 w-full h-full z-[-1]" -->
 <div class="absolute inset-0 w-full h-full z-[-1]" style="display:block;">
@@ -299,14 +337,15 @@
 (function() {
   const canvas = document.getElementById('shader-canvas-ANIMATION_67');
 
-  // Sync the WebGL drawing-buffer size with the CSS-driven layout size.
-  // This fires on initial layout and whenever the element is resized.
   function syncSize() {
-    const w = canvas.clientWidth  || 1280;
+    const pixelRatio = Math.min(window.devicePixelRatio || 1, 2);
+    const w = canvas.clientWidth || 1280;
     const h = canvas.clientHeight || 720;
-    if (canvas.width !== w || canvas.height !== h) {
-      canvas.width  = w;
-      canvas.height = h;
+    const drawingWidth = Math.round(w * pixelRatio);
+    const drawingHeight = Math.round(h * pixelRatio);
+    if (canvas.width !== drawingWidth || canvas.height !== drawingHeight) {
+      canvas.width = drawingWidth;
+      canvas.height = drawingHeight;
     }
   }
   if (typeof ResizeObserver !== 'undefined') {
@@ -377,12 +416,27 @@ void main() {
     const s = gl.createShader(type);
     gl.shaderSource(s, src);
     gl.compileShader(s);
+    if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) {
+      console.warn(gl.getShaderInfoLog(s));
+      gl.deleteShader(s);
+      return null;
+    }
     return s;
   }
+  const vertexShader = cs(gl.VERTEX_SHADER, vs);
+  const fragmentShader = cs(gl.FRAGMENT_SHADER, fs);
+  if (!vertexShader || !fragmentShader) return;
   const prog = gl.createProgram();
-  gl.attachShader(prog, cs(gl.VERTEX_SHADER, vs));
-  gl.attachShader(prog, cs(gl.FRAGMENT_SHADER, fs));
+  gl.attachShader(prog, vertexShader);
+  gl.attachShader(prog, fragmentShader);
   gl.linkProgram(prog);
+  gl.deleteShader(vertexShader);
+  gl.deleteShader(fragmentShader);
+  if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) {
+    console.warn(gl.getProgramInfoLog(prog));
+    gl.deleteProgram(prog);
+    return;
+  }
   gl.useProgram(prog);
   const buf = gl.createBuffer();
   gl.bindBuffer(gl.ARRAY_BUFFER, buf);
@@ -392,99 +446,108 @@ void main() {
   gl.vertexAttribPointer(pos, 2, gl.FLOAT, false, 0, 0);
   const uTime = gl.getUniformLocation(prog, 'u_time');
   const uRes = gl.getUniformLocation(prog, 'u_resolution');
-  const uMouse = gl.getUniformLocation(prog, 'u_mouse');
-
-  // u_mouse is in pixel coordinates matching u_resolution (ShaderToy convention).
-  // Shaders that need normalized coords should use: u_mouse / u_resolution.
-  let mouse = { x: canvas.width / 2, y: canvas.height / 2 };
-  window.addEventListener('mousemove', (event) => {
-    const rect = canvas.getBoundingClientRect();
-    if (rect.width && rect.height) {
-      const nx = (event.clientX - rect.left) / rect.width;
-      const ny = 1.0 - (event.clientY - rect.top) / rect.height;
-      mouse.x = nx * canvas.width;
-      mouse.y = ny * canvas.height;
-    }
-  });
+  const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+  let animationFrameId = null;
 
   function render(t) {
+    animationFrameId = null;
     if (typeof ResizeObserver === 'undefined') syncSize();
     gl.viewport(0, 0, canvas.width, canvas.height);
     if (uTime) gl.uniform1f(uTime, t * 0.001);
     if (uRes) gl.uniform2f(uRes, canvas.width, canvas.height);
-    if (uMouse) gl.uniform2f(uMouse, mouse.x, mouse.y);
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
-    requestAnimationFrame(render);
+    if (!document.hidden && !reducedMotion.matches) {
+      animationFrameId = requestAnimationFrame(render);
+    }
   }
   render(0);
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden && animationFrameId !== null) {
+      cancelAnimationFrame(animationFrameId);
+      animationFrameId = null;
+    } else if (!document.hidden && !reducedMotion.matches && animationFrameId === null) {
+      animationFrameId = requestAnimationFrame(render);
+    }
+  });
+  reducedMotion.addEventListener('change', () => {
+    if (reducedMotion.matches && animationFrameId !== null) {
+      cancelAnimationFrame(animationFrameId);
+      animationFrameId = null;
+      render(0);
+    } else if (!document.hidden && animationFrameId === null) {
+      animationFrameId = requestAnimationFrame(render);
+    }
+  });
+  canvas.addEventListener('webglcontextlost', (event) => {
+    event.preventDefault();
+    if (animationFrameId !== null) cancelAnimationFrame(animationFrameId);
+  });
 })();
 </script>
 </div>
 <!-- STITCH_SHADER_END:ANIMATION_67 -->
 <!-- Top Navigation Container (Shared Component implementation) -->
 <header class="fixed top-0 w-full z-50 bg-background/70 backdrop-blur-xl border-b border-white/10 shadow-[inset_0_0_10px_rgba(152,240,95,0.1)]">
-<nav class="flex justify-between items-center h-14 px-gutter w-full max-w-[1920px] mx-auto">
+<nav aria-label="Primary navigation" class="flex justify-between items-center h-14 px-gutter w-full max-w-[1920px] mx-auto">
 <!-- Brand -->
 <div class="flex items-center gap-2">
-<img alt="MoDuL's Hub Logo" class="h-8 w-auto object-contain shrink-0" src="https://lh3.googleusercontent.com/aida-public/AB6AXuC3R7FNSm90CjYTMyIr3QACrWCicSXN-NVA-mx3pu0UF_2po_l1EYw1YQ8BdpxqSJ1pDO5SMldo9fwHHRmJMDauVo26_nd14Pfz7Ut-Z0XIeoiEwVeGVws1qmTDUPEWT8np-Ecu272JlBCrdoJ-t1oQeDEkDumTYJt1b8jIJ7clgBy97feBLUfzXW98YD9cb5oo7olLyOe24-KkDgiGSITMnLzbNeCXec2Uyximki0tJlYlW9MwXVPUr0LI3axRv7ZpvAWKuef1QidG8w"><span class="font-headline-lg text-headline-lg text-[#98f05f] cursor-pointer text-[32px] tracking-wider" onclick="resetView()" style="font-family: VT323, monospace;">M o D u L 's H u b</span>
+<img alt="MoDuL's Hub Logo" class="h-8 w-8 object-contain shrink-0" src="assets/images/moduls-hub-logo2.png">
+<button class="font-headline-lg text-headline-lg text-[#98f05f] text-[32px] tracking-wider" id="brand-home" type="button" style="font-family: VT323, monospace;">M o D u L 's H u b</button>
 </div>
 <!-- Desktop Links -->
 <ul class="hidden md:flex items-center gap-6">
-<li class=""><a class="font-label-caps text-label-caps text-[#98f05f] border-b border-[#98f05f]/50 pb-1 cursor-pointer active:scale-95 hover:text-[#98f05f] hover:bg-white/5 transition-all duration-300" href="#" onclick="resetView()">Overview</a></li>
-<li class=""><a class="font-label-caps text-label-caps text-on-surface-variant cursor-pointer active:scale-95 hover:text-[#98f05f] hover:bg-white/5 transition-all duration-300 px-2 py-1" onclick="filterByTier('SUPPORTER')">Supporter</a></li>
-<li class=""><a class="font-label-caps text-label-caps text-on-surface-variant cursor-pointer active:scale-95 hover:text-[#98f05f] hover:bg-white/5 transition-all duration-300 px-2 py-1" onclick="filterByTier('FREE')">Free</a></li>
-<li class=""><a class="font-label-caps text-label-caps text-on-surface-variant cursor-pointer active:scale-95 hover:text-[#98f05f] hover:bg-white/5 transition-all duration-300 px-2 py-1" onclick="filterByTier('WEB TOOLS')">Web Tools</a></li>
-<li class=""><a class="font-label-caps text-label-caps text-on-surface-variant cursor-pointer active:scale-95 hover:text-[#98f05f] hover:bg-white/5 transition-all duration-300 px-2 py-1" onclick="filterByTier('ARCHIVE')">Archive</a></li>
-<li class=""><a class="font-label-caps text-label-caps text-on-surface-variant cursor-pointer active:scale-95 hover:text-[#98f05f] hover:bg-white/5 transition-all duration-300 px-2 py-1" href="#">Discord</a></li>
+<li><button class="font-label-caps text-label-caps text-[#98f05f] border-b border-[#98f05f]/50 pb-1 active:scale-95 hover:text-[#98f05f] hover:bg-white/5 transition-all duration-300" data-tier="ALL" type="button">Overview</button></li>
+<li><button class="font-label-caps text-label-caps text-on-surface-variant active:scale-95 hover:text-[#98f05f] hover:bg-white/5 transition-all duration-300 px-2 py-1" data-tier="SUPPORTER" type="button">Supporter</button></li>
+<li><button class="font-label-caps text-label-caps text-on-surface-variant active:scale-95 hover:text-[#98f05f] hover:bg-white/5 transition-all duration-300 px-2 py-1" data-tier="FREE" type="button">Free</button></li>
+<li><button class="font-label-caps text-label-caps text-on-surface-variant active:scale-95 hover:text-[#98f05f] hover:bg-white/5 transition-all duration-300 px-2 py-1" data-tier="WEB TOOLS" type="button">Web Tools</button></li>
+<li><button class="font-label-caps text-label-caps text-on-surface-variant active:scale-95 hover:text-[#98f05f] hover:bg-white/5 transition-all duration-300 px-2 py-1" data-tier="ARCHIVE" type="button">Archive</button></li>
+<li><a class="font-label-caps text-label-caps text-on-surface-variant active:scale-95 hover:text-[#98f05f] hover:bg-white/5 transition-all duration-300 px-2 py-1" href="https://discord.gg/JP8FQBATMV" rel="noopener noreferrer" target="_blank">Discord</a></li>
 </ul>
 <!-- Trailing Actions -->
 <div class="flex items-center gap-4">
 <div class="hidden md:flex gap-2">
-<span class="material-symbols-outlined text-on-surface-variant hover:text-[#98f05f] cursor-pointer transition-colors" data-icon="sensors">sensors</span>
+<span aria-hidden="true" class="material-symbols-outlined text-on-surface-variant" data-icon="hub">hub</span>
 <div class="relative flex flex-col items-center">
-<span class="material-symbols-outlined text-on-surface-variant hover:text-[#98f05f] cursor-pointer transition-colors" data-icon="schedule" onclick="this.nextElementSibling.classList.toggle('hidden')">schedule</span>
-<div class="absolute top-full mt-1 bg-black/80 border border-[#98f05f]/30 px-2 py-0.5 rounded font-mono text-[10px] text-[#98f05f] whitespace-nowrap shadow-[0_0_10px_rgba(152,240,95,0.2)]">
-<span class="" id="header-digital-clock">12:45:08</span>
+<button aria-controls="clock-panel" aria-expanded="false" aria-label="Show local time" class="material-symbols-outlined text-on-surface-variant hover:text-[#98f05f] transition-colors" id="clock-toggle" type="button">schedule</button>
+<div class="hidden absolute top-full mt-1 bg-black/80 border border-[#98f05f]/30 px-2 py-0.5 rounded font-mono text-[10px] text-[#98f05f] whitespace-nowrap shadow-[0_0_10px_rgba(152,240,95,0.2)]" id="clock-panel" role="status">
+<time id="header-digital-clock">--:--:--</time>
 </div>
 </div>
 </div>
-<div class="relative group">
-<button class="h-7 px-4 bg-transparent border border-[#98f05f] text-[#98f05f] font-label-caps text-[10px] rounded-DEFAULT hover:bg-[#98f05f]/10 hover:shadow-[0_0_10px_rgba(152,240,95,0.3)] transition-all active:scale-95 uppercase flex items-center gap-2" onclick="this.nextElementSibling.classList.toggle('hidden')" type="button">
-<span class="material-symbols-outlined text-[14px]">lock_open</span>
-        SECURE_ACCESS
-    </button>
-<div class="hidden absolute right-0 mt-2 w-48 glass-panel p-4 rounded-lg border-[#98f05f]/50 z-50 flex flex-col gap-3 shadow-[0_10px_30px_rgba(0,0,0,0.5)]">
+<a class="hidden sm:flex h-7 px-4 bg-transparent border border-[#98f05f] text-[#98f05f] font-label-caps text-[10px] rounded-DEFAULT hover:bg-[#98f05f]/10 hover:shadow-[0_0_10px_rgba(152,240,95,0.3)] transition-all active:scale-95 uppercase items-center gap-2" href="https://github.com/MoDuLah/modulah.github.io" rel="noopener noreferrer" target="_blank">
+<span aria-hidden="true" class="material-symbols-outlined text-[14px]">code</span> Source
+</a>
+<div class="relative md:hidden">
+<button aria-controls="mobile-nav" aria-expanded="false" aria-label="Toggle navigation" class="material-symbols-outlined text-[#98f05f]" id="mobile-menu-toggle" type="button">menu</button>
+<div class="hidden absolute right-0 top-full mt-3 w-44 glass-panel p-2 rounded-lg border-[#98f05f]/50 z-50 shadow-[0_10px_30px_rgba(0,0,0,0.5)]" id="mobile-nav">
 <div class="flex flex-col gap-1">
-<label class="text-[9px] text-[#98f05f]/70 font-label-caps uppercase">User_ID</label>
-<input class="w-full h-7 bg-[#0d160b] border border-[#98f05f]/30 rounded-DEFAULT px-2 font-mono text-[10px] text-[#98f05f] focus:outline-none focus:border-[#98f05f]" placeholder="000000" type="text">
+<button class="text-left font-label-caps text-label-caps text-on-surface-variant hover:bg-[#98f05f]/10 hover:text-[#98f05f] px-3 py-2 rounded" data-tier="ALL" type="button">Overview</button>
+<button class="text-left font-label-caps text-label-caps text-on-surface-variant hover:bg-[#98f05f]/10 hover:text-[#98f05f] px-3 py-2 rounded" data-tier="SUPPORTER" type="button">Supporter</button>
+<button class="text-left font-label-caps text-label-caps text-on-surface-variant hover:bg-[#98f05f]/10 hover:text-[#98f05f] px-3 py-2 rounded" data-tier="FREE" type="button">Free</button>
+<button class="text-left font-label-caps text-label-caps text-on-surface-variant hover:bg-[#98f05f]/10 hover:text-[#98f05f] px-3 py-2 rounded" data-tier="WEB TOOLS" type="button">Web Tools</button>
+<button class="text-left font-label-caps text-label-caps text-on-surface-variant hover:bg-[#98f05f]/10 hover:text-[#98f05f] px-3 py-2 rounded" data-tier="ARCHIVE" type="button">Archive</button>
+<a class="font-label-caps text-label-caps text-on-surface-variant hover:bg-[#98f05f]/10 hover:text-[#98f05f] px-3 py-2 rounded" href="https://discord.gg/JP8FQBATMV" rel="noopener noreferrer" target="_blank">Discord</a>
 </div>
-<div class="flex flex-col gap-1">
-<label class="text-[9px] text-[#98f05f]/70 font-label-caps uppercase">Access_Key</label>
-<input class="w-full h-7 bg-[#0d160b] border border-[#98f05f]/30 rounded-DEFAULT px-2 font-mono text-[10px] text-[#98f05f] focus:outline-none focus:border-[#98f05f]" placeholder="********" type="password">
-</div>
-<button class="w-full h-8 bg-[#98f05f] text-background font-label-caps text-[10px] rounded-DEFAULT hover:bg-[#a7f775] transition-all uppercase mt-1">
-            INITIALIZE_LOGIN
-        </button>
 </div>
 </div>
 </div>
 </nav>
 </header>
 <!-- Main Content Canvas -->
-<main class="relative z-10 pb-4 px-gutter md:px-margin-md max-w-[1920px] mx-auto flex-1 flex flex-col w-full overflow-hidden gap-4 pt-16">
+<main class="relative z-10 pb-4 px-gutter md:px-margin-md max-w-[1920px] mx-auto flex-1 flex flex-col w-full overflow-visible xl:overflow-hidden gap-4 pt-16">
 <!-- Hero Section -->
 <section class="flex flex-col lg:flex-row gap-gutter fade-slide-up shrink-0 md:gap-4" style="animation-delay: 0.1s;">
 <!-- Title & CLI -->
 <div class="flex-1 flex flex-col gap-3">
 <div>
-<h1 class="font-headline-lg-mobile md:font-headline-xl text-headline-lg-mobile md:text-headline-xl text-[#98f05f] mb-2 drop-shadow-[0_0_8px_rgba(152,240,95,0.3)] uppercase"><div><span class="" style="letter-spacing: -0.02em;">COMMAND_CENTRE</span></div></h1>
+<h1 class="font-headline-lg-mobile md:font-headline-xl text-headline-lg-mobile md:text-headline-xl text-[#98f05f] mb-2 drop-shadow-[0_0_8px_rgba(152,240,95,0.3)] uppercase" style="letter-spacing: -0.02em;">COMMAND_CENTRE</h1>
 <p class="font-body-md text-on-surface-variant text-opacity-80">
-                        Integrated software ecosystem for Torn: Racing, Companies, Properties managment, Travel and Automation.
+                        Integrated software ecosystem for Torn: racing, companies, properties, travel and automation.
                     </p>
 </div>
 <!-- CLI Terminal -->
 <div class="glass-panel rounded-lg flex-1 font-code-sm text-code-sm flex flex-col bg-black border-[#98f05f]/30 relative min-h-[120px] overflow-y-auto custom-scrollbar p-3 max-h-[250px]"><div class="absolute top-2 left-3 z-0 opacity-40 pointer-events-none text-[10px]">Cyberdine.OS</div>
-<div class="border-b border-white/10 pb-2 mb-3 flex items-center justify-between relative z-10 mt-4"><span class="text-outline-variant font-label-caps text-label-caps uppercase">System Boot Sequence</span><div class="flex items-center gap-4 font-code-sm text-[10px] uppercase tracking-wider"><div class="flex items-center gap-1.5"><span class="text-[#98f05f]/60">[ HEALTH:</span><span class="text-[#98f05f] flex items-center gap-1">OPTIMAL <span class="w-1 h-1 rounded-full bg-[#98f05f] animate-pulse"></span></span><span class="text-[#98f05f]/60">]</span></div><div class="flex items-center gap-1.5"><span class="text-[#98f05f]/60">[ W_I/O:</span><span class="text-[#98f05f]">4.2 MB/s</span><span class="text-[#98f05f]/60">]</span></div><div class="flex items-center gap-1.5"><span class="text-[#98f05f]/60">[ ↓</span><span class="text-[#98f05f]">128 MB/S</span><span class="text-[#98f05f]/60">| ↑</span><span class="text-[#98f05f]">12 MB/S ]</span></div></div></div>
+<div class="border-b border-white/10 pb-2 mb-3 flex items-center justify-between relative z-10 mt-4"><span class="text-outline-variant font-label-caps text-label-caps uppercase">Registry Boot Sequence</span><span aria-live="polite" class="text-[#98f05f] font-code-sm text-[10px] uppercase tracking-wider" id="registry-summary">15 MODULES AVAILABLE</span></div>
 <div class="text-[#98f05f] flex-1 font-mono tracking-tight relative z-10 overflow-y-auto custom-scrollbar text-[11px]" data-stitch-orig-opacity="1" id="cli-output" style="opacity: 1;">
                     <div class="opacity-70 typing-line" style="animation-duration: 0.3s;">&gt; INITIALISING MODUL SYSTEMS... <span class="text-secondary-fixed-dim">[OK]</span></div>
                     <div class="opacity-70 typing-line" style="animation-duration: 0.3s;">&gt; CONNECTING TO REGISTRY... <span class="text-secondary-fixed-dim">[OK]</span></div>
@@ -493,58 +556,53 @@ void main() {
 </div>
 <!-- Hero Actions -->
 <div class="flex flex-wrap gap-4">
-<button class="cyber-button-primary shimmer-btn font-label-caps text-label-caps uppercase px-6 py-3 rounded-DEFAULT flex items-center gap-2 flicker-hover" onclick="filterByTier('FREE')">
+<button class="cyber-button-primary shimmer-btn font-label-caps text-label-caps uppercase px-6 py-3 rounded-DEFAULT flex items-center gap-2 flicker-hover" data-tier="FREE" type="button">
 <span class="material-symbols-outlined text-[18px]">explore</span> Browse Free
                     </button>
-<button class="cyber-button-secondary shimmer-btn font-label-caps text-label-caps uppercase px-6 py-3 rounded-DEFAULT flex items-center gap-2 flicker-hover" onclick="filterByTier('SUPPORTER')">
+<button class="cyber-button-secondary shimmer-btn font-label-caps text-label-caps uppercase px-6 py-3 rounded-DEFAULT flex items-center gap-2 flicker-hover" data-tier="SUPPORTER" type="button">
 <span class="material-symbols-outlined text-[18px]">workspace_premium</span> Browse Supporter
                     </button>
-<button class="cyber-button-secondary shimmer-btn font-label-caps text-label-caps uppercase px-6 py-3 rounded-DEFAULT flex items-center gap-2 flicker-hover" onclick="filterByTier('WEB TOOLS')"><span class="material-symbols-outlined text-[18px]">grid_view</span> Web Tools</button><button class="glass-panel text-on-surface-variant hover:text-[#98f05f] font-label-caps text-label-caps uppercase px-6 py-3 rounded-DEFAULT transition-colors" onclick="filterByTier('ARCHIVE')">
+<button class="cyber-button-secondary shimmer-btn font-label-caps text-label-caps uppercase px-6 py-3 rounded-DEFAULT flex items-center gap-2 flicker-hover" data-tier="WEB TOOLS" type="button"><span aria-hidden="true" class="material-symbols-outlined text-[18px]">grid_view</span> Web Tools</button><button class="glass-panel text-on-surface-variant hover:text-[#98f05f] font-label-caps text-label-caps uppercase px-6 py-3 rounded-DEFAULT transition-colors" data-tier="ARCHIVE" type="button">
                         Archive
                     </button>
-<button class="glass-panel text-on-surface-variant hover:text-[#98f05f] font-label-caps text-label-caps uppercase px-6 py-3 rounded-DEFAULT transition-colors">
-                        Join Discord
-                    </button>
+<a class="glass-panel text-on-surface-variant hover:text-[#98f05f] font-label-caps text-label-caps uppercase px-6 py-3 rounded-DEFAULT transition-colors" href="https://discord.gg/JP8FQBATMV" rel="noopener noreferrer" target="_blank">Join Discord</a>
 </div>
 </div>
 <!-- Diagnostics Sidebar -->
-<div class="w-full lg:w-80 flex flex-col gap-unit">
-<!-- Status Panel 1 -->
+<div class="w-full lg:w-80 grid grid-cols-2 lg:grid-cols-1 gap-unit">
 <div class="glass-panel rounded-t-xl border-b-0 relative overflow-hidden group fade-slide-up p-3" style="animation-delay: 0.2s;">
 <div class="absolute inset-0 bg-[#98f05f]/5 translate-x-[-100%] group-hover:translate-x-0 transition-transform duration-500"></div>
 <div class="relative z-10 flex justify-between items-start mb-2">
-<span class="font-label-caps text-label-caps text-on-surface-variant uppercase">Registry Status</span>
+<span class="font-label-caps text-label-caps text-on-surface-variant uppercase">Published Modules</span>
 <div class="w-2 h-2 rounded-full bg-[#98f05f] pulse-green"></div>
 </div>
-<div class="font-headline-lg-mobile text-headline-lg-mobile text-on-surface relative z-10">OPTIMAL</div>
-<div class="font-code-sm text-code-sm text-outline-variant mt-1 relative z-10">Ping: 12ms | Uptime: 99.9%</div>
+<div class="font-headline-lg-mobile text-headline-lg-mobile text-on-surface relative z-10" id="registry-module-count">0</div>
+<div class="font-code-sm text-code-sm text-outline-variant mt-1 relative z-10">Current catalogue entries</div>
 </div>
-<!-- Status Panel 2 -->
 <div class="glass-panel border-b-0 relative overflow-hidden group fade-slide-up p-3" style="animation-delay: 0.3s;">
 <div class="absolute inset-0 bg-[#98f05f]/5 translate-x-[-100%] group-hover:translate-x-0 transition-transform duration-500"></div>
 <div class="relative z-10 flex justify-between items-start mb-2">
-<span class="font-label-caps text-label-caps text-on-surface-variant uppercase">Network Nodes</span>
+<span class="font-label-caps text-label-caps text-on-surface-variant uppercase">Supporter Projects</span>
 <span class="material-symbols-outlined text-[#98f05f] text-[16px] pulse-green rounded-full bg-transparent">hub</span>
 </div>
-<div class="font-headline-lg-mobile text-headline-lg-mobile text-on-surface relative z-10">1,248</div>
-<div class="font-code-sm text-code-sm text-outline-variant mt-1 relative z-10">Active instances global</div>
+<div class="font-headline-lg-mobile text-headline-lg-mobile text-on-surface relative z-10" id="registry-supporter-count">0</div>
+<div class="font-code-sm text-code-sm text-outline-variant mt-1 relative z-10">Listed in this registry</div>
 </div>
-<!-- Status Panel 3 -->
 <div class="glass-panel relative overflow-hidden group fade-slide-up p-3 border-b-0" style="animation-delay: 0.4s;">
 <div class="absolute inset-0 bg-[#98f05f]/5 translate-x-[-100%] group-hover:translate-x-0 transition-transform duration-500"></div>
 <div class="relative z-10 flex justify-between items-start mb-2">
-<span class="font-label-caps text-label-caps text-on-surface-variant uppercase">Supporter Nodes</span>
+<span class="font-label-caps text-label-caps text-on-surface-variant uppercase">Hosted Services</span>
 <span class="material-symbols-outlined text-[#ff00ff] text-[16px]">verified</span>
 </div>
-<div class="font-headline-lg-mobile text-headline-lg-mobile text-on-surface relative z-10">342</div>
-<div class="font-code-sm text-code-sm text-outline-variant mt-1 relative z-10">Premium access verified</div>
+<div class="font-headline-lg-mobile text-headline-lg-mobile text-on-surface relative z-10" id="registry-web-tools-count">0</div>
+<div class="font-code-sm text-code-sm text-outline-variant mt-1 relative z-10">Live web-tool entries</div>
 </div>
-<div class="glass-panel rounded-b-lg relative overflow-hidden group fade-slide-up p-3 border-b-0" style="animation-delay: 0.5s;"><div class="absolute inset-0 bg-[#98f05f]/5 translate-x-[-100%] group-hover:translate-x-0 transition-transform duration-500"></div><div class="relative z-10 flex justify-between items-start mb-2"><span class="font-label-caps text-label-caps text-on-surface-variant uppercase">API Calls</span><span class="material-symbols-outlined text-[#98f05f] text-[16px] pulse-green rounded-full bg-transparent">dynamic_feed</span></div><div class="font-headline-lg-mobile text-headline-lg-mobile text-on-surface relative z-10">42,891</div><div class="font-code-sm text-code-sm text-outline-variant mt-1 relative z-10">Requests processed last 24h</div></div></div>
+<div class="glass-panel rounded-b-lg relative overflow-hidden group fade-slide-up p-3 border-b-0" style="animation-delay: 0.5s;"><div class="absolute inset-0 bg-[#98f05f]/5 translate-x-[-100%] group-hover:translate-x-0 transition-transform duration-500"></div><div class="relative z-10 flex justify-between items-start mb-2"><span class="font-label-caps text-label-caps text-on-surface-variant uppercase">Current View</span><span class="material-symbols-outlined text-[#98f05f] text-[16px] pulse-green rounded-full bg-transparent">filter_alt</span></div><div class="font-headline-lg-mobile text-headline-lg-mobile text-on-surface relative z-10" id="registry-filtered-count">0</div><div class="font-code-sm text-code-sm text-outline-variant mt-1 relative z-10">Entries matching the active filter</div></div></div>
 </section>
 <!-- Main Grid Layout -->
 <div class="grid grid-cols-1 xl:grid-cols-12 gap-gutter md:gap-margin-sm flex-1 min-h-0">
 <!-- Activity Feed (Left Column) -->
-<aside class="xl:col-span-3 flex flex-col gap-4 fade-slide-up h-full overflow-hidden" style="animation-delay: 0.5s;">
+<aside class="xl:col-span-3 flex flex-col gap-4 fade-slide-up h-full overflow-visible xl:overflow-hidden" style="animation-delay: 0.5s;">
 <div class="glass-panel rounded-lg h-full flex flex-col">
 <div class="border-b border-white/10 p-4 bg-surface-container-lowest/50 rounded-t-lg shrink-0">
 <h2 class="font-label-caps text-label-caps text-[#98f05f] uppercase tracking-wider flex items-center gap-2">
@@ -585,13 +643,13 @@ void main() {
 </div>
 </aside>
 <!-- Project Modules (Right Area) -->
-<div class="xl:col-span-9 fade-slide-up flex flex-col h-full overflow-hidden min-h-0" id="module-container" style="animation-delay: 0.6s;">
+<div class="xl:col-span-9 fade-slide-up flex flex-col h-full overflow-visible xl:overflow-hidden min-h-0" id="module-container" style="animation-delay: 0.6s;">
 <div class="border-b border-white/10 pb-2 mb-4 flex justify-between items-end shrink-0">
 <h2 class="font-label-caps text-label-caps text-outline-variant uppercase tracking-wider" id="module-header-title">Module Interface Array</h2>
-<div class="flex items-center gap-2 font-code-sm text-code-sm" id="module-sort-group"><span class="text-outline-variant uppercase mr-2" id="module-filter-text">FILTER: [ALL]</span><div class="relative group/sort"><button class="px-3 py-0.5 rounded border border-[#98f05f] text-[#98f05f] hover:shadow-[0_0_8px_rgba(152,240,95,0.3)] transition-all active:scale-95 flex items-center gap-1 uppercase"><span class="">NEW-OLD</span><span class="material-symbols-outlined text-[14px]">expand_more</span></button><div class="hidden group-hover/sort:block absolute top-full right-0 mt-1 w-32 glass-panel border-[#98f05f]/30 z-50 shadow-[0_10px_30px_rgba(0,0,0,0.5)]"><div class="flex flex-col"><button class="px-3 py-2 text-left hover:bg-[#98f05f]/10 hover:text-[#98f05f] transition-colors border-b border-white/5">NEW-OLD</button><button class="px-3 py-2 text-left hover:bg-[#98f05f]/10 hover:text-[#98f05f] transition-colors border-b border-white/5">OLD-NEW</button><button class="px-3 py-2 text-left hover:bg-[#98f05f]/10 hover:text-[#98f05f] transition-colors border-b border-white/5">A-Z</button><button class="px-3 py-2 text-left hover:bg-[#98f05f]/10 hover:text-[#98f05f] transition-colors">Z-A</button></div></div></div></div>
+<div class="flex items-center gap-2 font-code-sm text-code-sm" id="module-sort-group"><span aria-live="polite" class="text-outline-variant uppercase mr-2" id="module-filter-text">FILTER: [ALL] · 0 / 0</span><div class="relative"><button aria-controls="module-sort-menu" aria-expanded="false" class="px-3 py-0.5 rounded border border-[#98f05f] text-[#98f05f] hover:shadow-[0_0_8px_rgba(152,240,95,0.3)] transition-all active:scale-95 flex items-center gap-1 uppercase" id="module-sort-button" type="button"><span id="module-sort-label">NEW-OLD</span><span aria-hidden="true" class="material-symbols-outlined text-[14px]">expand_more</span></button><div class="hidden absolute top-full right-0 mt-1 w-32 glass-panel border-[#98f05f]/30 z-50 shadow-[0_10px_30px_rgba(0,0,0,0.5)]" id="module-sort-menu"><div class="flex flex-col"><button class="px-3 py-2 text-left hover:bg-[#98f05f]/10 hover:text-[#98f05f] transition-colors border-b border-white/5" data-sort="newest" type="button">NEW-OLD</button><button class="px-3 py-2 text-left hover:bg-[#98f05f]/10 hover:text-[#98f05f] transition-colors border-b border-white/5" data-sort="oldest" type="button">OLD-NEW</button><button class="px-3 py-2 text-left hover:bg-[#98f05f]/10 hover:text-[#98f05f] transition-colors border-b border-white/5" data-sort="az" type="button">A-Z</button><button class="px-3 py-2 text-left hover:bg-[#98f05f]/10 hover:text-[#98f05f] transition-colors" data-sort="za" type="button">Z-A</button></div></div></div></div>
 </div>
 <!-- Module Grid wrapper for scroll -->
-<div class="flex-1 overflow-y-auto custom-scrollbar pr-2">
+<div class="flex-1 overflow-visible xl:overflow-y-auto custom-scrollbar pr-2">
 <!-- Module Grid -->
 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-unit module-grid" id="module-grid">
 <!-- Module cards are rendered from the scripts registry. -->
@@ -599,8 +657,8 @@ void main() {
 <!-- Script Details Container -->
 <div class="script-details glass-panel p-6 rounded-lg w-full" id="script-details-container">
 <div class="flex items-center mb-6 border-b border-white/5 pb-4">
-<button class="group flex items-center gap-2 px-3 py-1.5 rounded border border-outline-variant hover:border-[#98f05f] hover:bg-[#98f05f]/5 transition-all duration-200 active:scale-95" onclick="unloadActiveModule()">
-<span class="material-symbols-outlined text-[18px] text-outline-variant group-hover:text-[#98f05f] transition-colors">arrow_back</span>
+<button class="group flex items-center gap-2 px-3 py-1.5 rounded border border-outline-variant hover:border-[#98f05f] hover:bg-[#98f05f]/5 transition-all duration-200 active:scale-95" id="return-to-registry" type="button">
+<span aria-hidden="true" class="material-symbols-outlined text-[18px] text-outline-variant group-hover:text-[#98f05f] transition-colors">arrow_back</span>
 <span class="font-label-caps text-label-caps text-outline-variant group-hover:text-[#98f05f] uppercase tracking-widest">SYS_RETURN_REGISTRY</span>
 </button>
 </div>
@@ -647,11 +705,23 @@ void main() {
             BUILD: v2.4.0-CYBER
         </div>
 <ul class="flex items-center gap-6">
-<li class=""><a class="font-code-sm text-code-sm text-outline hover:text-[#98f05f] transition-colors" href="#">Torn Profile</a></li>
-<li class=""><a class="font-code-sm text-code-sm text-outline hover:text-[#98f05f] transition-colors" href="#">Legal</a></li>
-<li class=""><a class="font-code-sm text-code-sm text-outline hover:text-[#98f05f] transition-colors" href="#">Privacy</a></li>
+<li><a class="font-code-sm text-code-sm text-outline hover:text-[#98f05f] transition-colors" href="https://www.torn.com/profiles.php?XID=4022159" rel="noopener noreferrer" target="_blank">Torn Profile</a></li>
+<li><button class="font-code-sm text-code-sm text-outline hover:text-[#98f05f] transition-colors" data-dialog="legal-dialog" type="button">Legal</button></li>
+<li><button class="font-code-sm text-code-sm text-outline hover:text-[#98f05f] transition-colors" data-dialog="privacy-dialog" type="button">Privacy</button></li>
 </ul>
 </footer>
+<dialog id="legal-dialog">
+<div class="p-6">
+<div class="flex items-start justify-between gap-6 mb-4"><h2 class="font-label-caps text-label-caps text-[#98f05f] uppercase tracking-wider">Legal Notice</h2><button aria-label="Close legal notice" class="material-symbols-outlined text-on-surface-variant hover:text-[#98f05f]" data-close-dialog type="button">close</button></div>
+<p class="text-on-surface-variant text-code-sm leading-relaxed">© MoDuL. All rights reserved. Individual projects may publish their own licence, terms or availability information on their project pages.</p>
+</div>
+</dialog>
+<dialog id="privacy-dialog">
+<div class="p-6">
+<div class="flex items-start justify-between gap-6 mb-4"><h2 class="font-label-caps text-label-caps text-[#98f05f] uppercase tracking-wider">Privacy Notice</h2><button aria-label="Close privacy notice" class="material-symbols-outlined text-on-surface-variant hover:text-[#98f05f]" data-close-dialog type="button">close</button></div>
+<p class="text-on-surface-variant text-code-sm leading-relaxed">This static catalogue does not collect login details or submit form data. Links may open third-party services, which operate under their own terms and privacy policies.</p>
+</div>
+</dialog>
 <script>
         const scripts = [
             {
@@ -1202,7 +1272,7 @@ void main() {
                         "updated": "13 May 2026",
                         "badge": "archive",
                         "badgeText": "ARCHIVE",
-                        "iconPath": "<image href=\"https://lh3.googleusercontent.com/aida-public/AB6AXuDbmK_RbWVhpeeraxON2kBwiL_RLDAQABFzld8-0m_qY4CGc21KEcPSm-QEDdw89B26ALU27BpFgwExTXyMUzwt30onBeHesQm_Y9coECCkA6k8DPwMpOyQhct2g4HwI5hH188xCdpbSySk_hLo7uOJ0lbUL0D7bg_iRnV4uhZBazvYrC_mzdOCDDrdk76lkAVfmMj7qy7rME_W2P906o8l5WcpWBG2GfkYtFhOIlYfUOETDUVVGjgaexsevCTTGG3xZA\" x=\"0\" y=\"0\" width=\"24\" height=\"24\" />",
+                        "iconPath": "<rect x=\"3\" y=\"3\" width=\"18\" height=\"18\" rx=\"2\"></rect><path d=\"M8 3v18M16 3v18M3 8h18M3 16h18\"></path>",
                         "features": [
                                     "Project termination notice and archive page",
                                     "Screenshots and development history preserved",
@@ -1227,10 +1297,17 @@ void main() {
 ];
 
         let currentFilter = 'ALL';
+        let currentSort = 'newest';
         let currentView = 'registry';
         let moduleRenderToken = 0;
         let moduleRenderTimer = null;
         let unloadTimer = null;
+        const sortLabels = {
+            newest: 'NEW-OLD',
+            oldest: 'OLD-NEW',
+            az: 'A-Z',
+            za: 'Z-A'
+        };
 
         function cancelScheduledModuleRender() {
             moduleRenderToken += 1;
@@ -1247,22 +1324,234 @@ void main() {
             }
         }
 
+        function getFilteredScripts() {
+            return currentFilter === 'ALL'
+                ? scripts
+                : scripts.filter((script) => script.tier.toUpperCase() === currentFilter);
+        }
+
+        function getUpdatedTimestamp(script) {
+            const timestamp = Date.parse(script.updated);
+            return Number.isNaN(timestamp) ? null : timestamp;
+        }
+
+        function sortModules(modules) {
+            return [...modules].sort((left, right) => {
+                if (currentSort === 'az' || currentSort === 'za') {
+                    const direction = currentSort === 'az' ? 1 : -1;
+                    return left.title.localeCompare(right.title) * direction;
+                }
+
+                const leftTimestamp = getUpdatedTimestamp(left);
+                const rightTimestamp = getUpdatedTimestamp(right);
+                if (leftTimestamp === null && rightTimestamp === null) {
+                    return scripts.indexOf(left) - scripts.indexOf(right);
+                }
+                if (leftTimestamp === null) return 1;
+                if (rightTimestamp === null) return -1;
+
+                return currentSort === 'newest'
+                    ? rightTimestamp - leftTimestamp
+                    : leftTimestamp - rightTimestamp;
+            });
+        }
+
+        function getVisibleModules() {
+            return sortModules(getFilteredScripts());
+        }
+
+        function updateRegistrySummary() {
+            const filteredCount = getFilteredScripts().length;
+            const totalCount = scripts.length;
+            const filterSuffix = currentFilter === 'ALL' ? '' : ` [${currentFilter}]`;
+
+            document.getElementById('module-header-title').innerText =
+                `Module Interface Array${filterSuffix}`;
+            document.getElementById('module-filter-text').innerText =
+                `FILTER: [${currentFilter}] · ${filteredCount} / ${totalCount}`;
+            document.getElementById('module-sort-label').textContent = sortLabels[currentSort];
+            document.getElementById('registry-summary').textContent =
+                `${filteredCount} OF ${totalCount} MODULES AVAILABLE`;
+            document.getElementById('registry-module-count').textContent = totalCount;
+            document.getElementById('registry-supporter-count').textContent = scripts.filter(
+                (script) => script.tier === 'supporter'
+            ).length;
+            document.getElementById('registry-web-tools-count').textContent = scripts.filter(
+                (script) => script.tier === 'web tools'
+            ).length;
+            document.getElementById('registry-filtered-count').textContent = filteredCount;
+        }
+
+        function setModuleSort(sort) {
+            if (!Object.hasOwn(sortLabels, sort)) return;
+
+            currentSort = sort;
+            closeSortMenu();
+            updateRegistrySummary();
+            renderModules();
+        }
+
+        function closeSortMenu() {
+            const button = document.getElementById('module-sort-button');
+            const menu = document.getElementById('module-sort-menu');
+            menu.classList.add('hidden');
+            button.setAttribute('aria-expanded', 'false');
+        }
+
+        function toggleSortMenu() {
+            const button = document.getElementById('module-sort-button');
+            const menu = document.getElementById('module-sort-menu');
+            const willOpen = menu.classList.contains('hidden');
+            menu.classList.toggle('hidden', !willOpen);
+            button.setAttribute('aria-expanded', String(willOpen));
+        }
+
+        function closeMobileMenu() {
+            const button = document.getElementById('mobile-menu-toggle');
+            const menu = document.getElementById('mobile-nav');
+            if (!button || !menu) return;
+
+            menu.classList.add('hidden');
+            button.setAttribute('aria-expanded', 'false');
+        }
+
+        function toggleMobileMenu() {
+            const button = document.getElementById('mobile-menu-toggle');
+            const menu = document.getElementById('mobile-nav');
+            const willOpen = menu.classList.contains('hidden');
+            menu.classList.toggle('hidden', !willOpen);
+            button.setAttribute('aria-expanded', String(willOpen));
+        }
+
+        function toggleClock() {
+            const button = document.getElementById('clock-toggle');
+            const panel = document.getElementById('clock-panel');
+            const willOpen = panel.classList.contains('hidden');
+            panel.classList.toggle('hidden', !willOpen);
+            button.setAttribute('aria-expanded', String(willOpen));
+        }
+
         function filterByTier(tier) {
             cancelScheduledUnload();
             currentView = 'registry';
             currentFilter = tier;
-            document.getElementById('module-header-title').innerText = `Module Interface Array [${tier}]`;
-            document.getElementById('module-filter-text').innerText = `FILTER: [${tier}]`;
 
             document.getElementById('module-grid').classList.remove('hidden');
             document.getElementById('script-details-container').classList.remove('active');
 
+            closeMobileMenu();
+            updateRegistrySummary();
             renderModules();
         }
 
         // Keep this for backwards compatibility with any remaining static links
         function filterByStatus(status) {
             filterByTier(status);
+        }
+
+        function createTerminalLine(message, className, animationDelay = '') {
+            const line = document.createElement('div');
+            line.className = className;
+            line.style.animationDuration = '0.2s';
+            if (animationDelay) line.style.animationDelay = animationDelay;
+            line.append(document.createTextNode(`> ${message} `));
+
+            const status = document.createElement('span');
+            status.className = 'text-[#98f05f]';
+            status.textContent = '[OK]';
+            line.append(status);
+            return line;
+        }
+
+        function createTerminalCursor() {
+            const cursorLine = document.createElement('div');
+            cursorLine.className = 'typing-line';
+            cursorLine.id = 'cli-cursor-line';
+            cursorLine.append(document.createTextNode('> _'));
+
+            const cursor = document.createElement('span');
+            cursor.className = 'blink-cursor inline-block w-2 h-3 bg-[#98f05f] translate-y-0.5 ml-1';
+            cursorLine.append(cursor);
+            return cursorLine;
+        }
+
+        function resetTerminal(terminal) {
+            const initialisingLine = createTerminalLine(
+                'INITIALISING MODUL SYSTEMS...',
+                'opacity-70 typing-line'
+            );
+            initialisingLine.style.animationDuration = '0.3s';
+            const connectingLine = createTerminalLine(
+                'CONNECTING TO REGISTRY...',
+                'opacity-70 typing-line'
+            );
+            connectingLine.style.animationDuration = '0.3s';
+            const cursorLine = createTerminalCursor();
+            terminal.replaceChildren(initialisingLine, connectingLine, cursorLine);
+            return cursorLine;
+        }
+
+        function appendTerminalLine(terminal, line) {
+            const cursorLine = terminal.querySelector('#cli-cursor-line');
+            if (cursorLine) {
+                terminal.insertBefore(line, cursorLine);
+            } else {
+                terminal.append(line);
+            }
+            terminal.scrollTop = terminal.scrollHeight;
+        }
+
+        function createModuleCard(script, index) {
+            const animationDelay = index * 60;
+            const card = document.createElement('button');
+            card.type = 'button';
+            card.className = `glass-panel module-card text-left p-5 rounded-lg flex flex-col group h-full fade-slide-up ${script.badge === 'dev' ? 'border-dashed opacity-70' : ''}`;
+            card.dataset.moduleId = script.id;
+            card.style.animationDelay = `${animationDelay}ms`;
+            card.setAttribute('aria-label', `Open ${script.title} details`);
+            card.addEventListener('click', () => activateScript(script.id));
+
+            const topRow = document.createElement('div');
+            topRow.className = 'flex justify-between items-start mb-4';
+            const iconFrame = document.createElement('div');
+            iconFrame.className = 'w-10 h-10 rounded border border-white/10 bg-surface-container-lowest/50 flex items-center justify-center group-hover:border-[#98f05f]/50 transition-colors';
+            const icon = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+            icon.setAttribute('aria-hidden', 'true');
+            icon.setAttribute('class', 'w-6 h-6 text-[#98f05f]');
+            icon.setAttribute('fill', 'none');
+            icon.setAttribute('focusable', 'false');
+            icon.setAttribute('stroke', 'currentColor');
+            icon.setAttribute('stroke-width', '1.5');
+            icon.setAttribute('viewBox', '0 0 24 24');
+            icon.innerHTML = script.iconPath;
+            iconFrame.append(icon);
+
+            const badge = document.createElement('span');
+            badge.className = `status-chip ${script.badge} font-label-caps text-label-caps px-2 py-0.5`;
+            badge.textContent = script.badgeText;
+            topRow.append(iconFrame, badge);
+
+            const content = document.createElement('div');
+            content.className = `flex-1 ${script.badge === 'dev' ? 'group-hover:opacity-100 transition-opacity' : ''}`;
+            const title = document.createElement('h3');
+            title.className = 'font-headline-lg-mobile text-headline-lg-mobile text-on-surface mb-1 group-hover:text-[#98f05f] transition-colors';
+            title.textContent = script.title;
+            const description = document.createElement('p');
+            description.className = 'font-code-sm text-code-sm text-outline-variant';
+            description.textContent = script.desc;
+            content.append(title, description);
+
+            const footer = document.createElement('div');
+            footer.className = `mt-4 pt-4 border-t border-white/5 font-code-sm text-code-sm text-[#98f05f]/80 flex justify-between ${script.badge === 'dev' ? 'group-hover:opacity-100 transition-opacity' : ''}`;
+            const version = document.createElement('span');
+            version.textContent = `${script.versionPrefix}: ${script.version}`;
+            const arrow = document.createElement('span');
+            arrow.setAttribute('aria-hidden', 'true');
+            arrow.className = 'material-symbols-outlined text-[16px] opacity-0 group-hover:opacity-100 transition-opacity';
+            arrow.textContent = script.badge === 'dev' ? 'build' : 'arrow_forward';
+            footer.append(version, arrow);
+            card.append(topRow, content, footer);
+            return { card, animationDelay };
         }
 
         function renderModules() {
@@ -1281,54 +1570,28 @@ void main() {
                 moduleRenderTimer = null;
                 if (renderToken !== moduleRenderToken || currentView !== 'registry') return;
 
-                const filteredScripts = currentFilter === 'ALL'
-                    ? scripts
-                    : scripts.filter(script => script.tier.toUpperCase() === currentFilter);
+                const filteredScripts = getVisibleModules();
 
                 grid.replaceChildren();
-                terminal.innerHTML = `
-                    <div class="opacity-70 typing-line" style="animation-duration: 0.3s;">&gt; INITIALISING MODUL SYSTEMS... <span class="text-secondary-fixed-dim">[OK]</span></div>
-                    <div class="opacity-70 typing-line" style="animation-duration: 0.3s;">&gt; CONNECTING TO REGISTRY... <span class="text-secondary-fixed-dim">[OK]</span></div>
-                    <div class="typing-line" id="cli-cursor-line">&gt; _<span class="blink-cursor inline-block w-2 h-3 bg-[#98f05f] translate-y-0.5 ml-1"></span></div>
-                `;
-
-                const cursorLine = terminal.querySelector('#cli-cursor-line');
+                const cursorLine = resetTerminal(terminal);
                 filteredScripts.forEach((script, index) => {
-                    const animationDelay = index * 60;
-                    const cardHtml = `
-                        <div class="glass-panel module-card p-5 rounded-lg flex flex-col group cursor-pointer h-full fade-slide-up ${script.badge === 'dev' ? 'border-dashed opacity-70' : ''}" data-module-id="${script.id}" style="animation-delay: ${animationDelay}ms;" onclick="activateScript('${script.id}')">
-                            <div class="flex justify-between items-start mb-4">
-                                <div class="w-10 h-10 rounded border border-white/10 bg-surface-container-lowest/50 flex items-center justify-center group-hover:border-[#98f05f]/50 transition-colors">
-                                    <svg class="w-6 h-6 text-[#98f05f]" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
-                                        ${script.iconPath}
-                                    </svg>
-                                </div>
-                                <span class="status-chip ${script.badge} font-label-caps text-label-caps px-2 py-0.5">${script.badgeText}</span>
-                            </div>
-                            <div class="flex-1 ${script.badge === 'dev' ? 'group-hover:opacity-100 transition-opacity' : ''}">
-                                <h3 class="font-headline-lg-mobile text-headline-lg-mobile text-on-surface mb-1 group-hover:text-[#98f05f] transition-colors">${script.title}</h3>
-                                <p class="font-code-sm text-code-sm text-outline-variant">${script.desc}</p>
-                            </div>
-                            <div class="mt-4 pt-4 border-t border-white/5 font-code-sm text-code-sm text-[#98f05f]/80 flex justify-between ${script.badge === 'dev' ? 'group-hover:opacity-100 transition-opacity' : ''}">
-                                <span>${script.versionPrefix}: ${script.version}</span>
-                                <span class="material-symbols-outlined text-[16px] opacity-0 group-hover:opacity-100 transition-opacity">${script.badge === 'dev' ? 'build' : 'arrow_forward'}</span>
-                            </div>
-                        </div>`;
-                    grid.insertAdjacentHTML('beforeend', cardHtml);
+                    const { card, animationDelay } = createModuleCard(script, index);
+                    grid.append(card);
 
-                    const moduleLine = document.createElement('div');
-                    moduleLine.className = 'opacity-100 typing-line text-outline-variant';
-                    moduleLine.style.animationDuration = '0.2s';
-                    moduleLine.style.animationDelay = `${animationDelay}ms`;
-                    moduleLine.innerHTML = `&gt; INITIALIZING MODULE: ${script.title.toUpperCase()}... <span class="text-[#98f05f]">[OK]</span>`;
+                    const moduleLine = createTerminalLine(
+                        `INITIALIZING MODULE: ${script.title.toUpperCase()}...`,
+                        'opacity-100 typing-line text-outline-variant',
+                        `${animationDelay}ms`
+                    );
                     terminal.insertBefore(moduleLine, cursorLine);
                 });
 
-                const loadingLine = document.createElement('div');
-                loadingLine.className = 'opacity-100 typing-line';
+                const loadingLine = createTerminalLine(
+                    `MODULES LOADED (${filteredScripts.length})...`,
+                    'opacity-100 typing-line',
+                    `${filteredScripts.length * 60 + 100}ms`
+                );
                 loadingLine.id = 'cli-loading-line';
-                loadingLine.style.animationDelay = `${filteredScripts.length * 60 + 100}ms`;
-                loadingLine.innerHTML = `&gt; MODULES LOADED (${filteredScripts.length})... <span class="text-[#98f05f] glow">[OK]</span>`;
                 terminal.insertBefore(loadingLine, cursorLine);
                 terminal.scrollTop = terminal.scrollHeight;
             };
@@ -1394,9 +1657,10 @@ void main() {
             data.actions.forEach(action => container.append(createDetailAction(action)));
 
             (data.disabledActions || []).forEach(label => {
-                const disabled = document.createElement('span');
+                const disabled = document.createElement('button');
+                disabled.type = 'button';
+                disabled.disabled = true;
                 disabled.className = 'font-label-caps text-label-caps uppercase px-6 py-3 rounded-DEFAULT border border-outline-variant text-outline-variant opacity-60 cursor-not-allowed flex items-center justify-center gap-2';
-                disabled.setAttribute('aria-disabled', 'true');
                 disabled.textContent = label;
                 container.append(disabled);
             });
@@ -1407,12 +1671,10 @@ void main() {
 
             cancelScheduledModuleRender();
             const terminal = document.getElementById('cli-output');
-            const cursorLine = document.getElementById('cli-cursor-line');
             const newLine = document.createElement('div');
             newLine.className = 'opacity-100 typing-line text-error';
             newLine.textContent = '> UNLOADING MODULE... [CLEANUP_COMPLETE]';
-            terminal.insertBefore(newLine, cursorLine);
-            terminal.scrollTop = terminal.scrollHeight;
+            appendTerminalLine(terminal, newLine);
 
             unloadTimer = setTimeout(() => {
                 unloadTimer = null;
@@ -1429,7 +1691,7 @@ void main() {
             currentView = 'detail';
             document.getElementById('module-grid').classList.add('hidden');
             document.getElementById('script-details-container').classList.add('active');
-            document.getElementById('module-header-title').innerText = 'System Status: ' + data.title.toUpperCase();
+            document.getElementById('module-header-title').innerText = `System Status: ${data.title.toUpperCase()}`;
             document.getElementById('module-filter-text').innerText = 'BACK TO OVERVIEW [X]';
 
             document.getElementById('detail-title').textContent = data.title;
@@ -1462,12 +1724,10 @@ void main() {
             }
 
             const terminal = document.getElementById('cli-output');
-            const cursorLine = document.getElementById('cli-cursor-line');
             const newLine = document.createElement('div');
             newLine.className = 'opacity-100 typing-line text-[#98f05f]';
             newLine.textContent = `> INITIALIZING MODULE [${data.title.toUpperCase()}] ${data.versionPrefix}: ${data.version}...`;
-            terminal.insertBefore(newLine, cursorLine);
-            terminal.scrollTop = terminal.scrollHeight;
+            appendTerminalLine(terminal, newLine);
         }
 
         function resetView() {
@@ -1476,23 +1736,78 @@ void main() {
             currentFilter = 'ALL';
             document.getElementById('module-grid').classList.remove('hidden');
             document.getElementById('script-details-container').classList.remove('active');
-            document.getElementById('module-header-title').innerText = 'Module Interface Array';
-            document.getElementById('module-filter-text').innerText = 'FILTER: [ALL]';
+            updateRegistrySummary();
             renderModules();
         }
 
-        // Initialize modules on load and handle CLI interaction simulation
         document.addEventListener('DOMContentLoaded', () => {
+            document.querySelectorAll('[data-tier]').forEach((control) => {
+                control.addEventListener('click', () => filterByTier(control.dataset.tier));
+            });
+            document.getElementById('brand-home').addEventListener('click', resetView);
+            document.getElementById('return-to-registry').addEventListener('click', unloadActiveModule);
+            document.getElementById('clock-toggle').addEventListener('click', toggleClock);
+            document.getElementById('mobile-menu-toggle').addEventListener('click', toggleMobileMenu);
+            document.getElementById('module-sort-button').addEventListener('click', toggleSortMenu);
+            document.querySelectorAll('[data-sort]').forEach((control) => {
+                control.addEventListener('click', () => setModuleSort(control.dataset.sort));
+            });
+            document.querySelectorAll('[data-dialog]').forEach((control) => {
+                control.addEventListener('click', () => {
+                    document.getElementById(control.dataset.dialog).showModal();
+                });
+            });
+            document.querySelectorAll('[data-close-dialog]').forEach((control) => {
+                control.addEventListener('click', () => control.closest('dialog').close());
+            });
+            document.querySelectorAll('dialog').forEach((dialog) => {
+                dialog.addEventListener('click', (event) => {
+                    if (event.target === dialog) dialog.close();
+                });
+            });
+            document.addEventListener('click', (event) => {
+                const target = event.target;
+                if (!(target instanceof Element)) return;
+                if (!target.closest('#module-sort-group')) closeSortMenu();
+                if (!target.closest('#clock-toggle') && !target.closest('#clock-panel')) {
+                    document.getElementById('clock-panel').classList.add('hidden');
+                    document.getElementById('clock-toggle').setAttribute('aria-expanded', 'false');
+                }
+                if (!target.closest('#mobile-menu-toggle') && !target.closest('#mobile-nav')) closeMobileMenu();
+            });
+            document.addEventListener('keydown', (event) => {
+                if (event.key !== 'Escape') return;
+                closeSortMenu();
+                closeMobileMenu();
+                document.getElementById('clock-panel').classList.add('hidden');
+                document.getElementById('clock-toggle').setAttribute('aria-expanded', 'false');
+            });
+
+            const updateClock = () => {
+                const now = new Date();
+                const clock = document.getElementById('header-digital-clock');
+                clock.dateTime = now.toISOString();
+                clock.textContent = new Intl.DateTimeFormat([], {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    second: '2-digit',
+                    hour12: false
+                }).format(now);
+            };
+            updateClock();
+            setInterval(updateClock, 1000);
+            updateRegistrySummary();
             renderModules();
-            
+
             const terminal = document.getElementById('cli-output');
-            if(!terminal) return;
-            
-            // Add a slight flicker effect occasionally
+            if (!terminal || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+
             setInterval(() => {
-                if(Math.random() > 0.9) {
+                if (Math.random() > 0.9) {
                     terminal.style.opacity = '0.8';
-                    setTimeout(() => terminal.style.opacity = '1', 50);
+                    setTimeout(() => {
+                        terminal.style.opacity = '1';
+                    }, 50);
                 }
             }, 2000);
         });
