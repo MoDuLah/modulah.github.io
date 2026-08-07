@@ -12,6 +12,10 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: registry-refinement-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
 jobs:
   apply:
     if: github.event.pull_request.head.repo.full_name == github.repository && github.actor != 'github-actions[bot]'
@@ -19,10 +23,10 @@ jobs:
     timeout-minutes: 10
 
     steps:
-      - name: Checkout the pull request branch
+      - name: Checkout the pull request branch without repository history
         uses: actions/checkout@v7
         with:
-          fetch-depth: 0
+          fetch-depth: 1
           ref: ${{ github.event.pull_request.head.ref }}
 
       - name: Set up Python 3
