@@ -192,8 +192,8 @@ function renderActivityAside(commits) {
   const commitsUrl = `${repositoryUrl}/commits/main`;
 
   return `${activityStart}
-<aside aria-labelledby="system-activity-title" class="xl:col-span-3 flex flex-col gap-4 fade-slide-up h-full overflow-visible xl:overflow-hidden" data-boot-section="activity" id="system-activity-feed" style="animation-delay: 0.5s;">
-<div class="glass-panel rounded-lg h-full flex flex-col min-h-[24rem]">
+<aside aria-labelledby="system-activity-title" class="xl:col-span-3 flex flex-col gap-4 fade-slide-up h-full min-h-0 overflow-visible xl:overflow-hidden" data-boot-section="activity" id="system-activity-feed" style="animation-delay: 0.5s;">
+<div class="glass-panel rounded-lg flex h-[34rem] min-h-0 flex-col xl:h-full">
 <div class="border-b border-white/10 p-4 bg-surface-container-lowest/50 rounded-t-lg shrink-0">
 <div class="flex items-center justify-between gap-3">
 <h2 class="font-label-caps text-label-caps text-[#98f05f] uppercase tracking-wider flex items-center gap-2" id="system-activity-title">
@@ -207,7 +207,7 @@ System Activity Feed
 <a class="uppercase hover:text-[#98f05f] transition-colors" href="${commitsUrl}" rel="noopener noreferrer" target="_blank">Full Git Log</a>
 </div>
 </div>
-<div class="p-4 flex-1 overflow-y-auto custom-scrollbar font-code-sm text-code-sm" id="activity-timeline-scroll">
+<div class="p-4 flex-1 min-h-0 overflow-y-auto custom-scrollbar font-code-sm text-code-sm" id="activity-timeline-scroll">
 <!-- ACTIVITY_TIMELINE_START -->
 <ol aria-label="Repository commit history" class="relative" id="system-activity-timeline">
 ${timeline}
