@@ -103,6 +103,26 @@
         };
     </script>
 <style>
+        html,
+        body {
+            min-height: 100%;
+            background-color: #111416;
+        }
+        .shader-background {
+            position: fixed;
+            inset: 0;
+            width: 100vw;
+            height: 100vh;
+            background: #111416;
+            overflow: hidden;
+            pointer-events: none;
+        }
+        .shader-background canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+            background: #111416;
+        }
         .glass-panel {
             background: rgba(13, 17, 23, 0.7);
             backdrop-filter: blur(20px);
@@ -328,14 +348,22 @@
         }
     </style>
 <link href="https://fonts.googleapis.com/css2?family=VT323&amp;display=swap" rel="stylesheet" class=""></head>
-<body class="bg-transparent text-on-surface font-body-md min-h-screen relative overflow-x-hidden flex flex-col selection:bg-[#98f05f] selection:text-background">
+<body class="bg-background text-on-surface font-body-md min-h-screen relative overflow-x-hidden flex flex-col selection:bg-[#98f05f] selection:text-background">
 <!-- Shader Background -->
 <!-- STITCH_SHADER_START:ANIMATION_67 class="absolute inset-0 w-full h-full z-[-1]" -->
-<div class="absolute inset-0 w-full h-full z-[-1]" style="display:block;">
-<canvas id="shader-canvas-ANIMATION_67" style="display:block;width:100%;height:100%" width="1280" height="1024"></canvas>
+<div class="shader-background z-[-1]" style="display:block;background:#111416;">
+<canvas id="shader-canvas-ANIMATION_67" style="display:block;width:100%;height:100%;background:#111416" width="1280" height="1024"></canvas>
 <script>
 (function() {
   const canvas = document.getElementById('shader-canvas-ANIMATION_67');
+  let gl = null;
+
+  function clearDarkFrame() {
+    if (!gl) return;
+    gl.viewport(0, 0, canvas.width, canvas.height);
+    gl.clearColor(0.0667, 0.0784, 0.0863, 1.0);
+    gl.clear(gl.COLOR_BUFFER_BIT);
+  }
 
   function syncSize() {
     const pixelRatio = Math.min(window.devicePixelRatio || 1, 2);
@@ -346,14 +374,17 @@
     if (canvas.width !== drawingWidth || canvas.height !== drawingHeight) {
       canvas.width = drawingWidth;
       canvas.height = drawingHeight;
+      clearDarkFrame();
+      return true;
     }
+    return false;
   }
   if (typeof ResizeObserver !== 'undefined') {
     new ResizeObserver(syncSize).observe(canvas);
   }
   syncSize();
 
-  const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+  gl = canvas.getContext('webgl', { alpha: false }) || canvas.getContext('experimental-webgl', { alpha: false });
   if (!gl) return;
   const vs = `attribute vec2 a_position;
 varying vec2 v_texCoord;
@@ -438,6 +469,7 @@ void main() {
     return;
   }
   gl.useProgram(prog);
+  clearDarkFrame();
   const buf = gl.createBuffer();
   gl.bindBuffer(gl.ARRAY_BUFFER, buf);
   gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1, 1,-1, -1,1, 1,1]), gl.STATIC_DRAW);
@@ -452,7 +484,7 @@ void main() {
   function render(t) {
     animationFrameId = null;
     if (typeof ResizeObserver === 'undefined') syncSize();
-    gl.viewport(0, 0, canvas.width, canvas.height);
+    clearDarkFrame();
     if (uTime) gl.uniform1f(uTime, t * 0.001);
     if (uRes) gl.uniform2f(uRes, canvas.width, canvas.height);
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
@@ -1302,6 +1334,8 @@ void main() {
         let moduleRenderToken = 0;
         let moduleRenderTimer = null;
         let unloadTimer = null;
+        let terminalSequenceToken = 0;
+        const pendingTerminalSteps = new Map();
         const sortLabels = {
             newest: 'NEW-OLD',
             oldest: 'OLD-NEW',
@@ -1311,6 +1345,7 @@ void main() {
 
         function cancelScheduledModuleRender() {
             moduleRenderToken += 1;
+            cancelTerminalSequence();
             if (moduleRenderTimer !== null) {
                 clearTimeout(moduleRenderTimer);
                 moduleRenderTimer = null;
@@ -1476,18 +1511,8 @@ void main() {
         }
 
         function resetTerminal(terminal) {
-            const initialisingLine = createTerminalLine(
-                'INITIALISING MODUL SYSTEMS...',
-                'opacity-70 typing-line'
-            );
-            initialisingLine.style.animationDuration = '0.3s';
-            const connectingLine = createTerminalLine(
-                'CONNECTING TO REGISTRY...',
-                'opacity-70 typing-line'
-            );
-            connectingLine.style.animationDuration = '0.3s';
             const cursorLine = createTerminalCursor();
-            terminal.replaceChildren(initialisingLine, connectingLine, cursorLine);
+            terminal.replaceChildren(cursorLine);
             return cursorLine;
         }
 
@@ -1499,6 +1524,88 @@ void main() {
                 terminal.append(line);
             }
             terminal.scrollTop = terminal.scrollHeight;
+        }
+
+        function cancelTerminalSequence() {
+            terminalSequenceToken += 1;
+            [...pendingTerminalSteps.entries()].forEach(([line, finish]) => {
+                line.style.animation = 'none';
+                line.style.opacity = '1';
+                line.style.width = '100%';
+                finish();
+            });
+        }
+
+        function playTerminalLine(terminal, message, className, duration = 200) {
+            const sequenceToken = terminalSequenceToken;
+            const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+            const line = createTerminalLine(message, className);
+            line.classList.add('terminal-pending');
+            line.style.animationDelay = '0ms';
+            line.style.animationDuration = reducedMotion ? '0.01ms' : `${duration}ms`;
+            appendTerminalLine(terminal, line);
+
+            return new Promise((resolve) => {
+                let settled = false;
+                let fallbackTimer = null;
+
+                const finish = () => {
+                    if (settled) return;
+                    settled = true;
+                    if (fallbackTimer !== null) clearTimeout(fallbackTimer);
+                    line.removeEventListener('animationend', onAnimationEnd);
+                    line.classList.remove('terminal-pending');
+                    pendingTerminalSteps.delete(line);
+                    resolve(sequenceToken === terminalSequenceToken);
+                };
+
+                const onAnimationEnd = (event) => {
+                    if (event.animationName === 'typing') finish();
+                };
+
+                line.addEventListener('animationend', onAnimationEnd);
+                fallbackTimer = setTimeout(finish, reducedMotion ? 30 : duration + 120);
+                pendingTerminalSteps.set(line, finish);
+            });
+        }
+
+        async function runRegistryTerminalSequence(terminal, grid, filteredScripts, renderToken) {
+            cancelTerminalSequence();
+            const sequenceToken = terminalSequenceToken;
+            resetTerminal(terminal);
+
+            const bootSteps = [
+                ['INITIALISING MODUL SYSTEMS...', 'opacity-70 typing-line', 300],
+                ['CONNECTING TO REGISTRY...', 'opacity-70 typing-line', 300]
+            ];
+
+            for (const [message, className, duration] of bootSteps) {
+                const completed = await playTerminalLine(terminal, message, className, duration);
+                if (!completed || sequenceToken !== terminalSequenceToken) return;
+                if (renderToken !== moduleRenderToken || currentView !== 'registry') return;
+            }
+
+            for (const [index, script] of filteredScripts.entries()) {
+                const completed = await playTerminalLine(
+                    terminal,
+                    `INITIALIZING MODULE: ${script.title.toUpperCase()}...`,
+                    'opacity-100 typing-line text-outline-variant',
+                    180
+                );
+                if (!completed || sequenceToken !== terminalSequenceToken) return;
+                if (renderToken !== moduleRenderToken || currentView !== 'registry') return;
+
+                const { card } = createModuleCard(script, index);
+                card.style.animationDelay = '0ms';
+                grid.append(card);
+            }
+
+            await playTerminalLine(
+                terminal,
+                `MODULES LOADED (${filteredScripts.length})...`,
+                'opacity-100 typing-line',
+                240
+            );
         }
 
         function createModuleCard(script, index) {
@@ -1561,7 +1668,7 @@ void main() {
             const terminal = document.getElementById('cli-output');
             const oldCards = grid.querySelectorAll('.module-card');
 
-            oldCards.forEach(card => {
+            oldCards.forEach((card) => {
                 card.classList.remove('fade-slide-up');
                 card.classList.add('fade-slide-down');
             });
@@ -1571,29 +1678,8 @@ void main() {
                 if (renderToken !== moduleRenderToken || currentView !== 'registry') return;
 
                 const filteredScripts = getVisibleModules();
-
                 grid.replaceChildren();
-                const cursorLine = resetTerminal(terminal);
-                filteredScripts.forEach((script, index) => {
-                    const { card, animationDelay } = createModuleCard(script, index);
-                    grid.append(card);
-
-                    const moduleLine = createTerminalLine(
-                        `INITIALIZING MODULE: ${script.title.toUpperCase()}...`,
-                        'opacity-100 typing-line text-outline-variant',
-                        `${animationDelay}ms`
-                    );
-                    terminal.insertBefore(moduleLine, cursorLine);
-                });
-
-                const loadingLine = createTerminalLine(
-                    `MODULES LOADED (${filteredScripts.length})...`,
-                    'opacity-100 typing-line',
-                    `${filteredScripts.length * 60 + 100}ms`
-                );
-                loadingLine.id = 'cli-loading-line';
-                terminal.insertBefore(loadingLine, cursorLine);
-                terminal.scrollTop = terminal.scrollHeight;
+                void runRegistryTerminalSequence(terminal, grid, filteredScripts, renderToken);
             };
 
             if (oldCards.length > 0) {
