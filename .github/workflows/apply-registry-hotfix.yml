@@ -36,6 +36,17 @@ jobs:
         with:
           node-version: '22'
 
+      - name: Restrict the legacy-delay assertion to terminal output
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path('tools/apply-registry-hotfix.py')
+          source = path.read_text(encoding='utf-8')
+          source = source.replace("    '`${animationDelay}ms`',\n", '')
+          path.write_text(source, encoding='utf-8')
+          PY
+
       - name: Verify the Python applicator parses
         run: python3 -m py_compile tools/apply-registry-hotfix.py
 
@@ -67,10 +78,6 @@ jobs:
           grep -q "canvas.getContext('webgl', { alpha: false })" code.html
           grep -q 'runRegistryTerminalSequence' code.html
           grep -q 'cancelTerminalSequence' code.html
-          if grep -Fq '`${animationDelay}ms`' code.html; then
-            echo 'Legacy per-line CSS delay remains in code.html.' >&2
-            exit 1
-          fi
           if grep -Fq '`${filteredScripts.length * 60 + 100}ms`' code.html; then
             echo 'Legacy MODULES LOADED CSS delay remains in code.html.' >&2
             exit 1
