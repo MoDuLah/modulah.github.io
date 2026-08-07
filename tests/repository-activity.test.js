@@ -84,6 +84,8 @@ describe("repository activity feed", () => {
       expect(document.getElementById("activity-commit-count").textContent).toBe("2 COMMITS");
     });
 
+    const activityFeed = document.querySelector('[data-boot-section="activity"]');
+    expect(activityFeed.getAttribute("aria-busy")).toBe("false");
     expect(global.fetch).toHaveBeenCalledTimes(2);
     expect(document.getElementById("fallback-entry")).toBeNull();
     expect(document.body.textContent).toContain("Release live activity feed");
