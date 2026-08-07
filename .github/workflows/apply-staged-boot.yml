@@ -83,7 +83,7 @@ jobs:
           grep -q 'COMMAND CENTRE READY' code.html
           grep -q 'MOUNTING DETAIL INTERFACE' code.html
           grep -q 'REMOUNTING MODULE REGISTRY' code.html
-          grep -q 'CAPABILITY 01' code.html
+          grep -Fq 'CAPABILITY ${String(index + 1).padStart' code.html
           grep -q 'role="log"' code.html
           test "$(grep -c 'function createModuleCard' code.html)" -eq 1
           test "$(grep -c 'function createDetailAction' code.html)" -eq 1
