@@ -1,4 +1,4 @@
-<!DOCTYPE html><html class="dark" lang="en" style=""><head>
+<!DOCTYPE html><html class="dark" lang="en" style="background:#111416;"><head>
 <meta charset="utf-8">
 <meta content="width=device-width, initial-scale=1.0" name="viewport">
 <title>MODUL_HUB // COMMAND_CENTRE</title>
@@ -103,6 +103,27 @@
         };
     </script>
 <style>
+        html,
+        body {
+            min-height: 100%;
+            background-color: #111416;
+        }
+        .shader-background {
+            position: fixed;
+            z-index: 0;
+            inset: 0;
+            width: 100vw;
+            height: 100vh;
+            background: #111416;
+            overflow: hidden;
+            pointer-events: none;
+        }
+        .shader-background canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+            background: #111416;
+        }
         .glass-panel {
             background: rgba(13, 17, 23, 0.7);
             backdrop-filter: blur(20px);
@@ -316,6 +337,27 @@
             background: rgba(0, 0, 0, 0.7);
             backdrop-filter: blur(4px);
         }
+        [data-boot-stage],
+        [data-boot-section="activity"] {
+            visibility: hidden;
+            opacity: 0 !important;
+            transform: translateY(14px) !important;
+            pointer-events: none;
+        }
+        [data-boot-stage].boot-stage-ready,
+        [data-boot-section="activity"].boot-stage-ready {
+            visibility: visible;
+            opacity: 1 !important;
+            transform: none !important;
+            pointer-events: auto;
+            transition: opacity 0.4s ease, transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        #module-grid[aria-busy="true"] .module-card {
+            pointer-events: none;
+        }
+        .terminal-report-line {
+            color: #bac9cc;
+        }
         @media (prefers-reduced-motion: reduce) {
             *,
             *::before,
@@ -327,15 +369,25 @@
             }
         }
     </style>
-<link href="https://fonts.googleapis.com/css2?family=VT323&amp;display=swap" rel="stylesheet" class=""></head>
-<body class="bg-transparent text-on-surface font-body-md min-h-screen relative overflow-x-hidden flex flex-col selection:bg-[#98f05f] selection:text-background">
+<noscript><style>[data-boot-stage],[data-boot-section="activity"]{visibility:visible!important;opacity:1!important;transform:none!important;pointer-events:auto!important}</style></noscript>
+<link href="https://fonts.googleapis.com/css2?family=VT323&amp;display=swap" rel="stylesheet" class=""><script src="assets/js/repository-activity.js" defer></script>
+</head>
+<body class="bg-background text-on-surface font-body-md min-h-screen relative overflow-x-hidden flex flex-col selection:bg-[#98f05f] selection:text-background">
 <!-- Shader Background -->
 <!-- STITCH_SHADER_START:ANIMATION_67 class="absolute inset-0 w-full h-full z-[-1]" -->
-<div class="absolute inset-0 w-full h-full z-[-1]" style="display:block;">
-<canvas id="shader-canvas-ANIMATION_67" style="display:block;width:100%;height:100%" width="1280" height="1024"></canvas>
+<div class="shader-background" style="display:block;background:#111416;">
+<canvas id="shader-canvas-ANIMATION_67" style="display:block;width:100%;height:100%;background:#111416" width="1280" height="1024"></canvas>
 <script>
 (function() {
   const canvas = document.getElementById('shader-canvas-ANIMATION_67');
+  let gl = null;
+
+  function clearDarkFrame() {
+    if (!gl) return;
+    gl.viewport(0, 0, canvas.width, canvas.height);
+    gl.clearColor(0.0667, 0.0784, 0.0863, 1.0);
+    gl.clear(gl.COLOR_BUFFER_BIT);
+  }
 
   function syncSize() {
     const pixelRatio = Math.min(window.devicePixelRatio || 1, 2);
@@ -346,14 +398,17 @@
     if (canvas.width !== drawingWidth || canvas.height !== drawingHeight) {
       canvas.width = drawingWidth;
       canvas.height = drawingHeight;
+      clearDarkFrame();
+      return true;
     }
+    return false;
   }
   if (typeof ResizeObserver !== 'undefined') {
     new ResizeObserver(syncSize).observe(canvas);
   }
   syncSize();
 
-  const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+  gl = canvas.getContext('webgl', { alpha: false }) || canvas.getContext('experimental-webgl', { alpha: false });
   if (!gl) return;
   const vs = `attribute vec2 a_position;
 varying vec2 v_texCoord;
@@ -438,6 +493,7 @@ void main() {
     return;
   }
   gl.useProgram(prog);
+  clearDarkFrame();
   const buf = gl.createBuffer();
   gl.bindBuffer(gl.ARRAY_BUFFER, buf);
   gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1, 1,-1, -1,1, 1,1]), gl.STATIC_DRAW);
@@ -452,7 +508,7 @@ void main() {
   function render(t) {
     animationFrameId = null;
     if (typeof ResizeObserver === 'undefined') syncSize();
-    gl.viewport(0, 0, canvas.width, canvas.height);
+    clearDarkFrame();
     if (uTime) gl.uniform1f(uTime, t * 0.001);
     if (uRes) gl.uniform2f(uRes, canvas.width, canvas.height);
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
@@ -487,7 +543,7 @@ void main() {
 </div>
 <!-- STITCH_SHADER_END:ANIMATION_67 -->
 <!-- Top Navigation Container (Shared Component implementation) -->
-<header class="fixed top-0 w-full z-50 bg-background/70 backdrop-blur-xl border-b border-white/10 shadow-[inset_0_0_10px_rgba(152,240,95,0.1)]">
+<header data-boot-stage="interface" class="fixed top-0 w-full z-50 bg-background/70 backdrop-blur-xl border-b border-white/10 shadow-[inset_0_0_10px_rgba(152,240,95,0.1)]">
 <nav aria-label="Primary navigation" class="flex justify-between items-center h-14 px-gutter w-full max-w-[1920px] mx-auto">
 <!-- Brand -->
 <div class="flex items-center gap-2">
@@ -539,7 +595,7 @@ void main() {
 <section class="flex flex-col lg:flex-row gap-gutter fade-slide-up shrink-0 md:gap-4" style="animation-delay: 0.1s;">
 <!-- Title & CLI -->
 <div class="flex-1 flex flex-col gap-3">
-<div>
+<div data-boot-stage="interface">
 <h1 class="font-headline-lg-mobile md:font-headline-xl text-headline-lg-mobile md:text-headline-xl text-[#98f05f] mb-2 drop-shadow-[0_0_8px_rgba(152,240,95,0.3)] uppercase" style="letter-spacing: -0.02em;">COMMAND_CENTRE</h1>
 <p class="font-body-md text-on-surface-variant text-opacity-80">
                         Integrated software ecosystem for Torn: racing, companies, properties, travel and automation.
@@ -548,14 +604,12 @@ void main() {
 <!-- CLI Terminal -->
 <div class="glass-panel rounded-lg flex-1 font-code-sm text-code-sm flex flex-col bg-black border-[#98f05f]/30 relative min-h-[120px] overflow-y-auto custom-scrollbar p-3 max-h-[250px]"><div class="absolute top-2 left-3 z-0 opacity-40 pointer-events-none text-[10px]">Cyberdine.OS</div>
 <div class="border-b border-white/10 pb-2 mb-3 flex items-center justify-between relative z-10 mt-4"><span class="text-outline-variant font-label-caps text-label-caps uppercase">Registry Boot Sequence</span><span aria-live="polite" class="text-[#98f05f] font-code-sm text-[10px] uppercase tracking-wider" id="registry-summary">15 MODULES AVAILABLE</span></div>
-<div class="text-[#98f05f] flex-1 font-mono tracking-tight relative z-10 overflow-y-auto custom-scrollbar text-[11px]" data-stitch-orig-opacity="1" id="cli-output" style="opacity: 1;">
-                    <div class="opacity-70 typing-line" style="animation-duration: 0.3s;">&gt; INITIALISING MODUL SYSTEMS... <span class="text-secondary-fixed-dim">[OK]</span></div>
-                    <div class="opacity-70 typing-line" style="animation-duration: 0.3s;">&gt; CONNECTING TO REGISTRY... <span class="text-secondary-fixed-dim">[OK]</span></div>
+<div aria-live="polite" aria-relevant="additions" class="text-[#98f05f] flex-1 font-mono tracking-tight relative z-10 overflow-y-auto custom-scrollbar text-[11px]" data-stitch-orig-opacity="1" id="cli-output" role="log" style="opacity: 1;">
                     <div class="typing-line" id="cli-cursor-line">&gt; _<span class="blink-cursor inline-block w-2 h-3 bg-[#98f05f] translate-y-0.5 ml-1"></span></div>
                 </div>
 </div>
 <!-- Hero Actions -->
-<div class="flex flex-wrap gap-4">
+<div data-boot-stage="interface" class="flex flex-wrap gap-4">
 <button class="cyber-button-primary shimmer-btn font-label-caps text-label-caps uppercase px-6 py-3 rounded-DEFAULT flex items-center gap-2 flicker-hover" data-tier="FREE" type="button">
 <span class="material-symbols-outlined text-[18px]">explore</span> Browse Free
                     </button>
@@ -569,7 +623,7 @@ void main() {
 </div>
 </div>
 <!-- Diagnostics Sidebar -->
-<div class="w-full lg:w-80 grid grid-cols-2 lg:grid-cols-1 gap-unit">
+<div data-boot-stage="diagnostics" class="w-full lg:w-80 grid grid-cols-2 lg:grid-cols-1 gap-unit">
 <div class="glass-panel rounded-t-xl border-b-0 relative overflow-hidden group fade-slide-up p-3" style="animation-delay: 0.2s;">
 <div class="absolute inset-0 bg-[#98f05f]/5 translate-x-[-100%] group-hover:translate-x-0 transition-transform duration-500"></div>
 <div class="relative z-10 flex justify-between items-start mb-2">
@@ -602,7 +656,7 @@ void main() {
 <!-- Main Grid Layout -->
 <div class="grid grid-cols-1 xl:grid-cols-12 gap-gutter md:gap-margin-sm flex-1 min-h-0">
 <!-- Activity Feed (Left Column) -->
-<aside class="xl:col-span-3 flex flex-col gap-4 fade-slide-up h-full overflow-visible xl:overflow-hidden" style="animation-delay: 0.5s;">
+<aside data-boot-section="activity" class="xl:col-span-3 flex flex-col gap-4 fade-slide-up h-full overflow-visible xl:overflow-hidden" style="animation-delay: 0.5s;">
 <div class="glass-panel rounded-lg h-full flex flex-col">
 <div class="border-b border-white/10 p-4 bg-surface-container-lowest/50 rounded-t-lg shrink-0">
 <h2 class="font-label-caps text-label-caps text-[#98f05f] uppercase tracking-wider flex items-center gap-2">
@@ -643,7 +697,7 @@ void main() {
 </div>
 </aside>
 <!-- Project Modules (Right Area) -->
-<div class="xl:col-span-9 fade-slide-up flex flex-col h-full overflow-visible xl:overflow-hidden min-h-0" id="module-container" style="animation-delay: 0.6s;">
+<div data-boot-stage="registry" class="xl:col-span-9 fade-slide-up flex flex-col h-full overflow-visible xl:overflow-hidden min-h-0" id="module-container" style="animation-delay: 0.6s;">
 <div class="border-b border-white/10 pb-2 mb-4 flex justify-between items-end shrink-0">
 <h2 class="font-label-caps text-label-caps text-outline-variant uppercase tracking-wider" id="module-header-title">Module Interface Array</h2>
 <div class="flex items-center gap-2 font-code-sm text-code-sm" id="module-sort-group"><span aria-live="polite" class="text-outline-variant uppercase mr-2" id="module-filter-text">FILTER: [ALL] · 0 / 0</span><div class="relative"><button aria-controls="module-sort-menu" aria-expanded="false" class="px-3 py-0.5 rounded border border-[#98f05f] text-[#98f05f] hover:shadow-[0_0_8px_rgba(152,240,95,0.3)] transition-all active:scale-95 flex items-center gap-1 uppercase" id="module-sort-button" type="button"><span id="module-sort-label">NEW-OLD</span><span aria-hidden="true" class="material-symbols-outlined text-[14px]">expand_more</span></button><div class="hidden absolute top-full right-0 mt-1 w-32 glass-panel border-[#98f05f]/30 z-50 shadow-[0_10px_30px_rgba(0,0,0,0.5)]" id="module-sort-menu"><div class="flex flex-col"><button class="px-3 py-2 text-left hover:bg-[#98f05f]/10 hover:text-[#98f05f] transition-colors border-b border-white/5" data-sort="newest" type="button">NEW-OLD</button><button class="px-3 py-2 text-left hover:bg-[#98f05f]/10 hover:text-[#98f05f] transition-colors border-b border-white/5" data-sort="oldest" type="button">OLD-NEW</button><button class="px-3 py-2 text-left hover:bg-[#98f05f]/10 hover:text-[#98f05f] transition-colors border-b border-white/5" data-sort="az" type="button">A-Z</button><button class="px-3 py-2 text-left hover:bg-[#98f05f]/10 hover:text-[#98f05f] transition-colors" data-sort="za" type="button">Z-A</button></div></div></div></div>
@@ -655,7 +709,7 @@ void main() {
 <!-- Module cards are rendered from the scripts registry. -->
 </div>
 <!-- Script Details Container -->
-<div class="script-details glass-panel p-6 rounded-lg w-full" id="script-details-container">
+<div class="script-details glass-panel p-6 rounded-lg w-full" id="script-details-container" tabindex="-1">
 <div class="flex items-center mb-6 border-b border-white/5 pb-4">
 <button class="group flex items-center gap-2 px-3 py-1.5 rounded border border-outline-variant hover:border-[#98f05f] hover:bg-[#98f05f]/5 transition-all duration-200 active:scale-95" id="return-to-registry" type="button">
 <span aria-hidden="true" class="material-symbols-outlined text-[18px] text-outline-variant group-hover:text-[#98f05f] transition-colors">arrow_back</span>
@@ -700,7 +754,7 @@ void main() {
 </div>
 </main>
 <!-- Footer Container (Shared Component implementation) -->
-<footer class="w-full py-4 border-t border-white/5 bg-background relative z-10 flex flex-col md:flex-row justify-between items-center px-margin-md gap-4 fade-slide-up shrink-0" style="animation-delay: 0.8s;">
+<footer data-boot-stage="footer" class="w-full py-4 border-t border-white/5 bg-background relative z-10 flex flex-col md:flex-row justify-between items-center px-margin-md gap-4 fade-slide-up shrink-0" style="animation-delay: 0.8s;">
 <div class="font-label-caps text-label-caps text-on-surface animate-pulse-slow">
             BUILD: v2.4.0-CYBER
         </div>
@@ -1302,15 +1356,28 @@ void main() {
         let moduleRenderToken = 0;
         let moduleRenderTimer = null;
         let unloadTimer = null;
+        let unloadSequenceActive = false;
+        let activeModuleId = null;
+        let pageBootComplete = false;
+        let terminalSequenceToken = 0;
+        const pendingTerminalSteps = new Map();
         const sortLabels = {
             newest: 'NEW-OLD',
             oldest: 'OLD-NEW',
             az: 'A-Z',
             za: 'Z-A'
         };
+        const bootStageSelectors = {
+            interface: '[data-boot-stage="interface"]',
+            diagnostics: '[data-boot-stage="diagnostics"]',
+            activity: '[data-boot-stage="activity"], [data-boot-section="activity"]',
+            registry: '[data-boot-stage="registry"]',
+            footer: '[data-boot-stage="footer"]'
+        };
 
         function cancelScheduledModuleRender() {
             moduleRenderToken += 1;
+            cancelTerminalSequence();
             if (moduleRenderTimer !== null) {
                 clearTimeout(moduleRenderTimer);
                 moduleRenderTimer = null;
@@ -1322,6 +1389,7 @@ void main() {
                 clearTimeout(unloadTimer);
                 unloadTimer = null;
             }
+            unloadSequenceActive = false;
         }
 
         function getFilteredScripts() {
@@ -1383,12 +1451,13 @@ void main() {
         }
 
         function setModuleSort(sort) {
+            if (!pageBootComplete || currentView !== 'registry') return;
             if (!Object.hasOwn(sortLabels, sort)) return;
 
             currentSort = sort;
             closeSortMenu();
             updateRegistrySummary();
-            renderModules();
+            renderModules(`SORTING REGISTRY [${sortLabels[sort]}]...`);
         }
 
         function closeSortMenu() {
@@ -1432,8 +1501,10 @@ void main() {
         }
 
         function filterByTier(tier) {
+            if (!pageBootComplete) return;
             cancelScheduledUnload();
             currentView = 'registry';
+            activeModuleId = null;
             currentFilter = tier;
 
             document.getElementById('module-grid').classList.remove('hidden');
@@ -1441,7 +1512,7 @@ void main() {
 
             closeMobileMenu();
             updateRegistrySummary();
-            renderModules();
+            renderModules(`APPLYING REGISTRY FILTER [${tier}]...`);
         }
 
         // Keep this for backwards compatibility with any remaining static links
@@ -1449,17 +1520,25 @@ void main() {
             filterByTier(status);
         }
 
-        function createTerminalLine(message, className, animationDelay = '') {
+        function createTerminalLine(
+            message,
+            className,
+            animationDelay = '',
+            statusText = 'OK',
+            statusClass = 'text-[#98f05f]'
+        ) {
             const line = document.createElement('div');
             line.className = className;
             line.style.animationDuration = '0.2s';
             if (animationDelay) line.style.animationDelay = animationDelay;
-            line.append(document.createTextNode(`> ${message} `));
+            line.append(document.createTextNode(`> ${message}${statusText ? ' ' : ''}`));
 
-            const status = document.createElement('span');
-            status.className = 'text-[#98f05f]';
-            status.textContent = '[OK]';
-            line.append(status);
+            if (statusText) {
+                const status = document.createElement('span');
+                status.className = statusClass;
+                status.textContent = `[${statusText}]`;
+                line.append(status);
+            }
             return line;
         }
 
@@ -1476,18 +1555,8 @@ void main() {
         }
 
         function resetTerminal(terminal) {
-            const initialisingLine = createTerminalLine(
-                'INITIALISING MODUL SYSTEMS...',
-                'opacity-70 typing-line'
-            );
-            initialisingLine.style.animationDuration = '0.3s';
-            const connectingLine = createTerminalLine(
-                'CONNECTING TO REGISTRY...',
-                'opacity-70 typing-line'
-            );
-            connectingLine.style.animationDuration = '0.3s';
             const cursorLine = createTerminalCursor();
-            terminal.replaceChildren(initialisingLine, connectingLine, cursorLine);
+            terminal.replaceChildren(cursorLine);
             return cursorLine;
         }
 
@@ -1499,6 +1568,238 @@ void main() {
                 terminal.append(line);
             }
             terminal.scrollTop = terminal.scrollHeight;
+        }
+
+        function getBootStageElements(stage) {
+            const selector = bootStageSelectors[stage];
+            return selector ? [...document.querySelectorAll(selector)] : [];
+        }
+
+        function initializeBootStages() {
+            Object.keys(bootStageSelectors).forEach((stage) => {
+                getBootStageElements(stage).forEach((element) => {
+                    element.classList.remove('boot-stage-ready');
+                    element.setAttribute('aria-hidden', 'true');
+                });
+            });
+            document.body.setAttribute('aria-busy', 'true');
+        }
+
+        function revealBootStage(stage) {
+            getBootStageElements(stage).forEach((element) => {
+                element.classList.add('boot-stage-ready');
+                element.setAttribute('aria-hidden', 'false');
+            });
+        }
+
+        function revealAllBootStages() {
+            Object.keys(bootStageSelectors).forEach(revealBootStage);
+            document.body.removeAttribute('aria-busy');
+        }
+
+        function cancelTerminalSequence() {
+            terminalSequenceToken += 1;
+            [...pendingTerminalSteps.entries()].forEach(([line, finish]) => {
+                line.style.animation = 'none';
+                line.style.opacity = '1';
+                line.style.width = '100%';
+                finish();
+            });
+        }
+
+        function playTerminalLine(
+            terminal,
+            message,
+            className,
+            duration = 200,
+            statusText = 'OK',
+            statusClass = 'text-[#98f05f]'
+        ) {
+            const sequenceToken = terminalSequenceToken;
+            const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+            const line = createTerminalLine(message, className, '', statusText, statusClass);
+            line.classList.add('terminal-pending');
+            line.style.animationDelay = '0ms';
+            line.style.animationDuration = reducedMotion ? '0.01ms' : `${duration}ms`;
+            appendTerminalLine(terminal, line);
+
+            return new Promise((resolve) => {
+                let settled = false;
+                let fallbackTimer = null;
+
+                const finish = () => {
+                    if (settled) return;
+                    settled = true;
+                    if (fallbackTimer !== null) clearTimeout(fallbackTimer);
+                    line.removeEventListener('animationend', onAnimationEnd);
+                    line.classList.remove('terminal-pending');
+                    pendingTerminalSteps.delete(line);
+                    resolve(sequenceToken === terminalSequenceToken);
+                };
+
+                const onAnimationEnd = (event) => {
+                    if (event.animationName === 'typing') finish();
+                };
+
+                line.addEventListener('animationend', onAnimationEnd);
+                fallbackTimer = setTimeout(finish, reducedMotion ? 30 : duration + 120);
+                pendingTerminalSteps.set(line, finish);
+            });
+        }
+
+        async function announceAndRenderModules(
+            terminal,
+            grid,
+            filteredScripts,
+            renderToken,
+            sequenceToken
+        ) {
+            for (const [index, script] of filteredScripts.entries()) {
+                const completed = await playTerminalLine(
+                    terminal,
+                    `INITIALIZING MODULE: ${script.title.toUpperCase()}...`,
+                    'opacity-100 typing-line text-outline-variant',
+                    180
+                );
+                if (!completed || sequenceToken !== terminalSequenceToken) return false;
+                if (renderToken !== moduleRenderToken || currentView !== 'registry') return false;
+
+                const { card } = createModuleCard(script, index);
+                card.style.animationDelay = '0ms';
+                grid.append(card);
+            }
+
+            const loaded = await playTerminalLine(
+                terminal,
+                `MODULES LOADED (${filteredScripts.length})...`,
+                'opacity-100 typing-line',
+                240
+            );
+            return Boolean(
+                loaded &&
+                sequenceToken === terminalSequenceToken &&
+                renderToken === moduleRenderToken &&
+                currentView === 'registry'
+            );
+        }
+
+        async function runRegistryTerminalSequence(
+            terminal,
+            grid,
+            filteredScripts,
+            renderToken,
+            introMessage = 'REFRESHING MODULE REGISTRY...',
+            resetOutput = true
+        ) {
+            cancelTerminalSequence();
+            const sequenceToken = terminalSequenceToken;
+            if (resetOutput) resetTerminal(terminal);
+
+            const introduced = await playTerminalLine(
+                terminal,
+                introMessage,
+                'opacity-100 typing-line text-outline-variant',
+                240
+            );
+            if (!introduced || sequenceToken !== terminalSequenceToken) return false;
+            if (renderToken !== moduleRenderToken || currentView !== 'registry') return false;
+
+            return announceAndRenderModules(
+                terminal,
+                grid,
+                filteredScripts,
+                renderToken,
+                sequenceToken
+            );
+        }
+
+        async function runPageBootSequence() {
+            cancelScheduledModuleRender();
+            const renderToken = moduleRenderToken;
+            const terminal = document.getElementById('cli-output');
+            const grid = document.getElementById('module-grid');
+            const filteredScripts = getVisibleModules();
+
+            currentView = 'registry';
+            activeModuleId = null;
+            pageBootComplete = false;
+            grid.replaceChildren();
+            resetTerminal(terminal);
+            document.getElementById('registry-summary').textContent = 'SYSTEM BOOTING';
+
+            cancelTerminalSequence();
+            const sequenceToken = terminalSequenceToken;
+            const startupSteps = [
+                ['INITIALISING MODUL SYSTEMS...', null, 300],
+                ['MOUNTING VISUAL KERNEL / SHADER LAYER...', null, 260],
+                ['LOADING COMMAND INTERFACE...', 'interface', 260],
+                ['STARTING REGISTRY DIAGNOSTICS...', 'diagnostics', 240],
+                ['CONNECTING ACTIVITY STREAM...', 'activity', 240],
+                ['CONNECTING TO MODULE REGISTRY...', 'registry', 260]
+            ];
+
+            for (const [message, stage, duration] of startupSteps) {
+                const completed = await playTerminalLine(
+                    terminal,
+                    message,
+                    'opacity-100 typing-line text-outline-variant',
+                    duration
+                );
+                if (!completed || sequenceToken !== terminalSequenceToken) return false;
+                if (renderToken !== moduleRenderToken || currentView !== 'registry') return false;
+                if (stage) revealBootStage(stage);
+            }
+
+            const registryReady = await announceAndRenderModules(
+                terminal,
+                grid,
+                filteredScripts,
+                renderToken,
+                sequenceToken
+            );
+            if (!registryReady) return false;
+
+            const footerReady = await playTerminalLine(
+                terminal,
+                'MOUNTING SYSTEM FOOTER...',
+                'opacity-100 typing-line text-outline-variant',
+                220
+            );
+            if (!footerReady || sequenceToken !== terminalSequenceToken) return false;
+            revealBootStage('footer');
+
+            const ready = await playTerminalLine(
+                terminal,
+                'COMMAND CENTRE READY...',
+                'opacity-100 typing-line text-secondary-fixed',
+                260
+            );
+            if (!ready || sequenceToken !== terminalSequenceToken) return false;
+
+            pageBootComplete = true;
+            document.body.removeAttribute('aria-busy');
+            updateRegistrySummary();
+            return true;
+        }
+
+        function handleBootFailure(error) {
+            console.error('Command Centre boot sequence failed.', error);
+            cancelTerminalSequence();
+            revealAllBootStages();
+            currentView = 'registry';
+            activeModuleId = null;
+            pageBootComplete = true;
+
+            const grid = document.getElementById('module-grid');
+            if (!grid.querySelector('.module-card')) {
+                grid.replaceChildren();
+                getVisibleModules().forEach((script, index) => {
+                    const { card } = createModuleCard(script, index);
+                    card.style.animationDelay = '0ms';
+                    grid.append(card);
+                });
+            }
+            updateRegistrySummary();
         }
 
         function createModuleCard(script, index) {
@@ -1554,14 +1855,16 @@ void main() {
             return { card, animationDelay };
         }
 
-        function renderModules() {
+        function renderModules(introMessage = 'REFRESHING MODULE REGISTRY...') {
+            if (!pageBootComplete) return;
+
             cancelScheduledModuleRender();
             const renderToken = moduleRenderToken;
             const grid = document.getElementById('module-grid');
             const terminal = document.getElementById('cli-output');
             const oldCards = grid.querySelectorAll('.module-card');
 
-            oldCards.forEach(card => {
+            oldCards.forEach((card) => {
                 card.classList.remove('fade-slide-up');
                 card.classList.add('fade-slide-down');
             });
@@ -1571,29 +1874,18 @@ void main() {
                 if (renderToken !== moduleRenderToken || currentView !== 'registry') return;
 
                 const filteredScripts = getVisibleModules();
-
                 grid.replaceChildren();
-                const cursorLine = resetTerminal(terminal);
-                filteredScripts.forEach((script, index) => {
-                    const { card, animationDelay } = createModuleCard(script, index);
-                    grid.append(card);
-
-                    const moduleLine = createTerminalLine(
-                        `INITIALIZING MODULE: ${script.title.toUpperCase()}...`,
-                        'opacity-100 typing-line text-outline-variant',
-                        `${animationDelay}ms`
-                    );
-                    terminal.insertBefore(moduleLine, cursorLine);
+                document.getElementById('registry-summary').textContent = 'REGISTRY RECONFIGURING';
+                void runRegistryTerminalSequence(
+                    terminal,
+                    grid,
+                    filteredScripts,
+                    renderToken,
+                    introMessage,
+                    true
+                ).then((completed) => {
+                    if (completed) updateRegistrySummary();
                 });
-
-                const loadingLine = createTerminalLine(
-                    `MODULES LOADED (${filteredScripts.length})...`,
-                    'opacity-100 typing-line',
-                    `${filteredScripts.length * 60 + 100}ms`
-                );
-                loadingLine.id = 'cli-loading-line';
-                terminal.insertBefore(loadingLine, cursorLine);
-                terminal.scrollTop = terminal.scrollHeight;
             };
 
             if (oldCards.length > 0) {
@@ -1666,37 +1958,11 @@ void main() {
             });
         }
 
-        function unloadActiveModule() {
-            if (unloadTimer !== null) return;
-
-            cancelScheduledModuleRender();
-            const terminal = document.getElementById('cli-output');
-            const newLine = document.createElement('div');
-            newLine.className = 'opacity-100 typing-line text-error';
-            newLine.textContent = '> UNLOADING MODULE... [CLEANUP_COMPLETE]';
-            appendTerminalLine(terminal, newLine);
-
-            unloadTimer = setTimeout(() => {
-                unloadTimer = null;
-                if (currentView === 'detail') resetView();
-            }, 300);
-        }
-
-        function activateScript(scriptKey) {
-            const data = scripts.find(script => script.id === scriptKey);
-            if (!data) return;
-
-            cancelScheduledUnload();
-            cancelScheduledModuleRender();
-            currentView = 'detail';
-            document.getElementById('module-grid').classList.add('hidden');
-            document.getElementById('script-details-container').classList.add('active');
-            document.getElementById('module-header-title').innerText = `System Status: ${data.title.toUpperCase()}`;
-            document.getElementById('module-filter-text').innerText = 'BACK TO OVERVIEW [X]';
-
+        function populateModuleDetail(data) {
             document.getElementById('detail-title').textContent = data.title;
             document.getElementById('detail-desc').textContent = data.desc;
-            document.getElementById('detail-version').textContent = `${data.versionPrefix}: ${data.version}`;
+            document.getElementById('detail-version').textContent =
+                `${data.versionPrefix}: ${data.version}`;
 
             const badge = document.getElementById('detail-badge');
             badge.className = `status-chip ${data.badge} font-label-caps text-label-caps px-3 py-1`;
@@ -1707,7 +1973,7 @@ void main() {
 
             const features = document.getElementById('detail-features');
             features.replaceChildren();
-            data.features.forEach(feature => {
+            data.features.forEach((feature) => {
                 const item = document.createElement('li');
                 item.textContent = feature;
                 features.append(item);
@@ -1722,25 +1988,215 @@ void main() {
                 noteText.textContent = '';
                 note.classList.add('hidden');
             }
+        }
 
+        function formatConsoleValue(value, maximumLength = 52) {
+            const normalized = String(value || 'NOT PUBLISHED')
+                .replace(/\s+/g, ' ')
+                .trim()
+                .toUpperCase();
+            if (normalized.length <= maximumLength) return normalized;
+            return `${normalized.slice(0, maximumLength - 3)}...`;
+        }
+
+        function getModuleDiagnosticSteps(data) {
+            const availableActions = Array.isArray(data.actions) ? data.actions.length : 0;
+            const disabledActions = Array.isArray(data.disabledActions)
+                ? data.disabledActions.length
+                : 0;
+            const steps = [
+                {
+                    message: `MODULE REQUEST [${data.id.toUpperCase()}]...`,
+                    className: 'opacity-100 typing-line text-secondary-fixed',
+                    duration: 240,
+                    statusText: 'ACCEPTED',
+                    statusClass: 'text-secondary-fixed'
+                },
+                {
+                    message: 'RESOLVING REGISTRY RECORD...',
+                    className: 'opacity-100 typing-line text-outline-variant',
+                    duration: 220
+                },
+                { message: `TITLE: ${formatConsoleValue(data.title)}` },
+                { message: `TYPE: ${formatConsoleValue(data.projectType)}` },
+                { message: `ACCESS: ${formatConsoleValue(data.tier)}` },
+                { message: `RELEASE: ${formatConsoleValue(data.releaseState)}` },
+                { message: `VERSION: ${formatConsoleValue(data.version)}` },
+                { message: `UPDATED: ${formatConsoleValue(data.updated)}` },
+                { message: `CATEGORY: ${formatConsoleValue(data.category)}` }
+            ];
+
+            data.features.slice(0, 3).forEach((feature, index) => {
+                steps.push({
+                    message: `CAPABILITY ${String(index + 1).padStart(2, '0')}: ${formatConsoleValue(feature, 46)}`
+                });
+            });
+
+            steps.push({
+                message: `ENDPOINTS: ${availableActions} AVAILABLE / ${disabledActions} DISABLED`
+            });
+            return steps;
+        }
+
+        async function unloadActiveModule() {
+            if (unloadSequenceActive || currentView !== 'detail') return;
+
+            unloadSequenceActive = true;
+            cancelScheduledModuleRender();
+            const sequenceToken = terminalSequenceToken;
+            const renderToken = moduleRenderToken;
             const terminal = document.getElementById('cli-output');
-            const newLine = document.createElement('div');
-            newLine.className = 'opacity-100 typing-line text-[#98f05f]';
-            newLine.textContent = `> INITIALIZING MODULE [${data.title.toUpperCase()}] ${data.versionPrefix}: ${data.version}...`;
-            appendTerminalLine(terminal, newLine);
+            const grid = document.getElementById('module-grid');
+            const details = document.getElementById('script-details-container');
+            const activeData = scripts.find((script) => script.id === activeModuleId);
+            currentView = 'unloading-detail';
+
+            try {
+                const cleanupSteps = [
+                    [`UNMOUNT REQUEST [${(activeModuleId || 'UNKNOWN').toUpperCase()}]...`, 'ACCEPTED'],
+                    ['FLUSHING MODULE SESSION...', 'OK'],
+                    ['UNMOUNTING DETAIL INTERFACE...', 'OK']
+                ];
+
+                for (const [message, statusText] of cleanupSteps) {
+                    const completed = await playTerminalLine(
+                        terminal,
+                        message,
+                        'opacity-100 typing-line text-error',
+                        220,
+                        statusText,
+                        statusText === 'ACCEPTED' ? 'text-secondary-fixed' : 'text-[#98f05f]'
+                    );
+                    if (!completed || sequenceToken !== terminalSequenceToken) return;
+                    if (renderToken !== moduleRenderToken || currentView !== 'unloading-detail') return;
+                }
+
+                details.classList.remove('active');
+                grid.classList.remove('hidden');
+                currentView = 'registry';
+                currentFilter = 'ALL';
+                activeModuleId = null;
+                updateRegistrySummary();
+                grid.replaceChildren();
+
+                const remount = await playTerminalLine(
+                    terminal,
+                    `REMOUNTING MODULE REGISTRY${activeData ? ` AFTER ${activeData.title.toUpperCase()}` : ''}...`,
+                    'opacity-100 typing-line text-outline-variant',
+                    240
+                );
+                if (!remount || sequenceToken !== terminalSequenceToken) return;
+                if (renderToken !== moduleRenderToken || currentView !== 'registry') return;
+
+                const rendered = await announceAndRenderModules(
+                    terminal,
+                    grid,
+                    getVisibleModules(),
+                    renderToken,
+                    sequenceToken
+                );
+                if (!rendered) return;
+
+                await playTerminalLine(
+                    terminal,
+                    'REGISTRY READY...',
+                    'opacity-100 typing-line text-secondary-fixed',
+                    220
+                );
+            } finally {
+                unloadSequenceActive = false;
+            }
+        }
+
+        async function activateScript(scriptKey) {
+            if (!pageBootComplete || currentView !== 'registry') return;
+
+            const data = scripts.find((script) => script.id === scriptKey);
+            if (!data) return;
+
+            cancelScheduledUnload();
+            cancelScheduledModuleRender();
+            const sequenceToken = terminalSequenceToken;
+            const renderToken = moduleRenderToken;
+            const terminal = document.getElementById('cli-output');
+            const grid = document.getElementById('module-grid');
+            const details = document.getElementById('script-details-container');
+            const selectedCard = grid.querySelector(`[data-module-id="${scriptKey}"]`);
+
+            currentView = 'loading-detail';
+            activeModuleId = data.id;
+            grid.setAttribute('aria-busy', 'true');
+            grid.querySelectorAll('.module-card').forEach((card) => {
+                card.disabled = true;
+            });
+            if (selectedCard) selectedCard.classList.add('active');
+
+            const steps = getModuleDiagnosticSteps(data);
+            for (const step of steps) {
+                const completed = await playTerminalLine(
+                    terminal,
+                    step.message,
+                    step.className || 'opacity-100 typing-line terminal-report-line',
+                    step.duration || 150,
+                    Object.hasOwn(step, 'statusText') ? step.statusText : '',
+                    step.statusClass || 'text-[#98f05f]'
+                );
+                if (!completed || sequenceToken !== terminalSequenceToken) {
+                    grid.removeAttribute('aria-busy');
+                    return;
+                }
+                if (renderToken !== moduleRenderToken || currentView !== 'loading-detail') {
+                    grid.removeAttribute('aria-busy');
+                    return;
+                }
+            }
+
+            populateModuleDetail(data);
+            const mounted = await playTerminalLine(
+                terminal,
+                'MOUNTING DETAIL INTERFACE...',
+                'opacity-100 typing-line text-secondary-fixed',
+                260
+            );
+            if (!mounted || sequenceToken !== terminalSequenceToken) {
+                grid.removeAttribute('aria-busy');
+                return;
+            }
+            if (renderToken !== moduleRenderToken || currentView !== 'loading-detail') {
+                grid.removeAttribute('aria-busy');
+                return;
+            }
+
+            grid.classList.add('hidden');
+            details.classList.add('active');
+            document.getElementById('module-header-title').innerText =
+                `System Status: ${data.title.toUpperCase()}`;
+            document.getElementById('module-filter-text').innerText = 'BACK TO OVERVIEW [X]';
+            currentView = 'detail';
+            grid.removeAttribute('aria-busy');
+            details.focus({ preventScroll: true });
         }
 
         function resetView() {
+            if (!pageBootComplete) return;
+            if (currentView === 'detail') {
+                void unloadActiveModule();
+                return;
+            }
+
             cancelScheduledUnload();
+            cancelScheduledModuleRender();
             currentView = 'registry';
+            activeModuleId = null;
             currentFilter = 'ALL';
             document.getElementById('module-grid').classList.remove('hidden');
             document.getElementById('script-details-container').classList.remove('active');
             updateRegistrySummary();
-            renderModules();
+            renderModules('RESTORING REGISTRY OVERVIEW...');
         }
 
         document.addEventListener('DOMContentLoaded', () => {
+            initializeBootStages();
             document.querySelectorAll('[data-tier]').forEach((control) => {
                 control.addEventListener('click', () => filterByTier(control.dataset.tier));
             });
@@ -1797,7 +2253,7 @@ void main() {
             updateClock();
             setInterval(updateClock, 1000);
             updateRegistrySummary();
-            renderModules();
+            void runPageBootSequence().catch(handleBootFailure);
 
             const terminal = document.getElementById('cli-output');
             if (!terminal || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
