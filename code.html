@@ -337,6 +337,48 @@
             background: rgba(0, 0, 0, 0.7);
             backdrop-filter: blur(4px);
         }
+        #screenshot-dialog {
+            width: min(72rem, calc(100% - 2rem));
+            max-width: min(72rem, calc(100% - 2rem));
+            background: #080a0c;
+        }
+        #screenshot-dialog img {
+            display: block;
+            width: 100%;
+            max-height: min(72vh, 52rem);
+            object-fit: contain;
+            background: #050607;
+        }
+        .screenshot-thumb {
+            position: relative;
+            overflow: hidden;
+            aspect-ratio: 16 / 9;
+            background: #080a0c;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .screenshot-thumb img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transition: transform 0.3s ease, filter 0.3s ease;
+        }
+        .screenshot-thumb:hover img,
+        .screenshot-thumb:focus-visible img {
+            transform: scale(1.035);
+            filter: brightness(1.12);
+        }
+        .screenshot-thumb::after {
+            content: 'EXPAND';
+            position: absolute;
+            right: 0.5rem;
+            bottom: 0.5rem;
+            padding: 0.2rem 0.45rem;
+            color: #98f05f;
+            background: rgba(8, 10, 12, 0.88);
+            border: 1px solid rgba(152, 240, 95, 0.45);
+            font: 700 9px/1.2 'JetBrains Mono', monospace;
+            letter-spacing: 0.12em;
+        }
         [data-boot-stage],
         [data-boot-section="activity"] {
             visibility: hidden;
@@ -370,7 +412,7 @@
         }
     </style>
 <noscript><style>[data-boot-stage],[data-boot-section="activity"]{visibility:visible!important;opacity:1!important;transform:none!important;pointer-events:auto!important}</style></noscript>
-<link href="https://fonts.googleapis.com/css2?family=VT323&amp;display=swap" rel="stylesheet" class=""><script src="assets/js/repository-activity.js" defer></script>
+<link href="https://fonts.googleapis.com/css2?family=VT323&amp;display=swap" rel="stylesheet" class="">
 </head>
 <body class="bg-background text-on-surface font-body-md min-h-screen relative overflow-x-hidden flex flex-col selection:bg-[#98f05f] selection:text-background">
 <!-- Shader Background -->
@@ -548,7 +590,7 @@ void main() {
 <!-- Brand -->
 <div class="flex items-center gap-2">
 <img alt="MoDuL's Hub Logo" class="h-8 w-8 object-contain shrink-0" src="assets/images/logo.png">
-<button class="font-headline-lg text-headline-lg text-[#98f05f] text-[32px] tracking-wider" id="brand-home" type="button" style="font-family: VT323, monospace;">M o D u L 's H u b</button>
+<button class="font-headline-lg text-headline-lg text-[#98f05f] text-[32px] tracking-wider" id="brand-home" type="button" style="font-family: VT323, monospace;">o D u L 's H u b</button>
 </div>
 <!-- Desktop Links -->
 <ul class="hidden md:flex items-center gap-6">
@@ -656,43 +698,20 @@ void main() {
 <!-- Main Grid Layout -->
 <div class="grid grid-cols-1 xl:grid-cols-12 gap-gutter md:gap-margin-sm flex-1 min-h-0">
 <!-- Activity Feed (Left Column) -->
-<aside data-boot-section="activity" class="xl:col-span-3 flex flex-col gap-4 fade-slide-up h-full overflow-visible xl:overflow-hidden" style="animation-delay: 0.5s;">
-<div class="glass-panel rounded-lg h-full flex flex-col">
+<aside aria-labelledby="script-updates-title" data-boot-section="activity" class="xl:col-span-3 flex flex-col gap-4 fade-slide-up h-full min-h-0 overflow-visible xl:overflow-hidden" id="script-updates-feed" style="animation-delay: 0.5s;">
+<div class="glass-panel rounded-lg flex h-[34rem] min-h-0 flex-col xl:h-full">
 <div class="border-b border-white/10 p-4 bg-surface-container-lowest/50 rounded-t-lg shrink-0">
-<h2 class="font-label-caps text-label-caps text-[#98f05f] uppercase tracking-wider flex items-center gap-2">
-<span class="material-symbols-outlined text-[16px]">history</span>
-                            System Activity Feed
+<div class="flex items-center justify-between gap-3">
+<h2 class="font-label-caps text-label-caps text-[#98f05f] uppercase tracking-wider flex items-center gap-2" id="script-updates-title">
+<span aria-hidden="true" class="material-symbols-outlined text-[16px]">history</span>
+                            Script Update Timeline
                         </h2>
+<span class="shrink-0 font-label-caps text-[9px] uppercase tracking-wider text-secondary-fixed" id="script-release-count">0 RELEASES</span>
 </div>
-<div class="p-4 flex-1 overflow-y-auto custom-scrollbar font-code-sm text-code-sm flex flex-col gap-4">
-<div class="flex gap-3 relative before:content-[''] before:absolute before:left-1.5 before:top-5 before:bottom-[-20px] before:w-px before:bg-white/10 last:before:hidden feed-item" style="animation-delay: 0.6s;">
-<div class="w-3 h-3 rounded-full border border-[#98f05f] bg-background shrink-0 mt-1 z-10"></div>
-<div>
-<div class="text-on-surface">JobCentre+ <span class="text-[#98f05f]">UPDATE</span></div>
-<div class="text-outline-variant mt-1">Aug 1 // Build deployed to stable branch. Minor bug fixes.</div>
+<p class="mt-2 font-code-sm text-[10px] text-outline-variant">Published script versions and service companion updates—no repository noise.</p>
 </div>
-</div>
-<div class="flex gap-3 relative before:content-[''] before:absolute before:left-1.5 before:top-5 before:bottom-[-20px] before:w-px before:bg-white/10 last:before:hidden feed-item" style="animation-delay: 0.7s;">
-<div class="w-3 h-3 rounded-full border border-secondary-fixed bg-background shrink-0 mt-1 z-10"></div>
-<div>
-<div class="text-on-surface">Pit Guru <span class="text-secondary-fixed">v2.3.4</span></div>
-<div class="text-outline-variant mt-1">July 30 // Telemetry optimization patch.</div>
-</div>
-</div>
-<div class="flex gap-3 relative before:content-[''] before:absolute before:left-1.5 before:top-5 before:bottom-[-20px] before:w-px before:bg-white/10 last:before:hidden feed-item" style="animation-delay: 0.8s;">
-<div class="w-3 h-3 rounded-full border border-[#98f05f] bg-background shrink-0 mt-1 z-10"></div>
-<div>
-<div class="text-on-surface">Pythagoras Project <span class="text-[#98f05f]">v3.0.4b</span></div>
-<div class="text-outline-variant mt-1">July 26 // CIS integration complete.</div>
-</div>
-</div>
-<div class="flex gap-3 relative before:content-[''] before:absolute before:left-1.5 before:top-5 before:bottom-[-20px] before:w-px before:bg-white/10 last:before:hidden feed-item" style="animation-delay: 0.9s;">
-<div class="w-3 h-3 rounded-full border border-outline bg-background shrink-0 mt-1 z-10"></div>
-<div>
-<div class="text-on-surface opacity-50">System Maintenance</div>
-<div class="text-outline-variant mt-1 opacity-50">July 20 // Routine DB cleanup.</div>
-</div>
-</div>
+<div class="p-4 flex-1 min-h-0 overflow-y-auto custom-scrollbar font-code-sm text-code-sm" id="script-timeline-scroll">
+<ol aria-label="Script release history" class="relative" id="script-updates-timeline"></ol>
 </div>
 </div>
 </aside>
@@ -742,6 +761,24 @@ void main() {
 <ul class="text-on-surface-variant text-code-sm list-disc list-inside flex flex-col gap-2" id="detail-features"></ul>
 </section>
 </div>
+<section class="glass-panel p-5 rounded-lg" id="detail-faq-panel">
+<div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+<h3 class="font-label-caps text-label-caps text-[#98f05f] uppercase tracking-widest flex items-center gap-2">
+<span aria-hidden="true" class="material-symbols-outlined text-[18px]">help</span> Module FAQ
+</h3>
+<span class="font-code-sm text-[10px] text-outline-variant uppercase" id="detail-faq-count"></span>
+</div>
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-3" id="detail-faq"></div>
+</section>
+<section class="glass-panel p-5 rounded-lg" id="detail-screenshots-panel">
+<div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+<h3 class="font-label-caps text-label-caps text-[#98f05f] uppercase tracking-widest flex items-center gap-2">
+<span aria-hidden="true" class="material-symbols-outlined text-[18px]">photo_library</span> Screenshots
+</h3>
+<span class="font-code-sm text-[10px] text-outline-variant uppercase" id="detail-screenshot-count"></span>
+</div>
+<div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3" id="detail-screenshots"></div>
+</section>
 <div class="hidden glass-panel p-5 rounded-lg border-l-2 border-tertiary-fixed-dim" id="detail-note">
 <h3 class="font-label-caps text-label-caps text-tertiary-fixed-dim uppercase tracking-widest mb-2">Availability Note</h3>
 <p class="text-on-surface-variant text-code-sm leading-relaxed" id="detail-note-text"></p>
@@ -756,7 +793,7 @@ void main() {
 <!-- Footer Container (Shared Component implementation) -->
 <footer data-boot-stage="footer" class="w-full py-4 border-t border-white/5 bg-background relative z-10 flex flex-col md:flex-row justify-between items-center px-margin-md gap-4 fade-slide-up shrink-0" style="animation-delay: 0.8s;">
 <div class="font-label-caps text-label-caps text-on-surface animate-pulse-slow">
-            BUILD: v2.4.0-CYBER
+            BUILD: v2.5.0-CYBER
         </div>
 <ul class="flex items-center gap-6">
 <li><a class="font-code-sm text-code-sm text-outline hover:text-[#98f05f] transition-colors" href="https://www.torn.com/profiles.php?XID=4022159" rel="noopener noreferrer" target="_blank">Torn Profile</a></li>
@@ -774,6 +811,20 @@ void main() {
 <div class="p-6">
 <div class="flex items-start justify-between gap-6 mb-4"><h2 class="font-label-caps text-label-caps text-[#98f05f] uppercase tracking-wider">Privacy Notice</h2><button aria-label="Close privacy notice" class="material-symbols-outlined text-on-surface-variant hover:text-[#98f05f]" data-close-dialog type="button">close</button></div>
 <p class="text-on-surface-variant text-code-sm leading-relaxed">This static catalogue does not collect login details or submit form data. Links may open third-party services, which operate under their own terms and privacy policies.</p>
+</div>
+</dialog>
+<dialog aria-labelledby="screenshot-dialog-title" id="screenshot-dialog">
+<div class="border-b border-white/10 p-4 flex items-center justify-between gap-4">
+<div>
+<h2 class="font-label-caps text-label-caps text-[#98f05f] uppercase tracking-wider" id="screenshot-dialog-title">Screenshot</h2>
+<p class="font-code-sm text-[10px] text-outline-variant mt-1" id="screenshot-dialog-position"></p>
+</div>
+<button aria-label="Close screenshot" class="material-symbols-outlined text-on-surface-variant hover:text-[#98f05f]" data-close-dialog type="button">close</button>
+</div>
+<img alt="" id="screenshot-dialog-image" src="assets/images/moduls-hub-logo.png">
+<div class="border-t border-white/10 p-3 flex items-center justify-between gap-3">
+<button class="cyber-button-secondary font-label-caps text-label-caps uppercase px-4 py-2 rounded-DEFAULT flex items-center gap-2" id="screenshot-previous" type="button"><span aria-hidden="true" class="material-symbols-outlined text-[18px]">arrow_back</span> Previous</button>
+<button class="cyber-button-secondary font-label-caps text-label-caps uppercase px-4 py-2 rounded-DEFAULT flex items-center gap-2" id="screenshot-next" type="button">Next <span aria-hidden="true" class="material-symbols-outlined text-[18px]">arrow_forward</span></button>
 </div>
 </dialog>
 <script>
@@ -980,24 +1031,24 @@ void main() {
                         "id": "cracked",
                         "tier": "free",
                         "title": "cRaCked",
-                        "desc": "A Torn cracking helper combining a community word pool, probability-ranked suggestions and encrypted-slot awareness.",
-                        "version": "v1.3.1",
+                        "desc": "A Torn cracking assistant with calibrated probability estimates, a fallback model for unknown words and self-measuring local telemetry.",
+                        "version": "v2.1.4",
                         "versionPrefix": "VER",
                         "category": "Cracking assistance",
                         "projectType": "Free userscript",
                         "releaseState": "Live release",
-                        "updated": "1 August 2026",
+                        "updated": "13 August 2026",
                         "badge": "live",
                         "badgeText": "LIVE",
                         "iconPath": "<path d=\"M13 2L3 14h9l-1 8 10-12h-9l1-8z\"></path>",
                         "features": [
-                                    "Community-powered cracking word pool",
-                                    "Probability-ranked word suggestions",
-                                    "Encrypted-slot awareness and safe positional estimates"
+                                    "Calibrated position and character probability estimates",
+                                    "Character-model fallback when a word is not in the dictionary",
+                                    "Community word pool with optional uploads and local telemetry"
                         ],
                         "actions": [
                                     {
-                                                "label": "Install v1.3.1",
+                                                "label": "Install v2.1.4",
                                                 "href": "https://greasyfork.org/en/scripts/589397-cracked",
                                                 "icon": "download",
                                                 "primary": true
@@ -1075,7 +1126,7 @@ void main() {
                                     },
                                     {
                                                 "label": "Install v2.5.12",
-                                                "href": "https://greasyfork.org/en/scripts/572637-modul-s-egg-navigator-egg-finder",
+                                                "href": "https://greasyfork.org/en/scripts/575131-eggsterminator",
                                                 "icon": "download",
                                                 "primary": true
                                     },
@@ -1132,12 +1183,12 @@ void main() {
                         "tier": "free",
                         "title": "Restore OG Names",
                         "desc": "A lightweight Torn userscript that restores original car naming across racing, markets, bazaars, logs and docks views.",
-                        "version": "v1.3.1",
+                        "version": "v1.3.2",
                         "versionPrefix": "VER",
                         "category": "Naming compatibility",
                         "projectType": "Free userscript",
                         "releaseState": "Live release",
-                        "updated": "10 February 2026",
+                        "updated": "6 June 2026",
                         "badge": "live",
                         "badgeText": "LIVE",
                         "iconPath": "<path d=\"M3 10h18M3 14h18\"></path>",
@@ -1154,7 +1205,7 @@ void main() {
                                                 "primary": false
                                     },
                                     {
-                                                "label": "Install v1.3.1",
+                                                "label": "Install v1.3.2",
                                                 "href": "https://greasyfork.org/en/scripts/563153-modul-s-restore-og-car-names",
                                                 "icon": "download",
                                                 "primary": true
@@ -1249,20 +1300,20 @@ void main() {
                         "id": "jobCentrePlus",
                         "tier": "web tools",
                         "title": "JobCentre+",
-                        "desc": "A privacy-first Torn employment marketplace for verified candidates, searchable vacancies, focused applications and director dashboards.",
-                        "version": "LIVE",
-                        "versionPrefix": "STATUS",
+                        "desc": "A privacy-first Torn employment marketplace with verified profiles, vacancies, applications, dashboards and the JC+ Live Notifier companion userscript.",
+                        "version": "v2.1.3",
+                        "versionPrefix": "NOTIFIER",
                         "category": "Employment marketplace",
-                        "projectType": "Hosted web application",
-                        "releaseState": "Live service",
-                        "updated": "1 August 2026",
+                        "projectType": "Hosted application + userscript",
+                        "releaseState": "Live service and notifier",
+                        "updated": "17 August 2026",
                         "badge": "live",
                         "badgeText": "LIVE",
                         "iconPath": "<path d=\"M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z\"></path>",
                         "features": [
                                     "Torn-verified identity, employment and working stats",
-                                    "Searchable vacancies and looking-for-work profiles",
-                                    "Private dashboards for applications and company adverts"
+                                    "Searchable vacancies, applications and private director dashboards",
+                                    "Draggable live-notifier panel with direct job links and transport fallback"
                         ],
                         "actions": [
                                     {
@@ -1270,6 +1321,12 @@ void main() {
                                                 "href": "https://pp-api.sokin.xyz/jobcentreplus/",
                                                 "icon": "work",
                                                 "primary": true
+                                    },
+                                    {
+                                                "label": "Install Notifier v2.1.3",
+                                                "href": "https://pp-api.sokin.xyz/jobcentreplus/api/notifications/install/jobcentre-plus-notifier.user.js",
+                                                "icon": "notifications_active",
+                                                "primary": false
                                     }
                         ]
             },
@@ -1350,6 +1407,182 @@ void main() {
             }
 ];
 
+        const scriptReleases = [
+            {
+                title: 'JobCentre+ Live Notifier',
+                version: 'v2.1.3',
+                date: '2026-08-17',
+                type: 'HOTFIX',
+                summary: 'Restored reliable server transport, direct #job links, stable panel scrolling and quieter diagnostics.',
+                href: 'https://pp-api.sokin.xyz/jobcentreplus/'
+            },
+            {
+                title: 'cRaCked',
+                version: 'v2.1.4',
+                date: '2026-08-13',
+                type: 'RELEASE',
+                summary: 'Added calibrated probability estimates, an unknown-word fallback model and self-measuring telemetry.',
+                href: 'https://greasyfork.org/en/scripts/589397-cracked'
+            },
+            {
+                title: "MoDuL's Pit Guru",
+                version: 'v2.3.4',
+                date: '2026-07-30',
+                type: 'RELEASE',
+                summary: 'Repaired prediction and history car images and linked Records race IDs directly to replay.',
+                href: 'pit-guru/'
+            },
+            {
+                title: 'MoDuL Hub Control Room',
+                version: 'v0.2.10',
+                date: '2026-07-28',
+                type: 'RELEASE',
+                summary: 'Added a draggable saved launcher and dedicated selected-control colours to the shared theme contract.',
+                href: 'global-theme/'
+            },
+            {
+                title: 'Pythagoras Project - CIS',
+                version: 'v3.0.4b',
+                date: '2026-07-26',
+                type: 'RELEASE',
+                summary: 'Reconciled Company News with exact training-action records for correct grouped and raw totals.',
+                href: 'pythagoras-project-cis/'
+            },
+            {
+                title: 'Custom Race Filter',
+                version: 'v2.5.2',
+                date: '2026-07-14',
+                type: 'RELEASE',
+                summary: 'Made compact join controls own their navigation so refreshed Torn handlers cannot swallow clicks.',
+                href: 'custom-race-filter/'
+            },
+            {
+                title: 'Smuggler',
+                version: 'v3.0.6',
+                date: '2026-07-08',
+                type: 'RELEASE',
+                summary: 'Kept active flight sessions stable across page changes and preserved route progress without repeated fetches.',
+                href: 'smuggler/'
+            },
+            {
+                title: 'Restore OG Names',
+                version: 'v1.3.2',
+                date: '2026-06-06',
+                type: 'RELEASE',
+                summary: 'Published the current cross-page naming build for racing, markets, bazaars, logs and docks.',
+                href: 'restore-og-names/'
+            },
+            {
+                title: 'EggsTerminator',
+                version: 'v2.5.12',
+                date: '2026-04-28',
+                type: 'RELEASE',
+                summary: 'Stabilised state-aware navigation, manual log sync and separate found and collected counters.',
+                href: 'eggsterminator/'
+            },
+            {
+                title: 'Race Theme Changer',
+                version: 'v1.2.6',
+                date: '2026-04-20',
+                type: 'RELEASE',
+                summary: 'Added lock and sizing controls while retaining the permanent PDA-safe racing information bar.',
+                href: 'race-theme-changer/'
+            }
+        ];
+
+        const moduleFaqs = {
+            pythagoras: [
+                { question: 'Where should I start after installing?', answer: 'Open Settings, validate your Torn key, then sync business, employees, company news and the training log in that order.' },
+                { question: 'Is the API key stored in the cloud?', answer: 'The dashboard uses the key only to verify and fulfil the current request. It is not written to the CIS database.' }
+            ],
+            pitGuru: [
+                { question: 'Can I try Pit Guru before buying access?', answer: 'Verified accounts can use the one-race demo. Supporter access unlocks ongoing uploads, history and the full analysis workflow.' },
+                { question: 'Does it reveal hidden race results?', answer: 'No. Analysis follows Torn result visibility and uses race data available to the current player and page.' }
+            ],
+            customRaceFilter: [
+                { question: 'What works without a supporter licence?', answer: 'Track, lap and car-name filtering, race refresh and saved settings remain available in the free feature set.' },
+                { question: 'Does it work on TornPDA?', answer: 'Yes. The panel and licensing flow include mobile and stricter userscript-manager compatibility handling.' }
+            ],
+            tornfolio: [
+                { question: 'Can I install Tornfolio now?', answer: 'Not publicly yet. The project page documents the private preview while the property and lease workflow is refined.' },
+                { question: 'What will Tornfolio manage?', answer: 'Owned homes, current and partner properties, leases, rent, days remaining and practical rent or sale suggestions.' }
+            ],
+            modulHubControl: [
+                { question: 'What does Control Room change?', answer: 'It provides shared colours, fonts, spacing, radius and component variables for compatible MoDuL userscripts.' },
+                { question: 'Will it overwrite each script permanently?', answer: 'No. It supplies a shared live theme contract; supported scripts read those saved settings when they render.' }
+            ],
+            cracked: [
+                { question: 'Does cRaCked automatically submit guesses?', answer: 'No. It recommends an estimated position and character; you stay responsible for every cracking action.' },
+                { question: 'What is uploaded to the community pool?', answer: 'Completed cracking words can be shared when uploads are enabled. Torn passwords, API keys, cookies and messages are not intentionally uploaded.' },
+                { question: 'Can community uploads be disabled?', answer: 'Yes. Disable uploads in cRaCked Settings; local observations and downloaded dictionary data remain separate controls.' }
+            ],
+            raceTracker: [
+                { question: 'Is the spreadsheet ready to use?', answer: 'The public copy flow, documentation and screenshots are live, while the wider toolkit remains in development.' },
+                { question: 'Do I edit the public sheet?', answer: 'No. Use Get Spreadsheet to create your own copy, then work inside that copy.' }
+            ],
+            eggsTerminator: [
+                { question: 'Does it need a Torn API key?', answer: 'No. It uses visible page state and local browser storage for navigation and counters.' },
+                { question: 'What happens outside the Easter event?', answer: 'The script is an event utility. You can disable it in your userscript manager when egg hunting is inactive.' }
+            ],
+            raceThemeChanger: [
+                { question: 'Is the theme compatible with TornPDA?', answer: 'Yes. It avoids hover-only controls and keeps the information bar readable on smaller screens.' },
+                { question: 'Which race classes are supported?', answer: 'The current theme selector covers Classes A through E and applies the chosen look to supported racing views.' }
+            ],
+            restoreOgNames: [
+                { question: 'Where are original names restored?', answer: 'Supported racing, item market, item, bazaar, activity-log and docks views are covered.' },
+                { question: 'Will it break Custom Race Filter?', answer: 'It includes explicit compatibility handling so the filter can keep its own internal Torn-name matching.' }
+            ],
+            stockx: [
+                { question: 'Is Stock-X publicly installable?', answer: 'Not yet. The project and FAQ are live, but the public download stays disabled while the workflow is reviewed.' },
+                { question: 'What is the planned focus?', answer: 'Vault visibility, withdrawal planning, ROI guidance, benefit-lock protection and a faster trade-assistant flow.' }
+            ],
+            smuggler: [
+                { question: 'Does Smuggler automate an entire trip?', answer: 'No. It is deliberately step-based: one user input advances one visible Torn action.' },
+                { question: 'Does it require an API key?', answer: 'No. It works from the travel and item information already visible on the Torn pages you open.' }
+            ],
+            jobCentrePlus: [
+                { question: 'How do I install the live notifier?', answer: 'Sign in to JobCentre+, then use Install Notifier so the downloaded userscript receives your scoped notifier credential.' },
+                { question: 'Why does the notifier need a server connection?', answer: 'It reads your private applications, messages, vacancies and alerts through scoped authenticated endpoints; it does not expose those records publicly.' },
+                { question: 'What changed in v2.1.3?', answer: 'The notifier now uses XHR first with a CORS-backed fetch fallback, keeps panel scroll position and opens jobs with direct #job links.' }
+            ],
+            pythagorasDashboard: [
+                { question: 'Who can open a dashboard workspace?', answer: 'Authenticated, verified users with access to the corresponding CIS company workspace.' },
+                { question: 'Does the dashboard replace the userscript?', answer: 'No. It is the hosted companion for CIS data, analytics and reports; the userscript remains the Torn-side interface.' }
+            ],
+            'lap-recorder': [
+                { question: 'Is Lap Recorder still maintained?', answer: 'No. It is archived and no longer promoted for active use.' },
+                { question: 'Why keep the project page?', answer: 'Its screenshots, history and lessons document the development path that led to Pit Guru.' }
+            ]
+        };
+
+        function screenshotSeries(slug, count) {
+            return Array.from({ length: count }, (_, index) => ({
+                src: `assets/images/${slug}/screenshot-${index + 1}.png`,
+                alt: `${slug.replaceAll('-', ' ')} screenshot ${index + 1}`
+            }));
+        }
+
+        const moduleScreenshots = {
+            pythagoras: screenshotSeries('pythagoras-project-cis', 7),
+            pitGuru: screenshotSeries('pit-guru', 12),
+            customRaceFilter: screenshotSeries('custom-race-filter', 4),
+            tornfolio: [{ src: 'assets/images/landlord-tenant-ledger/landlord-tenant-ledger-logo.png', alt: 'Tornfolio project preview' }],
+            modulHubControl: [],
+            cracked: [],
+            raceTracker: screenshotSeries('race-tracker', 11),
+            eggsTerminator: screenshotSeries('eggsterminator', 5),
+            raceThemeChanger: screenshotSeries('race-theme-changer', 10),
+            restoreOgNames: screenshotSeries('restore-og-names', 4),
+            stockx: [],
+            smuggler: screenshotSeries('smuggler', 7),
+            jobCentrePlus: [
+                { src: 'assets/images/job-centre-plus/og.png', alt: 'JobCentre+ marketplace preview' },
+                { src: 'assets/images/job-centre-plus/og_promo16_9.png', alt: 'JobCentre+ widescreen preview' }
+            ],
+            pythagorasDashboard: screenshotSeries('pythagoras-project-cis', 7),
+            'lap-recorder': screenshotSeries('lap-recorder', 2)
+        };
+
         let currentFilter = 'ALL';
         let currentSort = 'newest';
         let currentView = 'registry';
@@ -1360,6 +1593,8 @@ void main() {
         let activeModuleId = null;
         let pageBootComplete = false;
         let terminalSequenceToken = 0;
+        let activeScreenshots = [];
+        let activeScreenshotIndex = 0;
         const pendingTerminalSteps = new Map();
         const sortLabels = {
             newest: 'NEW-OLD',
@@ -1734,7 +1969,7 @@ void main() {
                 ['MOUNTING VISUAL KERNEL / SHADER LAYER...', null, 260],
                 ['LOADING COMMAND INTERFACE...', 'interface', 260],
                 ['STARTING REGISTRY DIAGNOSTICS...', 'diagnostics', 240],
-                ['CONNECTING ACTIVITY STREAM...', 'activity', 240],
+                ['CONNECTING SCRIPT RELEASE TIMELINE...', 'activity', 240],
                 ['CONNECTING TO MODULE REGISTRY...', 'registry', 260]
             ];
 
@@ -1800,6 +2035,158 @@ void main() {
                 });
             }
             updateRegistrySummary();
+        }
+
+        function renderScriptUpdateTimeline() {
+            const timeline = document.getElementById('script-updates-timeline');
+            const count = document.getElementById('script-release-count');
+            if (!timeline || !count) return;
+
+            timeline.replaceChildren();
+            count.textContent = `${scriptReleases.length} RELEASES`;
+
+            scriptReleases.forEach((release, index) => {
+                const item = document.createElement('li');
+                item.className = "relative flex gap-3 pb-5 before:absolute before:left-[5px] before:top-5 before:bottom-0 before:w-px before:bg-white/10 last:pb-0 last:before:hidden feed-item";
+                item.style.animationDelay = `${Math.min(index * 70, 630)}ms`;
+
+                const dot = document.createElement('span');
+                dot.setAttribute('aria-hidden', 'true');
+                dot.className = release.type === 'HOTFIX'
+                    ? 'relative z-10 mt-1.5 h-3 w-3 shrink-0 rounded-full border border-tertiary-fixed-dim bg-background shadow-[0_0_8px_rgba(255,186,56,0.45)]'
+                    : 'relative z-10 mt-1.5 h-3 w-3 shrink-0 rounded-full border border-secondary-fixed bg-background shadow-[0_0_8px_rgba(121,255,91,0.45)]';
+
+                const content = document.createElement('div');
+                content.className = 'min-w-0 flex-1';
+                const titleRow = document.createElement('div');
+                titleRow.className = 'flex flex-wrap items-start gap-x-2 gap-y-1';
+                const type = document.createElement('span');
+                type.className = release.type === 'HOTFIX'
+                    ? 'shrink-0 font-label-caps text-[9px] uppercase tracking-widest text-tertiary-fixed-dim'
+                    : 'shrink-0 font-label-caps text-[9px] uppercase tracking-widest text-secondary-fixed';
+                type.textContent = release.type;
+                const link = document.createElement('a');
+                link.className = 'min-w-0 break-words text-on-surface hover:text-[#98f05f] transition-colors';
+                link.href = release.href;
+                link.textContent = release.title;
+                if (/^https?:\/\//i.test(release.href)) {
+                    link.target = '_blank';
+                    link.rel = 'noopener noreferrer';
+                }
+                const version = document.createElement('span');
+                version.className = 'text-[#98f05f]';
+                version.textContent = release.version;
+                titleRow.append(type, link, version);
+
+                const metadata = document.createElement('div');
+                metadata.className = 'mt-1 text-[10px] text-outline-variant uppercase';
+                const date = document.createElement('time');
+                date.dateTime = release.date;
+                date.textContent = new Intl.DateTimeFormat('en-GB', {
+                    day: '2-digit',
+                    month: 'short',
+                    year: 'numeric',
+                    timeZone: 'UTC'
+                }).format(new Date(`${release.date}T00:00:00Z`));
+                metadata.append(date);
+
+                const summary = document.createElement('p');
+                summary.className = 'mt-2 text-outline-variant leading-relaxed';
+                summary.textContent = release.summary;
+                content.append(titleRow, metadata, summary);
+                item.append(dot, content);
+                timeline.append(item);
+            });
+        }
+
+        function renderModuleFaq(data) {
+            const container = document.getElementById('detail-faq');
+            const count = document.getElementById('detail-faq-count');
+            const entries = moduleFaqs[data.id] || [
+                {
+                    question: `Where can I get help with ${data.title}?`,
+                    answer: 'Open the project page for current documentation or join the MoDuL Hub Discord for support.'
+                }
+            ];
+            container.replaceChildren();
+            count.textContent = `${entries.length} ${entries.length === 1 ? 'ENTRY' : 'ENTRIES'}`;
+
+            entries.forEach((entry) => {
+                const details = document.createElement('details');
+                details.className = 'bg-surface-container-lowest/50 border border-white/10 rounded group';
+                const summary = document.createElement('summary');
+                summary.className = 'cursor-pointer list-none p-4 flex items-start justify-between gap-3 text-on-surface hover:text-[#98f05f] transition-colors';
+                const question = document.createElement('span');
+                question.className = 'font-body-md text-sm';
+                question.textContent = entry.question;
+                const icon = document.createElement('span');
+                icon.setAttribute('aria-hidden', 'true');
+                icon.className = 'material-symbols-outlined text-[18px] shrink-0 group-open:rotate-180 transition-transform';
+                icon.textContent = 'expand_more';
+                summary.append(question, icon);
+                const answer = document.createElement('p');
+                answer.className = 'mx-4 mb-4 pt-3 border-t border-white/5 text-on-surface-variant text-code-sm leading-relaxed';
+                answer.textContent = entry.answer;
+                details.append(summary, answer);
+                container.append(details);
+            });
+        }
+
+        function showScreenshot(index) {
+            if (!activeScreenshots.length) return;
+            activeScreenshotIndex = (index + activeScreenshots.length) % activeScreenshots.length;
+            const screenshot = activeScreenshots[activeScreenshotIndex];
+            const image = document.getElementById('screenshot-dialog-image');
+            image.src = screenshot.src;
+            image.alt = screenshot.alt;
+            document.getElementById('screenshot-dialog-title').textContent = screenshot.moduleTitle;
+            document.getElementById('screenshot-dialog-position').textContent = `SCREENSHOT ${activeScreenshotIndex + 1} / ${activeScreenshots.length}`;
+            const hasMultiple = activeScreenshots.length > 1;
+            document.getElementById('screenshot-previous').disabled = !hasMultiple;
+            document.getElementById('screenshot-next').disabled = !hasMultiple;
+        }
+
+        function openScreenshot(index) {
+            showScreenshot(index);
+            document.getElementById('screenshot-dialog').showModal();
+        }
+
+        function renderModuleScreenshots(data) {
+            const container = document.getElementById('detail-screenshots');
+            const count = document.getElementById('detail-screenshot-count');
+            const screenshots = (moduleScreenshots[data.id] || []).map((screenshot) => ({
+                ...screenshot,
+                moduleTitle: data.title
+            }));
+            activeScreenshots = screenshots;
+            activeScreenshotIndex = 0;
+            container.replaceChildren();
+            count.textContent = screenshots.length
+                ? `${screenshots.length} ${screenshots.length === 1 ? 'IMAGE' : 'IMAGES'}`
+                : 'UPLINK PENDING';
+
+            if (!screenshots.length) {
+                const empty = document.createElement('div');
+                empty.className = 'sm:col-span-2 xl:col-span-3 border border-dashed border-outline-variant rounded p-6 text-center text-code-sm text-outline-variant';
+                empty.textContent = 'No current screenshots have been published for this module yet.';
+                container.append(empty);
+                return;
+            }
+
+            screenshots.forEach((screenshot, index) => {
+                const button = document.createElement('button');
+                button.type = 'button';
+                button.className = 'screenshot-thumb rounded group';
+                button.setAttribute('aria-label', `Open ${screenshot.alt}`);
+                button.addEventListener('click', () => openScreenshot(index));
+                const image = document.createElement('img');
+                image.src = screenshot.src;
+                image.alt = screenshot.alt;
+                image.loading = 'lazy';
+                image.decoding = 'async';
+                button.append(image);
+                container.append(button);
+            });
         }
 
         function createModuleCard(script, index) {
@@ -1978,6 +2365,9 @@ void main() {
                 item.textContent = feature;
                 features.append(item);
             });
+
+            renderModuleFaq(data);
+            renderModuleScreenshots(data);
 
             const note = document.getElementById('detail-note');
             const noteText = document.getElementById('detail-note-text');
@@ -2197,6 +2587,7 @@ void main() {
 
         document.addEventListener('DOMContentLoaded', () => {
             initializeBootStages();
+            renderScriptUpdateTimeline();
             document.querySelectorAll('[data-tier]').forEach((control) => {
                 control.addEventListener('click', () => filterByTier(control.dataset.tier));
             });
@@ -2216,6 +2607,12 @@ void main() {
             document.querySelectorAll('[data-close-dialog]').forEach((control) => {
                 control.addEventListener('click', () => control.closest('dialog').close());
             });
+            document.getElementById('screenshot-previous').addEventListener('click', () => {
+                showScreenshot(activeScreenshotIndex - 1);
+            });
+            document.getElementById('screenshot-next').addEventListener('click', () => {
+                showScreenshot(activeScreenshotIndex + 1);
+            });
             document.querySelectorAll('dialog').forEach((dialog) => {
                 dialog.addEventListener('click', (event) => {
                     if (event.target === dialog) dialog.close();
@@ -2232,6 +2629,15 @@ void main() {
                 if (!target.closest('#mobile-menu-toggle') && !target.closest('#mobile-nav')) closeMobileMenu();
             });
             document.addEventListener('keydown', (event) => {
+                const screenshotDialog = document.getElementById('screenshot-dialog');
+                if (screenshotDialog.open && event.key === 'ArrowLeft') {
+                    showScreenshot(activeScreenshotIndex - 1);
+                    return;
+                }
+                if (screenshotDialog.open && event.key === 'ArrowRight') {
+                    showScreenshot(activeScreenshotIndex + 1);
+                    return;
+                }
                 if (event.key !== 'Escape') return;
                 closeSortMenu();
                 closeMobileMenu();

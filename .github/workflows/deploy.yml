@@ -33,9 +33,6 @@ jobs:
         with:
           node-version: "22"
 
-      - name: Generate repository activity timeline
-        run: node tools/generate-activity-timeline.mjs code.html
-
       - name: Setup Pages
         uses: actions/configure-pages@v6
 
