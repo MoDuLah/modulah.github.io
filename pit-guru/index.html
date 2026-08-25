@@ -33,11 +33,11 @@
         <div class="hero-copy">
           <p class="section-kicker">Supporter Racing Analysis Tool</p>
           <h1 class="hero-title">MoDuL's Pit Guru</h1>
-          <p class="hero-text">A next-generation Torn racing analysis workspace built from Lap Recorder's lessons, with a public race player, PostgreSQL-backed history, and a v2.3.4 userscript with resilient Prediction car images.</p>
+          <p class="hero-text">A next-generation Torn racing analysis workspace built from Lap Recorder's lessons, with a public race player, PostgreSQL-backed history, and a v2.3.5 userscript that joins Torn identity verification to Pit Guru licence access.</p>
 
           <div class="hero-actions">
             <a class="cta-button" href="https://pp-api.sokin.xyz/pit-guru/" target="_blank" rel="noopener noreferrer">Open Public Race Player</a>
-            <a class="cta-button" href="pit-guru.user.js">Install v2.3.4</a>
+            <a class="cta-button" href="pit-guru.user.js">Install v2.3.5</a>
             <a class="ghost-button" href="https://discord.gg/JP8FQBATMV" target="_blank" rel="noopener noreferrer">Join Pit Guru Discord</a>
             <a class="ghost-button" href="../index.html#supporter-scripts">Back to Supporter Scripts</a>
           </div>
@@ -72,8 +72,8 @@
               <p>The hosted API and player now persist Pit Guru data in PostgreSQL, with pooled connections and backend-aware health checks.</p>
             </div>
             <div class="feature-block">
-              <h3>Prediction car images repaired</h3>
-              <p>v2.3.4 loads hosted Pit Guru car assets first, retries Torn's item image when needed, and removes broken-image glyphs cleanly.</p>
+              <h3>Licence-aware Player access</h3>
+              <p>v2.3.5 checks the Pit Guru licence during initial API-key validation, shows the verified driver and time remaining, and enables hosted Player actions only for active licences.</p>
             </div>
             <div class="feature-block">
               <h3>Large race performance</h3>
@@ -118,7 +118,7 @@
 
         <article class="content-card content-card-full">
           <h2>Supporter Access</h2>
-          <p><a href="pit-guru.user.js">Install Pit Guru v2.3.4</a>, then follow the first-run guided setup to verify your Torn account using a public Torn API key. The key is used only for verification and is never saved in the Pit Guru database.</p>
+          <p><a href="pit-guru.user.js">Install Pit Guru v2.3.5</a>, then follow the first-run guided setup to verify your Torn account using a public Torn API key. The verified driver ID is also used to check Pit Guru Player access; the key is used only for verification and is never saved in the Pit Guru database.</p>
           <p>Race external player:</p>
           <p>Every verified account can analyse one race as a demo.<br> For supporter licensing, <a href="https://discord.gg/JP8FQBATMV" target="_blank" rel="noopener noreferrer">join the MoDuL's Hub Discord</a> and run <code>/buylicense</code> in any server channel.</p>
         </article>
@@ -165,10 +165,12 @@
 
         <div class="changelog-tree" role="tree">
           <details class="changelog-version" role="treeitem" open>
-            <summary class="changelog-summary">Current status - July 30, 2026</summary>
+            <summary class="changelog-summary">Current status - August 25, 2026</summary>
             <div class="changelog-content">
               <ul class="changelog-list">
                 <li>The public race player is now live at <a href="https://pp-api.sokin.xyz/pit-guru/" target="_blank" rel="noopener noreferrer">pp-api.sokin.xyz/pit-guru/</a>.</li>
+                <li>The v2.3.5 userscript verifies the Pit Guru Player licence during the initial Torn API-key check and shows the verified driver, active state, and time remaining.</li>
+                <li>Hosted Player actions now require an active licence, unauthorized replay uploads stop before processing, and the saved-race list contains only payload-backed replays.</li>
                 <li>The hosted API and player now persist Pit Guru data in PostgreSQL, with pooled connections and backend-aware health checks.</li>
                 <li>The public Settings panel has been cleaned up to keep normal user controls front and centre.</li>
                 <li>Performance presets now update every Performance & Scan Timers control, and the timer textboxes use Pit Guru theme styling.</li>

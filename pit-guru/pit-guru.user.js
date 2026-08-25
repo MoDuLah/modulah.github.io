@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         MoDuL's Pit Guru
 // @namespace    modul.torn.racing
-// @version      2.3.4
+// @version      2.3.5
 // @description  Live Torn race timing, gaps, sectors, speed and estimated telemetry analysis
 // @author       MoDuL
 // @copyright    2026 MoDuL. All rights reserved.
@@ -43,6 +43,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
     const PG_API_CACHE_KEY = "RT_TORN_MPG_API_RESPONSE_CACHE_V1";
     const PG_API_CACHE_MAX_ENTRIES = 80;
     const PG_API_RETRY_MAX = 3;
+    const PG_LICENSE_STATUS_MAX_AGE_MS = 5 * 60 * 1000;
     const PG_HOSTED_SESSION_KEY = 'RT_TORN_MPG_HOSTED_SESSION';
     const PG_LEGACY_HOSTED_SESSION_KEYS = ['RT_TORN_LTL_HOSTED_SESSION'];
     const PG_ENDPOINT_PRESETS = Object.freeze({
@@ -76,6 +77,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         const next = PG_ENDPOINT_PRESETS[String(mode || "").trim().toLowerCase()] ? String(mode || "").trim().toLowerCase() : "public";
         GM_setValue(PG_ENDPOINT_MODE_KEY, next);
         pgClearHostedSession_();
+        pgClearHostedAccountStatus_();
         pgClearApiResponseCache_();
         return next;
     }
@@ -91,12 +93,14 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
     function pgSetCustomApiBase_(value) {
         GM_setValue(PG_CUSTOM_API_BASE_KEY, pgNormalizeBaseUrl_(value, PG_PUBLIC_BASE_DEFAULT));
         pgClearHostedSession_();
+        pgClearHostedAccountStatus_();
         pgClearApiResponseCache_();
     }
 
     function pgSetCustomPlayerBase_(value) {
         GM_setValue(PG_CUSTOM_PLAYER_BASE_KEY, pgNormalizeBaseUrl_(value, PG_PUBLIC_BASE_DEFAULT));
         pgClearHostedSession_();
+        pgClearHostedAccountStatus_();
         pgClearApiResponseCache_();
     }
 
@@ -313,6 +317,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
             const data = result.body || {};
             if (!data.sessionToken) throw new Error(data.error || "Pit Guru hosted account verification did not return a session.");
             GM_setValue(PG_HOSTED_SESSION_KEY, data.sessionToken);
+            if (data.account) pgApplyHostedAccount_(data.account);
             return data.sessionToken;
         }).finally(() => { pgHostedSessionPromise = null; });
         return pgHostedSessionPromise;
@@ -570,7 +575,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         return bigRaceSafeModeStatus_();
     };
 
-    const MPG_VERSION = "2.3.4";
+    const MPG_VERSION = "2.3.5";
     const PREDICTION_MODEL_VERSION = "pit-guru-local-v2";
     var TAG = "[MoDuL's Pit Guru v" + MPG_VERSION + "]";
 
@@ -4261,7 +4266,7 @@ self.onmessage=event=>{const id=event.data&&event.data.id;try{const root=JSON.pa
     }
 
     function markPlayerRaceDataAvailable_() {
-        if (!pgPlayerAvailabilityArmed || !playerRaceDataAvailable_()) return;
+        if (!pgPlayerAvailabilityArmed || !playerRaceDataAvailable_() || !pgPitGuruPlayerAccessState_().allowed) return;
         pgPlayerAvailabilityArmed = false;
         pgPlayerReadyHighlightUntil = Date.now() + 10000;
         clearTimeout(pgPlayerReadyHighlightTimer);
@@ -4326,6 +4331,13 @@ self.onmessage=event=>{const id=event.data&&event.data.id;try{const root=JSON.pa
         const p = getRacePayload_(payload) || payload || {};
         if (!p || !p.cars) return Promise.resolve(null);
         const autoNotify = !/^manual/i.test(String(source || ""));
+        const playerAccess = await pgEnsurePitGuruPlayerAccess_();
+        if (!playerAccess.allowed) {
+            pgPlayerCacheStatus = `Hosted player cache skipped: ${playerAccess.reason}`;
+            if (autoNotify) notifyRaceUpload_(`upload-license:${playerAccess.reason}`, pgPlayerCacheStatus);
+            if (debugEnabled) console.debug(TAG, pgPlayerCacheStatus, source);
+            return { ok: false, skipped: true, licenseRequired: true, error: pgPlayerCacheStatus };
+        }
         if (!opts.force && bigRaceSafeModeActive_()) {
             recordBigRaceSafeModeSkip_("hostedUpload");
             pgPlayerCacheStatus = "Big Race Safe Mode: hosted player auto-cache paused. Use Player manually when ready.";
@@ -4472,6 +4484,11 @@ self.onmessage=event=>{const id=event.data&&event.data.id;try{const root=JSON.pa
     }
 
     async function openLocalPlayerForCurrentRace_() {
+        const playerAccess = await pgEnsurePitGuruPlayerAccess_();
+        if (!playerAccess.allowed) {
+            toast_(playerAccess.reason);
+            return;
+        }
         if (!playerRaceDataAvailable_()) {
             toast_("Player unlocks when Torn delivers replay-ready racingData for this race.");
             return;
@@ -8933,9 +8950,171 @@ return {
         return Number.isFinite(level) && level > 0 ? `Level ${level}` : "Unknown access";
     }
 
+    function pgPlayerUsesHostedLicence_() {
+        const mode = pgEndpointMode_();
+        if (mode === "public" || mode === "tunnel") return true;
+        if (mode !== "custom") return false;
+        return pgNormalizeBaseUrl_(pgPlayerBase_(), PG_PUBLIC_BASE_DEFAULT) === PG_PUBLIC_BASE_DEFAULT;
+    }
+
+    function pgPitGuruAccount_() {
+        const account = apiKeyInfo?.pitGuruAccount;
+        return account && typeof account === "object" && !Array.isArray(account) ? account : null;
+    }
+
+    function pgApplyHostedAccount_(account) {
+        if (!account || typeof account !== "object") return null;
+        const rawLicense = account.license && typeof account.license === "object" ? account.license : {};
+        const checkedAt = new Date().toISOString();
+        const clean = {
+            userId: String(account.userId || "").trim(),
+            displayName: String(account.displayName || "").trim(),
+            checkedAt,
+            license: {
+                active: !!rawLicense.active,
+                status: String(rawLicense.status || (rawLicense.active ? "active" : "inactive")),
+                product: String(rawLicense.product || "moduls-pit-guru"),
+                tier: String(rawLicense.tier || ""),
+                expiresAt: String(rawLicense.expiresAt || ""),
+                timeLeftSeconds: Math.max(0, Number(rawLicense.timeLeftSeconds || 0) || 0),
+                promo: !!rawLicense.promo,
+                promoMode: String(rawLicense.promoMode || ""),
+                eventMode: !!rawLicense.eventMode
+            }
+        };
+        apiKeyInfo = Object.assign({}, apiKeyInfo || {}, { pitGuruAccount: clean });
+        saveApiKeyInfo_();
+        uiDirty = true;
+        scheduleRender_();
+        return clean;
+    }
+
+    function pgClearHostedAccountStatus_(error = "") {
+        if (!apiKeyInfo || typeof apiKeyInfo !== "object") apiKeyInfo = {};
+        if (error) {
+            apiKeyInfo.pitGuruAccount = {
+                checkedAt: new Date().toISOString(),
+                error: String(error),
+                license: { active: false, status: "check-failed", timeLeftSeconds: 0 }
+            };
+        } else {
+            delete apiKeyInfo.pitGuruAccount;
+        }
+        saveApiKeyInfo_();
+    }
+
+    function pgPitGuruRemainingSeconds_(account = pgPitGuruAccount_()) {
+        const license = account?.license || {};
+        const expiresAtMs = Date.parse(String(license.expiresAt || ""));
+        if (Number.isFinite(expiresAtMs)) return Math.max(0, Math.floor((expiresAtMs - Date.now()) / 1000));
+        const checkedAtMs = Date.parse(String(account?.checkedAt || ""));
+        const elapsed = Number.isFinite(checkedAtMs) ? Math.max(0, Math.floor((Date.now() - checkedAtMs) / 1000)) : 0;
+        return Math.max(0, Math.floor(Number(license.timeLeftSeconds || 0) - elapsed));
+    }
+
+    function pgPitGuruTimeLeftText_(seconds) {
+        const total = Math.max(0, Math.floor(Number(seconds || 0)));
+        if (!total) return "";
+        const days = Math.floor(total / 86400);
+        const hours = Math.floor((total % 86400) / 3600);
+        const minutes = Math.floor((total % 3600) / 60);
+        if (days) return `${days}d ${hours}h remaining`;
+        if (hours) return `${hours}h ${minutes}m remaining`;
+        return `${Math.max(1, minutes)}m remaining`;
+    }
+
+    function pgPitGuruLicenceLabel_(account = pgPitGuruAccount_()) {
+        if (!account) return "Pit Guru licence not checked";
+        if (account.error) return `Pit Guru licence check failed: ${account.error}`;
+        const license = account.license || {};
+        const identity = [String(account.displayName || "").trim(), account.userId ? `[${account.userId}]` : ""].filter(Boolean).join(" ");
+        const activeStatus = String(license.status || "active").trim();
+        const status = license.active
+            ? (activeStatus && activeStatus.toLowerCase() !== "active" ? activeStatus : "Licence active")
+            : "Licence inactive";
+        const remaining = license.active ? pgPitGuruTimeLeftText_(pgPitGuruRemainingSeconds_(account)) : "";
+        return [identity, status, remaining].filter(Boolean).join(" · ");
+    }
+
+    function pgPitGuruPlayerAccessState_() {
+        if (!pgPlayerUsesHostedLicence_()) return { allowed: true, local: true, reason: "" };
+        if (!apiKey) return { allowed: false, reason: "Add a Torn API key in Pit Guru Settings to verify Player access." };
+        const account = pgPitGuruAccount_();
+        if (!account) {
+            return {
+                allowed: false,
+                reason: apiKeyCheckActive ? "Checking Pit Guru Player licence..." : "Check the API key to verify the Pit Guru Player licence."
+            };
+        }
+        if (account.error) return { allowed: false, reason: `Pit Guru Player licence check failed: ${account.error}` };
+        const expectedUserId = String(apiKeyInfo?.userId || "").trim();
+        if (expectedUserId && account.userId && String(account.userId) !== expectedUserId) {
+            return { allowed: false, reason: "Pit Guru Player verification does not match this Torn API key." };
+        }
+        const active = !!account.license?.active && (!account.license?.expiresAt || pgPitGuruRemainingSeconds_(account) > 0);
+        return active
+            ? { allowed: true, account, reason: "" }
+            : { allowed: false, account, reason: `${pgPitGuruLicenceLabel_(account)}. An active Pit Guru licence is required.` };
+    }
+
+    async function pgRefreshHostedAccountStatus_(expectedUserId = "") {
+        if (!pgPlayerUsesHostedLicence_()) return null;
+        const readStatus = async session => {
+            const result = await pgRequestJsonWithRetry_("GET", pgPlayerUrl_("/api/account/status"), null, {
+                timeout: 12000,
+                maxRetries: PG_API_RETRY_MAX,
+                headers: session ? { "X-Pit-Guru-Session": session } : {}
+            });
+            return pgApplyHostedAccount_(result.body?.account);
+        };
+        let account = null;
+        let session = pgHostedSession_();
+        if (session) {
+            try {
+                account = await readStatus(session);
+            } catch (error) {
+                if (Number(error?.status || 0) !== 401) throw error;
+                pgClearHostedSession_();
+                session = "";
+            }
+        }
+        const expected = String(expectedUserId || "").trim();
+        if (account && expected && String(account.userId || "") !== expected) {
+            pgClearHostedSession_();
+            pgClearHostedAccountStatus_();
+            account = null;
+            session = "";
+        }
+        if (!account) {
+            session = await pgVerifyHostedSession_();
+            account = pgPitGuruAccount_() || await readStatus(session);
+        }
+        if (expected && String(account?.userId || "") !== expected) {
+            pgClearHostedSession_();
+            pgClearHostedAccountStatus_("Hosted account ID did not match the Torn key owner.");
+            throw new Error("Pit Guru Player verification did not match this Torn API key.");
+        }
+        return account;
+    }
+
+    async function pgEnsurePitGuruPlayerAccess_() {
+        if (!pgPlayerUsesHostedLicence_()) return pgPitGuruPlayerAccessState_();
+        const account = pgPitGuruAccount_();
+        const checkedAt = Date.parse(String(account?.checkedAt || ""));
+        const stale = !Number.isFinite(checkedAt) || Date.now() - checkedAt > PG_LICENSE_STATUS_MAX_AGE_MS;
+        if (!account || stale) {
+            try {
+                await pgRefreshHostedAccountStatus_(apiKeyInfo?.userId || "");
+            } catch (error) {
+                pgClearHostedAccountStatus_(pgErrorMessage_(error, "Pit Guru licence check failed"));
+            }
+        }
+        return pgPitGuruPlayerAccessState_();
+    }
+
     function apiKeyInfoHtml_() {
         if (!apiKey) return `<span class="mpg-key-status bad">Key access: Missing <b class="mpg-status-mark">x</b></span><span class="muted">Driver Intel needs a Torn API key. Race analysis still works without it.</span>`;
-        if (apiKeyCheckActive) return `<span class="mpg-key-status">Key access: Checking...</span><span class="muted">Validating with Torn v2 key/info.</span>`;
+        if (apiKeyCheckActive) return `<span class="mpg-key-status">Key access: Checking...</span><span class="muted">Validating with Torn and checking the Pit Guru Player licence.</span>`;
         if (!apiKeyInfo?.lastChecked) return `<span class="mpg-key-status muted">Key access: Not checked yet</span><span class="muted">Pit Guru checks it on refresh and when you press Check key.</span>`;
         const failed = apiKeyInfo.accessType === "Check failed" || apiKeyInfo.error;
         const full = !!apiKeyInfo.fullAccess;
@@ -8950,7 +9129,14 @@ return {
             apiKeyInfo.factionAccess ? "Faction access" : "",
             apiKeyInfo.logCustomPermissions ? "Log permissions" : ""
         ].filter(Boolean).join(" · ");
-        return `<span class="mpg-key-status ${cls}">Key access: ${esc_(label)} <b class="mpg-status-mark">${mark}</b></span><span class="muted">Checked ${esc_(checked)}${details ? ` · ${esc_(details)}` : ""}</span>`;
+        const playerAccount = pgPitGuruAccount_();
+        const playerAccess = pgPitGuruPlayerAccessState_();
+        const playerClass = playerAccess.allowed ? "good" : "bad";
+        const playerMark = playerAccess.allowed ? "✓" : "x";
+        const playerLine = pgPlayerUsesHostedLicence_()
+            ? `<span class="mpg-key-status ${playerClass}">Pit Guru Player: ${esc_(pgPitGuruLicenceLabel_(playerAccount))} <b class="mpg-status-mark">${playerMark}</b></span>`
+            : `<span class="mpg-key-status good">Pit Guru Player: Local endpoint <b class="mpg-status-mark">✓</b></span>`;
+        return `<span class="mpg-key-status ${cls}">Key access: ${esc_(label)} <b class="mpg-status-mark">${mark}</b></span><span class="muted">Checked ${esc_(checked)}${details ? ` · ${esc_(details)}` : ""}</span>${playerLine}`;
     }
 
     async function checkApiKeyInfo_(opts = {}) {
@@ -8959,6 +9145,7 @@ return {
         const key = String(apiKey || "").trim();
         if (!key) {
             apiKeyInfo = {};
+            pgClearHostedSession_();
             saveApiKeyInfo_();
             apiKeyStatus = "Add an API key first.";
             if (manual) toast_("Add an API key first.");
@@ -8989,7 +9176,21 @@ return {
                 companyId: String(user.company_id || user.companyId || "").trim()
             };
             saveApiKeyInfo_();
-            apiKeyStatus = fullAccess ? "Full Access key detected." : `Key access is ${accessType || `level ${apiKeyInfo.accessLevel}` || "limited"}.`;
+            let playerStatus = "";
+            if (pgPlayerUsesHostedLicence_()) {
+                try {
+                    const account = await pgRefreshHostedAccountStatus_(apiKeyInfo.userId);
+                    playerStatus = pgPitGuruLicenceLabel_(account);
+                } catch (error) {
+                    const message = pgErrorMessage_(error, "Pit Guru licence check failed");
+                    pgClearHostedAccountStatus_(message);
+                    playerStatus = `Pit Guru Player licence check failed: ${message}`;
+                }
+            } else {
+                playerStatus = "Pit Guru Player local endpoint enabled";
+            }
+            const keyStatus = fullAccess ? "Full Access key detected." : `Key access is ${accessType || `level ${apiKeyInfo.accessLevel}` || "limited"}.`;
+            apiKeyStatus = `${keyStatus} ${playerStatus}.`;
             if (manual) toast_(apiKeyStatus);
             return true;
         } catch (e) {
@@ -12684,7 +12885,7 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
             : `<input id="mpgApiKey" type="text" readonly value="${escAttr_(maskApiKey_(apiKey))}" title="Click View to reveal or edit">`;
         panel.innerHTML = `
           <section class="mpg-settings-section wide">
-            <div class="mpg-section-head"><h3>API & Driver Intel</h3><p>Key is saved locally and checked with Torn on refresh. Driver Intel fetches automatically before races and when race JSON appears.</p></div>
+            <div class="mpg-section-head"><h3>API & Driver Intel</h3><p>Key is saved locally and checked with Torn on refresh. The verified driver ID also checks Pit Guru Player licence access. Driver Intel fetches automatically before races and when race JSON appears.</p></div>
             <div class="mpg-setting-row">
               <div class="mpg-setting-label">API key</div>
               <div class="mpg-api-key-control">
@@ -12818,6 +13019,7 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
             if (next === apiKey) return;
             apiKey = next;
             apiKeyInfo = {};
+            pgClearHostedSession_();
             saveApiKey_();
             saveApiKeyInfo_();
             apiKeyStatus = apiKey ? "API key saved locally. Checking key access..." : "API key cleared.";
@@ -16464,12 +16666,14 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
         if (recText) recText.textContent = "JSON";
         markPlayerRaceDataAvailable_();
         if (playerBtn) {
-            const playerReady = playerRaceDataAvailable_();
+            const playerAccess = pgPitGuruPlayerAccessState_();
+            const raceDataReady = playerRaceDataAvailable_();
+            const playerReady = raceDataReady && playerAccess.allowed;
             playerBtn.disabled = !playerReady;
             playerBtn.classList.toggle("mpg-player-ready-highlight", playerReady && Date.now() < pgPlayerReadyHighlightUntil);
             playerBtn.title = playerReady
                 ? "Open this race in the hosted Player"
-                : "Player unlocks when replay-ready racingData is available";
+                : (!playerAccess.allowed ? playerAccess.reason : "Player unlocks when replay-ready racingData is available");
         }
         if (exportBtn) {
             const htmlReady = htmlReportCanExport_();
@@ -16598,7 +16802,12 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
                     const displayRs = recordDisplayRacingSkill_(r);
                     const rs = displayRs == null ? "--" : formatDriverRs_(displayRs).replace(/^RS:\s*/i, "");
                     const recRid = String(r.raceId || "").trim();
-                    const raceCell = recRid ? `<a class="recRaceLink" href="${escAttr_(pgPlayerRaceUrl_(recRid))}" target="_blank" rel="noopener noreferrer" title="Open in Pit Guru Player">${esc_(recRid)}</a>` : "";
+                    const playerAccess = pgPitGuruPlayerAccessState_();
+                    const raceCell = recRid
+                        ? (playerAccess.allowed
+                            ? `<a class="recRaceLink" href="${escAttr_(pgPlayerRaceUrl_(recRid))}" target="_blank" rel="noopener noreferrer" title="Open in Pit Guru Player">${esc_(recRid)}</a>`
+                            : `<span title="${escAttr_(playerAccess.reason)}">${esc_(recRid)}</span>`)
+                        : "";
                     const actionCell = `<button class="recDelBtn" data-id="${escAttr_(r.id)}" data-source="${escAttr_(r.source || "")}" data-mode="${escAttr_(mode)}" data-race-id="${escAttr_(r.raceId || "")}" data-driver-id="${escAttr_(r.driverId || "")}" data-car="${escAttr_(r.car || "")}" title="Delete saved record">🗑️</button>`;
                     return `<tr>
             <td class="recNum">${i + 1}</td>

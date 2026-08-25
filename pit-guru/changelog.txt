@@ -1,3 +1,12 @@
+## v2.3.5 (2026-08-25)
+
+- The initial Torn API-key check now verifies the Pit Guru licence using Torn's verified driver ID.
+- Settings shows the verified driver name and ID, licence state, and live time remaining.
+- Hosted Player buttons, Records replay links, and replay uploads require an active Pit Guru licence; local desktop endpoints remain available for development.
+- Inactive hosted uploads stop before replay compaction, transfer, or server-side replay analysis.
+- The Player's saved-race list now includes only payload-backed replays, so lightweight result-only rows no longer open into missing-cache errors.
+- Added focused userscript, replay-ingest, saved-list, and PostgreSQL/SQLite-compatible query regressions.
+
 ## v2.3.4 (2026-07-30)
 
 - Fixed broken car images in Predictions and Past Races.
