@@ -155,6 +155,13 @@
 - **Miscellaneous**: Release Pit Guru 2.3.3 player record links
 - **Miscellaneous**: Release Pit Guru 2.3.2 prediction fixes
 
+## v2.3.5 (2026-08-25)
+
+### Miscellaneous
+
+- **Miscellaneous**: Release Pit Guru 2.3.5 licence-gated replays
+
+
 
 
 
