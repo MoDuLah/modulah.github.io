@@ -170,6 +170,14 @@
 
 - **Miscellaneous**: Release Pit Guru 2.3.5 licence-gated replays
 
+## v2.3.6 (2026-08-30)
+
+### Miscellaneous
+
+- **Miscellaneous**: Release Pit Guru 2.3.6 cached driver lookups and paced API requests
+- **Miscellaneous**: Release Pit Guru 2.3.5 licence-gated replays
+
+
 
 
 
