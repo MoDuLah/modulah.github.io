@@ -38,7 +38,7 @@
           <ul class="feature-list">
             <li class="feature-item"><span class="feature-dot" aria-hidden="true"></span><span>Live timing, gaps, sectors, and speed-focused analysis</span></li>
             <li class="feature-item"><span class="feature-dot" aria-hidden="true"></span><span>Current-page data only, with result preview controls</span></li>
-            <li class="feature-item"><span class="feature-dot" aria-hidden="true"></span><span>Public race player, PostgreSQL history, and v2.3.5 userscript live</span></li>
+            <li class="feature-item"><span class="feature-dot" aria-hidden="true"></span><span>Public race player, shared history, and v2.3.6 cache-first Driver Intel</span></li>
           </ul>
         </aside>
       </section>
@@ -119,8 +119,8 @@
           <details id="release">
             <summary>Can I install it right now?</summary>
             <div class="answer">
-              <p>Yes. Install <a href="pit-guru.user.js">Pit Guru v2.3.5</a>. On first run, Settings opens with the public Torn API-key field focused and a short guided tour. Its update and download routes point to the same hosted build.</p>
-              <p>v2.3.5 uses Torn's verified driver ID to check the Pit Guru Player licence during the initial key check, shows the active state and time remaining, and prevents inactive hosted replay uploads before processing.</p>
+              <p>Yes. Install <a href="pit-guru.user.js">Pit Guru v2.3.6</a>. On first run, Settings opens with the public Torn API-key field focused and a short guided tour. Its update and download routes point to the same hosted build.</p>
+              <p>Key verification and Player licence checks show separate progress. Driver details are reused from the browser or shared database for up to seven days. Missing or stale profiles use a shared 60-per-minute Pit Guru budget, with 250 ms spacing for grids of up to six racers and one-second spacing for larger grids. Other tools also count toward Torn's user-wide limit. Settings &gt; API timings helps identify waits without exposing your key.</p>
               <p>v2.3.4 fixes car images in Predictions and Past Races by using Pit Guru's hosted car asset first, Torn's canonical item image as a fallback, and clean failure handling if neither loads.</p>
               <p>v2.3.3 opens Race IDs in Records directly in the configured Pit Guru Player instead of navigating back to Torn.</p>
               <p>v2.3.2 fixes current custom-race lap metadata and race length. Predictions now make RS the strongest prior, use same-track lap pace regardless of race distance, normalize finishes for field size, and learn bounded corrections from frozen pre-race forecasts.</p>

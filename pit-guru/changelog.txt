@@ -1,3 +1,12 @@
+## v2.3.6 (2026-08-30)
+
+- Reuse complete driver profiles from the browser and shared database for seven days before calling Torn.
+- Pace grids of six racers or fewer at 250 ms and larger grids at one second, with up to two requests in flight.
+- Share a persistent 60-call rolling-minute Torn budget across Pit Guru tabs, leaving headroom within Torn's user-wide limit.
+- Show key validation separately from Player licence progress, including while a Settings field is focused.
+- Bound stalled requests, avoid repeated hosted timeouts, and provide secret-free API timings in Settings.
+- Preserve race capture, replay-result gating, licences, and endpoint modes; add driver lookup parity and rate-limit regression tests.
+
 ## v2.3.5 (2026-08-25)
 
 - The initial Torn API-key check now verifies the Pit Guru licence using Torn's verified driver ID.

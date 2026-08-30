@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         MoDuL's Pit Guru
 // @namespace    modul.torn.racing
-// @version      2.3.5
+// @version      2.3.6
 // @description  Live Torn race timing, gaps, sectors, speed and estimated telemetry analysis
 // @author       MoDuL
 // @copyright    2026 MoDuL. All rights reserved.
@@ -53,6 +53,99 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         custom: { label: "Custom URL", apiBase: PG_PUBLIC_BASE_DEFAULT, playerBase: PG_PUBLIC_BASE_DEFAULT }
     });
     let pgHostedSessionPromise = null;
+    let pgHostedStatusPromise = null;
+
+    // Shared across Pit Guru tabs/keys. Never store keys, URLs, or response bodies here.
+    const PG_TORN_BUDGET_KEY = "RT_TORN_MPG_TORN_BUDGET_V1";
+    const PG_TORN_BUDGET_LIMIT = 60;
+    const PG_TORN_WINDOW_MS = 60000;
+    const pgApiTimingRows = [];
+    const pgApiPending = new Map();
+    let pgApiTimingId = 0;
+    const pgDriverRequests = new Map();
+
+    function pgApiTimingStart_(kind) {
+        const id = ++pgApiTimingId;
+        pgApiPending.set(id, { kind, at: Date.now() });
+        return id;
+    }
+
+    function pgApiTimingEnd_(id, status = 0, outcome = "ok") {
+        const pending = pgApiPending.get(id);
+        if (!pending) return;
+        pgApiPending.delete(id);
+        pgApiTimingRows.push({ kind: pending.kind, at: pending.at, ms: Date.now() - pending.at, status, outcome });
+        if (pgApiTimingRows.length > 60) pgApiTimingRows.shift();
+    }
+
+    function pgApiTimings_() {
+        return {
+            budgetPerMinute: PG_TORN_BUDGET_LIMIT,
+            pending: Array.from(pgApiPending.values(), row => ({ kind: row.kind, elapsedMs: Date.now() - row.at })),
+            recent: pgApiTimingRows.map(row => ({ ...row }))
+        };
+    }
+    unsafeWindow.pgApiTimings = pgApiTimings_;
+
+    function pgApiKind_(url) {
+        const parsed = new URL(url);
+        if (parsed.hostname === "api.torn.com") {
+            if (parsed.pathname === "/v2/key/info") return "torn-key";
+            if (/^\/user\//.test(parsed.pathname)) return "torn-driver";
+            return "torn-other";
+        }
+        if (parsed.pathname.endsWith("/api/account/verify")) return "hosted-verify";
+        if (parsed.pathname.endsWith("/api/account/status")) return "hosted-licence";
+        if (parsed.pathname.endsWith("/drivers/lookup")) return "database-profiles";
+        return "pit-guru-api";
+    }
+
+    function pgTornBudgetWait_(state, now, spacingMs) {
+        const starts = (Array.isArray(state?.starts) ? state.starts : [])
+            .filter(at => Number.isFinite(at) && at > now - PG_TORN_WINDOW_MS).sort((a, b) => a - b);
+        const last = starts.length ? starts[starts.length - 1] : 0;
+        const wait = Math.max(0, Number(state?.cooldownUntil || 0) - now,
+            last ? last + spacingMs - now : 0,
+            starts.length >= PG_TORN_BUDGET_LIMIT ? starts[starts.length - PG_TORN_BUDGET_LIMIT] + PG_TORN_WINDOW_MS - now : 0);
+        return { starts, wait };
+    }
+
+    async function pgTornBudgetLock_(operation) {
+        // Web Locks + synchronous origin storage are atomic across racing tabs, including reloads.
+        // Fail closed rather than silently bypassing the shared budget in an unsupported browser.
+        if (!navigator.locks?.request) throw new Error("Shared Torn API limiter unavailable. Use a browser with Web Locks support.");
+        return await navigator.locks.request("pit-guru-torn-budget-v1", operation);
+    }
+
+    async function pgAcquireTornSlot_(spacingMs = 1000, stillValid = () => true) {
+        const timing = pgApiTimingStart_("torn-queue");
+        try {
+            for (;;) {
+                if (!stillValid()) throw new Error("Torn request cancelled because the API key changed.");
+                const wait = await pgTornBudgetLock_(() => {
+                    const state = JSON.parse(localStorage.getItem(PG_TORN_BUDGET_KEY) || "{}");
+                    const now = Date.now();
+                    const next = pgTornBudgetWait_(state, now, Math.max(250, spacingMs));
+                    if (!next.wait) {
+                        next.starts.push(now);
+                        localStorage.setItem(PG_TORN_BUDGET_KEY, JSON.stringify({ starts: next.starts, cooldownUntil: Number(state.cooldownUntil || 0) }));
+                    }
+                    return next.wait;
+                });
+                if (!wait) return;
+                await pgDelay_(Math.min(wait, 1000));
+            }
+        } finally {
+            pgApiTimingEnd_(timing);
+        }
+    }
+
+    async function pgTornCooldown_() {
+        await pgTornBudgetLock_(() => {
+            const state = JSON.parse(localStorage.getItem(PG_TORN_BUDGET_KEY) || "{}");
+            localStorage.setItem(PG_TORN_BUDGET_KEY, JSON.stringify({ starts: state.starts || [], cooldownUntil: Date.now() + PG_TORN_WINDOW_MS }));
+        });
+    }
 
     function pgNormalizeBaseUrl_(value, fallback = PG_PUBLIC_BASE_DEFAULT) {
         const raw = String(value || "").trim().replace(/\/+$/, "");
@@ -256,6 +349,27 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
 
     function pgRequestJson_(method, url, payload = null, options = {}) {
         return new Promise((resolve, reject) => {
+            const timing = pgApiTimingStart_(pgApiKind_(url));
+            const timeoutMs = Number(options.timeout) || 10000;
+            let settled = false;
+            let request = null;
+            const controller = typeof AbortController === "function" ? new AbortController() : null;
+            const finish = (error, value) => {
+                if (settled) return;
+                settled = true;
+                clearTimeout(watchdog);
+                const tornCode = Number(value?.body?.error?.code);
+                pgApiTimingEnd_(timing, error?.status || value?.status || 0, error ? (error.timedOut ? "timeout" : "error") : (tornCode ? `api-error-${tornCode}` : "ok"));
+                if (error) reject(error); else resolve(value);
+            };
+            const timedOut = () => {
+                const error = new Error(options.timeoutMessage || "Pit Guru API request timed out");
+                error.timedOut = true;
+                finish(error);
+                try { request?.abort(); } catch {}
+                controller?.abort();
+            };
+            const watchdog = setTimeout(timedOut, timeoutMs);
             const headers = Object.assign(
                 payload ? { "Content-Type": "application/json" } : {},
                 options.headers || {}
@@ -263,40 +377,47 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
             const parse = (status, statusText, responseText, responseHeaders = "") => {
                 let body = null;
                 try { body = JSON.parse(String(responseText || "{}")); }
-                catch { body = {}; }
+                catch {
+                    const error = new Error("API returned an invalid JSON response");
+                    error.status = status;
+                    finish(error);
+                    return;
+                }
                 if (status < 200 || status >= 300) {
-                    const error = new Error(body?.error || statusText || `HTTP ${status}`);
+                    const error = new Error(`API request failed (HTTP ${status})`);
                     error.status = status;
                     error.statusText = statusText;
                     error.payload = body;
                     const retryAfter = String(responseHeaders || "").match(/retry-after:\s*(\d+)/i);
                     if (retryAfter) error.retryAfterMs = Number(retryAfter[1]) * 1000;
-                    reject(error);
+                    finish(error);
                     return;
                 }
-                resolve({ status, statusText, body });
+                finish(null, { status, statusText, body });
             };
             if (typeof GM_xmlhttpRequest === "function") {
-                GM_xmlhttpRequest({
+                try { request = GM_xmlhttpRequest({
                     method,
                     url,
                     headers,
                     data: payload ? JSON.stringify(payload) : undefined,
-                    timeout: Number(options.timeout) || 10000,
+                    timeout: timeoutMs,
                     onload: response => parse(response.status, response.statusText, response.responseText, response.responseHeaders),
-                    onerror: () => reject(new Error(options.errorMessage || `Pit Guru API unavailable at ${url}.`)),
-                    ontimeout: () => reject(new Error(options.timeoutMessage || "Pit Guru API request timed out"))
-                });
+                    onerror: () => finish(new Error(options.errorMessage || "Pit Guru API network request failed")),
+                    onabort: () => finish(new Error("Pit Guru API request cancelled")),
+                    ontimeout: timedOut
+                }); } catch { finish(new Error("Pit Guru API transport unavailable")); }
                 return;
             }
             fetch(url, {
                 method,
                 headers,
                 body: payload ? JSON.stringify(payload) : undefined,
+                signal: controller?.signal,
                 cache: "no-store"
             }).then(async response => {
                 parse(response.status, response.statusText, await response.text(), "");
-            }).catch(reject);
+            }).catch(() => finish(new Error("Pit Guru API network request failed")));
         });
     }
 
@@ -305,21 +426,25 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
     }
 
     function pgVerifyHostedSession_() {
-        if (pgHostedSessionPromise) return pgHostedSessionPromise;
         const key = String(GM_getValue("RT_TORN_RA_API_KEY", "") || "").trim();
+        if (pgHostedSessionPromise?.pitGuruKey === key) return pgHostedSessionPromise;
         if (!key) return Promise.reject(new Error("Add a public Torn API key in Pit Guru Settings to verify the hosted player."));
-        pgHostedSessionPromise = pgRequestJsonWithRetry_("POST", pgPlayerUrl_("/api/account/verify"), { apiKey: key }, {
-            timeout: 15000,
-            maxRetries: PG_API_RETRY_MAX,
+        // The server performs one Torn profile call. Reserve it in the same budget;
+        // do not retry a timed-out verification which may already have created a session.
+        pgHostedSessionPromise = pgAcquireTornSlot_(1000, () => String(apiKey || "").trim() === key)
+        .then(() => pgRequestJson_("POST", pgPlayerUrl_("/api/account/verify"), { apiKey: key }, {
+            timeout: 22000,
             errorMessage: "Pit Guru hosted account verification failed.",
             timeoutMessage: "Pit Guru hosted account verification timed out."
-        }).then(result => {
+        })).then(result => {
+            if (String(apiKey || "").trim() !== key) throw new Error("API key changed during verification.");
             const data = result.body || {};
             if (!data.sessionToken) throw new Error(data.error || "Pit Guru hosted account verification did not return a session.");
             GM_setValue(PG_HOSTED_SESSION_KEY, data.sessionToken);
             if (data.account) pgApplyHostedAccount_(data.account);
             return data.sessionToken;
-        }).finally(() => { pgHostedSessionPromise = null; });
+        }).finally(() => { if (pgHostedSessionPromise?.pitGuruKey === key) pgHostedSessionPromise = null; });
+        pgHostedSessionPromise.pitGuruKey = key;
         return pgHostedSessionPromise;
     }
 
@@ -575,7 +700,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         return bigRaceSafeModeStatus_();
     };
 
-    const MPG_VERSION = "2.3.5";
+    const MPG_VERSION = "2.3.6";
     const PREDICTION_MODEL_VERSION = "pit-guru-local-v2";
     var TAG = "[MoDuL's Pit Guru v" + MPG_VERSION + "]";
 
@@ -1182,6 +1307,8 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
     let apiKeyVisible = false;
     let apiKeyInfo = {};
     let apiKeyCheckActive = false;
+    let apiKeyTornChecked = false;
+    let apiKeyCheckGeneration = 0;
     let apiKeyStatus = "";
     let driverIntelCache = {};
     let driverHistory = {};
@@ -3462,14 +3589,16 @@ self.onmessage=event=>{const id=event.data&&event.data.id;try{const root=JSON.pa
     function driverIntelNeedsProfileRefresh_(driverId, name) {
         if (!driverIntelCacheLoaded) return false;
         const cached = getCachedDriverIntel_(driverId, 24 * 7) || getCachedDriverIntelByName_(name, 24 * 7);
-        if (!cached) return true;
-        const fetchedAt = Number(cached.fetchedAt || 0);
-        return !fetchedAt || (Date.now() - fetchedAt) > 7 * 24 * 3600 * 1000;
+        if (cached && driverId && driverId !== "self" && String(cached.driverId) !== String(driverId)) return true;
+        return !driverIntelIsFresh_(cached);
     }
 
     function driverIntelIsFresh_(intel) {
         const fetchedAt = Number(intel?.fetchedAt || 0);
-        return !!intel && !!fetchedAt && (Date.now() - fetchedAt) <= 7 * 24 * 3600 * 1000;
+        const age = Date.now() - fetchedAt;
+        return !!intel && fetchedAt > 0 && age >= 0 && age <= 7 * 24 * 3600 * 1000
+            && [intel.racingSkill, intel.racingPointsEarned, intel.racesEntered, intel.racesWon]
+                .every(value => value != null && value !== "" && Number.isFinite(Number(value)) && Number(value) >= 0);
     }
 
     function applyDriverIntelToModel_() {
@@ -3562,8 +3691,8 @@ self.onmessage=event=>{const id=event.data&&event.data.id;try{const root=JSON.pa
         ).trim();
         if (!driverId) return null;
         const fetchedAt = msFromIsoLike_(
-            profile.last_profile_fetch_at || profile.updated_at || profile.created_at || entry?.updatedAt || entry?.fetchedAtIso
-        ) || Date.now();
+            profile.last_profile_fetch_at || profile.fetchedAtIso || entry?.fetchedAtIso
+        );
         return {
             driverId,
             name: String(profile.display_name || profile.last_seen_name || entry?.name || fallback.name || ""),
@@ -3580,6 +3709,38 @@ self.onmessage=event=>{const id=event.data&&event.data.id;try{const root=JSON.pa
             winRate: statNumber_(profile.win_rate, profile.winRate),
             fetchedAt
         };
+    }
+
+    async function pgLoadDriverProfilesFromDb_(drivers) {
+        const wanted = new Map(drivers.map(d => [String(d.driverId === "self" ? apiKeyInfo?.userId || "" : d.driverId), d])
+            .filter(([id]) => /^\d+$/.test(id)));
+        const found = new Set();
+        const ids = Array.from(wanted.keys());
+        for (let offset = 0; offset < ids.length; offset += 100) {
+            const batch = ids.slice(offset, offset + 100);
+            try {
+                const result = await pgLocalApiRequest("/api/pit-guru/v1/drivers/lookup", { driverIds: batch }, {
+                    timeout: 4000, maxRetries: 1, forceRefresh: true
+                });
+                for (const id of batch) {
+                    const profile = result?.drivers?.[id];
+                    if (!profile) continue;
+                    const driver = wanted.get(id);
+                    const intel = pgLocalDriverIntelFromProfile_(profile, driver);
+                    if (intel?.driverId !== id || !driverIntelIsFresh_(intel)) continue;
+                    cacheDriverIntel_(driver.driverId, intel);
+                    found.add(String(driver.driverId));
+                }
+            } catch {
+                // A database outage must not block the browser's authorised Torn API path.
+                break;
+            }
+        }
+        if (found.size) {
+            saveDriverIntelCache_();
+            applyDriverIntelToModel_();
+        }
+        return found;
     }
 
     function extractRaceIdFromPayloadOrUrl_(payload) {
@@ -8917,24 +9078,29 @@ return {
         return Array.from(byId.values());
     }
 
-    function gmRequestJson_(url) {
-        return new Promise((resolve, reject) => {
-            if (typeof GM_xmlhttpRequest !== "function") {
-                fetch(url).then(r => r.json()).then(resolve).catch(reject);
-                return;
+    async function gmRequestJson_(url, options = {}) {
+        const requestKey = new URL(url).searchParams.get("key");
+        await pgAcquireTornSlot_(options.spacingMs || 1000, () => String(apiKey || "").trim() === requestKey && !options.cancelled?.());
+        try {
+            const result = await pgRequestJson_("GET", url, null, { timeout: 12000, timeoutMessage: "Torn API request timed out after 12 seconds" });
+            const json = result.body;
+            if (json?.error) {
+                const error = new Error(`Torn API error ${Number(json.error.code) || "unknown"}`);
+                error.tornCode = Number(json.error.code);
+                error.stopPool = [1, 2, 5, 7, 8, 10, 13, 16, 17, 18].includes(error.tornCode);
+                throw error;
             }
-            GM_xmlhttpRequest({
-                method: "GET",
-                url,
-                timeout: 20000,
-                onload: res => {
-                    try { resolve(JSON.parse(String(res.responseText || "{}"))); }
-                    catch (e) { reject(e); }
-                },
-                onerror: reject,
-                ontimeout: () => reject(new Error("Driver Intel request timed out"))
-            });
-        });
+            return json;
+        } catch (error) {
+            if (error.tornCode === 5 || error.status === 429) {
+                await pgTornCooldown_();
+                error.message = "Torn rate limit reached. Pit Guru is paused for 60 seconds; try Refresh afterwards.";
+                error.stopPool = true;
+            } else if (!error.tornCode) {
+                error.stopPool = true;
+            }
+            throw error;
+        }
     }
 
     function maskApiKey_(value) {
@@ -9058,13 +9224,24 @@ return {
     }
 
     async function pgRefreshHostedAccountStatus_(expectedUserId = "") {
+        const key = apiKey;
+        if (pgHostedStatusPromise?.pitGuruKey === key) return pgHostedStatusPromise;
+        pgHostedStatusPromise = pgReadHostedAccountStatus_(expectedUserId)
+            .finally(() => { if (pgHostedStatusPromise?.pitGuruKey === key) pgHostedStatusPromise = null; });
+        pgHostedStatusPromise.pitGuruKey = key;
+        return pgHostedStatusPromise;
+    }
+
+    async function pgReadHostedAccountStatus_(expectedUserId = "") {
         if (!pgPlayerUsesHostedLicence_()) return null;
+        const checkedKey = apiKey;
         const readStatus = async session => {
             const result = await pgRequestJsonWithRetry_("GET", pgPlayerUrl_("/api/account/status"), null, {
-                timeout: 12000,
-                maxRetries: PG_API_RETRY_MAX,
+                timeout: 8000,
+                maxRetries: 1,
                 headers: session ? { "X-Pit-Guru-Session": session } : {}
             });
+            if (apiKey !== checkedKey) throw new Error("API key changed during licence check.");
             return pgApplyHostedAccount_(result.body?.account);
         };
         let account = null;
@@ -9073,6 +9250,7 @@ return {
             try {
                 account = await readStatus(session);
             } catch (error) {
+                if (apiKey !== checkedKey) throw new Error("API key changed during licence check.");
                 if (Number(error?.status || 0) !== 401) throw error;
                 pgClearHostedSession_();
                 session = "";
@@ -9086,6 +9264,7 @@ return {
             session = "";
         }
         if (!account) {
+            if (apiKey !== checkedKey) throw new Error("API key changed during licence check.");
             session = await pgVerifyHostedSession_();
             account = pgPitGuruAccount_() || await readStatus(session);
         }
@@ -9114,7 +9293,7 @@ return {
 
     function apiKeyInfoHtml_() {
         if (!apiKey) return `<span class="mpg-key-status bad">Key access: Missing <b class="mpg-status-mark">x</b></span><span class="muted">Driver Intel needs a Torn API key. Race analysis still works without it.</span>`;
-        if (apiKeyCheckActive) return `<span class="mpg-key-status">Key access: Checking...</span><span class="muted">Validating with Torn and checking the Pit Guru Player licence.</span>`;
+        if (apiKeyCheckActive && !apiKeyTornChecked) return `<span class="mpg-key-status">Key access: Checking Torn...</span><span class="muted">Waiting for a safe API slot or Torn's response. API timings show the current stage.</span>`;
         if (!apiKeyInfo?.lastChecked) return `<span class="mpg-key-status muted">Key access: Not checked yet</span><span class="muted">Pit Guru checks it on refresh and when you press Check key.</span>`;
         const failed = apiKeyInfo.accessType === "Check failed" || apiKeyInfo.error;
         const full = !!apiKeyInfo.fullAccess;
@@ -9133,7 +9312,9 @@ return {
         const playerAccess = pgPitGuruPlayerAccessState_();
         const playerClass = playerAccess.allowed ? "good" : "bad";
         const playerMark = playerAccess.allowed ? "✓" : "x";
-        const playerLine = pgPlayerUsesHostedLicence_()
+        const playerLine = apiKeyCheckActive && apiKeyTornChecked && pgPlayerUsesHostedLicence_()
+            ? `<span class="mpg-key-status">Pit Guru Player: Checking licence...</span><span class="muted">Torn key verified. Player access is checked separately.</span>`
+            : pgPlayerUsesHostedLicence_()
             ? `<span class="mpg-key-status ${playerClass}">Pit Guru Player: ${esc_(pgPitGuruLicenceLabel_(playerAccount))} <b class="mpg-status-mark">${playerMark}</b></span>`
             : `<span class="mpg-key-status good">Pit Guru Player: Local endpoint <b class="mpg-status-mark">✓</b></span>`;
         return `<span class="mpg-key-status ${cls}">Key access: ${esc_(label)} <b class="mpg-status-mark">${mark}</b></span><span class="muted">Checked ${esc_(checked)}${details ? ` · ${esc_(details)}` : ""}</span>${playerLine}`;
@@ -9153,10 +9334,13 @@ return {
             return false;
         }
         apiKeyCheckActive = true;
+        apiKeyTornChecked = false;
+        const generation = ++apiKeyCheckGeneration;
         apiKeyStatus = "Checking key access...";
         uiDirty = true; scheduleRender_();
         try {
             const json = await gmRequestJson_(`https://api.torn.com/v2/key/info?key=${encodeURIComponent(key)}`);
+            if (generation !== apiKeyCheckGeneration || key !== String(apiKey || "").trim()) return false;
             if (json?.error) throw new Error(json.error.error || json.error.code || "Torn API error");
             const info = json?.info || json || {};
             const access = info.access || {};
@@ -9177,11 +9361,16 @@ return {
             };
             saveApiKeyInfo_();
             let playerStatus = "";
+            apiKeyTornChecked = true;
+            apiKeyStatus = `Torn key verified (${accessType || "limited access"}). Checking Player licence...`;
+            uiDirty = true; scheduleRender_();
             if (pgPlayerUsesHostedLicence_()) {
                 try {
                     const account = await pgRefreshHostedAccountStatus_(apiKeyInfo.userId);
+                    if (generation !== apiKeyCheckGeneration || key !== String(apiKey || "").trim()) return false;
                     playerStatus = pgPitGuruLicenceLabel_(account);
                 } catch (error) {
+                    if (generation !== apiKeyCheckGeneration || key !== String(apiKey || "").trim()) return false;
                     const message = pgErrorMessage_(error, "Pit Guru licence check failed");
                     pgClearHostedAccountStatus_(message);
                     playerStatus = `Pit Guru Player licence check failed: ${message}`;
@@ -9194,6 +9383,7 @@ return {
             if (manual) toast_(apiKeyStatus);
             return true;
         } catch (e) {
+            if (generation !== apiKeyCheckGeneration || key !== String(apiKey || "").trim()) return false;
             apiKeyInfo = Object.assign({}, apiKeyInfo || {}, {
                 lastChecked: new Date().toISOString(),
                 fullAccess: false,
@@ -9205,7 +9395,7 @@ return {
             if (manual) toast_(apiKeyStatus);
             return false;
         } finally {
-            apiKeyCheckActive = false;
+            if (generation === apiKeyCheckGeneration) apiKeyCheckActive = false;
             uiDirty = true; scheduleRender_();
         }
     }
@@ -9214,25 +9404,22 @@ return {
         return new Promise(resolve => setTimeout(resolve, ms));
     }
 
-    async function fetchDriverIntelJson_(driverId) {
+    async function fetchDriverIntelJson_(driverId, options = {}) {
         const id = String(driverId || "").trim();
         const isSelf = id === "self";
         const stat = "racingskill,racingpointsearned,racesentered,raceswon";
-        const urls = [
-            isSelf
+        const key = apiKey;
+        const requestId = `${key}|${id}`;
+        if (pgDriverRequests.has(requestId)) return pgDriverRequests.get(requestId);
+        const url = isSelf
                 ? `https://api.torn.com/user/?selections=profile,personalstats&stat=${encodeURIComponent(stat)}&comment=MRG&key=${encodeURIComponent(apiKey)}`
-                : `https://api.torn.com/user/${encodeURIComponent(id)}?selections=profile,personalstats&stat=${encodeURIComponent(stat)}&comment=MRG&key=${encodeURIComponent(apiKey)}`,
-            isSelf
-                ? `https://api.torn.com/user/?selections=profile,personalstats&comment=MRG&key=${encodeURIComponent(apiKey)}`
-                : `https://api.torn.com/user/${encodeURIComponent(id)}?selections=profile,personalstats&comment=MRG&key=${encodeURIComponent(apiKey)}`
-        ];
-        let last = null;
-        for (const url of urls) {
-            const json = await gmRequestJson_(url);
-            last = json;
-            if (!json?.error) return json;
-        }
-        return last;
+                : `https://api.torn.com/user/${encodeURIComponent(id)}?selections=profile,personalstats&stat=${encodeURIComponent(stat)}&comment=MRG&key=${encodeURIComponent(apiKey)}`;
+        const request = gmRequestJson_(url, options).then(json => {
+            if (apiKey !== key) throw new Error("API key changed during driver lookup.");
+            return json;
+        }).finally(() => pgDriverRequests.delete(requestId));
+        pgDriverRequests.set(requestId, request);
+        return request;
     }
 
     async function fetchDriverIntelPool_(force = false) {
@@ -9244,7 +9431,7 @@ return {
         }
         ensureDriverIntelCacheLoaded_("fetchDriverIntelPool");
         const pool = getDriverIntelPool_();
-        const todo = pool.filter(d => force || driverIntelNeedsProfileRefresh_(d.driverId, d.name));
+        let todo = pool.filter(d => force || driverIntelNeedsProfileRefresh_(d.driverId, d.name));
         if (!todo.length) {
             driverIntelStatus = `Driver Intel ready from cache (${pool.length} driver${pool.length === 1 ? "" : "s"}).`;
             applyDriverIntelToModel_();
@@ -9254,40 +9441,53 @@ return {
         }
         driverIntelFetchActive = true;
         let ok = 0, failed = 0;
+        let dbHits = 0, completed = 0, cursor = 0;
+        let stopReason = "";
+        const browserHits = pool.length - todo.length;
+        const batchKey = apiKey;
+        // Grid size, not the number of cache misses, determines burst eligibility.
+        const spacingMs = Math.max(pool.length, lobbySize_()) <= 6 ? 250 : 1000;
         const sqliteProfiles = [];
         try {
-            for (let i = 0; i < todo.length; i++) {
-                const d = todo[i];
-                driverIntelStatus = `Fetching Driver Intel ${i + 1}/${todo.length}: ${d.name || d.driverId}`;
-                const renderIntelProgress = !largeFieldMode_() || i === 0 || i === todo.length - 1 || i % 5 === 0;
-                if (renderIntelProgress) { uiDirty = true; scheduleRender_(); }
-                try {
-                    const json = await fetchDriverIntelJson_(d.driverId);
-                    if (json?.error) {
-                        failed++;
-                        driverIntelStatus = `Driver Intel error: ${json.error.error || json.error.code || "API error"}`;
-                        if (String(json.error.code || "") === "2") break;
-                    } else {
+            driverIntelStatus = `Checking database for ${todo.length} driver profiles (up to 7 days old)...`;
+            uiDirty = true; scheduleRender_();
+            const found = await pgLoadDriverProfilesFromDb_(todo);
+            dbHits = found.size;
+            todo = todo.filter(d => !found.has(String(d.driverId)));
+            const worker = async () => {
+                while (!stopReason && cursor < todo.length && apiKey === batchKey) {
+                    const d = todo[cursor++];
+                    driverIntelStatus = `Driver Intel: ${browserHits} browser / ${dbHits} database; Torn ${completed}/${todo.length} (${spacingMs} ms spacing, max 60/min).`;
+                    if (!largeFieldMode_() || cursor === 1 || completed % 5 === 0) { uiDirty = true; scheduleRender_(); }
+                    try {
+                        const json = await fetchDriverIntelJson_(d.driverId, { spacingMs, cancelled: () => !!stopReason || apiKey !== batchKey });
                         const intel = normalizeDriverIntel_(d.driverId, json);
+                        if (!driverIntelIsFresh_(intel)) throw new Error("Torn returned incomplete driver statistics.");
                         cacheDriverIntel_(d.driverId, intel);
-                        const sqliteProfile = pgDriverProfilePayloadFromIntel_(intel, d);
-                        if (sqliteProfile) sqliteProfiles.push(sqliteProfile);
+                        const profile = pgDriverProfilePayloadFromIntel_(intel, d);
+                        if (profile) sqliteProfiles.push(profile);
                         ok++;
+                    } catch (error) {
+                        failed++;
+                        if (error.stopPool || apiKey !== batchKey) stopReason = pgErrorMessage_(error, "Torn request failed");
                     }
-                } catch {
-                    failed++;
+                    completed++;
+                    if (!largeFieldMode_() || completed % 5 === 0 || completed === todo.length) {
+                        saveDriverIntelCache_();
+                        applyDriverIntelToModel_();
+                        uiDirty = true; scheduleRender_();
+                    }
                 }
-                saveDriverIntelCache_();
-                applyDriverIntelToModel_();
-                if (renderIntelProgress) { uiDirty = true; scheduleRender_(); }
-                if (i < todo.length - 1) await delay_(750);
-            }
+            };
+            await Promise.all([worker(), worker()]);
+            if (apiKey !== batchKey) stopReason = "API key changed; remaining lookups cancelled.";
         } finally {
             driverIntelFetchActive = false;
+            saveDriverIntelCache_();
             if (sqliteProfiles.length) {
                 pgLocalUpsertDriverIntel_(sqliteProfiles).catch(() => {});
             }
-            driverIntelStatus = `Driver Intel complete: ${ok} fetched, ${failed} failed, ${pool.length - todo.length} cached.`;
+            driverIntelStatus = `Driver Intel: ${browserHits} browser, ${dbHits} database, ${ok} Torn, ${failed} failed, ${todo.length - completed} not fetched.${stopReason ? ` ${stopReason}` : ""}`;
             notifyDriverSync_(`driver-sync:${preRaceParticipantsKey || raceMeta?.raceId || ""}:${ok}:${failed}:${pool.length - todo.length}`, driverIntelStatus);
             applyDriverIntelToModel_();
             uiDirty = true; scheduleRender_();
@@ -12878,7 +13078,16 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
         ].join("|");
         if (panel.dataset.renderKey === key && panel.children.length) return;
         const active = document.activeElement;
-        if (panel.contains(active) && /^(INPUT|SELECT|TEXTAREA)$/i.test(active?.tagName || "")) return;
+        if (panel.contains(active) && /^(INPUT|SELECT|TEXTAREA)$/i.test(active?.tagName || "")) {
+            // Preserve the field being edited without freezing asynchronous API progress.
+            const details = panel.querySelector(".mpg-key-details");
+            if (details) details.innerHTML = apiKeyInfoHtml_();
+            const check = panel.querySelector("#mpgCheckKey");
+            if (check) check.disabled = apiKeyCheckActive;
+            const progress = panel.querySelector("#mpgDriverIntelStatus");
+            if (progress) progress.textContent = driverIntelStatus || apiKeyStatus || "";
+            return;
+        }
         panel.dataset.renderKey = key;
         const keyInput = apiKeyVisible || !apiKey
             ? `<input id="mpgApiKey" type="${apiKeyVisible ? "text" : "password"}" autocomplete="off" value="${escAttr_(apiKey)}" placeholder="Torn API key">`
@@ -12892,6 +13101,7 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
                 ${keyInput}
                 <button id="mpgToggleApiKey" class="pill" type="button">${apiKeyVisible ? "Hide" : "View"}</button>
                 <button id="mpgCheckKey" class="pill" type="button"${apiKeyCheckActive ? " disabled" : ""}>Check key</button>
+                <button id="mpgApiTimings" class="pill" type="button">API timings</button>
               </div>
             </div>
             <div class="mpg-setting-row">
@@ -12901,7 +13111,7 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
             <div class="mpg-setting-actions">
               <button id="mpgRefreshMissingIntel" class="pill" type="button"${driverIntelFetchActive || !apiKey ? " disabled" : ""}>Refresh Driver Profiles</button>
               <button id="mpgClearIntel" class="pill" type="button">Clear Intel Cache</button>
-              <span class="muted">${esc_(driverIntelStatus || apiKeyStatus || "One API call per uncached driver. Manual driver-list fetching was removed because this now runs automatically.")}</span>
+              <span id="mpgDriverIntelStatus" class="muted">${esc_(driverIntelStatus || apiKeyStatus || "Browser and database profiles are reused for 7 days. Missing/stale drivers use Torn: 250 ms spacing for up to 6 racers, 1 second for larger grids; max 60 calls/minute across Pit Guru tabs.")}</span>
             </div>
           </section>
 
@@ -13013,11 +13223,19 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
             saveApiKey_();
             checkApiKeyInfo_({ manual: true });
         };
+        panel.querySelector("#mpgApiTimings").onclick = () => {
+            const timings = pgApiTimings_();
+            console.table(timings.recent);
+            window.alert(`Pit Guru API timings (no keys, driver IDs, URLs or response bodies)\n${JSON.stringify(timings, null, 2)}`);
+        };
         panel.querySelector("#mpgApiKey").onchange = e => {
             if (!apiKeyVisible && apiKey) return;
             const next = String(e.target.value || "").trim();
             if (next === apiKey) return;
             apiKey = next;
+            apiKeyCheckGeneration++;
+            apiKeyCheckActive = false;
+            apiKeyTornChecked = false;
             apiKeyInfo = {};
             pgClearHostedSession_();
             saveApiKey_();
@@ -14750,42 +14968,19 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
         const id = String(driverId || "").trim();
         if (!apiKey || !id || driverIntelFetchActive) return null;
         const cached = getCachedDriverIntel_(id) || getCachedDriverIntelByName_(driverName);
-        if (!force && cached && String(cached.avatar || "").trim()) return cached;
-        if (!force && cached && !driverIntelNeedsProfileRefresh_(id, driverName)) return cached;
+        if (!force && driverIntelIsFresh_(cached)) return cached;
         if (!force && bigRaceSafeModeActive_()) {
             recordBigRaceSafeModeSkip_("driverIntel");
             return cached || null;
         }
-        if (!force) {
-            try {
-                const model = lookupDriver_(id, driverName) || findPredictionDriver_(id, driverName) || {};
-                let localEntry = pgLocalGetCachedIntelForDriver_({ driverId: id, name: driverName, car: model.car || "" }, analysis?.trackName || raceMeta?.track || "");
-                if (!localEntry) {
-                    const track = analysis?.trackName || raceMeta?.track || visibleRaceTrackName_() || "";
-                    if (track) {
-                        const scope = currentRaceHistoryScope_(track);
-                        const local = await pgLocalFetchRaceIntel(track, [{
-                            driverId: id,
-                            name: driverName || model.name || "",
-                            car: toOgCarName_(model.car || "")
-                        }], scope);
-                        localEntry = local?.drivers?.[id] || null;
-                    }
-                }
-                const localIntel = pgLocalDriverIntelFromProfile_(localEntry, { driverId: id, name: driverName });
-                if (localIntel && driverIntelIsFresh_(localIntel)) {
-                    cacheDriverIntel_(localIntel.driverId, localIntel);
-                    if (localIntel.name) cacheDriverIntel_(driverIntelNameKey_(localIntel.name), localIntel);
-                    saveDriverIntelCache_();
-                    applyDriverIntelToModel_();
-                    return localIntel;
-                }
-            } catch {}
-        }
+        const found = await pgLoadDriverProfilesFromDb_([{ driverId: id, name: driverName }]);
+        if (found.has(id)) return getCachedDriverIntel_(id);
+        if (driverIntelIsFresh_(cached)) return cached;
         try {
-            const json = await fetchDriverIntelJson_(id);
+            const json = await fetchDriverIntelJson_(id, { spacingMs: getDriverIntelPool_().length <= 6 ? 250 : 1000 });
             if (json?.error) return null;
             const intel = normalizeDriverIntel_(id, json);
+            if (!driverIntelIsFresh_(intel)) return null;
             cacheDriverIntel_(id, intel);
             if (driverName && !intel.name) {
                 intel.name = driverName;
@@ -14795,7 +14990,8 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
             applyDriverIntelToModel_();
             pgLocalUpsertDriverIntel_(intel).catch(() => {});
             return intel;
-        } catch {
+        } catch (error) {
+            driverIntelStatus = pgErrorMessage_(error, "Driver Intel request failed");
             return null;
         }
     }
@@ -14817,7 +15013,7 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
         const ready = intel && Number.isFinite(Number(intel.racingSkill));
         const label = ready ? "Refresh" : (id ? "Fetch" : "Find / Fetch");
         const title = ready
-            ? "Refresh Driver Intel for this driver now"
+            ? "Check the database first; Torn is called only for missing details or profiles older than 7 days"
             : id
             ? "Fetch Driver Intel for this driver now"
             : "Try to find this driver's Torn ID from the visible race row, or enter it manually";
