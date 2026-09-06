@@ -5452,7 +5452,7 @@ self.onmessage=event=>{const id=event.data&&event.data.id;try{const root=JSON.pa
         try {
             const parsed = new URL(normalized);
             if (parsed.protocol === "https:" && (parsed.hostname === "torn.com" || parsed.hostname.endsWith(".torn.com"))) original = normalized;
-        } catch { }
+        } catch { /* Invalid URLs use the item-ID fallback below. */ }
         // Convert older hosted/cache URLs back to Torn too, regardless of endpoint mode.
         const torn = id ? `https://www.torn.com/images/items/${encodeURIComponent(id)}/large.png` : "";
         return { primary: original || torn, fallback: original && torn !== original ? torn : "" };
