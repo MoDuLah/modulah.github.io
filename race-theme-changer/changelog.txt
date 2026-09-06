@@ -20,6 +20,13 @@
 - **Miscellaneous**: Bound Pit Guru pre-race capture
 - **Miscellaneous**: Fix Pit Guru pre-race summary capture
 
+## v1.2.6 (2026-09-06)
+
+### Miscellaneous
+
+- **Miscellaneous**: Show release changelogs, add Race Stats, and retire Race Tracker
+
+
 
 
 # Changelog
