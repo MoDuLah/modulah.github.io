@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "modules": {
+    "pythagoras": { "directory": "pythagoras-project-cis", "title": "Pythagoras Project - CIS" },
+    "pitGuru": { "directory": "pit-guru", "title": "Pit Guru" },
+    "customRaceFilter": { "directory": "custom-race-filter", "title": "Custom Race Filter" },
+    "tornfolio": {
+      "files": ["landlord-tenant-ledger/landlord-tenant-ledger-logo.png"],
+      "title": "Tornfolio"
+    },
+    "modulHubControl": { "title": "MoDuL Hub Control Room" },
+    "cracked": { "title": "cRaCked" },
+    "raceTracker": { "directory": "race-tracker", "title": "Race Tracker" },
+    "eggsTerminator": { "directory": "eggsterminator", "title": "EggsTerminator" },
+    "raceThemeChanger": { "directory": "race-theme-changer", "title": "Race Theme Changer" },
+    "restoreOgNames": { "directory": "restore-og-names", "title": "Restore OG Names" },
+    "stockx": { "title": "Stock-X" },
+    "smuggler": { "directory": "smuggler", "title": "Smuggler" },
+    "bootleggingHelper": { "title": "Bootlegging Helper" },
+    "jobCentrePlus": {
+      "files": ["job-centre-plus/og.png", "job-centre-plus/og_promo16_9.png"],
+      "title": "JobCentre+"
+    },
+    "pythagorasDashboard": { "directory": "pythagoras-project-cis", "title": "Pythagoras Dashboard" },
+    "lap-recorder": { "directory": "lap-recorder", "title": "Lap Recorder" }
+  }
+}

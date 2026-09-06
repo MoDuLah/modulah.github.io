@@ -1,0 +1,561 @@
+{
+  "schemaVersion": 1,
+  "checkedAt": "2026-09-06T11:00:01.064485Z",
+  "scripts": [
+    {
+      "id": "pythagoras",
+      "title": "Pythagoras Project - CIS",
+      "version": "3.1.0",
+      "displayVersion": "v3.1.0",
+      "date": "2026-09-04",
+      "updated": "4 September 2026",
+      "source": "greasyfork",
+      "updateVersion": true,
+      "actionLabel": "Install v3.1.0",
+      "sourceUrl": "https://greasyfork.org/en/scripts/580933",
+      "marketplace": {
+        "author": {
+          "name": "MoDuL",
+          "url": "https://greasyfork.org/users/1561217-modul"
+        },
+        "dailyInstalls": 0,
+        "totalInstalls": 53,
+        "version": "3.1.0",
+        "created": "2026-06-03",
+        "createdDisplay": "Jun 3, 2026",
+        "updated": "2026-09-04",
+        "updatedDisplay": "Sep 4, 2026",
+        "sizeBytes": 925801,
+        "size": "904.1 KB",
+        "license": {
+          "name": "All Rights Reserved"
+        },
+        "appliesTo": [
+          {
+            "name": "torn.com",
+            "url": "https://greasyfork.org/en/scripts/by-site/torn.com"
+          }
+        ]
+      }
+    },
+    {
+      "id": "pitGuru",
+      "title": "MoDuL's Pit Guru",
+      "version": "2.3.7",
+      "displayVersion": "v2.3.7",
+      "date": "2026-08-31",
+      "updated": "31 August 2026",
+      "source": "greasyfork",
+      "updateVersion": false,
+      "sourceUrl": "https://greasyfork.org/en/scripts/578342",
+      "marketplace": {
+        "author": {
+          "name": "MoDuL",
+          "url": "https://greasyfork.org/users/1561217-modul"
+        },
+        "dailyInstalls": 0,
+        "totalInstalls": 8,
+        "version": "2.3.7",
+        "created": "2026-05-15",
+        "createdDisplay": "May 15, 2026",
+        "updated": "2026-08-31",
+        "updatedDisplay": "Aug 31, 2026",
+        "sizeBytes": 901994,
+        "size": "880.9 KB",
+        "license": {
+          "name": "All Rights Reserved"
+        },
+        "appliesTo": [
+          {
+            "name": "torn.com",
+            "url": "https://greasyfork.org/en/scripts/by-site/torn.com"
+          }
+        ]
+      }
+    },
+    {
+      "id": "customRaceFilter",
+      "title": "Custom Race Filter",
+      "version": "2.5.2",
+      "displayVersion": "v2.5.2",
+      "date": "2026-07-14",
+      "updated": "14 July 2026",
+      "source": "greasyfork",
+      "updateVersion": true,
+      "sourceUrl": "https://greasyfork.org/en/scripts/562954",
+      "marketplace": {
+        "author": {
+          "name": "MoDuL",
+          "url": "https://greasyfork.org/users/1561217-modul"
+        },
+        "dailyInstalls": 0,
+        "totalInstalls": 40,
+        "version": "2.5.2",
+        "created": "2026-01-17",
+        "createdDisplay": "Jan 17, 2026",
+        "updated": "2026-07-14",
+        "updatedDisplay": "Jul 14, 2026",
+        "sizeBytes": 87017,
+        "size": "85.0 KB",
+        "license": {
+          "name": "All Rights Reserved"
+        },
+        "appliesTo": [
+          {
+            "name": "torn.com",
+            "url": "https://greasyfork.org/en/scripts/by-site/torn.com"
+          }
+        ]
+      }
+    },
+    {
+      "id": "modulHubControl",
+      "title": "MoDuL Hub Control Room",
+      "version": "0.2.10",
+      "displayVersion": "v0.2.10",
+      "date": "2026-07-28",
+      "updated": "28 July 2026",
+      "source": "vm",
+      "updateVersion": true,
+      "actionLabel": "Install v0.2.10"
+    },
+    {
+      "id": "cracked",
+      "title": "cRaCked",
+      "version": "2.4.8",
+      "displayVersion": "v2.4.8",
+      "date": "2026-09-03",
+      "updated": "3 September 2026",
+      "source": "greasyfork",
+      "updateVersion": true,
+      "actionLabel": "Install v2.4.8",
+      "sourceUrl": "https://greasyfork.org/en/scripts/589397",
+      "marketplace": {
+        "author": {
+          "name": "MoDuL",
+          "url": "https://greasyfork.org/users/1561217-modul"
+        },
+        "dailyInstalls": 8,
+        "totalInstalls": 231,
+        "version": "2.4.8",
+        "created": "2026-07-31",
+        "createdDisplay": "Jul 31, 2026",
+        "updated": "2026-09-03",
+        "updatedDisplay": "Sep 3, 2026",
+        "sizeBytes": 301565,
+        "size": "294.5 KB",
+        "license": {
+          "name": "MIT",
+          "url": "https://spdx.org/licenses/MIT.html"
+        },
+        "appliesTo": [
+          {
+            "name": "torn.com",
+            "url": "https://greasyfork.org/en/scripts/by-site/torn.com"
+          }
+        ]
+      }
+    },
+    {
+      "id": "eggsTerminator",
+      "title": "EggsTerminator",
+      "version": "2.5.12",
+      "displayVersion": "v2.5.12",
+      "date": "2026-04-28",
+      "updated": "28 April 2026",
+      "source": "greasyfork",
+      "updateVersion": true,
+      "sourceUrl": "https://greasyfork.org/en/scripts/575131",
+      "marketplace": {
+        "author": {
+          "name": "MoDuL",
+          "url": "https://greasyfork.org/users/1561217-modul"
+        },
+        "dailyInstalls": 1,
+        "totalInstalls": 18,
+        "version": "2.5.12",
+        "created": "2026-04-23",
+        "createdDisplay": "Apr 23, 2026",
+        "updated": "2026-04-28",
+        "updatedDisplay": "Apr 28, 2026",
+        "sizeBytes": 132827,
+        "size": "129.7 KB",
+        "license": {
+          "name": "MIT",
+          "url": "https://spdx.org/licenses/MIT.html"
+        },
+        "appliesTo": [
+          {
+            "name": "torn.com",
+            "url": "https://greasyfork.org/en/scripts/by-site/torn.com"
+          }
+        ]
+      }
+    },
+    {
+      "id": "raceThemeChanger",
+      "title": "Race Theme Changer",
+      "version": "1.2.6",
+      "displayVersion": "v1.2.6",
+      "date": "2026-04-20",
+      "updated": "20 April 2026",
+      "source": "greasyfork",
+      "updateVersion": true,
+      "sourceUrl": "https://greasyfork.org/en/scripts/563548",
+      "marketplace": {
+        "author": {
+          "name": "MoDuL",
+          "url": "https://greasyfork.org/users/1561217-modul"
+        },
+        "dailyInstalls": 0,
+        "totalInstalls": 67,
+        "version": "1.2.6",
+        "created": "2026-01-22",
+        "createdDisplay": "Jan 22, 2026",
+        "updated": "2026-04-20",
+        "updatedDisplay": "Apr 20, 2026",
+        "sizeBytes": 26787,
+        "size": "26.2 KB",
+        "license": {
+          "name": "MIT",
+          "url": "https://spdx.org/licenses/MIT.html"
+        },
+        "appliesTo": [
+          {
+            "name": "torn.com",
+            "url": "https://greasyfork.org/en/scripts/by-site/torn.com"
+          }
+        ]
+      }
+    },
+    {
+      "id": "restoreOgNames",
+      "title": "Restore OG Names",
+      "version": "1.3.2",
+      "displayVersion": "v1.3.2",
+      "date": "2026-06-06",
+      "updated": "6 June 2026",
+      "source": "greasyfork",
+      "updateVersion": true,
+      "sourceUrl": "https://greasyfork.org/en/scripts/563153",
+      "marketplace": {
+        "author": {
+          "name": "MoDuL",
+          "url": "https://greasyfork.org/users/1561217-modul"
+        },
+        "dailyInstalls": 0,
+        "totalInstalls": 85,
+        "version": "1.3.2",
+        "created": "2026-01-18",
+        "createdDisplay": "Jan 18, 2026",
+        "updated": "2026-06-06",
+        "updatedDisplay": "Jun 6, 2026",
+        "sizeBytes": 9847,
+        "size": "9.6 KB",
+        "license": {
+          "name": "GPL-3.0-or-later",
+          "url": "https://spdx.org/licenses/GPL-3.0-or-later.html"
+        },
+        "appliesTo": [
+          {
+            "name": "torn.com",
+            "url": "https://greasyfork.org/en/scripts/by-site/torn.com"
+          }
+        ]
+      }
+    },
+    {
+      "id": "smuggler",
+      "title": "Smuggler",
+      "version": "3.0.6",
+      "displayVersion": "v3.0.6",
+      "date": "2026-07-08",
+      "updated": "8 July 2026",
+      "source": "greasyfork",
+      "updateVersion": true,
+      "sourceUrl": "https://greasyfork.org/en/scripts/575111",
+      "marketplace": {
+        "author": {
+          "name": "MoDuL",
+          "url": "https://greasyfork.org/users/1561217-modul"
+        },
+        "dailyInstalls": 0,
+        "totalInstalls": 110,
+        "version": "3.0.6",
+        "created": "2026-04-23",
+        "createdDisplay": "Apr 23, 2026",
+        "updated": "2026-07-08",
+        "updatedDisplay": "Jul 8, 2026",
+        "sizeBytes": 254009,
+        "size": "248.1 KB",
+        "license": {
+          "name": "All Rights Reserved"
+        },
+        "appliesTo": [
+          {
+            "name": "torn.com",
+            "url": "https://greasyfork.org/en/scripts/by-site/torn.com"
+          }
+        ]
+      }
+    },
+    {
+      "id": "bootleggingHelper",
+      "title": "Torn Bootlegging — Copy DVDs Stock+Queue Helper",
+      "version": "0.3.4",
+      "displayVersion": "v0.3.4",
+      "date": "2026-05-22",
+      "updated": "22 May 2026",
+      "source": "greasyfork",
+      "updateVersion": true,
+      "actionLabel": "Install v0.3.4",
+      "sourceUrl": "https://greasyfork.org/en/scripts/579366",
+      "marketplace": {
+        "author": {
+          "name": "MoDuL",
+          "url": "https://greasyfork.org/users/1561217-modul"
+        },
+        "dailyInstalls": 1,
+        "totalInstalls": 38,
+        "version": "0.3.4",
+        "created": "2026-05-22",
+        "createdDisplay": "May 22, 2026",
+        "updated": "2026-05-22",
+        "updatedDisplay": "May 22, 2026",
+        "sizeBytes": 13493,
+        "size": "13.2 KB",
+        "license": {
+          "name": "GPL-3.0-only",
+          "url": "https://spdx.org/licenses/GPL-3.0-only.html"
+        },
+        "appliesTo": [
+          {
+            "name": "torn.com",
+            "url": "https://greasyfork.org/en/scripts/by-site/torn.com"
+          }
+        ]
+      }
+    },
+    {
+      "id": "jobCentrePlus",
+      "title": "JobCentre+",
+      "version": "2.1.3",
+      "displayVersion": "v2.1.3",
+      "date": "2026-08-17",
+      "updated": "17 August 2026",
+      "source": "vm",
+      "updateVersion": true,
+      "actionLabel": "Install Notifier v2.1.3"
+    }
+  ],
+  "timeline": [
+    {
+      "scriptId": "pythagoras",
+      "title": "Pythagoras Project - CIS",
+      "version": "v3.1.0",
+      "date": "2026-09-04",
+      "type": "RELEASE",
+      "summary": "GreasyFork published v3.1.0; the hub refreshed the card and marketplace details automatically.",
+      "href": "https://greasyfork.org/en/scripts/580933"
+    },
+    {
+      "scriptId": "cracked",
+      "title": "cRaCked",
+      "version": "v2.4.8",
+      "date": "2026-09-03",
+      "type": "RELEASE",
+      "summary": "GreasyFork published v2.4.8; the hub refreshed the card and marketplace details automatically.",
+      "href": "https://greasyfork.org/en/scripts/589397"
+    },
+    {
+      "scriptId": "pythagoras",
+      "title": "Pythagoras Project - CIS",
+      "version": "v3.0.9",
+      "date": "2026-09-02",
+      "type": "RELEASE",
+      "summary": "GreasyFork published v3.0.9; the hub refreshed the card and marketplace details automatically.",
+      "href": "https://greasyfork.org/en/scripts/580933"
+    },
+    {
+      "scriptId": "cracked",
+      "title": "cRaCked",
+      "version": "v2.4.7",
+      "date": "2026-09-01",
+      "type": "RELEASE",
+      "summary": "GreasyFork published v2.4.7; the hub refreshed the card and marketplace details automatically.",
+      "href": "https://greasyfork.org/en/scripts/589397"
+    },
+    {
+      "scriptId": "pythagoras",
+      "title": "Pythagoras Project - CIS",
+      "version": "v3.0.8",
+      "date": "2026-08-31",
+      "type": "RELEASE",
+      "summary": "GreasyFork published v3.0.8; the hub refreshed the card and marketplace details automatically.",
+      "href": "https://greasyfork.org/en/scripts/580933"
+    },
+    {
+      "scriptId": "cracked",
+      "title": "cRaCked",
+      "version": "v2.4.6",
+      "date": "2026-08-31",
+      "type": "RELEASE",
+      "summary": "GreasyFork published v2.4.6; the hub refreshed the card and marketplace details automatically.",
+      "href": "https://greasyfork.org/en/scripts/589397"
+    },
+    {
+      "scriptId": "pythagoras",
+      "title": "Pythagoras Project - CIS",
+      "version": "v3.0.7",
+      "date": "2026-08-31",
+      "type": "RELEASE",
+      "summary": "GreasyFork published v3.0.7; the hub refreshed the card and marketplace details automatically.",
+      "href": "https://greasyfork.org/en/scripts/580933"
+    },
+    {
+      "scriptId": "cracked",
+      "title": "cRaCked",
+      "version": "v2.4.5",
+      "date": "2026-08-31",
+      "type": "RELEASE",
+      "summary": "GreasyFork published v2.4.5; the hub refreshed the card and marketplace details automatically.",
+      "href": "https://greasyfork.org/en/scripts/589397"
+    },
+    {
+      "scriptId": "cracked",
+      "title": "cRaCked",
+      "version": "v2.4.3",
+      "date": "2026-08-30",
+      "type": "RELEASE",
+      "summary": "GreasyFork published v2.4.3; the hub refreshed the card and marketplace details automatically.",
+      "href": "https://greasyfork.org/en/scripts/589397"
+    },
+    {
+      "scriptId": "cracked",
+      "title": "cRaCked",
+      "version": "v2.4.2",
+      "date": "2026-08-29",
+      "type": "RELEASE",
+      "summary": "GreasyFork published v2.4.2; the hub refreshed the card and marketplace details automatically.",
+      "href": "https://greasyfork.org/en/scripts/589397"
+    },
+    {
+      "scriptId": "cracked",
+      "title": "cRaCked",
+      "version": "v2.4.1",
+      "date": "2026-08-29",
+      "type": "RELEASE",
+      "summary": "GreasyFork published v2.4.1; the hub refreshed the card and marketplace details automatically.",
+      "href": "https://greasyfork.org/en/scripts/589397"
+    },
+    {
+      "scriptId": "cracked",
+      "title": "cRaCked",
+      "version": "v2.3.4",
+      "date": "2026-08-27",
+      "type": "RELEASE",
+      "summary": "GreasyFork published v2.3.4; the hub refreshed the card and marketplace details automatically.",
+      "href": "https://greasyfork.org/en/scripts/589397"
+    },
+    {
+      "scriptId": "cracked",
+      "title": "cRaCked",
+      "version": "v2.2.8",
+      "date": "2026-08-25",
+      "type": "RELEASE",
+      "summary": "GreasyFork published v2.2.8; the hub refreshed the card and marketplace details automatically.",
+      "href": "https://greasyfork.org/en/scripts/589397"
+    },
+    {
+      "scriptId": "cracked",
+      "title": "cRaCked",
+      "version": "v2.2.0",
+      "date": "2026-08-22",
+      "type": "RELEASE",
+      "summary": "Current v2.2.0 release confirmed from GreasyFork; the hub keeps this entry and its marketplace details in sync automatically.",
+      "href": "https://greasyfork.org/en/scripts/589397"
+    },
+    {
+      "scriptId": "pythagoras",
+      "title": "Pythagoras Project - CIS",
+      "version": "v3.0.5",
+      "date": "2026-08-17",
+      "type": "RELEASE",
+      "summary": "Current v3.0.5 release confirmed from GreasyFork; the hub keeps this entry and its marketplace details in sync automatically.",
+      "href": "https://greasyfork.org/en/scripts/580933"
+    },
+    {
+      "scriptId": "jobCentrePlus",
+      "title": "JobCentre+",
+      "version": "v2.1.3",
+      "date": "2026-08-17",
+      "type": "RELEASE",
+      "summary": "Current VM-hosted v2.1.3 release confirmed; the hub keeps this entry in sync automatically.",
+      "href": "https://pp-api.sokin.xyz/jobcentreplus/"
+    },
+    {
+      "scriptId": "modulHubControl",
+      "title": "MoDuL Hub Control Room",
+      "version": "v0.2.10",
+      "date": "2026-07-28",
+      "type": "RELEASE",
+      "summary": "Current VM-hosted v0.2.10 release confirmed; the hub keeps this entry in sync automatically.",
+      "href": "global-theme/"
+    },
+    {
+      "scriptId": "customRaceFilter",
+      "title": "Custom Race Filter",
+      "version": "v2.5.2",
+      "date": "2026-07-14",
+      "type": "RELEASE",
+      "summary": "Current v2.5.2 release confirmed from GreasyFork; the hub keeps this entry and its marketplace details in sync automatically.",
+      "href": "https://greasyfork.org/en/scripts/562954"
+    },
+    {
+      "scriptId": "smuggler",
+      "title": "Smuggler",
+      "version": "v3.0.6",
+      "date": "2026-07-08",
+      "type": "RELEASE",
+      "summary": "Current v3.0.6 release confirmed from GreasyFork; the hub keeps this entry and its marketplace details in sync automatically.",
+      "href": "https://greasyfork.org/en/scripts/575111"
+    },
+    {
+      "scriptId": "restoreOgNames",
+      "title": "Restore OG Names",
+      "version": "v1.3.2",
+      "date": "2026-06-06",
+      "type": "RELEASE",
+      "summary": "Current v1.3.2 release confirmed from GreasyFork; the hub keeps this entry and its marketplace details in sync automatically.",
+      "href": "https://greasyfork.org/en/scripts/563153"
+    },
+    {
+      "scriptId": "bootleggingHelper",
+      "title": "Torn Bootlegging — Copy DVDs Stock+Queue Helper",
+      "version": "v0.3.4",
+      "date": "2026-05-22",
+      "type": "RELEASE",
+      "summary": "Current v0.3.4 release confirmed from GreasyFork; the hub keeps this entry and its marketplace details in sync automatically.",
+      "href": "https://greasyfork.org/en/scripts/579366"
+    },
+    {
+      "scriptId": "eggsTerminator",
+      "title": "EggsTerminator",
+      "version": "v2.5.12",
+      "date": "2026-04-28",
+      "type": "RELEASE",
+      "summary": "Current v2.5.12 release confirmed from GreasyFork; the hub keeps this entry and its marketplace details in sync automatically.",
+      "href": "https://greasyfork.org/en/scripts/575131"
+    },
+    {
+      "scriptId": "raceThemeChanger",
+      "title": "Race Theme Changer",
+      "version": "v1.2.6",
+      "date": "2026-04-20",
+      "type": "RELEASE",
+      "summary": "Current v1.2.6 release confirmed from GreasyFork; the hub keeps this entry and its marketplace details in sync automatically.",
+      "href": "https://greasyfork.org/en/scripts/563548"
+    }
+  ],
+  "errors": []
+}

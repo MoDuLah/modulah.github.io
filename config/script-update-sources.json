@@ -104,6 +104,7 @@
       "displayPrefix": "v",
       "actionLabelTemplate": "Install Notifier {version}",
       "initialDate": "2026-08-17",
+      "required": false,
       "timelineHref": "https://pp-api.sokin.xyz/jobcentreplus/",
       "source": {
         "type": "userscript",

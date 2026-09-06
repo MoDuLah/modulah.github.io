@@ -1,7 +1,9 @@
-import { scripts, scriptReleases, moduleFaqs, moduleScreenshots } from './catalogue.js?v=20260825.10';
+import { scripts, scriptReleases, moduleFaqs, moduleScreenshots } from './catalogue.js?v=20260906.1';
 
-const scriptUpdateManifestUrl = 'assets/data/script-updates.json';
+const scriptUpdateManifestUrl = 'https://pp-api.sokin.xyz/assets/data/script-updates.json';
+const screenshotManifestUrl = 'assets/data/module-screenshots.json';
 let automaticScriptReleases = [];
+let discoveredModuleScreenshots = {};
 
         function isAllowedMetadataUrl(value, prefix) {
             return typeof value === 'string'
@@ -90,15 +92,21 @@ let automaticScriptReleases = [];
             try {
                 const requestUrl = new URL(scriptUpdateManifestUrl, window.location.href);
                 requestUrl.searchParams.set('fresh', Date.now().toString());
-                const response = await fetch(requestUrl, {
+                let response = await fetch(requestUrl, {
                     cache: 'no-store',
-                    credentials: 'same-origin',
+                    credentials: 'omit',
                     signal: controller.signal
-                });
-                if (!response.ok) return false;
+                }).catch(() => null);
+                if (!response?.ok) {
+                    response = await fetch('assets/data/script-updates.json', {
+                        cache: 'no-store',
+                        signal: controller.signal
+                    });
+                }
+                if (!response.ok) throw new Error('Release feed unavailable');
 
                 const payload = await response.json();
-                if (payload?.schemaVersion !== 1 || !Array.isArray(payload.scripts)) return false;
+                if (payload?.schemaVersion !== 1 || !Array.isArray(payload.scripts)) throw new Error('Invalid release feed');
 
                 const updates = new Map(
                     payload.scripts
@@ -135,7 +143,7 @@ let automaticScriptReleases = [];
                             hour: '2-digit',
                             minute: '2-digit'
                         }).format(checked);
-                        status.textContent = `Authoritative versions and release timeline checked at 00:00 and 12:00 UK time. Last check: ${formatted}.`;
+                        status.textContent = `Latest release check: ${formatted}.`;
                     }
                 }
                 return true;
@@ -143,6 +151,40 @@ let automaticScriptReleases = [];
                 if (status) {
                     status.textContent = 'Live update data could not be loaded; showing the built-in catalogue until the next visit.';
                 }
+                return false;
+            } finally {
+                clearTimeout(timeout);
+            }
+        }
+
+        function sanitiseScreenshot(value) {
+            if (!value || typeof value !== 'object') return null;
+            if (typeof value.src !== 'string'
+                || !/^assets\/images\/[A-Za-z0-9/_-]+\.(?:gif|jpe?g|png|webp)$/i.test(value.src)
+                || typeof value.alt !== 'string'
+                || value.alt.length > 160) return null;
+            return { src: value.src, alt: value.alt };
+        }
+
+        async function loadScreenshotManifest() {
+            const controller = new AbortController();
+            const timeout = setTimeout(() => controller.abort(), 8000);
+            try {
+                const requestUrl = new URL(screenshotManifestUrl, window.location.href);
+                requestUrl.searchParams.set('fresh', Date.now().toString());
+                const response = await fetch(requestUrl, { cache: 'no-store', credentials: 'same-origin', signal: controller.signal });
+                if (!response.ok) return false;
+                const payload = await response.json();
+                if (payload?.schemaVersion !== 1 || !payload.modules || typeof payload.modules !== 'object') return false;
+
+                discoveredModuleScreenshots = Object.fromEntries(
+                    Object.entries(payload.modules).map(([id, screenshots]) => [
+                        id,
+                        Array.isArray(screenshots) ? screenshots.map(sanitiseScreenshot).filter(Boolean) : []
+                    ])
+                );
+                return true;
+            } catch {
                 return false;
             } finally {
                 clearTimeout(timeout);
@@ -728,7 +770,7 @@ let automaticScriptReleases = [];
         function renderModuleScreenshots(data) {
             const container = document.getElementById('detail-screenshots');
             const count = document.getElementById('detail-screenshot-count');
-            const screenshots = (moduleScreenshots[data.id] || []).map((screenshot) => ({
+            const screenshots = (discoveredModuleScreenshots[data.id] || moduleScreenshots[data.id] || []).map((screenshot) => ({
                 ...screenshot,
                 moduleTitle: data.title
             }));
@@ -1391,7 +1433,7 @@ let automaticScriptReleases = [];
 
         document.addEventListener('DOMContentLoaded', async () => {
             initializeBootStages();
-            await loadScriptUpdates();
+            await Promise.all([loadScriptUpdates(), loadScreenshotManifest()]);
             renderScriptUpdateTimeline();
             document.querySelectorAll('[data-tier]').forEach((control) => {
                 control.addEventListener('click', () => filterByTier(control.dataset.tier));

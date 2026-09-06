@@ -1,0 +1,417 @@
+{
+  "schemaVersion": 1,
+  "modules": {
+    "pythagoras": [
+      {
+        "src": "assets/images/pythagoras-project-cis/screenshot-1.png",
+        "alt": "Pythagoras Project - CIS screenshot 1"
+      },
+      {
+        "src": "assets/images/pythagoras-project-cis/screenshot-2.png",
+        "alt": "Pythagoras Project - CIS screenshot 2"
+      },
+      {
+        "src": "assets/images/pythagoras-project-cis/screenshot-3.png",
+        "alt": "Pythagoras Project - CIS screenshot 3"
+      },
+      {
+        "src": "assets/images/pythagoras-project-cis/screenshot-4.png",
+        "alt": "Pythagoras Project - CIS screenshot 4"
+      },
+      {
+        "src": "assets/images/pythagoras-project-cis/screenshot-5.png",
+        "alt": "Pythagoras Project - CIS screenshot 5"
+      },
+      {
+        "src": "assets/images/pythagoras-project-cis/screenshot-6.png",
+        "alt": "Pythagoras Project - CIS screenshot 6"
+      },
+      {
+        "src": "assets/images/pythagoras-project-cis/screenshot-7.png",
+        "alt": "Pythagoras Project - CIS screenshot 7"
+      },
+      {
+        "src": "assets/images/pythagoras-project-cis/screenshot-8.png",
+        "alt": "Pythagoras Project - CIS screenshot 8"
+      },
+      {
+        "src": "assets/images/pythagoras-project-cis/screenshot-9.png",
+        "alt": "Pythagoras Project - CIS screenshot 9"
+      },
+      {
+        "src": "assets/images/pythagoras-project-cis/screenshot-10.png",
+        "alt": "Pythagoras Project - CIS screenshot 10"
+      },
+      {
+        "src": "assets/images/pythagoras-project-cis/screenshot-11.png",
+        "alt": "Pythagoras Project - CIS screenshot 11"
+      },
+      {
+        "src": "assets/images/pythagoras-project-cis/screenshot-12.png",
+        "alt": "Pythagoras Project - CIS screenshot 12"
+      },
+      {
+        "src": "assets/images/pythagoras-project-cis/screenshot-13.png",
+        "alt": "Pythagoras Project - CIS screenshot 13"
+      },
+      {
+        "src": "assets/images/pythagoras-project-cis/screenshot-14.png",
+        "alt": "Pythagoras Project - CIS screenshot 14"
+      },
+      {
+        "src": "assets/images/pythagoras-project-cis/screenshot-15.png",
+        "alt": "Pythagoras Project - CIS screenshot 15"
+      },
+      {
+        "src": "assets/images/pythagoras-project-cis/screenshot-16.png",
+        "alt": "Pythagoras Project - CIS screenshot 16"
+      },
+      {
+        "src": "assets/images/pythagoras-project-cis/screenshot-17.png",
+        "alt": "Pythagoras Project - CIS screenshot 17"
+      },
+      {
+        "src": "assets/images/pythagoras-project-cis/screenshot-18.png",
+        "alt": "Pythagoras Project - CIS screenshot 18"
+      },
+      {
+        "src": "assets/images/pythagoras-project-cis/screenshot-19.png",
+        "alt": "Pythagoras Project - CIS screenshot 19"
+      }
+    ],
+    "pitGuru": [
+      {
+        "src": "assets/images/pit-guru/screenshot-1.png",
+        "alt": "Pit Guru screenshot 1"
+      },
+      {
+        "src": "assets/images/pit-guru/screenshot-2.png",
+        "alt": "Pit Guru screenshot 2"
+      },
+      {
+        "src": "assets/images/pit-guru/screenshot-3.png",
+        "alt": "Pit Guru screenshot 3"
+      },
+      {
+        "src": "assets/images/pit-guru/screenshot-4.png",
+        "alt": "Pit Guru screenshot 4"
+      },
+      {
+        "src": "assets/images/pit-guru/screenshot-5.png",
+        "alt": "Pit Guru screenshot 5"
+      },
+      {
+        "src": "assets/images/pit-guru/screenshot-6.png",
+        "alt": "Pit Guru screenshot 6"
+      },
+      {
+        "src": "assets/images/pit-guru/screenshot-7.png",
+        "alt": "Pit Guru screenshot 7"
+      },
+      {
+        "src": "assets/images/pit-guru/screenshot-8.png",
+        "alt": "Pit Guru screenshot 8"
+      },
+      {
+        "src": "assets/images/pit-guru/screenshot-9.png",
+        "alt": "Pit Guru screenshot 9"
+      },
+      {
+        "src": "assets/images/pit-guru/screenshot-10.png",
+        "alt": "Pit Guru screenshot 10"
+      },
+      {
+        "src": "assets/images/pit-guru/screenshot-11.png",
+        "alt": "Pit Guru screenshot 11"
+      },
+      {
+        "src": "assets/images/pit-guru/screenshot-12.png",
+        "alt": "Pit Guru screenshot 12"
+      }
+    ],
+    "customRaceFilter": [
+      {
+        "src": "assets/images/custom-race-filter/screenshot-1.png",
+        "alt": "Custom Race Filter screenshot 1"
+      },
+      {
+        "src": "assets/images/custom-race-filter/screenshot-2.png",
+        "alt": "Custom Race Filter screenshot 2"
+      },
+      {
+        "src": "assets/images/custom-race-filter/screenshot-3.png",
+        "alt": "Custom Race Filter screenshot 3"
+      },
+      {
+        "src": "assets/images/custom-race-filter/screenshot-4.png",
+        "alt": "Custom Race Filter screenshot 4"
+      }
+    ],
+    "tornfolio": [
+      {
+        "src": "assets/images/landlord-tenant-ledger/landlord-tenant-ledger-logo.png",
+        "alt": "Tornfolio preview"
+      }
+    ],
+    "modulHubControl": [],
+    "cracked": [],
+    "raceTracker": [
+      {
+        "src": "assets/images/race-tracker/screenshot-1.png",
+        "alt": "Race Tracker screenshot 1"
+      },
+      {
+        "src": "assets/images/race-tracker/screenshot-2.png",
+        "alt": "Race Tracker screenshot 2"
+      },
+      {
+        "src": "assets/images/race-tracker/screenshot-3.png",
+        "alt": "Race Tracker screenshot 3"
+      },
+      {
+        "src": "assets/images/race-tracker/screenshot-4.png",
+        "alt": "Race Tracker screenshot 4"
+      },
+      {
+        "src": "assets/images/race-tracker/screenshot-5.png",
+        "alt": "Race Tracker screenshot 5"
+      },
+      {
+        "src": "assets/images/race-tracker/screenshot-6.png",
+        "alt": "Race Tracker screenshot 6"
+      },
+      {
+        "src": "assets/images/race-tracker/screenshot-7.png",
+        "alt": "Race Tracker screenshot 7"
+      },
+      {
+        "src": "assets/images/race-tracker/screenshot-8.png",
+        "alt": "Race Tracker screenshot 8"
+      },
+      {
+        "src": "assets/images/race-tracker/screenshot-9.png",
+        "alt": "Race Tracker screenshot 9"
+      },
+      {
+        "src": "assets/images/race-tracker/screenshot-10.png",
+        "alt": "Race Tracker screenshot 10"
+      },
+      {
+        "src": "assets/images/race-tracker/screenshot-11.png",
+        "alt": "Race Tracker screenshot 11"
+      }
+    ],
+    "eggsTerminator": [
+      {
+        "src": "assets/images/eggsterminator/screenshot-1.png",
+        "alt": "EggsTerminator screenshot 1"
+      },
+      {
+        "src": "assets/images/eggsterminator/screenshot-2.png",
+        "alt": "EggsTerminator screenshot 2"
+      },
+      {
+        "src": "assets/images/eggsterminator/screenshot-3.png",
+        "alt": "EggsTerminator screenshot 3"
+      },
+      {
+        "src": "assets/images/eggsterminator/screenshot-4.png",
+        "alt": "EggsTerminator screenshot 4"
+      },
+      {
+        "src": "assets/images/eggsterminator/screenshot-5.png",
+        "alt": "EggsTerminator screenshot 5"
+      }
+    ],
+    "raceThemeChanger": [
+      {
+        "src": "assets/images/race-theme-changer/screenshot-1.png",
+        "alt": "Race Theme Changer screenshot 1"
+      },
+      {
+        "src": "assets/images/race-theme-changer/screenshot-2.png",
+        "alt": "Race Theme Changer screenshot 2"
+      },
+      {
+        "src": "assets/images/race-theme-changer/screenshot-3.png",
+        "alt": "Race Theme Changer screenshot 3"
+      },
+      {
+        "src": "assets/images/race-theme-changer/screenshot-4.png",
+        "alt": "Race Theme Changer screenshot 4"
+      },
+      {
+        "src": "assets/images/race-theme-changer/screenshot-5.png",
+        "alt": "Race Theme Changer screenshot 5"
+      },
+      {
+        "src": "assets/images/race-theme-changer/screenshot-6.png",
+        "alt": "Race Theme Changer screenshot 6"
+      },
+      {
+        "src": "assets/images/race-theme-changer/screenshot-7.png",
+        "alt": "Race Theme Changer screenshot 7"
+      },
+      {
+        "src": "assets/images/race-theme-changer/screenshot-8.png",
+        "alt": "Race Theme Changer screenshot 8"
+      },
+      {
+        "src": "assets/images/race-theme-changer/screenshot-9.png",
+        "alt": "Race Theme Changer screenshot 9"
+      },
+      {
+        "src": "assets/images/race-theme-changer/screenshot-10.png",
+        "alt": "Race Theme Changer screenshot 10"
+      }
+    ],
+    "restoreOgNames": [
+      {
+        "src": "assets/images/restore-og-names/screenshot-1.png",
+        "alt": "Restore OG Names screenshot 1"
+      },
+      {
+        "src": "assets/images/restore-og-names/screenshot-2.png",
+        "alt": "Restore OG Names screenshot 2"
+      },
+      {
+        "src": "assets/images/restore-og-names/screenshot-3.png",
+        "alt": "Restore OG Names screenshot 3"
+      },
+      {
+        "src": "assets/images/restore-og-names/screenshot-4.png",
+        "alt": "Restore OG Names screenshot 4"
+      }
+    ],
+    "stockx": [],
+    "smuggler": [
+      {
+        "src": "assets/images/smuggler/screenshot-1.png",
+        "alt": "Smuggler screenshot 1"
+      },
+      {
+        "src": "assets/images/smuggler/screenshot-2.png",
+        "alt": "Smuggler screenshot 2"
+      },
+      {
+        "src": "assets/images/smuggler/screenshot-3.png",
+        "alt": "Smuggler screenshot 3"
+      },
+      {
+        "src": "assets/images/smuggler/screenshot-4.png",
+        "alt": "Smuggler screenshot 4"
+      },
+      {
+        "src": "assets/images/smuggler/screenshot-5.png",
+        "alt": "Smuggler screenshot 5"
+      },
+      {
+        "src": "assets/images/smuggler/screenshot-6.png",
+        "alt": "Smuggler screenshot 6"
+      },
+      {
+        "src": "assets/images/smuggler/screenshot-7.png",
+        "alt": "Smuggler screenshot 7"
+      }
+    ],
+    "bootleggingHelper": [],
+    "jobCentrePlus": [
+      {
+        "src": "assets/images/job-centre-plus/og.png",
+        "alt": "JobCentre+ preview"
+      },
+      {
+        "src": "assets/images/job-centre-plus/og_promo16_9.png",
+        "alt": "JobCentre+ preview"
+      }
+    ],
+    "pythagorasDashboard": [
+      {
+        "src": "assets/images/pythagoras-project-cis/screenshot-1.png",
+        "alt": "Pythagoras Dashboard screenshot 1"
+      },
+      {
+        "src": "assets/images/pythagoras-project-cis/screenshot-2.png",
+        "alt": "Pythagoras Dashboard screenshot 2"
+      },
+      {
+        "src": "assets/images/pythagoras-project-cis/screenshot-3.png",
+        "alt": "Pythagoras Dashboard screenshot 3"
+      },
+      {
+        "src": "assets/images/pythagoras-project-cis/screenshot-4.png",
+        "alt": "Pythagoras Dashboard screenshot 4"
+      },
+      {
+        "src": "assets/images/pythagoras-project-cis/screenshot-5.png",
+        "alt": "Pythagoras Dashboard screenshot 5"
+      },
+      {
+        "src": "assets/images/pythagoras-project-cis/screenshot-6.png",
+        "alt": "Pythagoras Dashboard screenshot 6"
+      },
+      {
+        "src": "assets/images/pythagoras-project-cis/screenshot-7.png",
+        "alt": "Pythagoras Dashboard screenshot 7"
+      },
+      {
+        "src": "assets/images/pythagoras-project-cis/screenshot-8.png",
+        "alt": "Pythagoras Dashboard screenshot 8"
+      },
+      {
+        "src": "assets/images/pythagoras-project-cis/screenshot-9.png",
+        "alt": "Pythagoras Dashboard screenshot 9"
+      },
+      {
+        "src": "assets/images/pythagoras-project-cis/screenshot-10.png",
+        "alt": "Pythagoras Dashboard screenshot 10"
+      },
+      {
+        "src": "assets/images/pythagoras-project-cis/screenshot-11.png",
+        "alt": "Pythagoras Dashboard screenshot 11"
+      },
+      {
+        "src": "assets/images/pythagoras-project-cis/screenshot-12.png",
+        "alt": "Pythagoras Dashboard screenshot 12"
+      },
+      {
+        "src": "assets/images/pythagoras-project-cis/screenshot-13.png",
+        "alt": "Pythagoras Dashboard screenshot 13"
+      },
+      {
+        "src": "assets/images/pythagoras-project-cis/screenshot-14.png",
+        "alt": "Pythagoras Dashboard screenshot 14"
+      },
+      {
+        "src": "assets/images/pythagoras-project-cis/screenshot-15.png",
+        "alt": "Pythagoras Dashboard screenshot 15"
+      },
+      {
+        "src": "assets/images/pythagoras-project-cis/screenshot-16.png",
+        "alt": "Pythagoras Dashboard screenshot 16"
+      },
+      {
+        "src": "assets/images/pythagoras-project-cis/screenshot-17.png",
+        "alt": "Pythagoras Dashboard screenshot 17"
+      },
+      {
+        "src": "assets/images/pythagoras-project-cis/screenshot-18.png",
+        "alt": "Pythagoras Dashboard screenshot 18"
+      },
+      {
+        "src": "assets/images/pythagoras-project-cis/screenshot-19.png",
+        "alt": "Pythagoras Dashboard screenshot 19"
+      }
+    ],
+    "lap-recorder": [
+      {
+        "src": "assets/images/lap-recorder/screenshot-1.png",
+        "alt": "Lap Recorder screenshot 1"
+      },
+      {
+        "src": "assets/images/lap-recorder/screenshot-2.png",
+        "alt": "Lap Recorder screenshot 2"
+      }
+    ]
+  }
+}

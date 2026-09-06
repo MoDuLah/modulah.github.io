@@ -4,12 +4,12 @@ export const scripts = [
                         "tier": "supporter",
                         "title": "Pythagoras Project - CIS",
                         "desc": "A company intelligence workspace for Torn directors with exact action-log-backed training counts, staff history, analytics and shared reporting.",
-                        "version": "v3.0.5",
+                        "version": "v3.1.0",
                         "versionPrefix": "VER",
                         "category": "Company intelligence",
                         "projectType": "Supporter userscript",
                         "releaseState": "Current supporter build",
-                        "updated": "17 August 2026",
+                        "updated": "4 September 2026",
                         "badge": "supporter",
                         "badgeText": "SUPPORTER",
                         "logo": "assets/images/pythagoras-project-cis/pythagoras-project-logo.png",
@@ -27,7 +27,7 @@ export const scripts = [
                                                 "primary": false
                                     },
                                     {
-                                                "label": "Install v3.0.5",
+                                                "label": "Install v3.1.0",
                                                 "href": "https://greasyfork.org/en/scripts/580933-pythagoras-project-cis",
                                                 "icon": "download",
                                                 "primary": true
@@ -45,12 +45,12 @@ export const scripts = [
                         "tier": "supporter",
                         "title": "MoDuL's Pit Guru",
                         "desc": "A supporter racing-analysis tool with live gaps, sectors, speed, predictions, replay links and persistent hosted race history.",
-                        "version": "v2.3.4",
+                        "version": "v2.3.6",
                         "versionPrefix": "VER",
                         "category": "Racing analysis",
                         "projectType": "Supporter userscript",
                         "releaseState": "Current supporter build",
-                        "updated": "30 July 2026",
+                        "updated": "30 August 2026",
                         "badge": "supporter",
                         "badgeText": "SUPPORTER",
                         "logo": "assets/images/pit-guru/pit-guru-logo.png",
@@ -68,7 +68,7 @@ export const scripts = [
                                                 "primary": false
                                     },
                                     {
-                                                "label": "Install v2.3.4",
+                                                "label": "Install v2.3.6",
                                                 "href": "pit-guru/pit-guru.user.js",
                                                 "icon": "download",
                                                 "primary": true
@@ -189,12 +189,12 @@ export const scripts = [
                         "tier": "free",
                         "title": "cRaCked",
                         "desc": "A Torn cracking assistant with calibrated probability estimates, a fallback model for unknown words and self-measuring local telemetry.",
-                        "version": "v2.2.0",
+                        "version": "v2.4.8",
                         "versionPrefix": "VER",
                         "category": "Cracking assistance",
                         "projectType": "Free userscript",
                         "releaseState": "Live release",
-                        "updated": "22 August 2026",
+                        "updated": "3 September 2026",
                         "badge": "free",
                         "badgeText": "FREE",
                         "iconPath": "<path d=\"M13 2L3 14h9l-1 8 10-12h-9l1-8z\"></path>",
@@ -205,7 +205,7 @@ export const scripts = [
                         ],
                         "actions": [
                                     {
-                                                "label": "Install v2.2.0",
+                                                "label": "Install v2.4.8",
                                                 "href": "https://greasyfork.org/en/scripts/589397-cracked",
                                                 "icon": "download",
                                                 "primary": true
@@ -555,6 +555,15 @@ export const scripts = [
 
         export const scriptReleases = [
             {
+                scriptId: 'pitGuru',
+                title: "MoDuL's Pit Guru",
+                version: 'v2.3.6',
+                date: '2026-08-30',
+                type: 'RELEASE',
+                summary: 'Added cache-first Driver Intel lookups, paced API requests and clearer licence progress.',
+                href: 'https://modulah.github.io/pit-guru/'
+            },
+            {
                 scriptId: 'jobCentrePlus',
                 title: 'JobCentre+ Live Notifier',
                 version: 'v2.1.3',
@@ -656,7 +665,7 @@ export const scripts = [
         }
 
         export const moduleScreenshots = {
-            pythagoras: screenshotSeries('pythagoras-project-cis', 7),
+            pythagoras: screenshotSeries('pythagoras-project-cis', 19),
             pitGuru: screenshotSeries('pit-guru', 12),
             customRaceFilter: screenshotSeries('custom-race-filter', 4),
             tornfolio: [{ src: 'assets/images/landlord-tenant-ledger/landlord-tenant-ledger-logo.png', alt: 'Tornfolio project preview' }],
@@ -673,6 +682,6 @@ export const scripts = [
                 { src: 'assets/images/job-centre-plus/og.png', alt: 'JobCentre+ marketplace preview' },
                 { src: 'assets/images/job-centre-plus/og_promo16_9.png', alt: 'JobCentre+ widescreen preview' }
             ],
-            pythagorasDashboard: screenshotSeries('pythagoras-project-cis', 7),
+            pythagorasDashboard: screenshotSeries('pythagoras-project-cis', 19),
             'lap-recorder': screenshotSeries('lap-recorder', 2)
         };

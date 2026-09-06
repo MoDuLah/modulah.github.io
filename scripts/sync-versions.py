@@ -806,6 +806,7 @@ def main() -> int:
     today = checked_at.date().isoformat()
     records: list[dict[str, Any]] = []
     errors: list[dict[str, str]] = []
+    warnings: list[dict[str, str]] = []
 
     for entry in entries:
         entry_id = entry.get("id", "unknown") if isinstance(entry, dict) else "unknown"
@@ -822,7 +823,13 @@ def main() -> int:
                 )
             )
         except UpdateCheckError as error:
-            errors.append({"id": str(entry_id), "error": str(error)})
+            failure = {"id": str(entry_id), "error": str(error)}
+            if isinstance(entry, dict) and entry.get("required", True) is False:
+                warnings.append(failure)
+                if entry_id in previous:
+                    records.append(previous[entry_id])
+            else:
+                errors.append(failure)
 
     timeline = build_timeline(records, previous, previous_timeline, entries)
     public_records = [
@@ -835,6 +842,7 @@ def main() -> int:
         "scripts": public_records,
         "timeline": timeline,
         "errors": errors,
+        "warnings": warnings,
     }
     print(json.dumps(payload, indent=2, ensure_ascii=False))
 

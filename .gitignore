@@ -72,8 +72,8 @@ assets/images/pit-guru/HOW.png
 screen.png
 __pycache__/
 *.pyc
-assets/data/script-updates.json
 /test-artifacts
 /tests
 /tests
 *.har
+/_site/

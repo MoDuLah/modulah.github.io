@@ -18,10 +18,10 @@ const workflow = fs.readFileSync(path.join(repositoryRoot, ".github/workflows/de
 describe("command centre catalogue", () => {
   test("shows current distributed script versions", () => {
     expect(code).toContain("BUILD: v2.5.0-CYBER");
-    expect(catalogue).toContain('"version": "v3.0.5"');
-    expect(catalogue).toContain('"label": "Install v3.0.5"');
-    expect(catalogue).toContain('"version": "v2.2.0"');
-    expect(catalogue).toContain('"label": "Install v2.2.0"');
+    expect(catalogue).toContain('"version": "v3.1.0"');
+    expect(catalogue).toContain('"label": "Install v3.1.0"');
+    expect(catalogue).toContain('"version": "v2.4.8"');
+    expect(catalogue).toContain('"label": "Install v2.4.8"');
     expect(catalogue).toContain('"version": "v0.3.4"');
     expect(catalogue).toContain('"label": "Install v0.3.4"');
     expect(catalogue).toContain('"version": "v2.1.3"');
@@ -35,7 +35,7 @@ describe("command centre catalogue", () => {
     expect(app).toContain("automaticScriptReleases");
     expect(app).toContain("payload.timeline.map(sanitiseTimelineEvent)");
     expect(app).toContain("release.scriptId || release.title.toLocaleLowerCase()");
-    expect(app).toContain("versions and release timeline checked at 00:00 and 12:00 UK time");
+    expect(app).toContain("Latest release check:");
     expect(app).toContain("requestUrl.searchParams.set('fresh', Date.now().toString())");
     expect(app).toContain('setTimeout(() => controller.abort(), 8000)');
     expect(code).not.toContain('src="assets/js/repository-activity.js"');
@@ -142,6 +142,12 @@ describe("command centre catalogue", () => {
     expect(app).toContain("renderModuleScreenshots(data);");
     expect(app).toContain("event.key === 'ArrowLeft'");
     expect(app).toContain("event.key === 'ArrowRight'");
+    expect(app).toContain("assets/data/module-screenshots.json");
+    expect(app).toContain("loadScreenshotManifest()");
+    const screenshotManifest = JSON.parse(
+      fs.readFileSync(path.join(repositoryRoot, "assets/data/module-screenshots.json"), "utf8")
+    );
+    expect(screenshotManifest.modules.pythagoras).toHaveLength(19);
 
     const representativeImages = [
       "assets/images/pythagoras-project-cis/screenshot-7.png",
@@ -212,6 +218,17 @@ describe("command centre catalogue", () => {
       562954, 563153, 563548, 575111, 575131, 578342, 579366, 580933, 589397,
     ]);
     expect(updaterConfig.scripts.filter((entry) => entry.source.type === "userscript")).toHaveLength(2);
+  });
+
+  test("refreshes generated manifests during deploy and scheduled sync", () => {
+    expect(workflow).toContain("scripts/build-site.py --output _site");
+    expect(workflow).toContain("scripts/generate-screenshot-manifest.py --write");
+    const syncWorkflow = fs.readFileSync(
+      path.join(repositoryRoot, ".github/workflows/version-sync.yml"),
+      "utf8"
+    );
+    expect(workflow).toContain('cron: "17 0,12 * * *"');
+    expect(syncWorkflow).toContain("uses: ./.github/workflows/deploy.yml");
   });
 
   test("renders sanitised GreasyFork card metadata", () => {

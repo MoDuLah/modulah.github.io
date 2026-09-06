@@ -1,0 +1,10 @@
+[Unit]
+Description=Check for a new hub publication every five minutes
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=5min
+Unit=moduls-hub-site-sync.service
+
+[Install]
+WantedBy=timers.target

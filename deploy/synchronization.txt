@@ -1,0 +1,44 @@
+Hub publication and synchronization
+==================================
+
+Edit and publish from MoDuLah/modulah.github.io main. GitHub Actions builds an
+allowlisted public artifact, generates screenshot galleries from numbered image
+files, and publishes a site-files.json checksum manifest. GitHub Pages uses the
+workflow publishing source; branch/Jekyll publishing must remain disabled.
+
+On the VM, moduls-hub-site-sync.timer checks the public GitHub Pages publication
+every five minutes. Only a complete, checksum-verified build replaces the current
+release symlink. Unchanged files are reused. Failed downloads or publications
+changing during a download leave the current release untouched. Prior release
+directories remain available for rollback.
+
+Both frontends request the VM's public assets/data/script-updates.json feed.
+The existing script updater owns that feed and its accumulated history; its
+timer checks sources at midnight and noon UK time. The feed is published from
+live-data outside release directories, and its CORS policy allows GitHub Pages.
+GitHub's build also keeps a snapshot for use if the live feed is unavailable.
+The deployment workflow runs twice daily to refresh that fallback snapshot.
+
+The catalogue preserves the distinction between Pit Guru's locally distributed
+userscript and its GreasyFork metadata. Updates to locally hosted script files
+must still be published as releases; synchronizing the hub does not manufacture
+new versions or replace scripts with unreviewed downloads.
+
+Existing VM API/app routes retain priority over static files. In particular,
+/pit-guru/ is the player on the VM and the documentation page on GitHub Pages.
+
+Installation: stage the files required by install-hub-sync.sh and run it as root.
+The installer prints a backup path before modifying Nginx or updater files.
+Once GitHub Pages serves site-files.json, run:
+  systemctl start moduls-hub-site-sync.service
+  systemctl enable --now moduls-hub-site-sync.timer
+
+Verification:
+  systemctl status moduls-hub-site-sync.timer
+  journalctl -u moduls-hub-site-sync.service -n 20 --no-pager
+Compare site-files.json on both public domains and check the screenshot gallery.
+
+Rollback: stop moduls-hub-site-sync.timer first, then atomically point current to
+the prior release directory printed by the mirror. Restore the backed-up Nginx
+snippet and updater files if rolling back the feed setup as well; validate Nginx
+before reloading it and reload systemd after restoring service files.
