@@ -1,0 +1,114 @@
+{
+  "schemaVersion": 1,
+  "scripts": [
+    {
+      "id": "pythagoras",
+      "title": "Pythagoras Project - CIS",
+      "displayPrefix": "v",
+      "actionLabelTemplate": "Install {version}",
+      "source": {
+        "type": "greasyfork",
+        "scriptId": 580933
+      }
+    },
+    {
+      "id": "pitGuru",
+      "title": "MoDuL's Pit Guru",
+      "displayPrefix": "v",
+      "updateVersion": false,
+      "source": {
+        "type": "greasyfork",
+        "scriptId": 578342
+      }
+    },
+    {
+      "id": "customRaceFilter",
+      "title": "Custom Race Filter",
+      "displayPrefix": "v",
+      "source": {
+        "type": "greasyfork",
+        "scriptId": 562954
+      }
+    },
+    {
+      "id": "modulHubControl",
+      "title": "MoDuL Hub Control Room",
+      "displayPrefix": "v",
+      "actionLabelTemplate": "Install {version}",
+      "initialDate": "2026-07-28",
+      "timelineHref": "global-theme/",
+      "source": {
+        "type": "userscript",
+        "path": "global-theme/modul-hub-global-theme.user.js"
+      }
+    },
+    {
+      "id": "cracked",
+      "title": "cRaCked",
+      "displayPrefix": "v",
+      "actionLabelTemplate": "Install {version}",
+      "source": {
+        "type": "greasyfork",
+        "scriptId": 589397
+      }
+    },
+    {
+      "id": "eggsTerminator",
+      "title": "EggsTerminator",
+      "displayPrefix": "v",
+      "source": {
+        "type": "greasyfork",
+        "scriptId": 575131
+      }
+    },
+    {
+      "id": "raceThemeChanger",
+      "title": "Race Theme Changer",
+      "displayPrefix": "v",
+      "source": {
+        "type": "greasyfork",
+        "scriptId": 563548
+      }
+    },
+    {
+      "id": "restoreOgNames",
+      "title": "Restore OG Names",
+      "displayPrefix": "v",
+      "source": {
+        "type": "greasyfork",
+        "scriptId": 563153
+      }
+    },
+    {
+      "id": "smuggler",
+      "title": "Smuggler",
+      "displayPrefix": "v",
+      "source": {
+        "type": "greasyfork",
+        "scriptId": 575111
+      }
+    },
+    {
+      "id": "bootleggingHelper",
+      "title": "Torn Bootlegging — Copy DVDs Stock+Queue Helper",
+      "displayPrefix": "v",
+      "actionLabelTemplate": "Install {version}",
+      "source": {
+        "type": "greasyfork",
+        "scriptId": 579366
+      }
+    },
+    {
+      "id": "jobCentrePlus",
+      "title": "JobCentre+",
+      "displayPrefix": "v",
+      "actionLabelTemplate": "Install Notifier {version}",
+      "initialDate": "2026-08-17",
+      "timelineHref": "https://pp-api.sokin.xyz/jobcentreplus/",
+      "source": {
+        "type": "userscript",
+        "path": "${JOB_CENTRE_NOTIFIER_PATH}"
+      }
+    }
+  ]
+}

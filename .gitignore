@@ -70,3 +70,10 @@ assets/images/pit-guru/HOW.png
 *.psd
 /moduls_hub
 screen.png
+__pycache__/
+*.pyc
+assets/data/script-updates.json
+/test-artifacts
+/tests
+/tests
+*.har

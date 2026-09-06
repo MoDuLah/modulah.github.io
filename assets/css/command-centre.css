@@ -1,0 +1,541 @@
+html,
+        body {
+            min-height: 100%;
+            background-color: #111416;
+        }
+        .shader-background {
+            position: fixed;
+            z-index: 0;
+            inset: 0;
+            width: 100vw;
+            height: 100vh;
+            background: #111416;
+            overflow: hidden;
+            pointer-events: none;
+        }
+        .shader-background canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+            background: #111416;
+        }
+        .glass-panel {
+            background: rgba(13, 17, 23, 0.7);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            transition: all 0.3s ease;
+        }
+        .glass-panel:hover {
+            border-color: #98f05f;
+            box-shadow: inset 0 0 10px rgba(152, 240, 95, 0.1);
+        }
+        .grid-bg {
+            background-image: linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+                              linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+            background-size: 32px 32px;
+        }
+        .flicker-hover:hover {
+            animation: flicker 0.15s infinite alternate;
+        }
+        @keyframes flicker {
+            0% { opacity: 0.8; }
+            100% { opacity: 1; text-shadow: 0 0 8px currentColor; }
+        }
+        .blink-cursor {
+            animation: blink 1s step-end infinite;
+        }
+        @keyframes blink {
+            50% { opacity: 0; }
+        }
+        .status-chip {
+            border-left: 1px solid;
+            background: rgba(var(--chip-color), 0.1);
+        }
+        .status-chip.live,
+        .status-chip.free { --chip-color: 42, 229, 0; border-color: #2ae500; color: #2ae500; }
+        .status-chip.web-tool { --chip-color: 89, 212, 255; border-color: #59d4ff; color: #59d4ff; }
+        .status-chip.supporter { --chip-color: 255, 0, 255; border-color: #ff00ff; color: #ff00ff; }
+        .status-chip.dev { --chip-color: 255, 186, 56; border-color: #ffba38; color: #ffba38; }
+        .status-chip.archive { --chip-color: 147, 0, 10; border-color: #93000a; color: #ffb4ab; }
+        
+        .cyber-button-primary {
+            background-color: #98f05f;
+            color: #111416;
+            transition: all 0.2s;
+            position: relative;
+            overflow: hidden;
+        }
+        .cyber-button-primary:hover {
+            box-shadow: 0 0 15px rgba(152, 240, 95, 0.5);
+            background-color: #a7f775;
+        }
+        .cyber-button-secondary {
+            background-color: transparent;
+            border: 1px solid #98f05f;
+            color: #98f05f;
+            transition: all 0.2s;
+            position: relative;
+            overflow: hidden;
+        }
+        .cyber-button-secondary:hover {
+            background-color: rgba(152, 240, 95, 0.1);
+            box-shadow: inset 0 0 10px rgba(152, 240, 95, 0.2);
+        }
+
+        /* Edit: Scanline shimmer effect */
+        .shimmer-btn::after {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: linear-gradient(transparent, rgba(255,255,255,0.3), transparent);
+            transform: rotate(45deg) translateY(-100%);
+            transition: transform 0s;
+        }
+        .shimmer-btn:hover::after {
+            transform: rotate(45deg) translateY(100%);
+            transition: transform 0.5s ease-in-out;
+        }
+
+        /* Edit: Typing animation */
+        .typing-line {
+            overflow: hidden;
+            white-space: nowrap;
+            opacity: 0;
+            animation: typing 1s steps(40, end) forwards;
+        }
+        @keyframes typing {
+            0% { width: 0; opacity: 1; }
+            100% { width: 100%; opacity: 1; }
+        }
+
+        /* Edit: Module card hover & Active State */
+        #module-grid[aria-busy="true"]::after {
+            content: '';
+            position: absolute;
+            z-index: 10;
+            inset: 0;
+            pointer-events: none;
+            background: rgba(8, 10, 12, 0.32);
+            backdrop-filter: blur(2.5px);
+            animation: module-selection-veil 0.22s ease-out forwards;
+        }
+        .module-card {
+            z-index: 1;
+            transition:
+                transform 0.5s ease,
+                border-color 0.5s ease,
+                box-shadow 0.5s ease,
+                opacity 0.4s ease,
+                filter 0.4s ease;
+            position: relative;
+            overflow: hidden;
+        }
+        .module-card::before {
+            content: '';
+            position: absolute;
+            z-index: 2;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 2px;
+            opacity: 0;
+            pointer-events: none;
+            background: #98f05f;
+            box-shadow: 0 0 10px #98f05f;
+        }
+        .module-card-reveal {
+            opacity: 0.82;
+            transition: opacity 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .module-card-logo {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            border-radius: 0.2rem;
+        }
+        .module-card-progress {
+            position: absolute;
+            z-index: 3;
+            right: 0;
+            bottom: 0;
+            left: 0;
+            height: 3px;
+            overflow: hidden;
+            opacity: 0;
+            pointer-events: none;
+            background: rgba(152, 240, 95, 0.12);
+            transition: opacity 0.2s ease;
+        }
+        .module-card-progress::after {
+            content: '';
+            display: block;
+            width: 100%;
+            height: 100%;
+            transform: scaleX(0);
+            transform-origin: left center;
+            background: #98f05f;
+            box-shadow: 0 0 12px rgba(152, 240, 95, 0.85);
+        }
+        .module-card.loading {
+            border-style: dashed;
+        }
+        .module-card.loading .module-card-progress {
+            opacity: 1;
+        }
+        .module-card.loading .module-card-progress::after {
+            animation: module-load-progress 2.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+        .module-card.loading-peer {
+            opacity: 0.3;
+            filter: saturate(0.45) brightness(0.68);
+            transform: scale(0.985);
+        }
+        .module-card:hover {
+            transform: translateY(-4px);
+            border-color: #98f05f;
+            box-shadow: 0 0 15px rgba(152, 240, 95, 0.2), inset 0 0 10px rgba(152, 240, 95, 0.08);
+        }
+        .module-card:hover::before,
+        .module-card:focus-visible::before {
+            opacity: 1;
+            animation: scanline 1.2s cubic-bezier(0.16, 1, 0.3, 1) 1;
+        }
+        .module-card:hover .module-card-reveal,
+        .module-card:focus-visible .module-card-reveal,
+        .module-card.active .module-card-reveal {
+            opacity: 1;
+        }
+        .module-card.active {
+            z-index: 20;
+            opacity: 1;
+            transform: translateY(-4px);
+            border-color: #98f05f;
+            box-shadow: 0 0 15px rgba(152, 240, 95, 0.3), inset 0 0 10px rgba(152, 240, 95, 0.1);
+            filter: brightness(1.1);
+            animation: neon-flicker 1.5s infinite alternate;
+        }
+        
+        .module-card.active::before {
+            opacity: 1;
+            animation: scanline 2s linear infinite;
+        }
+
+        @keyframes scanline {
+            0% { left: -100%; }
+            100% { left: 100%; }
+        }
+
+        @keyframes module-load-progress {
+            0% { transform: scaleX(0); }
+            100% { transform: scaleX(1); }
+        }
+
+        @keyframes module-selection-veil {
+            0% { opacity: 0; }
+            100% { opacity: 1; }
+        }
+
+        ::view-transition-group(module-detail) {
+            animation-duration: 0.65s;
+            animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        ::view-transition-old(module-detail) {
+            animation: module-card-crossfade-out 0.65s ease both;
+        }
+        ::view-transition-new(module-detail) {
+            animation: module-detail-crossfade-in 0.65s ease both;
+            mix-blend-mode: normal;
+        }
+        html.module-transition-reverse::view-transition-old(module-detail) {
+            animation: module-detail-crossfade-out 0.65s ease both;
+        }
+        html.module-transition-reverse::view-transition-new(module-detail) {
+            animation: module-card-crossfade-in 0.65s ease both;
+            mix-blend-mode: normal;
+        }
+        .script-details.module-detail-fallback {
+            animation: module-detail-fallback 0.55s cubic-bezier(0.16, 1, 0.3, 1) both;
+        }
+        .module-grid.registry-return-fallback {
+            animation: registry-return-fallback 0.42s cubic-bezier(0.16, 1, 0.3, 1) both;
+        }
+        .module-card-transition-clone {
+            position: fixed !important;
+            z-index: 1000 !important;
+            top: var(--module-source-top) !important;
+            left: var(--module-source-left) !important;
+            width: var(--module-source-width) !important;
+            height: var(--module-source-height) !important;
+            margin: 0 !important;
+            pointer-events: none !important;
+            animation: none !important;
+        }
+        .module-card-transition-clone.expanding {
+            animation: module-card-expand 0.65s cubic-bezier(0.16, 1, 0.3, 1) forwards !important;
+        }
+        .module-card-transition-clone .module-card-progress::after {
+            transform: scaleX(1);
+            animation: none;
+        }
+        .module-detail-transition-clone {
+            position: fixed !important;
+            z-index: 1000 !important;
+            display: block !important;
+            top: var(--module-source-top) !important;
+            left: var(--module-source-left) !important;
+            width: var(--module-source-width) !important;
+            height: var(--module-source-height) !important;
+            max-height: none !important;
+            margin: 0 !important;
+            overflow: hidden !important;
+            pointer-events: none !important;
+            animation: none !important;
+        }
+        .module-detail-transition-clone.contracting {
+            animation: module-detail-contract 0.65s cubic-bezier(0.16, 1, 0.3, 1) forwards !important;
+        }
+
+        @keyframes module-card-crossfade-out {
+            0%, 28% { opacity: 1; }
+            100% { opacity: 0; }
+        }
+
+        @keyframes module-detail-crossfade-in {
+            0%, 28% { opacity: 0; }
+            100% { opacity: 1; }
+        }
+
+        @keyframes module-detail-crossfade-out {
+            0%, 28% { opacity: 1; }
+            100% { opacity: 0; }
+        }
+
+        @keyframes module-card-crossfade-in {
+            0%, 28% { opacity: 0; }
+            100% { opacity: 1; }
+        }
+
+        @keyframes module-detail-fallback {
+            0% { opacity: 0; transform: translateY(8px) scale(0.985); }
+            100% { opacity: 1; transform: translateY(0) scale(1); }
+        }
+
+        @keyframes module-card-expand {
+            0% {
+                top: var(--module-source-top);
+                left: var(--module-source-left);
+                width: var(--module-source-width);
+                height: var(--module-source-height);
+                opacity: 1;
+            }
+            70% {
+                top: var(--module-target-top);
+                left: var(--module-target-left);
+                width: var(--module-target-width);
+                height: var(--module-target-height);
+                opacity: 0.62;
+            }
+            100% {
+                top: var(--module-target-top);
+                left: var(--module-target-left);
+                width: var(--module-target-width);
+                height: var(--module-target-height);
+                opacity: 0;
+            }
+        }
+
+        @keyframes module-detail-contract {
+            0% {
+                top: var(--module-source-top);
+                left: var(--module-source-left);
+                width: var(--module-source-width);
+                height: var(--module-source-height);
+                opacity: 1;
+            }
+            72% {
+                top: var(--module-target-top);
+                left: var(--module-target-left);
+                width: var(--module-target-width);
+                height: var(--module-target-height);
+                opacity: 0.58;
+            }
+            100% {
+                top: var(--module-target-top);
+                left: var(--module-target-left);
+                width: var(--module-target-width);
+                height: var(--module-target-height);
+                opacity: 0;
+            }
+        }
+
+        @keyframes registry-return-fallback {
+            0% { opacity: 0; transform: translateY(8px) scale(0.985); }
+            100% { opacity: 1; transform: translateY(0) scale(1); }
+        }
+
+        @keyframes neon-flicker {
+            0%, 19%, 21%, 23%, 25%, 54%, 56%, 100% { border-color: #98f05f; box-shadow: 0 0 15px rgba(152, 240, 95, 0.3), inset 0 0 10px rgba(152, 240, 95, 0.1); }
+            20%, 24%, 55% { border-color: rgba(152, 240, 95, 0.4); box-shadow: none; }
+        }
+
+        /* Edit: Rhythmic pulse for status indicators */
+        .pulse-green {
+            animation: pulse-rhythmic 2s infinite ease-in-out;
+        }
+        @keyframes pulse-rhythmic {
+            0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(152, 240, 95, 0.7); }
+            70% { transform: scale(1); box-shadow: 0 0 0 10px rgba(152, 240, 95, 0); }
+            100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(152, 240, 95, 0); }
+        }
+
+        /* Edit: Page entrance transitions */
+        .fade-slide-up {
+            opacity: 0;
+            transform: translateY(20px);
+            animation: fadeSlideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+        .fade-slide-down {
+            opacity: 1;
+            transform: translateY(0);
+            animation: fadeSlideDown 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+        @keyframes fadeSlideUp {
+            to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes fadeSlideDown {
+            to { opacity: 0; transform: translateY(20px); }
+        }
+
+        /* Edit: Staggered feed items */
+        .feed-item {
+            opacity: 0;
+            transform: translateX(-10px);
+            animation: feedFadeIn 0.5s ease forwards;
+        }
+        @keyframes feedFadeIn {
+            to { opacity: 1; transform: translateX(0); }
+        }
+        
+        .script-details {
+            display: none;
+            animation: fadeSlideUp 0.4s ease forwards;
+        }
+        .script-details.active {
+            display: block;
+        }
+        .module-grid {
+            display: grid;
+            position: relative;
+            isolation: isolate;
+            padding-top: 0.75rem;
+        }
+        .module-grid.hidden {
+            display: none;
+        }
+
+        /* Edit: Custom thin neon scrollbar */
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #98f05f;
+            border-radius: 4px;
+        }
+        .module-card:focus-visible,
+        button:focus-visible,
+        a:focus-visible {
+            outline: 2px solid #98f05f;
+            outline-offset: 3px;
+        }
+        dialog {
+            color: #e2e2e5;
+            background: #111416;
+            border: 1px solid rgba(152, 240, 95, 0.5);
+            border-radius: 0.5rem;
+            max-width: min(32rem, calc(100% - 2rem));
+            padding: 0;
+        }
+        dialog::backdrop {
+            background: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(4px);
+        }
+        #screenshot-dialog {
+            width: min(72rem, calc(100% - 2rem));
+            max-width: min(72rem, calc(100% - 2rem));
+            background: #080a0c;
+        }
+        #screenshot-dialog img {
+            display: block;
+            width: 100%;
+            max-height: min(72vh, 52rem);
+            object-fit: contain;
+            background: #050607;
+        }
+        .screenshot-thumb {
+            position: relative;
+            overflow: hidden;
+            aspect-ratio: 16 / 9;
+            background: #080a0c;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .screenshot-thumb img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transition: transform 0.3s ease, filter 0.3s ease;
+        }
+        .screenshot-thumb:hover img,
+        .screenshot-thumb:focus-visible img {
+            transform: scale(1.035);
+            filter: brightness(1.12);
+        }
+        .screenshot-thumb::after {
+            content: 'EXPAND';
+            position: absolute;
+            right: 0.5rem;
+            bottom: 0.5rem;
+            padding: 0.2rem 0.45rem;
+            color: #98f05f;
+            background: rgba(8, 10, 12, 0.88);
+            border: 1px solid rgba(152, 240, 95, 0.45);
+            font: 700 9px/1.2 'JetBrains Mono', monospace;
+            letter-spacing: 0.12em;
+        }
+        [data-boot-stage],
+        [data-boot-section="activity"] {
+            visibility: hidden;
+            opacity: 0 !important;
+            transform: translateY(14px) !important;
+            pointer-events: none;
+        }
+        [data-boot-stage].boot-stage-ready,
+        [data-boot-section="activity"].boot-stage-ready {
+            visibility: visible;
+            opacity: 1 !important;
+            transform: none !important;
+            pointer-events: auto;
+            transition: opacity 0.4s ease, transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        #module-grid[aria-busy="true"] .module-card {
+            pointer-events: none;
+        }
+        .terminal-report-line {
+            color: #bac9cc;
+        }
+        @media (prefers-reduced-motion: reduce) {
+            *,
+            *::before,
+            *::after {
+                animation-duration: 0.01ms !important;
+                animation-iteration-count: 1 !important;
+                scroll-behavior: auto !important;
+                transition-duration: 0.01ms !important;
+            }
+        }

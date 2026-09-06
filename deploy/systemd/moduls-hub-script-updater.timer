@@ -1,0 +1,13 @@
+[Unit]
+Description=Check MoDuL Hub script versions twice daily
+
+[Timer]
+OnCalendar=*-*-* 00:00:00 Europe/London
+OnCalendar=*-*-* 12:00:00 Europe/London
+RandomizedDelaySec=0
+AccuracySec=1s
+Persistent=yes
+Unit=moduls-hub-script-updater.service
+
+[Install]
+WantedBy=timers.target
