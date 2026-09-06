@@ -15,6 +15,13 @@ SPEC.loader.exec_module(sync_versions)
 
 
 class SyncVersionsTests(unittest.TestCase):
+    def test_standalone_version_headers_and_wrapped_bullets(self):
+        notes = sync_versions.summarise_release_note(
+            "Changelog\n2.5.2\n• Fixed the button after a\npage refresh.\n2.5.1\n• Older change.",
+            "2.5.2",
+        )
+        self.assertEqual(notes, "Fixed the button after a page refresh.")
+
     @mock.patch.object(sync_versions, "fetch_json")
     def test_reads_version_dates_from_the_api(self, fetch_json):
         fetch_json.return_value = [{"version": "3.1.2", "created_at": "2026-09-06T22:51:34Z"}]

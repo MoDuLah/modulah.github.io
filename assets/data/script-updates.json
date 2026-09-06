@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "checkedAt": "2026-09-06T23:05:12.667064Z",
+  "checkedAt": "2026-09-06T23:14:25.708159Z",
   "scripts": [
     {
       "id": "pythagoras",
@@ -116,7 +116,7 @@
       "displayVersion": "v0.2.10",
       "date": "2026-07-28",
       "updated": "28 July 2026",
-      "source": "vm",
+      "source": "userscript",
       "updateVersion": true,
       "actionLabel": "Install v0.2.10"
     },
@@ -340,16 +340,25 @@
     {
       "id": "jobCentrePlus",
       "title": "JobCentre+",
-      "version": "2.1.3",
-      "displayVersion": "v2.1.3",
-      "date": "2026-08-17",
-      "updated": "17 August 2026",
-      "source": "vm",
+      "version": "2.3.0",
+      "displayVersion": "v2.3.0",
+      "date": "2026-09-06",
+      "updated": "6 September 2026",
+      "source": "userscript",
       "updateVersion": true,
-      "actionLabel": "Install Notifier v2.1.3"
+      "actionLabel": "Install Notifier v2.3.0"
     }
   ],
   "timeline": [
+    {
+      "scriptId": "jobCentrePlus",
+      "title": "JobCentre+",
+      "version": "v2.3.0",
+      "date": "2026-09-06",
+      "type": "RELEASE",
+      "summary": "No changelog was published for this version.",
+      "href": "https://pp-api.sokin.xyz/jobcentreplus/"
+    },
     {
       "scriptId": "pythagoras",
       "title": "Pythagoras Project - CIS",
@@ -374,7 +383,7 @@
       "version": "v2.4.8",
       "date": "2026-09-03",
       "type": "RELEASE",
-      "summary": "# cRaCked 2.4.8 — action button rebind recovery — - Detects when Torn swaps the visible brute-force button after a suggested character is sent and rebinds the cRaCked action without a page refresh. - Also repairs the binding when Torn reuses the same button node but removes cRaCked's display class or action data during reconciliation.…",
+      "summary": "cRaCked 2.4.8 — action button rebind recovery — Detects when Torn swaps the visible brute-force button after a suggested character is sent and rebinds the cRaCked action without a page refresh; Also repairs the binding when Torn reuses the same button node but removes cRaCked's display class or action data during reconciliation…",
       "href": "https://greasyfork.org/en/scripts/589397/versions"
     },
     {
@@ -410,7 +419,7 @@
       "version": "v2.4.6",
       "date": "2026-08-31",
       "type": "RELEASE",
-      "summary": "# cRaCked 2.4.6 — one-second wait and retry recovery — - Reduces the suggestion button's maximum wait from six seconds to one. Expiry unlocks the button without sending another guess automatically. - Modifier keys, navigation, deletion and keyboard shortcuts no longer create phantom guesses or restart the countdown while a character input has focus.…",
+      "summary": "cRaCked 2.4.6 — one-second wait and retry recovery — Reduces the suggestion button's maximum wait from six seconds to one. Expiry unlocks the button without sending another guess automatically; Modifier keys, navigation, deletion and keyboard shortcuts no longer create phantom guesses or restart the countdown while a character input has focus…",
       "href": "https://greasyfork.org/en/scripts/589397/versions"
     },
     {
@@ -419,7 +428,7 @@
       "version": "v3.0.7",
       "date": "2026-08-31",
       "type": "RELEASE",
-      "summary": "## v3.0.7 - Restocking costs and smoother loading — - Stock counts, sold quantities, warehouse totals, and stock warnings now use consistent thousands separators on every browser locale. - Explicit zero stock values no longer fall back to stale alternate field values.…",
+      "summary": "Restocking costs and smoother loading: Stock counts, sold quantities, warehouse totals, and stock warnings now use consistent thousands separators on every browser locale; Explicit zero stock values no longer fall back to stale alternate field values…",
       "href": "https://greasyfork.org/en/scripts/580933/versions"
     },
     {
@@ -428,7 +437,7 @@
       "version": "v2.4.5",
       "date": "2026-08-31",
       "type": "RELEASE",
-      "summary": "# cRaCked 2.4.5 — single tooltip and full button wording — - Keeps Torn's styled hover tooltip without bringing back the browser's plain duplicate during button refreshes or modifier-key changes. - Hover help updates inside the existing tooltip, preserving its arrow and accessibility association.…",
+      "summary": "cRaCked 2.4.5 — single tooltip and full button wording — Keeps Torn's styled hover tooltip without bringing back the browser's plain duplicate during button refreshes or modifier-key changes; Hover help updates inside the existing tooltip, preserving its arrow and accessibility association…",
       "href": "https://greasyfork.org/en/scripts/589397/versions"
     },
     {
@@ -581,7 +590,7 @@
       "version": "v2.5.2",
       "date": "2026-07-14",
       "type": "RELEASE",
-      "summary": "2.5.2 — Fixed compact join links showing the correct URL in the browser status bar but not responding to clicks; CRF now handles compact join icon clicks in capture phase and navigates to the RFC-safe join URL directly; Prevented Torn's stale delegated click handlers from swallowing refreshed join clicks; 2.5.1…",
+      "summary": "Fixed compact join links showing the correct URL in the browser status bar but not responding to clicks: CRF now handles compact join icon clicks in capture phase and navigates to the RFC-safe join URL directly; Prevented Torn's stale delegated click handlers from swallowing refreshed join clicks.",
       "href": "https://greasyfork.org/en/scripts/562954/versions"
     },
     {
@@ -617,7 +626,7 @@
       "version": "v2.4.6",
       "date": "2026-07-13",
       "type": "RELEASE",
-      "summary": "Changelog — 2.4.6; Added a manual Refresh races button that fetches Torn's custom-race page only when clicked; Refresh replaces #racingAdditionalContainer when Torn returns updated custom-race HTML; Race filtering now ignores Torn's final <li class=\"clear\"> layout row; 2.4.5…",
+      "summary": "Added a manual Refresh races button that fetches Torn's custom-race page only when clicked: Refresh replaces #racingAdditionalContainer when Torn returns updated custom-race HTML; Race filtering now ignores Torn's final <li class=\"clear\"> layout row.",
       "href": "https://greasyfork.org/en/scripts/562954/versions"
     },
     {
@@ -653,7 +662,7 @@
       "version": "v2.4.0",
       "date": "2026-06-30",
       "type": "RELEASE",
-      "summary": "2.4.0 — Reworked the license panel into Discord Licensing instructions; Removed the manual key paste, verify/save, clear-license, and redirect progress flow from the UI; Supporter access now unlocks only through the active Discord bot License API status check for the detected Torn ID…",
+      "summary": "Reworked the license panel into Discord Licensing instructions: Removed the manual key paste, verify/save, clear-license, and redirect progress flow from the UI; Supporter access now unlocks only through the active Discord bot License API status check for the detected Torn ID…",
       "href": "https://greasyfork.org/en/scripts/562954/versions"
     },
     {
@@ -662,7 +671,7 @@
       "version": "v2.3.6",
       "date": "2026-06-27",
       "type": "RELEASE",
-      "summary": "Changelog — 2.3.6; Added a post-mount License API status refresh so an active bot-issued supporter license unlocks the UI after Torn exposes the user ID; Supports Promise-style GM.xmlHttpRequest responses used by some Firefox/Greasemonkey setups; Active custom-race-filter status now overrides stale local locked state immediately after the UI is mounted…",
+      "summary": "Added a post-mount License API status refresh so an active bot-issued supporter license unlocks the UI after Torn exposes the user ID: Supports Promise-style GM.xmlHttpRequest responses used by some Firefox/Greasemonkey setups; Active custom-race-filter status now overrides stale local locked state immediately after the UI is mounted.",
       "href": "https://greasyfork.org/en/scripts/562954/versions"
     },
     {
@@ -707,7 +716,7 @@
       "version": "v2.3.0",
       "date": "2026-05-06",
       "type": "RELEASE",
-      "summary": "Changelog — 2.3.0; Added two extra JLT selectors that appear only when UTR / JLT is set to Only; Added optional League filter with L0 through L6; Added optional Group filter with A through P; The final race number in tags like JLT-L2-A-2 is treated as variable, so matching focuses on league and group only…",
+      "summary": "Added two extra JLT selectors that appear only when UTR / JLT is set to Only: Added optional League filter with L0 through L6; Added optional Group filter with A through P; The final race number in tags like JLT-L2-A-2 is treated as variable, so matching focuses on league and group only; The extra selectors stay hidden when UTR / JLT is set to Any or Hide.",
       "href": "https://greasyfork.org/en/scripts/562954/versions"
     },
     {
@@ -716,7 +725,7 @@
       "version": "v2.2.9",
       "date": "2026-05-06",
       "type": "RELEASE",
-      "summary": "Changelog — 2.2.9; Fixed a licensing bug where visiting race log pages could cause a valid saved license to be cleared on refresh; Saved licenses are now preserved when the page is in a transient racing state and user detection cannot be confirmed yet…",
+      "summary": "Fixed a licensing bug where visiting race log pages could cause a valid saved license to be cleared on refresh: Saved licenses are now preserved when the page is in a transient racing state and user detection cannot be confirmed yet…",
       "href": "https://greasyfork.org/en/scripts/562954/versions"
     },
     {
@@ -725,7 +734,7 @@
       "version": "v2.2.8",
       "date": "2026-04-29",
       "type": "RELEASE",
-      "summary": "Changelog — 2.2.8; Renamed the Supporter filter label from URT to UTR / JLT; 2.2.7; Synced the release text files with the actual script changes; Updated the version references in; greasyfork.txt; forum.txt; discord.txt; Added compatibility notes to the release copy…",
+      "summary": "Renamed the Supporter filter label from URT to UTR / JLT.",
       "href": "https://greasyfork.org/en/scripts/562954/versions"
     },
     {
@@ -752,7 +761,7 @@
       "version": "v1.3.1",
       "date": "2026-02-10",
       "type": "RELEASE",
-      "summary": "V1.3.1 — Fixed an issue with Honda S2000 appearing as Honda S2.",
+      "summary": "Fixed an issue with Honda S2000 appearing as Honda S2.",
       "href": "https://greasyfork.org/en/scripts/563153/versions"
     },
     {
@@ -761,7 +770,7 @@
       "version": "v2.1.9",
       "date": "2026-02-01",
       "type": "RELEASE",
-      "summary": "2.1.9 — Visual improvements.",
+      "summary": "Visual improvements.",
       "href": "https://greasyfork.org/en/scripts/562954/versions"
     },
     {
@@ -770,7 +779,7 @@
       "version": "v1.2.3",
       "date": "2026-01-26",
       "type": "RELEASE",
-      "summary": "v1.2.3 — ✅ Added support for the images on Stats page as well. Now they follow suit with your selection; 🧱 Finalized race details bar placement permanently under the track; 📐 Improved padding and height to match the track canvas margins; 📱 Fixed text clipping and alignment issues on PDA / mobile; 🎯 Vertically and horizontally centered race details content…",
+      "summary": "✅ Added support for the images on Stats page as well. Now they follow suit with your selection — 🧱 Finalized race details bar placement permanently under the track; 📐 Improved padding and height to match the track canvas margins; 📱 Fixed text clipping and alignment issues on PDA / mobile; 🎯 Vertically and horizontally centered race details content…",
       "href": "https://greasyfork.org/en/scripts/563548/versions"
     },
     {
@@ -779,7 +788,7 @@
       "version": "v2.1.8",
       "date": "2026-01-25",
       "type": "RELEASE",
-      "summary": "v2.1.8 — UI styling updated to better match Torn’s native theme; Improved dropdown readability (fixed option colours in some browsers); Improved panel mounting reliability on page/tab updates; Fixed button interactions that could cause page errors.",
+      "summary": "UI styling updated to better match Torn’s native theme: Improved dropdown readability (fixed option colours in some browsers); Improved panel mounting reliability on page/tab updates; Fixed button interactions that could cause page errors.",
       "href": "https://greasyfork.org/en/scripts/562954/versions"
     },
     {
@@ -788,17 +797,8 @@
       "version": "v1.2.2",
       "date": "2026-01-22",
       "type": "RELEASE",
-      "summary": "1.2.2 — Fixed a TornPDA issue with font size on small devices.",
+      "summary": "Fixed a TornPDA issue with font size on small devices.",
       "href": "https://greasyfork.org/en/scripts/563548/versions"
-    },
-    {
-      "scriptId": "restoreOgNames",
-      "title": "Restore OG Names",
-      "version": "v1.3.0",
-      "date": "2026-01-22",
-      "type": "RELEASE",
-      "summary": "🔄 Changelog — v1.3.0; Added support for Torn Docks (Car Shop); ✨ New; • Restores original (real-world) car names on Torn Docks; • OG names now appear in; Buy lists; Item cards; Stock listings; Mobile / PDA view.",
-      "href": "https://greasyfork.org/en/scripts/563153/versions"
     }
   ],
   "errors": [],

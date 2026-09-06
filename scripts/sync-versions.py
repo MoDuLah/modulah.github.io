@@ -335,7 +335,7 @@ def _release_note_segments(lines: list[str]) -> list[str]:
             continue
         if line.startswith("• "):
             flush_paragraph()
-            segments.append(line[2:].strip())
+            paragraph.append(line[2:].strip())
             continue
         paragraph.append(line)
     flush_paragraph()
@@ -364,10 +364,10 @@ def summarise_release_note(raw_note: str, version: str) -> str:
     lines = [_clean_release_line(line) for line in raw_note.splitlines()]
     target = re.escape(version.removeprefix("v"))
     version_marker = re.compile(
-        rf"^v?{target}\s*[—–-]\s*(?P<note>.*)$",
+        rf"^v?{target}(?:\s*[—–-]\s*(?P<note>.*))?$",
         re.IGNORECASE,
     )
-    any_version_marker = re.compile(r"^v?\d+(?:\.\d+)+\s*[—–-]\s*", re.IGNORECASE)
+    any_version_marker = re.compile(r"^v?\d+(?:\.\d+)+(?:\s*[—–-]\s*.*)?$", re.IGNORECASE)
     separator = re.compile(r"^-{5,}$")
     selected: list[str] = []
     found_marker = False
@@ -377,7 +377,7 @@ def summarise_release_note(raw_note: str, version: str) -> str:
         if not match:
             continue
         found_marker = True
-        selected.append(match.group("note").strip())
+        selected.append((match.group("note") or "").strip())
         for continuation in lines[index + 1 :]:
             if separator.fullmatch(continuation) or any_version_marker.match(continuation):
                 break

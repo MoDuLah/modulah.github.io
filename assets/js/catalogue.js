@@ -243,17 +243,17 @@ export const scripts = [
     ],
     "actions": [
       {
-        "label": "Open Project",
+        "label": "Open Archive",
         "href": "race-tracker/",
-        "icon": "open_in_new",
-        "primary": false,
+        "icon": "inventory_2",
+        "primary": true,
       },
       {
         "label": "Archived Workbook",
         "href":
           "https://docs.google.com/spreadsheets/d/1ANiFcBuMgpXYXGhycc4HaFHfUZsLjoKsLyRB5llFIz8/copy",
         "icon": "table_view",
-        "primary": true,
+        "primary": false,
       },
     ],
     "note":
