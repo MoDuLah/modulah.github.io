@@ -10,5 +10,15 @@
   "endOfLine": "lf",
   "htmlWhitespaceSensitivity": "css",
   "vueIndentScriptAndStyle": false,
-  "proseWrap": "preserve"
+  "proseWrap": "preserve",
+  "overrides": [
+    {
+      "files": ["assets/js/catalogue.js", "assets/js/module-faqs.js"],
+      "options": { "quoteProps": "preserve" }
+    },
+    {
+      "files": "assets/js/command-centre.js",
+      "options": { "singleQuote": true }
+    }
+  ]
 }

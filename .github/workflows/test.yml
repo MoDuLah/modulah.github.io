@@ -47,6 +47,9 @@ jobs:
       - name: Test publication integrity and rollback
         run: python3 -m unittest discover -s __tests__ -p 'test_hub_sync.py' -v
 
+      - name: Test GreasyFork release history
+        run: python3 -m unittest discover -s tests -p 'test_sync_versions.py' -v
+
       - name: Upload coverage report
         if: always() && hashFiles('coverage/lcov.info') != ''
         uses: codecov/codecov-action@v7

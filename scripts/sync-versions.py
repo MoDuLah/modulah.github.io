@@ -47,6 +47,7 @@ class SourceResult:
     source_url: str | None = None
     marketplace: dict[str, Any] | None = None
     release_notes: dict[str, str] | None = None
+    release_history: list[dict[str, str]] | None = None
 
 
 def parse_args() -> argparse.Namespace:
@@ -215,7 +216,7 @@ def format_display_version(version: str, prefix: str) -> str:
     return version if not prefix or version.startswith(prefix) else f"{prefix}{version}"
 
 
-def fetch_json(url: str, timeout: int) -> dict[str, Any]:
+def fetch_json(url: str, timeout: int) -> Any:
     request = urllib.request.Request(
         url,
         headers={"Accept": "application/json", "User-Agent": USER_AGENT},
@@ -225,7 +226,7 @@ def fetch_json(url: str, timeout: int) -> dict[str, Any]:
             payload = json.load(response)
     except (OSError, urllib.error.URLError, json.JSONDecodeError) as error:
         raise UpdateCheckError("GreasyFork request failed") from error
-    if not isinstance(payload, dict):
+    if not isinstance(payload, (dict, list)):
         raise UpdateCheckError("GreasyFork returned an invalid response")
     return payload
 
@@ -306,11 +307,13 @@ class GreasyForkChangelogParser(HTMLParser):
         if self.version_depth:
             self.version_parts.append(data)
         if self.changelog_depth:
-            self.changelog_parts.append(re.sub(r"\s+", " ", data))
+            self.changelog_parts.append(re.sub(r"[^\S\n]+", " ", data))
 
 
 def _clean_release_line(value: str) -> str:
     line = value.strip()
+    line = re.sub(r"^#{1,6}\s+", "", line)
+    line = re.sub(r"^[-+]\s+", "• ", line)
     line = re.sub(r"^/\*+\s*", "", line)
     line = re.sub(r"^\*+\s?", "", line)
     line = re.sub(r"\s*\*/$", "", line)
@@ -418,7 +421,7 @@ def parse_greasyfork_release_notes(content: str) -> dict[str, str]:
 
 def fetch_greasyfork_release_notes(script_id: int, timeout: int) -> dict[str, str]:
     history_url = (
-        f"https://greasyfork.org/en/scripts/{script_id}/versions?show_all_versions=1"
+        f"https://greasyfork.org/en/scripts/{script_id}/versions?show_all_versions=1&list_all=1"
     )
     try:
         return parse_greasyfork_release_notes(fetch_text(history_url, timeout))
@@ -426,6 +429,25 @@ def fetch_greasyfork_release_notes(script_id: int, timeout: int) -> dict[str, st
         # Changelogs are an enhancement. A temporary history-page failure must
         # not prevent authoritative versions and marketplace data from updating.
         return {}
+
+
+def fetch_greasyfork_history(script_id: int, timeout: int) -> list[dict[str, str]]:
+    """The JSON API supplies version dates; changelog text comes from HTML."""
+    url = f"https://api.greasyfork.org/en/scripts/{script_id}/versions.json?show_all_versions=1"
+    try:
+        payload = fetch_json(url, timeout)
+        if not isinstance(payload, list):
+            return []
+        return [
+            {
+                "version": validate_version(item.get("version"), "GreasyFork history"),
+                "date": iso_date(item.get("created_at", ""), "GreasyFork history"),
+            }
+            for item in payload[:MAX_TIMELINE_EVENTS]
+            if isinstance(item, dict)
+        ]
+    except UpdateCheckError:
+        return []
 
 
 def safe_nonnegative_int(value: Any, source_name: str) -> int:
@@ -493,9 +515,9 @@ def check_greasyfork(source: dict[str, Any], timeout: int) -> SourceResult:
     script_id = source.get("scriptId")
     if not isinstance(script_id, int) or script_id <= 0:
         raise UpdateCheckError("GreasyFork scriptId must be a positive integer")
-    api_url = f"https://greasyfork.org/en/scripts/{script_id}.json"
+    api_url = f"https://api.greasyfork.org/en/scripts/{script_id}.json"
     payload = fetch_json(api_url, timeout)
-    if payload.get("id") != script_id:
+    if not isinstance(payload, dict) or payload.get("id") != script_id:
         raise UpdateCheckError("GreasyFork returned the wrong script")
     version = validate_version(payload.get("version"), f"GreasyFork script {script_id}")
     date = iso_date(payload.get("code_updated_at", ""), f"GreasyFork script {script_id}")
@@ -547,6 +569,7 @@ def check_greasyfork(source: dict[str, Any], timeout: int) -> SourceResult:
         source_url=f"https://greasyfork.org/en/scripts/{script_id}",
         marketplace=marketplace,
         release_notes=fetch_greasyfork_release_notes(script_id, timeout),
+        release_history=fetch_greasyfork_history(script_id, timeout),
     )
 
 
@@ -596,7 +619,7 @@ def check_userscript(
         version=version,
         date=date,
         updated=human_date(date),
-        source="vm",
+        source="userscript",
     )
 
 
@@ -651,6 +674,11 @@ def build_record(
             format_display_version(version, str(entry.get("displayPrefix", ""))): summary
             for version, summary in result.release_notes.items()
         }
+    if result.release_history:
+        record["_releaseHistory"] = [
+            {**item, "version": format_display_version(item["version"], str(entry.get("displayPrefix", "")))}
+            for item in result.release_history
+        ]
     return record
 
 
@@ -691,7 +719,25 @@ def build_timeline(
     for event in previous_timeline:
         record = records_by_id.get(event["scriptId"].casefold())
         note = release_note_for(record, event["version"]) if record else ""
-        enriched_previous.append({**event, "summary": note} if note else event)
+        generic = re.search(r"hub (?:refreshed|keeps)|Current VM-hosted", event["summary"])
+        summary = note or ("No changelog was published for this version." if generic else event["summary"])
+        href = f"{record['sourceUrl']}/versions" if record and record.get("source") == "greasyfork" else event["href"]
+        enriched_previous.append({**event, "summary": summary, "href": href})
+
+    # Backfill version-specific notes, including releases between updater runs.
+    for record in records:
+        if record.get("updateVersion") is False:
+            continue
+        for release in record.get("_releaseHistory", []):
+            note = release_note_for(record, release["version"])
+            if not note:
+                continue
+            enriched_previous.append({
+                "scriptId": record["id"], "title": record["title"],
+                "version": release["version"], "date": release["date"],
+                "type": "RELEASE", "summary": note,
+                "href": f"{record['sourceUrl']}/versions",
+            })
 
     existing_pairs = {
         (event["scriptId"].casefold(), event["version"].casefold())
@@ -706,43 +752,13 @@ def build_timeline(
         event_pair = (script_id.casefold(), record["displayVersion"].casefold())
         if event_pair in existing_pairs:
             continue
-        old_record = previous.get(script_id)
-        version_changed = bool(
-            old_record
-            and str(old_record.get("version", "")) != record["version"]
-        )
         href = record.get("sourceUrl") or entry.get("timelineHref")
+        if record["source"] == "greasyfork":
+            href = f"{href}/versions"
         if not is_safe_timeline_href(href):
             continue
-        previous_version = old_record or {}
-        old_display = str(
-            previous_version.get("displayVersion")
-            or previous_version.get("version")
-            or "previous version"
-        )
         release_note = release_note_for(record, record["displayVersion"])
-        if release_note:
-            summary = release_note
-        elif version_changed and record["source"] == "greasyfork":
-            summary = (
-                f"GreasyFork published {record['displayVersion']}; the hub refreshed "
-                "the card and marketplace details automatically."
-            )
-        elif version_changed:
-            summary = (
-                f"The VM-hosted userscript moved from {old_display} to "
-                f"{record['displayVersion']}; the hub refreshed the card automatically."
-            )
-        elif record["source"] == "greasyfork":
-            summary = (
-                f"Current {record['displayVersion']} release confirmed from GreasyFork; "
-                "the hub keeps this entry and its marketplace details in sync automatically."
-            )
-        else:
-            summary = (
-                f"Current VM-hosted {record['displayVersion']} release confirmed; "
-                "the hub keeps this entry in sync automatically."
-            )
+        summary = release_note or "No changelog was published for this version."
         event = normalise_timeline_event(
             {
                 "scriptId": script_id,

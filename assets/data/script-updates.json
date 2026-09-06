@@ -1,32 +1,32 @@
 {
   "schemaVersion": 1,
-  "checkedAt": "2026-09-06T11:00:01.064485Z",
+  "checkedAt": "2026-09-06T23:05:12.667064Z",
   "scripts": [
     {
       "id": "pythagoras",
       "title": "Pythagoras Project - CIS",
-      "version": "3.1.0",
-      "displayVersion": "v3.1.0",
-      "date": "2026-09-04",
-      "updated": "4 September 2026",
+      "version": "3.1.2",
+      "displayVersion": "v3.1.2",
+      "date": "2026-09-06",
+      "updated": "6 September 2026",
       "source": "greasyfork",
       "updateVersion": true,
-      "actionLabel": "Install v3.1.0",
+      "actionLabel": "Install v3.1.2",
       "sourceUrl": "https://greasyfork.org/en/scripts/580933",
       "marketplace": {
         "author": {
           "name": "MoDuL",
           "url": "https://greasyfork.org/users/1561217-modul"
         },
-        "dailyInstalls": 0,
-        "totalInstalls": 53,
-        "version": "3.1.0",
+        "dailyInstalls": 1,
+        "totalInstalls": 54,
+        "version": "3.1.2",
         "created": "2026-06-03",
         "createdDisplay": "Jun 3, 2026",
-        "updated": "2026-09-04",
-        "updatedDisplay": "Sep 4, 2026",
-        "sizeBytes": 925801,
-        "size": "904.1 KB",
+        "updated": "2026-09-06",
+        "updatedDisplay": "Sep 6, 2026",
+        "sizeBytes": 952987,
+        "size": "930.7 KB",
         "license": {
           "name": "All Rights Reserved"
         },
@@ -46,7 +46,8 @@
       "date": "2026-08-31",
       "updated": "31 August 2026",
       "source": "greasyfork",
-      "updateVersion": false,
+      "updateVersion": true,
+      "actionLabel": "Install v2.3.7",
       "sourceUrl": "https://greasyfork.org/en/scripts/578342",
       "marketplace": {
         "author": {
@@ -135,8 +136,8 @@
           "name": "MoDuL",
           "url": "https://greasyfork.org/users/1561217-modul"
         },
-        "dailyInstalls": 8,
-        "totalInstalls": 231,
+        "dailyInstalls": 7,
+        "totalInstalls": 236,
         "version": "2.4.8",
         "created": "2026-07-31",
         "createdDisplay": "Jul 31, 2026",
@@ -171,7 +172,7 @@
           "name": "MoDuL",
           "url": "https://greasyfork.org/users/1561217-modul"
         },
-        "dailyInstalls": 1,
+        "dailyInstalls": 0,
         "totalInstalls": 18,
         "version": "2.5.12",
         "created": "2026-04-23",
@@ -352,11 +353,20 @@
     {
       "scriptId": "pythagoras",
       "title": "Pythagoras Project - CIS",
+      "version": "v3.1.2",
+      "date": "2026-09-06",
+      "type": "RELEASE",
+      "summary": "Screenshot privacy coverage: Privacy mode now masks staff names and dates in Training log, Train Schedule, Staff, Directors, and Employee Efficiency history; Business identity, director, age, founded date, staff metrics, customer counts, chart axes, stock restock quantities, and wage calculator values are covered…",
+      "href": "https://greasyfork.org/en/scripts/580933/versions"
+    },
+    {
+      "scriptId": "pythagoras",
+      "title": "Pythagoras Project - CIS",
       "version": "v3.1.0",
       "date": "2026-09-04",
       "type": "RELEASE",
-      "summary": "GreasyFork published v3.1.0; the hub refreshed the card and marketplace details automatically.",
-      "href": "https://greasyfork.org/en/scripts/580933"
+      "summary": "No changelog was published for this version.",
+      "href": "https://greasyfork.org/en/scripts/580933/versions"
     },
     {
       "scriptId": "cracked",
@@ -364,8 +374,8 @@
       "version": "v2.4.8",
       "date": "2026-09-03",
       "type": "RELEASE",
-      "summary": "GreasyFork published v2.4.8; the hub refreshed the card and marketplace details automatically.",
-      "href": "https://greasyfork.org/en/scripts/589397"
+      "summary": "# cRaCked 2.4.8 — action button rebind recovery — - Detects when Torn swaps the visible brute-force button after a suggested character is sent and rebinds the cRaCked action without a page refresh. - Also repairs the binding when Torn reuses the same button node but removes cRaCked's display class or action data during reconciliation.…",
+      "href": "https://greasyfork.org/en/scripts/589397/versions"
     },
     {
       "scriptId": "pythagoras",
@@ -373,8 +383,8 @@
       "version": "v3.0.9",
       "date": "2026-09-02",
       "type": "RELEASE",
-      "summary": "GreasyFork published v3.0.9; the hub refreshed the card and marketplace details automatically.",
-      "href": "https://greasyfork.org/en/scripts/580933"
+      "summary": "Safer sync and forum testimonies: Fixed the Settings Sync center markup so clicking its explanation, group labels, blank space, or Sync console no longer activates Smart sync. Only an actual sync button starts a request; User-started sync actions are serialized across the title bar, Settings, Stock, staff history, and Testimonies controls.…",
+      "href": "https://greasyfork.org/en/scripts/580933/versions"
     },
     {
       "scriptId": "cracked",
@@ -382,8 +392,8 @@
       "version": "v2.4.7",
       "date": "2026-09-01",
       "type": "RELEASE",
-      "summary": "GreasyFork published v2.4.7; the hub refreshed the card and marketplace details automatically.",
-      "href": "https://greasyfork.org/en/scripts/589397"
+      "summary": "cRaCked 2.4.7 — Android Firefox network compatibility — Supports both Tampermonkey HTTP request APIs so dictionary downloads, community sync and uploads work when Android Firefox exposes only the modern GM.xmlHttpRequest interface; Reports a direct grant/install error instead of an undefined-global failure if neither userscript request API is available.",
+      "href": "https://greasyfork.org/en/scripts/589397/versions"
     },
     {
       "scriptId": "pythagoras",
@@ -391,8 +401,8 @@
       "version": "v3.0.8",
       "date": "2026-08-31",
       "type": "RELEASE",
-      "summary": "GreasyFork published v3.0.8; the hub refreshed the card and marketplace details automatically.",
-      "href": "https://greasyfork.org/en/scripts/580933"
+      "summary": "Large tables and supporter credits: Weekly analytics, Balance, training orders, staff/director lists, Employee Efficiency rows, workspaces, employment history, and supporter credits now render 50 records at a time and append 50 more at the bottom; Full-data sorting happens before batching. Filters and sorting reset the visible batch…",
+      "href": "https://greasyfork.org/en/scripts/580933/versions"
     },
     {
       "scriptId": "cracked",
@@ -400,8 +410,8 @@
       "version": "v2.4.6",
       "date": "2026-08-31",
       "type": "RELEASE",
-      "summary": "GreasyFork published v2.4.6; the hub refreshed the card and marketplace details automatically.",
-      "href": "https://greasyfork.org/en/scripts/589397"
+      "summary": "# cRaCked 2.4.6 — one-second wait and retry recovery — - Reduces the suggestion button's maximum wait from six seconds to one. Expiry unlocks the button without sending another guess automatically. - Modifier keys, navigation, deletion and keyboard shortcuts no longer create phantom guesses or restart the countdown while a character input has focus.…",
+      "href": "https://greasyfork.org/en/scripts/589397/versions"
     },
     {
       "scriptId": "pythagoras",
@@ -409,8 +419,8 @@
       "version": "v3.0.7",
       "date": "2026-08-31",
       "type": "RELEASE",
-      "summary": "GreasyFork published v3.0.7; the hub refreshed the card and marketplace details automatically.",
-      "href": "https://greasyfork.org/en/scripts/580933"
+      "summary": "## v3.0.7 - Restocking costs and smoother loading — - Stock counts, sold quantities, warehouse totals, and stock warnings now use consistent thousands separators on every browser locale. - Explicit zero stock values no longer fall back to stale alternate field values.…",
+      "href": "https://greasyfork.org/en/scripts/580933/versions"
     },
     {
       "scriptId": "cracked",
@@ -418,8 +428,26 @@
       "version": "v2.4.5",
       "date": "2026-08-31",
       "type": "RELEASE",
-      "summary": "GreasyFork published v2.4.5; the hub refreshed the card and marketplace details automatically.",
-      "href": "https://greasyfork.org/en/scripts/589397"
+      "summary": "# cRaCked 2.4.5 — single tooltip and full button wording — - Keeps Torn's styled hover tooltip without bringing back the browser's plain duplicate during button refreshes or modifier-key changes. - Hover help updates inside the existing tooltip, preserving its arrow and accessibility association.…",
+      "href": "https://greasyfork.org/en/scripts/589397/versions"
+    },
+    {
+      "scriptId": "pitGuru",
+      "title": "MoDuL's Pit Guru",
+      "version": "v2.3.7",
+      "date": "2026-08-31",
+      "type": "RELEASE",
+      "summary": "Pit Guru v2.3.7 — 2026-08-31 · Userscript update; Changed; Successful Torn key and active Player licence checks are cached locally for up to 24 hours across page refreshes. Each check keeps its own expiry; a fresh key check no longer discards a valid licence result; Check key always requests fresh key and licence checks.…",
+      "href": "https://greasyfork.org/en/scripts/578342/versions"
+    },
+    {
+      "scriptId": "cracked",
+      "title": "cRaCked",
+      "version": "v2.4.4",
+      "date": "2026-08-31",
+      "type": "RELEASE",
+      "summary": "cRaCked 2.4.4 — encrypted job controls and Torn button font — Untouched fully encrypted jobs now receive the cRaCked button controls, so their modal and hover information remain available before any brute force. The same fix covers jobs with no guesses remaining; Modal hover text retains the encryption explanation and remaining brute-force workload.…",
+      "href": "https://greasyfork.org/en/scripts/589397/versions"
     },
     {
       "scriptId": "cracked",
@@ -427,8 +455,8 @@
       "version": "v2.4.3",
       "date": "2026-08-30",
       "type": "RELEASE",
-      "summary": "GreasyFork published v2.4.3; the hub refreshed the card and marketplace details automatically.",
-      "href": "https://greasyfork.org/en/scripts/589397"
+      "summary": "cRaCked 2.4.3 — mobile Firefox identity detection — Detects the logged-in player's name and ID from Torn's embedded account data, even when mobile Firefox/Tampermonkey has no visible profile link; This browser-compatible path needs no API key, cookies, or extra permissions. TornPDA retains its API fallback when embedded account data is unavailable…",
+      "href": "https://greasyfork.org/en/scripts/589397/versions"
     },
     {
       "scriptId": "cracked",
@@ -436,8 +464,8 @@
       "version": "v2.4.2",
       "date": "2026-08-29",
       "type": "RELEASE",
-      "summary": "GreasyFork published v2.4.2; the hub refreshed the card and marketplace details automatically.",
-      "href": "https://greasyfork.org/en/scripts/589397"
+      "summary": "cRaCked 2.4.2 — TornPDA identity detection — TornPDA can now verify the current player's name and ID through TornPDA's documented API-key bridge and Torn's basic profile endpoint; The public-credit switch performs the identity check itself and reports actionable API-key errors instead of asking the user to reopen settings…",
+      "href": "https://greasyfork.org/en/scripts/589397/versions"
     },
     {
       "scriptId": "cracked",
@@ -445,8 +473,17 @@
       "version": "v2.4.1",
       "date": "2026-08-29",
       "type": "RELEASE",
-      "summary": "GreasyFork published v2.4.1; the hub refreshed the card and marketplace details automatically.",
-      "href": "https://greasyfork.org/en/scripts/589397"
+      "summary": "cRaCked 2.4.1 — safe one-shot modifier actions — A modifier-click sends at most one suggested character and waits for Torn's verdict before another action can run. Duplicate miss notifications are collapsed instead of consuming the script's whole guess budget on screen…",
+      "href": "https://greasyfork.org/en/scripts/589397/versions"
+    },
+    {
+      "scriptId": "cracked",
+      "title": "cRaCked",
+      "version": "v2.4.0",
+      "date": "2026-08-28",
+      "type": "RELEASE",
+      "summary": "Clearer first-time privacy choice: Fresh installations now open Settings automatically on the cracking page; Public Torn-name credit is presented first and clearly marked as optional. Shared cracks remain anonymous unless the player explicitly opts in…",
+      "href": "https://greasyfork.org/en/scripts/589397/versions"
     },
     {
       "scriptId": "cracked",
@@ -454,8 +491,8 @@
       "version": "v2.3.4",
       "date": "2026-08-27",
       "type": "RELEASE",
-      "summary": "GreasyFork published v2.3.4; the hub refreshed the card and marketplace details automatically.",
-      "href": "https://greasyfork.org/en/scripts/589397"
+      "summary": "Failures now always produce one structured console.error containing: Failure stage; Request URL; HTTP status; Dictionary part; IndexedDB key; Underlying error message.",
+      "href": "https://greasyfork.org/en/scripts/589397/versions"
     },
     {
       "scriptId": "cracked",
@@ -463,8 +500,8 @@
       "version": "v2.2.8",
       "date": "2026-08-25",
       "type": "RELEASE",
-      "summary": "GreasyFork published v2.2.8; the hub refreshed the card and marketplace details automatically.",
-      "href": "https://greasyfork.org/en/scripts/589397"
+      "summary": "Settings are compact/collapsible, the status badge opens them, pool sharing uses an explicit switch, statistics use clearer prior-coverage labels and compact counts, and completed sync messages return to Ready.",
+      "href": "https://greasyfork.org/en/scripts/589397/versions"
     },
     {
       "scriptId": "cracked",
@@ -472,8 +509,8 @@
       "version": "v2.2.0",
       "date": "2026-08-22",
       "type": "RELEASE",
-      "summary": "Current v2.2.0 release confirmed from GreasyFork; the hub keeps this entry and its marketplace details in sync automatically.",
-      "href": "https://greasyfork.org/en/scripts/589397"
+      "summary": "No changelog was published for this version.",
+      "href": "https://greasyfork.org/en/scripts/589397/versions"
     },
     {
       "scriptId": "pythagoras",
@@ -481,8 +518,8 @@
       "version": "v3.0.5",
       "date": "2026-08-17",
       "type": "RELEASE",
-      "summary": "Current v3.0.5 release confirmed from GreasyFork; the hub keeps this entry and its marketplace details in sync automatically.",
-      "href": "https://greasyfork.org/en/scripts/580933"
+      "summary": "No changelog was published for this version.",
+      "href": "https://greasyfork.org/en/scripts/580933/versions"
     },
     {
       "scriptId": "jobCentrePlus",
@@ -490,7 +527,7 @@
       "version": "v2.1.3",
       "date": "2026-08-17",
       "type": "RELEASE",
-      "summary": "Current VM-hosted v2.1.3 release confirmed; the hub keeps this entry in sync automatically.",
+      "summary": "No changelog was published for this version.",
       "href": "https://pp-api.sokin.xyz/jobcentreplus/"
     },
     {
@@ -499,8 +536,44 @@
       "version": "v0.2.10",
       "date": "2026-07-28",
       "type": "RELEASE",
-      "summary": "Current VM-hosted v0.2.10 release confirmed; the hub keeps this entry in sync automatically.",
+      "summary": "No changelog was published for this version.",
       "href": "global-theme/"
+    },
+    {
+      "scriptId": "pythagoras",
+      "title": "Pythagoras Project - CIS",
+      "version": "v3.0.4b",
+      "date": "2026-07-26",
+      "type": "RELEASE",
+      "summary": "Exact training counts in News: Company News now reconciles training entries against Torn's exact company training-action log by employee and date; Grouped News replaces timestamp-collapsed company-news totals with the exact daily total; Raw News shows each unique Torn training action after Training sync, including multiple actions in the same second…",
+      "href": "https://greasyfork.org/en/scripts/580933/versions"
+    },
+    {
+      "scriptId": "pythagoras",
+      "title": "Pythagoras Project - CIS",
+      "version": "v3.0.4",
+      "date": "2026-07-26",
+      "type": "RELEASE",
+      "summary": "Mobile settings and exact training counts: Settings forms now collapse to full-width single-column layouts on phones, including Auto mode priority controls and full-width section headings; Training log sync now reads Torn's exact company training-action log (6263) alongside company news…",
+      "href": "https://greasyfork.org/en/scripts/580933/versions"
+    },
+    {
+      "scriptId": "pythagoras",
+      "title": "Pythagoras Project - CIS",
+      "version": "v3.0.3",
+      "date": "2026-07-22",
+      "type": "RELEASE",
+      "summary": "Employee Efficiency component trends and web dashboard: Employee Efficiency history now runs newest to oldest, keeping the latest completed Torn company day closest to employee names; Added 7-day history alongside the existing 14, 30, 90, and all-time ranges; free accounts are strictly limited to their latest seven company days…",
+      "href": "https://greasyfork.org/en/scripts/580933/versions"
+    },
+    {
+      "scriptId": "pythagoras",
+      "title": "Pythagoras Project - CIS",
+      "version": "v2.9.4",
+      "date": "2026-07-17",
+      "type": "RELEASE",
+      "summary": "Training queue standards: Training setup now includes a Queue standard controller for Director chooses, Full staff rotation, Lower stats first, Closest under assigned role, and Role need first; Paid staff with remaining paid trains stay prioritized by default through the Paid orders first toggle…",
+      "href": "https://greasyfork.org/en/scripts/580933/versions"
     },
     {
       "scriptId": "customRaceFilter",
@@ -508,8 +581,53 @@
       "version": "v2.5.2",
       "date": "2026-07-14",
       "type": "RELEASE",
-      "summary": "Current v2.5.2 release confirmed from GreasyFork; the hub keeps this entry and its marketplace details in sync automatically.",
-      "href": "https://greasyfork.org/en/scripts/562954"
+      "summary": "2.5.2 — Fixed compact join links showing the correct URL in the browser status bar but not responding to clicks; CRF now handles compact join icon clicks in capture phase and navigates to the RFC-safe join URL directly; Prevented Torn's stale delegated click handlers from swallowing refreshed join clicks; 2.5.1…",
+      "href": "https://greasyfork.org/en/scripts/562954/versions"
+    },
+    {
+      "scriptId": "pythagoras",
+      "title": "Pythagoras Project - CIS",
+      "version": "v2.9.2",
+      "date": "2026-07-13",
+      "type": "RELEASE",
+      "summary": "Balance sync stability: Advertising budget history now records Torn API V2 profile values as explicit dated rows and ignores older unmarked zero rows in Balance; The Pythagoras API now returns ad-budget raw metadata and rejects unmarked zero ad-budget rows, while still allowing future explicit zeroes from updated clients…",
+      "href": "https://greasyfork.org/en/scripts/580933/versions"
+    },
+    {
+      "scriptId": "pitGuru",
+      "title": "MoDuL's Pit Guru",
+      "version": "v2.1.7",
+      "date": "2026-07-13",
+      "type": "RELEASE",
+      "summary": "MoDuL's Pit Guru Changelog — Project status (2026-07-13); MoDuL's Pit Guru is now the public-facing successor project to Lap Recorder on MoDuL's Hub; The live supporter userscript build is v2.1.7 at https://modulah.github.io/pit-guru/pit-guru.user.js…",
+      "href": "https://greasyfork.org/en/scripts/578342/versions"
+    },
+    {
+      "scriptId": "customRaceFilter",
+      "title": "Custom Race Filter",
+      "version": "v2.4.8",
+      "date": "2026-07-13",
+      "type": "RELEASE",
+      "summary": "Fixed a bug after Refresh races button was pressed.",
+      "href": "https://greasyfork.org/en/scripts/562954/versions"
+    },
+    {
+      "scriptId": "customRaceFilter",
+      "title": "Custom Race Filter",
+      "version": "v2.4.6",
+      "date": "2026-07-13",
+      "type": "RELEASE",
+      "summary": "Changelog — 2.4.6; Added a manual Refresh races button that fetches Torn's custom-race page only when clicked; Refresh replaces #racingAdditionalContainer when Torn returns updated custom-race HTML; Race filtering now ignores Torn's final <li class=\"clear\"> layout row; 2.4.5…",
+      "href": "https://greasyfork.org/en/scripts/562954/versions"
+    },
+    {
+      "scriptId": "pythagoras",
+      "title": "Pythagoras Project - CIS",
+      "version": "v2.9.1",
+      "date": "2026-07-11",
+      "type": "RELEASE",
+      "summary": "Stock settings persistence: Stock card restock toggles, warning thresholds, warning modes, and restock quantities now save to a dedicated stock settings map; Stock settings update the 24-hour sync cache immediately on input/change, so fast Torn page switches and refreshes keep the latest values…",
+      "href": "https://greasyfork.org/en/scripts/580933/versions"
     },
     {
       "scriptId": "smuggler",
@@ -517,8 +635,35 @@
       "version": "v3.0.6",
       "date": "2026-07-08",
       "type": "RELEASE",
-      "summary": "Current v3.0.6 release confirmed from GreasyFork; the hub keeps this entry and its marketplace details in sync automatically.",
-      "href": "https://greasyfork.org/en/scripts/575111"
+      "summary": "No changelog was published for this version.",
+      "href": "https://greasyfork.org/en/scripts/575111/versions"
+    },
+    {
+      "scriptId": "pythagoras",
+      "title": "Pythagoras Project - CIS",
+      "version": "v2.8.11",
+      "date": "2026-07-03",
+      "type": "RELEASE",
+      "summary": "Risk strike persistence: Visible risk notifications now record same-day risk-strike history, so warnings cannot appear without also updating the member record; Staff sync snapshots now include strikeHistory and raw strike-history data for the Pythagoras API snapshot path…",
+      "href": "https://greasyfork.org/en/scripts/580933/versions"
+    },
+    {
+      "scriptId": "customRaceFilter",
+      "title": "Custom Race Filter",
+      "version": "v2.4.0",
+      "date": "2026-06-30",
+      "type": "RELEASE",
+      "summary": "2.4.0 — Reworked the license panel into Discord Licensing instructions; Removed the manual key paste, verify/save, clear-license, and redirect progress flow from the UI; Supporter access now unlocks only through the active Discord bot License API status check for the detected Torn ID…",
+      "href": "https://greasyfork.org/en/scripts/562954/versions"
+    },
+    {
+      "scriptId": "customRaceFilter",
+      "title": "Custom Race Filter",
+      "version": "v2.3.6",
+      "date": "2026-06-27",
+      "type": "RELEASE",
+      "summary": "Changelog — 2.3.6; Added a post-mount License API status refresh so an active bot-issued supporter license unlocks the UI after Torn exposes the user ID; Supports Promise-style GM.xmlHttpRequest responses used by some Firefox/Greasemonkey setups; Active custom-race-filter status now overrides stale local locked state immediately after the UI is mounted…",
+      "href": "https://greasyfork.org/en/scripts/562954/versions"
     },
     {
       "scriptId": "restoreOgNames",
@@ -526,8 +671,8 @@
       "version": "v1.3.2",
       "date": "2026-06-06",
       "type": "RELEASE",
-      "summary": "Current v1.3.2 release confirmed from GreasyFork; the hub keeps this entry and its marketplace details in sync automatically.",
-      "href": "https://greasyfork.org/en/scripts/563153"
+      "summary": "No changelog was published for this version.",
+      "href": "https://greasyfork.org/en/scripts/563153/versions"
     },
     {
       "scriptId": "bootleggingHelper",
@@ -535,8 +680,53 @@
       "version": "v0.3.4",
       "date": "2026-05-22",
       "type": "RELEASE",
-      "summary": "Current v0.3.4 release confirmed from GreasyFork; the hub keeps this entry and its marketplace details in sync automatically.",
-      "href": "https://greasyfork.org/en/scripts/579366"
+      "summary": "No changelog was published for this version.",
+      "href": "https://greasyfork.org/en/scripts/579366/versions"
+    },
+    {
+      "scriptId": "customRaceFilter",
+      "title": "Custom Race Filter",
+      "version": "v2.3.2",
+      "date": "2026-05-09",
+      "type": "RELEASE",
+      "summary": "Changed the script execution time to prevent unwanted outcomes and supporter key clearance. Hope this will fix the issue of Key suddenly gone — Apologies for the inconvinience.",
+      "href": "https://greasyfork.org/en/scripts/562954/versions"
+    },
+    {
+      "scriptId": "customRaceFilter",
+      "title": "Custom Race Filter",
+      "version": "v2.3.1",
+      "date": "2026-05-06",
+      "type": "RELEASE",
+      "summary": "Fixed a typo.",
+      "href": "https://greasyfork.org/en/scripts/562954/versions"
+    },
+    {
+      "scriptId": "customRaceFilter",
+      "title": "Custom Race Filter",
+      "version": "v2.3.0",
+      "date": "2026-05-06",
+      "type": "RELEASE",
+      "summary": "Changelog — 2.3.0; Added two extra JLT selectors that appear only when UTR / JLT is set to Only; Added optional League filter with L0 through L6; Added optional Group filter with A through P; The final race number in tags like JLT-L2-A-2 is treated as variable, so matching focuses on league and group only…",
+      "href": "https://greasyfork.org/en/scripts/562954/versions"
+    },
+    {
+      "scriptId": "customRaceFilter",
+      "title": "Custom Race Filter",
+      "version": "v2.2.9",
+      "date": "2026-05-06",
+      "type": "RELEASE",
+      "summary": "Changelog — 2.2.9; Fixed a licensing bug where visiting race log pages could cause a valid saved license to be cleared on refresh; Saved licenses are now preserved when the page is in a transient racing state and user detection cannot be confirmed yet…",
+      "href": "https://greasyfork.org/en/scripts/562954/versions"
+    },
+    {
+      "scriptId": "customRaceFilter",
+      "title": "Custom Race Filter",
+      "version": "v2.2.8",
+      "date": "2026-04-29",
+      "type": "RELEASE",
+      "summary": "Changelog — 2.2.8; Renamed the Supporter filter label from URT to UTR / JLT; 2.2.7; Synced the release text files with the actual script changes; Updated the version references in; greasyfork.txt; forum.txt; discord.txt; Added compatibility notes to the release copy…",
+      "href": "https://greasyfork.org/en/scripts/562954/versions"
     },
     {
       "scriptId": "eggsTerminator",
@@ -544,8 +734,8 @@
       "version": "v2.5.12",
       "date": "2026-04-28",
       "type": "RELEASE",
-      "summary": "Current v2.5.12 release confirmed from GreasyFork; the hub keeps this entry and its marketplace details in sync automatically.",
-      "href": "https://greasyfork.org/en/scripts/575131"
+      "summary": "No changelog was published for this version.",
+      "href": "https://greasyfork.org/en/scripts/575131/versions"
     },
     {
       "scriptId": "raceThemeChanger",
@@ -553,9 +743,64 @@
       "version": "v1.2.6",
       "date": "2026-04-20",
       "type": "RELEASE",
-      "summary": "Current v1.2.6 release confirmed from GreasyFork; the hub keeps this entry and its marketplace details in sync automatically.",
-      "href": "https://greasyfork.org/en/scripts/563548"
+      "summary": "No changelog was published for this version.",
+      "href": "https://greasyfork.org/en/scripts/563548/versions"
+    },
+    {
+      "scriptId": "restoreOgNames",
+      "title": "Restore OG Names",
+      "version": "v1.3.1",
+      "date": "2026-02-10",
+      "type": "RELEASE",
+      "summary": "V1.3.1 — Fixed an issue with Honda S2000 appearing as Honda S2.",
+      "href": "https://greasyfork.org/en/scripts/563153/versions"
+    },
+    {
+      "scriptId": "customRaceFilter",
+      "title": "Custom Race Filter",
+      "version": "v2.1.9",
+      "date": "2026-02-01",
+      "type": "RELEASE",
+      "summary": "2.1.9 — Visual improvements.",
+      "href": "https://greasyfork.org/en/scripts/562954/versions"
+    },
+    {
+      "scriptId": "raceThemeChanger",
+      "title": "Race Theme Changer",
+      "version": "v1.2.3",
+      "date": "2026-01-26",
+      "type": "RELEASE",
+      "summary": "v1.2.3 — ✅ Added support for the images on Stats page as well. Now they follow suit with your selection; 🧱 Finalized race details bar placement permanently under the track; 📐 Improved padding and height to match the track canvas margins; 📱 Fixed text clipping and alignment issues on PDA / mobile; 🎯 Vertically and horizontally centered race details content…",
+      "href": "https://greasyfork.org/en/scripts/563548/versions"
+    },
+    {
+      "scriptId": "customRaceFilter",
+      "title": "Custom Race Filter",
+      "version": "v2.1.8",
+      "date": "2026-01-25",
+      "type": "RELEASE",
+      "summary": "v2.1.8 — UI styling updated to better match Torn’s native theme; Improved dropdown readability (fixed option colours in some browsers); Improved panel mounting reliability on page/tab updates; Fixed button interactions that could cause page errors.",
+      "href": "https://greasyfork.org/en/scripts/562954/versions"
+    },
+    {
+      "scriptId": "raceThemeChanger",
+      "title": "Race Theme Changer",
+      "version": "v1.2.2",
+      "date": "2026-01-22",
+      "type": "RELEASE",
+      "summary": "1.2.2 — Fixed a TornPDA issue with font size on small devices.",
+      "href": "https://greasyfork.org/en/scripts/563548/versions"
+    },
+    {
+      "scriptId": "restoreOgNames",
+      "title": "Restore OG Names",
+      "version": "v1.3.0",
+      "date": "2026-01-22",
+      "type": "RELEASE",
+      "summary": "🔄 Changelog — v1.3.0; Added support for Torn Docks (Car Shop); ✨ New; • Restores original (real-world) car names on Torn Docks; • OG names now appear in; Buy lists; Item cards; Stock listings; Mobile / PDA view.",
+      "href": "https://greasyfork.org/en/scripts/563153/versions"
     }
   ],
-  "errors": []
+  "errors": [],
+  "warnings": []
 }

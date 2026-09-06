@@ -19,16 +19,27 @@ live-data outside release directories, and its CORS policy allows GitHub Pages.
 GitHub's build also keeps a snapshot for use if the live feed is unavailable.
 The deployment workflow runs twice daily to refresh that fallback snapshot.
 
-The catalogue preserves the distinction between Pit Guru's locally distributed
-userscript and its GreasyFork metadata. Updates to locally hosted script files
-must still be published as releases; synchronizing the hub does not manufacture
-new versions or replace scripts with unreviewed downloads.
+Pit Guru installation and version tracking use GreasyFork script 578342.
+The repository carries the same public bundle for the GitHub sync source and
+legacy GitHub update URLs. VM download URLs redirect to GreasyFork.
+JobCentre+ has a public sync-ready bundle under jobcentre-plus/; until its
+GreasyFork import is configured, the install link remains the live service URL.
+Never publish a personalised notifier bundle containing an account token.
+
+GreasyFork JSON endpoints on api.greasyfork.org provide script metadata and
+version dates. They do not include changelog text; the updater reads the public
+version-history HTML, backfills version-specific notes and links to the full
+history. Missing notes are labelled explicitly, without invented descriptions.
 
 Existing VM API/app routes retain priority over static files. In particular,
 /pit-guru/ is the player on the VM and the documentation page on GitHub Pages.
 
 Installation: stage the files required by install-hub-sync.sh and run it as root.
 The installer prints a backup path before modifying Nginx or updater files.
+Public traffic currently reaches Express directly, so also stage and run
+install-hub-public-routes.py with the path to hub-public-routes.mjs, then restart
+pythagoras-license-api after syntax checks. The installer backs up server.js.
+Its narrow public-feed route runs before API CORS; it does not broaden API CORS.
 Once GitHub Pages serves site-files.json, run:
   systemctl start moduls-hub-site-sync.service
   systemctl enable --now moduls-hub-site-sync.timer

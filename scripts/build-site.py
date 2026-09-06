@@ -14,7 +14,7 @@ PUBLIC_DIRECTORIES = {
     "custom-race-filter", "eggsterminator", "global-theme",
     "landlord-tenant-ledger", "lap-recorder", "pages", "pit-guru",
     "pythagoras-project-cis", "race-theme-changer", "race-tracker",
-    "restore-og-names", "smuggler", "stock-x", "tornfolio",
+    "restore-og-names", "smuggler", "stock-x", "tornfolio", "jobcentre-plus",
 }
 PUBLIC_FILES = {"index.html", "favicon.png", "shader.html", "torn_racing_visual_upgrade_demo.html"}
 EXTENSIONS = {".html", ".css", ".js", ".json", ".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg", ".ico", ".txt", ".zip", ".woff", ".woff2"}

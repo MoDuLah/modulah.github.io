@@ -18,14 +18,14 @@ const workflow = fs.readFileSync(path.join(repositoryRoot, ".github/workflows/de
 describe("command centre catalogue", () => {
   test("shows current distributed script versions", () => {
     expect(code).toContain("BUILD: v2.5.0-CYBER");
-    expect(catalogue).toContain('"version": "v3.1.0"');
-    expect(catalogue).toContain('"label": "Install v3.1.0"');
+    expect(catalogue).toContain('"version": "v3.1.2"');
+    expect(catalogue).toContain('"label": "Install v3.1.2"');
     expect(catalogue).toContain('"version": "v2.4.8"');
     expect(catalogue).toContain('"label": "Install v2.4.8"');
     expect(catalogue).toContain('"version": "v0.3.4"');
     expect(catalogue).toContain('"label": "Install v0.3.4"');
-    expect(catalogue).toContain('"version": "v2.1.3"');
-    expect(catalogue).toContain('"label": "Install Notifier v2.1.3"');
+    expect(catalogue).toContain('"version": "v2.3.0"');
+    expect(catalogue).toContain('"label": "Install Notifier v2.3.0"');
   });
 
   test("uses a script release timeline instead of repository commits", () => {
@@ -97,7 +97,7 @@ describe("command centre catalogue", () => {
   test("uses access tags and existing script logos on cards", () => {
     expect(catalogue).not.toContain('"badgeText": "LIVE"');
     expect(catalogue.match(/"badgeText": "FREE"/g)).toHaveLength(7);
-    expect(catalogue.match(/"badgeText": "WEB TOOL"/g)).toHaveLength(2);
+    expect(catalogue.match(/"badgeText": "WEB TOOL"/g)).toHaveLength(3);
     expect(app).toContain("logo.className = 'module-card-logo'");
     expect(app).toContain("/^assets\\/images\\/");
 
@@ -125,6 +125,7 @@ describe("command centre catalogue", () => {
       "bootleggingHelper",
       "jobCentrePlus",
       "pythagorasDashboard",
+      "raceStats",
       "lap-recorder",
     ];
 
@@ -166,7 +167,7 @@ describe("command centre catalogue", () => {
     expect(code).toContain('src="assets/js/shader-background.js"');
     expect(code).toContain('src="assets/js/command-centre.js?v=');
     expect(app).toContain("from './catalogue.js?v=");
-    expect(catalogue).toContain("from './module-faqs.js?v=");
+    expect(catalogue).toContain('from "./module-faqs.js?v=');
   });
 
   test("does not expose a source-code button in the header", () => {

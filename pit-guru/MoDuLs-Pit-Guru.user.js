@@ -1,13 +1,11 @@
 // ==UserScript==
 // @name         MoDuL's Pit Guru
 // @namespace    modul.torn.racing
-// @version      2.3.6
+// @version      2.3.7
 // @description  Live Torn race timing, gaps, sectors, speed and estimated telemetry analysis
 // @author       MoDuL
 // @copyright    2026 MoDuL. All rights reserved.
 // @license      All Rights Reserved
-// @updateURL    https://modulah.github.io/pit-guru/pit-guru.user.js
-// @downloadURL  https://modulah.github.io/pit-guru/pit-guru.user.js
 // @match        https://www.torn.com/page.php?sid=racing*
 // @match        https://www.torn.com/loader.php?sid=racing*
 // @include      https://www.torn.com/page.php*sid=racing*
@@ -23,6 +21,8 @@
 
 // @icon         https://www.google.com/s2/favicons?sz=64&domain=torn.com
 // @run-at       document-start
+// @downloadURL https://update.greasyfork.org/scripts/578342/MoDuL%27s%20Pit%20Guru.user.js
+// @updateURL https://update.greasyfork.org/scripts/578342/MoDuL%27s%20Pit%20Guru.meta.js
 // ==/UserScript==
 
 /*
@@ -43,7 +43,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
     const PG_API_CACHE_KEY = "RT_TORN_MPG_API_RESPONSE_CACHE_V1";
     const PG_API_CACHE_MAX_ENTRIES = 80;
     const PG_API_RETRY_MAX = 3;
-    const PG_LICENSE_STATUS_MAX_AGE_MS = 5 * 60 * 1000;
+    const PG_VERIFICATION_MAX_AGE_MS = 24 * 60 * 60 * 1000;
     const PG_HOSTED_SESSION_KEY = 'RT_TORN_MPG_HOSTED_SESSION';
     const PG_LEGACY_HOSTED_SESSION_KEYS = ['RT_TORN_LTL_HOSTED_SESSION'];
     const PG_ENDPOINT_PRESETS = Object.freeze({
@@ -54,6 +54,66 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
     });
     let pgHostedSessionPromise = null;
     let pgHostedStatusPromise = null;
+    let pgVerificationContext = null;
+
+    function pgVerificationEndpoints_() {
+        return JSON.stringify([pgEndpointMode_(), pgApiBase_(), pgPlayerBase_()]);
+    }
+
+    function pgVerificationContextMatches_(context, includeSession = false) {
+        return !!context && context.key === String(apiKey || "").trim()
+            && context.endpoints === pgVerificationEndpoints_()
+            && (!includeSession || context.session === pgHostedSession_());
+    }
+
+    async function pgPrepareVerificationContext_() {
+        if (pgVerificationContextMatches_(pgVerificationContext, true)) return pgVerificationContext;
+        const context = { key: String(apiKey || "").trim(), endpoints: pgVerificationEndpoints_(), session: pgHostedSession_() };
+        // Persist fingerprints, never an extra copy of the key or session in the status cache.
+        const digest = async value => Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value))), byte => byte.toString(16).padStart(2, "0")).join("");
+        context.scope = await digest(JSON.stringify([context.key, context.endpoints]));
+        context.sessionBinding = context.session ? await digest(context.session) : "";
+        if (!pgVerificationContextMatches_(context, true)) throw new Error("Verification cancelled because the key, endpoint or account changed.");
+        pgVerificationContext = context;
+        return context;
+    }
+
+    function pgVerificationDateIsFresh_(value) {
+        const age = Date.now() - Date.parse(String(value || ""));
+        return Number.isFinite(age) && age >= 0 && age < PG_VERIFICATION_MAX_AGE_MS;
+    }
+
+    function pgKeyCheckIsFresh_(info = apiKeyInfo) {
+        return pgVerificationContextMatches_(pgVerificationContext)
+            && info?.verificationScope === pgVerificationContext.scope
+            && !!info.userId && info.userId === info.verifiedUserId && !info.error
+            && pgVerificationDateIsFresh_(info.lastChecked);
+    }
+
+    function pgLicenceCheckIsFresh_(account = pgPitGuruAccount_()) {
+        if (!pgVerificationContextMatches_(pgVerificationContext, true) || !pgVerificationContext.session
+            || account?.verificationScope !== pgVerificationContext.scope
+            || account?.sessionBinding !== pgVerificationContext.sessionBinding
+            || !account.userId || account.userId !== String(apiKeyInfo?.userId || "")
+            || account.error || !account.license?.active || !pgVerificationDateIsFresh_(account.checkedAt)) return false;
+        const expiry = String(account.license.expiresAt || "");
+        if (expiry) return Number.isFinite(Date.parse(expiry)) && Date.parse(expiry) > Date.now();
+        return !account.license.timeLeftSeconds || pgPitGuruRemainingSeconds_(account) > 0;
+    }
+
+    function pgVerificationFailureIsTemporary_(error) {
+        const status = Number(error?.status || 0);
+        return !!error?.timedOut || status === 408 || status === 429 || status >= 500
+            || [5, 8, 9, 12, 17].includes(Number(error?.tornCode))
+            || /^Pit Guru API (network request failed|transport unavailable)/.test(String(error?.message || ""));
+    }
+
+    function pgVerificationAgeText_(value) {
+        const minutes = Math.max(0, Math.floor((Date.now() - Date.parse(value)) / 60000));
+        if (!Number.isFinite(minutes)) return "";
+        if (!minutes) return "Verified just now · cached for up to 24h";
+        return `Verified ${minutes < 60 ? `${minutes}m` : `${Math.floor(minutes / 60)}h`} ago · cached for up to 24h`;
+    }
 
     // Shared across Pit Guru tabs/keys. Never store keys, URLs, or response bodies here.
     const PG_TORN_BUDGET_KEY = "RT_TORN_MPG_TORN_BUDGET_V1";
@@ -169,6 +229,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
     function pgSetEndpointMode_(mode) {
         const next = PG_ENDPOINT_PRESETS[String(mode || "").trim().toLowerCase()] ? String(mode || "").trim().toLowerCase() : "public";
         GM_setValue(PG_ENDPOINT_MODE_KEY, next);
+        delete apiKeyInfo.verificationScope;
         pgClearHostedSession_();
         pgClearHostedAccountStatus_();
         pgClearApiResponseCache_();
@@ -185,6 +246,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
 
     function pgSetCustomApiBase_(value) {
         GM_setValue(PG_CUSTOM_API_BASE_KEY, pgNormalizeBaseUrl_(value, PG_PUBLIC_BASE_DEFAULT));
+        delete apiKeyInfo.verificationScope;
         pgClearHostedSession_();
         pgClearHostedAccountStatus_();
         pgClearApiResponseCache_();
@@ -192,6 +254,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
 
     function pgSetCustomPlayerBase_(value) {
         GM_setValue(PG_CUSTOM_PLAYER_BASE_KEY, pgNormalizeBaseUrl_(value, PG_PUBLIC_BASE_DEFAULT));
+        delete apiKeyInfo.verificationScope;
         pgClearHostedSession_();
         pgClearHostedAccountStatus_();
         pgClearApiResponseCache_();
@@ -425,27 +488,30 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         return await pgWithRetry_(() => pgRequestJson_(method, url, payload, options), options);
     }
 
-    function pgVerifyHostedSession_() {
+    async function pgVerifyHostedSession_() {
         const key = String(GM_getValue("RT_TORN_RA_API_KEY", "") || "").trim();
-        if (pgHostedSessionPromise?.pitGuruKey === key) return pgHostedSessionPromise;
-        if (!key) return Promise.reject(new Error("Add a public Torn API key in Pit Guru Settings to verify the hosted player."));
+        if (!key) throw new Error("Add a public Torn API key in Pit Guru Settings to verify the hosted player.");
+        const context = await pgPrepareVerificationContext_();
+        if (key !== context.key) throw new Error("API key changed during verification.");
+        if (pgVerificationContextMatches_(pgHostedSessionPromise?.pitGuruContext, true)) return pgHostedSessionPromise;
         // The server performs one Torn profile call. Reserve it in the same budget;
         // do not retry a timed-out verification which may already have created a session.
-        pgHostedSessionPromise = pgAcquireTornSlot_(1000, () => String(apiKey || "").trim() === key)
+        const pending = pgAcquireTornSlot_(1000, () => pgVerificationContextMatches_(context, true))
         .then(() => pgRequestJson_("POST", pgPlayerUrl_("/api/account/verify"), { apiKey: key }, {
             timeout: 22000,
             errorMessage: "Pit Guru hosted account verification failed.",
             timeoutMessage: "Pit Guru hosted account verification timed out."
-        })).then(result => {
-            if (String(apiKey || "").trim() !== key) throw new Error("API key changed during verification.");
+        })).then(async result => {
+            if (!pgVerificationContextMatches_(context, true)) throw new Error("Key, endpoint or account changed during verification.");
             const data = result.body || {};
             if (!data.sessionToken) throw new Error(data.error || "Pit Guru hosted account verification did not return a session.");
             GM_setValue(PG_HOSTED_SESSION_KEY, data.sessionToken);
-            if (data.account) pgApplyHostedAccount_(data.account);
+            if (data.account) await pgApplyHostedAccount_(data.account);
             return data.sessionToken;
-        }).finally(() => { if (pgHostedSessionPromise?.pitGuruKey === key) pgHostedSessionPromise = null; });
-        pgHostedSessionPromise.pitGuruKey = key;
-        return pgHostedSessionPromise;
+        }).finally(() => { if (pgHostedSessionPromise === pending) pgHostedSessionPromise = null; });
+        pending.pitGuruContext = context;
+        pgHostedSessionPromise = pending;
+        return pending;
     }
 
     function pgErrorMessage_(error, fallback = "Request failed") {
@@ -700,7 +766,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         return bigRaceSafeModeStatus_();
     };
 
-    const MPG_VERSION = "2.3.6";
+    const MPG_VERSION = "2.3.7";
     const PREDICTION_MODEL_VERSION = "pit-guru-local-v2";
     var TAG = "[MoDuL's Pit Guru v" + MPG_VERSION + "]";
 
@@ -5382,13 +5448,14 @@ self.onmessage=event=>{const id=event.data&&event.data.id;try{const root=JSON.pa
     function carImageRenderUrls_(url, itemId = "") {
         const id = carImageItemId_(url, itemId);
         const normalized = normalizedCarImageUrl_(url);
-        if (!id) return { primary: normalized, fallback: "" };
-        const hosted = pgPlayerUrl_(`/assets/cars/${encodeURIComponent(id)}.png`);
-        const torn = `https://www.torn.com/images/items/${encodeURIComponent(id)}/large.png`;
-        return {
-            primary: hosted || normalized || torn,
-            fallback: torn !== hosted ? torn : (normalized !== hosted ? normalized : "")
-        };
+        let original = "";
+        try {
+            const parsed = new URL(normalized);
+            if (parsed.protocol === "https:" && (parsed.hostname === "torn.com" || parsed.hostname.endsWith(".torn.com"))) original = normalized;
+        } catch { }
+        // Convert older hosted/cache URLs back to Torn too, regardless of endpoint mode.
+        const torn = id ? `https://www.torn.com/images/items/${encodeURIComponent(id)}/large.png` : "";
+        return { primary: original || torn, fallback: original && torn !== original ? torn : "" };
     }
 
     let optionalImageFallbacksInstalled_ = false;
@@ -9092,6 +9159,13 @@ return {
             }
             return json;
         } catch (error) {
+            if ([1, 2, 10, 13, 18].includes(error.tornCode) && requestKey === String(apiKey || "").trim()) {
+                // A real key rejection invalidates cached verification; a timeout or limited selection does not.
+                apiKeyInfo = { accessType: "Check failed", error: error.message, lastAttemptAt: new Date().toISOString() };
+                pgClearHostedSession_();
+                saveApiKeyInfo_();
+                uiDirty = true; scheduleRender_();
+            }
             if (error.tornCode === 5 || error.status === 429) {
                 await pgTornCooldown_();
                 error.message = "Torn rate limit reached. Pit Guru is paused for 60 seconds; try Refresh afterwards.";
@@ -9128,14 +9202,19 @@ return {
         return account && typeof account === "object" && !Array.isArray(account) ? account : null;
     }
 
-    function pgApplyHostedAccount_(account) {
-        if (!account || typeof account !== "object") return null;
+    async function pgApplyHostedAccount_(account) {
+        if (!account || !/^\d+$/.test(String(account.userId || "")) || typeof account.license?.active !== "boolean") {
+            throw new Error("Pit Guru returned an incomplete account check.");
+        }
+        const context = await pgPrepareVerificationContext_();
         const rawLicense = account.license && typeof account.license === "object" ? account.license : {};
         const checkedAt = new Date().toISOString();
         const clean = {
             userId: String(account.userId || "").trim(),
             displayName: String(account.displayName || "").trim(),
             checkedAt,
+            verificationScope: context.scope,
+            sessionBinding: context.sessionBinding,
             license: {
                 active: !!rawLicense.active,
                 status: String(rawLicense.status || (rawLicense.active ? "active" : "inactive")),
@@ -9217,31 +9296,48 @@ return {
         if (expectedUserId && account.userId && String(account.userId) !== expectedUserId) {
             return { allowed: false, reason: "Pit Guru Player verification does not match this Torn API key." };
         }
-        const active = !!account.license?.active && (!account.license?.expiresAt || pgPitGuruRemainingSeconds_(account) > 0);
+        const active = pgLicenceCheckIsFresh_(account);
         return active
             ? { allowed: true, account, reason: "" }
-            : { allowed: false, account, reason: `${pgPitGuruLicenceLabel_(account)}. An active Pit Guru licence is required.` };
+            : { allowed: false, account, reason: account.license?.active
+                ? "Pit Guru Player needs a current licence check. Press Check key to refresh it."
+                : `${pgPitGuruLicenceLabel_(account)}. An active Pit Guru licence is required.` };
     }
 
-    async function pgRefreshHostedAccountStatus_(expectedUserId = "") {
-        const key = apiKey;
-        if (pgHostedStatusPromise?.pitGuruKey === key) return pgHostedStatusPromise;
-        pgHostedStatusPromise = pgReadHostedAccountStatus_(expectedUserId)
-            .finally(() => { if (pgHostedStatusPromise?.pitGuruKey === key) pgHostedStatusPromise = null; });
-        pgHostedStatusPromise.pitGuruKey = key;
-        return pgHostedStatusPromise;
+    async function pgRefreshHostedAccountStatus_(expectedUserId = "", options = {}) {
+        const context = await pgPrepareVerificationContext_();
+        const expected = String(expectedUserId || "");
+        const reusable = () => pgLicenceCheckIsFresh_() && (!expected || pgPitGuruAccount_().userId === expected);
+        if (!options.force && reusable()) return pgPitGuruAccount_();
+        if (pgVerificationContextMatches_(pgHostedStatusPromise?.pitGuruContext, true)) return pgHostedStatusPromise;
+        const pending = pgReadHostedAccountStatus_(expectedUserId).catch(error => {
+            if (pgVerificationContextMatches_(context, true)) {
+                if (pgVerificationFailureIsTemporary_(error) && reusable()) {
+                    const account = pgPitGuruAccount_();
+                    account.refreshWarning = pgErrorMessage_(error, "Licence refresh failed");
+                    account.lastAttemptAt = new Date().toISOString();
+                    saveApiKeyInfo_();
+                    return account; // Keep the original success time, never renew it on failure.
+                }
+                pgClearHostedAccountStatus_(pgErrorMessage_(error, "Pit Guru licence check failed"));
+            }
+            throw error;
+        }).finally(() => { if (pgHostedStatusPromise === pending) pgHostedStatusPromise = null; });
+        pending.pitGuruContext = context;
+        pgHostedStatusPromise = pending;
+        return pending;
     }
 
     async function pgReadHostedAccountStatus_(expectedUserId = "") {
         if (!pgPlayerUsesHostedLicence_()) return null;
-        const checkedKey = apiKey;
+        const context = await pgPrepareVerificationContext_();
         const readStatus = async session => {
             const result = await pgRequestJsonWithRetry_("GET", pgPlayerUrl_("/api/account/status"), null, {
                 timeout: 8000,
                 maxRetries: 1,
                 headers: session ? { "X-Pit-Guru-Session": session } : {}
             });
-            if (apiKey !== checkedKey) throw new Error("API key changed during licence check.");
+            if (!pgVerificationContextMatches_(context) || pgHostedSession_() !== session) throw new Error("Key, endpoint or account changed during licence check.");
             return pgApplyHostedAccount_(result.body?.account);
         };
         let account = null;
@@ -9250,9 +9346,10 @@ return {
             try {
                 account = await readStatus(session);
             } catch (error) {
-                if (apiKey !== checkedKey) throw new Error("API key changed during licence check.");
+                if (!pgVerificationContextMatches_(context, true)) throw new Error("Key, endpoint or account changed during licence check.");
                 if (Number(error?.status || 0) !== 401) throw error;
                 pgClearHostedSession_();
+                pgClearHostedAccountStatus_();
                 session = "";
             }
         }
@@ -9264,9 +9361,11 @@ return {
             session = "";
         }
         if (!account) {
-            if (apiKey !== checkedKey) throw new Error("API key changed during licence check.");
+            if (!pgVerificationContextMatches_(context)) throw new Error("Key or endpoint changed during licence check.");
             session = await pgVerifyHostedSession_();
-            account = pgPitGuruAccount_() || await readStatus(session);
+            account = pgPitGuruAccount_();
+            if (account?.sessionBinding !== pgVerificationContext?.sessionBinding) account = null;
+            account = account || await readStatus(session);
         }
         if (expected && String(account?.userId || "") !== expected) {
             pgClearHostedSession_();
@@ -9278,15 +9377,10 @@ return {
 
     async function pgEnsurePitGuruPlayerAccess_() {
         if (!pgPlayerUsesHostedLicence_()) return pgPitGuruPlayerAccessState_();
-        const account = pgPitGuruAccount_();
-        const checkedAt = Date.parse(String(account?.checkedAt || ""));
-        const stale = !Number.isFinite(checkedAt) || Date.now() - checkedAt > PG_LICENSE_STATUS_MAX_AGE_MS;
-        if (!account || stale) {
-            try {
-                await pgRefreshHostedAccountStatus_(apiKeyInfo?.userId || "");
-            } catch (error) {
-                pgClearHostedAccountStatus_(pgErrorMessage_(error, "Pit Guru licence check failed"));
-            }
+        try {
+            await pgRefreshHostedAccountStatus_(apiKeyInfo?.userId || "");
+        } catch (error) {
+            return { allowed: false, reason: pgErrorMessage_(error, "Pit Guru licence check failed") };
         }
         return pgPitGuruPlayerAccessState_();
     }
@@ -9294,13 +9388,14 @@ return {
     function apiKeyInfoHtml_() {
         if (!apiKey) return `<span class="mpg-key-status bad">Key access: Missing <b class="mpg-status-mark">x</b></span><span class="muted">Driver Intel needs a Torn API key. Race analysis still works without it.</span>`;
         if (apiKeyCheckActive && !apiKeyTornChecked) return `<span class="mpg-key-status">Key access: Checking Torn...</span><span class="muted">Waiting for a safe API slot or Torn's response. API timings show the current stage.</span>`;
-        if (!apiKeyInfo?.lastChecked) return `<span class="mpg-key-status muted">Key access: Not checked yet</span><span class="muted">Pit Guru checks it on refresh and when you press Check key.</span>`;
+        if (!apiKeyInfo?.lastChecked && !apiKeyInfo?.error) return `<span class="mpg-key-status muted">Key access: Not checked yet</span><span class="muted">Successful checks are cached for up to 24 hours. Check key always requests a fresh check.</span>`;
         const failed = apiKeyInfo.accessType === "Check failed" || apiKeyInfo.error;
+        const fresh = pgKeyCheckIsFresh_();
         const full = !!apiKeyInfo.fullAccess;
-        const cls = failed ? "bad" : (full ? "good" : "warn");
-        const mark = failed ? "x" : (full ? "✓" : "!");
-        const label = failed ? "Check failed" : apiKeyAccessLabel_(apiKeyInfo);
-        const checked = fmtWhen_(apiKeyInfo.lastChecked);
+        const cls = failed ? "bad" : (fresh && full ? "good" : "warn");
+        const mark = failed ? "x" : (fresh && full ? "✓" : "!");
+        const label = failed ? "Check failed" : `${apiKeyAccessLabel_(apiKeyInfo)}${fresh ? "" : " · Needs recheck"}`;
+        const checked = fresh ? pgVerificationAgeText_(apiKeyInfo.lastChecked) : `Last check ${fmtWhen_(apiKeyInfo.lastChecked || apiKeyInfo.lastAttemptAt)}`;
         const details = [
             apiKeyInfo.userId ? `User ID ${apiKeyInfo.userId}` : "",
             apiKeyInfo.companyId ? `Company ID ${apiKeyInfo.companyId}` : "",
@@ -9312,12 +9407,16 @@ return {
         const playerAccess = pgPitGuruPlayerAccessState_();
         const playerClass = playerAccess.allowed ? "good" : "bad";
         const playerMark = playerAccess.allowed ? "✓" : "x";
+        const playerLabel = playerAccount?.license?.active && !playerAccess.allowed ? playerAccess.reason : pgPitGuruLicenceLabel_(playerAccount);
+        const playerCache = pgLicenceCheckIsFresh_(playerAccount) ? `<span class="muted">${esc_(pgVerificationAgeText_(playerAccount.checkedAt))} · Ends sooner if the licence expires.</span>` : "";
+        const warnings = [apiKeyInfo.refreshWarning, playerAccount?.refreshWarning].filter(Boolean);
+        const warningLine = warnings.length ? `<span class="mpg-key-status warn">Refresh failed; cached verification keeps its original expiry. ${esc_(warnings.join(" · "))}</span>` : "";
         const playerLine = apiKeyCheckActive && apiKeyTornChecked && pgPlayerUsesHostedLicence_()
             ? `<span class="mpg-key-status">Pit Guru Player: Checking licence...</span><span class="muted">Torn key verified. Player access is checked separately.</span>`
             : pgPlayerUsesHostedLicence_()
-            ? `<span class="mpg-key-status ${playerClass}">Pit Guru Player: ${esc_(pgPitGuruLicenceLabel_(playerAccount))} <b class="mpg-status-mark">${playerMark}</b></span>`
+            ? `<span class="mpg-key-status ${playerClass}">Pit Guru Player: ${esc_(playerLabel)} <b class="mpg-status-mark">${playerMark}</b></span>${playerCache}`
             : `<span class="mpg-key-status good">Pit Guru Player: Local endpoint <b class="mpg-status-mark">✓</b></span>`;
-        return `<span class="mpg-key-status ${cls}">Key access: ${esc_(label)} <b class="mpg-status-mark">${mark}</b></span><span class="muted">Checked ${esc_(checked)}${details ? ` · ${esc_(details)}` : ""}</span>${playerLine}`;
+        return `<span class="mpg-key-status ${cls}">Key access: ${esc_(label)} <b class="mpg-status-mark">${mark}</b></span><span class="muted">${esc_(checked)}${details ? ` · ${esc_(details)}` : ""}</span>${playerLine}${warningLine}`;
     }
 
     async function checkApiKeyInfo_(opts = {}) {
@@ -9336,43 +9435,65 @@ return {
         apiKeyCheckActive = true;
         apiKeyTornChecked = false;
         const generation = ++apiKeyCheckGeneration;
+        const endpoints = pgVerificationEndpoints_();
+        const initialSession = pgHostedSession_();
+        let context = null;
+        const current = () => generation === apiKeyCheckGeneration && key === String(apiKey || "").trim()
+            && endpoints === pgVerificationEndpoints_()
+            && (context ? pgVerificationContextMatches_(context) : initialSession === pgHostedSession_());
         apiKeyStatus = "Checking key access...";
         uiDirty = true; scheduleRender_();
         try {
-            const json = await gmRequestJson_(`https://api.torn.com/v2/key/info?key=${encodeURIComponent(key)}`);
-            if (generation !== apiKeyCheckGeneration || key !== String(apiKey || "").trim()) return false;
-            if (json?.error) throw new Error(json.error.error || json.error.code || "Torn API error");
-            const info = json?.info || json || {};
-            const access = info.access || {};
-            const user = info.user || {};
-            const accessLevel = Number(access.level || 0);
-            const accessType = String(access.type || "").trim();
-            const fullAccess = accessLevel >= 4 || /full\s*access/i.test(accessType);
-            apiKeyInfo = {
-                lastChecked: new Date().toISOString(),
-                accessLevel: Number.isFinite(accessLevel) ? accessLevel : 0,
-                accessType,
-                fullAccess,
-                companyAccess: Boolean(access.company),
-                factionAccess: Boolean(access.faction),
-                logCustomPermissions: Boolean(access.log && access.log.custom_permissions),
-                userId: String(user.id || "").trim(),
-                companyId: String(user.company_id || user.companyId || "").trim()
-            };
-            saveApiKeyInfo_();
+            context = await pgPrepareVerificationContext_();
+            if (!current()) return false;
+            if (apiKeyInfo.verificationScope && apiKeyInfo.verificationScope !== context.scope) {
+                apiKeyInfo = {};
+                pgClearHostedSession_();
+                saveApiKeyInfo_();
+            }
+            const reusedKey = !manual && pgKeyCheckIsFresh_();
+            if (!reusedKey) {
+                const json = await gmRequestJson_(`https://api.torn.com/v2/key/info?key=${encodeURIComponent(key)}`);
+                if (!current()) return false;
+                const info = json?.info || json || {};
+                const access = info.access || {};
+                const user = info.user || {};
+                const userId = String(user.id || "").trim();
+                const accessLevel = Number(access.level);
+                if (!/^\d+$/.test(userId) || !Number.isFinite(accessLevel) || accessLevel < 1) throw new Error("Torn returned an incomplete key check.");
+                const accessType = String(access.type || "").trim();
+                const previousAccount = pgPitGuruAccount_();
+                if (previousAccount?.userId && previousAccount.userId !== userId) pgClearHostedSession_();
+                apiKeyInfo = {
+                    lastChecked: new Date().toISOString(),
+                    verificationScope: context.scope,
+                    verifiedUserId: userId,
+                    accessLevel,
+                    accessType,
+                    fullAccess: accessLevel >= 4 || /full\s*access/i.test(accessType),
+                    companyAccess: Boolean(access.company),
+                    factionAccess: Boolean(access.faction),
+                    logCustomPermissions: Boolean(access.log && access.log.custom_permissions),
+                    userId,
+                    companyId: String(user.company_id || user.companyId || "").trim()
+                };
+                if (previousAccount?.userId === userId && previousAccount.verificationScope === context.scope) apiKeyInfo.pitGuruAccount = previousAccount;
+                saveApiKeyInfo_();
+            }
+            const { accessType, fullAccess } = apiKeyInfo;
             let playerStatus = "";
             apiKeyTornChecked = true;
-            apiKeyStatus = `Torn key verified (${accessType || "limited access"}). Checking Player licence...`;
+            apiKeyStatus = `Torn key verified (${accessType || "limited access"})${reusedKey ? " · cached" : ""}. Checking Player licence...`;
             uiDirty = true; scheduleRender_();
             if (pgPlayerUsesHostedLicence_()) {
                 try {
-                    const account = await pgRefreshHostedAccountStatus_(apiKeyInfo.userId);
-                    if (generation !== apiKeyCheckGeneration || key !== String(apiKey || "").trim()) return false;
+                    const account = await pgRefreshHostedAccountStatus_(apiKeyInfo.userId, { force: manual });
+                    if (!current()) return false;
                     playerStatus = pgPitGuruLicenceLabel_(account);
+                    if (account?.refreshWarning) playerStatus += ` · Refresh failed; using the still-valid cached check (${account.refreshWarning})`;
                 } catch (error) {
-                    if (generation !== apiKeyCheckGeneration || key !== String(apiKey || "").trim()) return false;
+                    if (!current()) return false;
                     const message = pgErrorMessage_(error, "Pit Guru licence check failed");
-                    pgClearHostedAccountStatus_(message);
                     playerStatus = `Pit Guru Player licence check failed: ${message}`;
                 }
             } else {
@@ -9383,15 +9504,18 @@ return {
             if (manual) toast_(apiKeyStatus);
             return true;
         } catch (e) {
-            if (generation !== apiKeyCheckGeneration || key !== String(apiKey || "").trim()) return false;
-            apiKeyInfo = Object.assign({}, apiKeyInfo || {}, {
-                lastChecked: new Date().toISOString(),
-                fullAccess: false,
-                accessType: "Check failed",
-                error: pgErrorMessage_(e, "Key check failed")
-            });
+            if (!current()) return false;
+            const message = pgErrorMessage_(e, "Key check failed");
+            if (pgVerificationFailureIsTemporary_(e) && pgKeyCheckIsFresh_()) {
+                apiKeyInfo.refreshWarning = message;
+                apiKeyInfo.lastAttemptAt = new Date().toISOString();
+                apiKeyStatus = `Key refresh failed; using the still-valid cached check. ${message}`;
+            } else {
+                apiKeyInfo = { lastAttemptAt: new Date().toISOString(), fullAccess: false, accessType: "Check failed", error: message };
+                pgClearHostedSession_();
+                apiKeyStatus = message;
+            }
             saveApiKeyInfo_();
-            apiKeyStatus = apiKeyInfo.error;
             if (manual) toast_(apiKeyStatus);
             return false;
         } finally {
@@ -13094,7 +13218,7 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
             : `<input id="mpgApiKey" type="text" readonly value="${escAttr_(maskApiKey_(apiKey))}" title="Click View to reveal or edit">`;
         panel.innerHTML = `
           <section class="mpg-settings-section wide">
-            <div class="mpg-section-head"><h3>API & Driver Intel</h3><p>Key is saved locally and checked with Torn on refresh. The verified driver ID also checks Pit Guru Player licence access. Driver Intel fetches automatically before races and when race JSON appears.</p></div>
+            <div class="mpg-section-head"><h3>API & Driver Intel</h3><p>Key is saved locally. Successful key and Player licence checks are cached for up to 24 hours, or until the licence expires. Check key forces fresh checks. Driver Intel uses browser and database profiles up to 7 days old before calling Torn.</p></div>
             <div class="mpg-setting-row">
               <div class="mpg-setting-label">API key</div>
               <div class="mpg-api-key-control">
@@ -13280,11 +13404,6 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
         return id ? cachedOptionalImageUrl_("item", id, `https://www.torn.com/images/items/${encodeURIComponent(id)}/large.png`) : "";
     }
 
-    function garageHostedCarImage_(itemId) {
-        const id = String(itemId || "").trim();
-        return id ? cachedOptionalImageUrl_("hosted-item", `${pgPlayerBase_()}:${id}`, pgPlayerUrl_(`/assets/cars/${encodeURIComponent(id)}.png`)) : "";
-    }
-
     function garageCatalogByItem_() {
         const map = new Map();
         for (const c of garageCatalog || []) {
@@ -13298,7 +13417,7 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
         const wanted = toOgCarName_(carName || "").toLowerCase();
         if (!wanted) return "";
         const row = (garageCatalog || []).find(c => toOgCarName_(c.name || c.display_name || c.torn_name || "").toLowerCase() === wanted);
-        return String(row?.hosted_image_url || row?.hostedImageUrl || (row?.item_id ? garageHostedCarImage_(row.item_id) : "") || row?.image_url || row?.imageUrl || (row?.item_id ? garageTornCarImage_(row.item_id) : "") || "").trim();
+        return carImageRenderUrls_(row?.image_url || row?.imageUrl || row?.hosted_image_url || row?.hostedImageUrl, row?.item_id || row?.itemID || row?.itemId).primary;
     }
 
     async function pgLocalEnsureCarCatalog_(force = false) {
@@ -13332,7 +13451,7 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
         const name = toOgCarName_(raw.car || raw.ogName || raw.og_name || raw.display_name || raw.displayName || catalog.name || tornName || (!raw.car_item_name ? raw.name : "") || "");
         const nickname = String(raw.nickname || raw.car_name || raw.carName || (raw.car_item_name ? raw.name : "") || "").trim();
         const enlistedCarId = String(raw.enlisted_car_id || raw.enlistedCarId || raw.id || raw.ID || raw.carID || raw.carId || "").trim();
-        const imageUrl = String(raw.hosted_image_url || raw.hostedImageUrl || catalog.hosted_image_url || catalog.hostedImageUrl || garageHostedCarImage_(itemId) || raw.image_url || raw.imageUrl || raw.carImg || raw.carImage || catalog.image_url || garageTornCarImage_(itemId) || "").trim();
+        const imageUrl = carImageRenderUrls_(raw.image_url || raw.imageUrl || raw.carImg || raw.carImage || catalog.image_url || raw.hosted_image_url || raw.hostedImageUrl || catalog.hosted_image_url || catalog.hostedImageUrl, itemId).primary;
         const manufacturerFuelL100 = safeNum_(raw.fuel_l100km ?? raw.fuelL100Km ?? catalog.fuel_l100km ?? FUEL_BASE_L100KM[name] ?? FUEL_BASE_L100KM[toOgCarName_(tornName)], NaN);
         const parts = parseJsonArray_(raw.upgrades_json || raw.parts || raw.upgrades);
         const val = key => safeNum_(raw[key], NaN);

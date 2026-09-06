@@ -1,0 +1,26 @@
+GreasyFork publishing
+====================
+
+GitHub source URLs for GreasyFork's Admin > Sync / Import:
+
+Pit Guru (existing listing 578342):
+https://raw.githubusercontent.com/MoDuLah/modulah.github.io/main/pit-guru/pit-guru.user.js
+
+JC+ Live Notifier (import the generic public bundle):
+https://raw.githubusercontent.com/MoDuLah/modulah.github.io/main/jobcentre-plus/jobcentre-plus-notifier.user.js
+
+GitHub webhook 675504710 is configured on MoDuLah/modulah.github.io for pushes,
+application/json, TLS verification, and the supplied account endpoint:
+https://api.greasyfork.org/en/users/1561217-modul/webhook
+It is paused: its initial ping returned 403. Complete the webhook Secret from the signed-in
+GreasyFork account's webhook page before enabling publishing. The copied setup
+instructions did not include that value. Keep it out of this repository.
+
+Before enabling the webhook, configure both listings to sync from the raw URLs.
+Do not create another Pit Guru listing. After importing JC+ Live Notifier, update
+its source ID in config/script-update-sources.json, switch the catalogue install
+link and old VM download routes to the new listing, and set the bundle's update
+and download URLs to the URLs returned by GreasyFork.
+
+Release commits should describe the script change clearly: GreasyFork can use
+the push commit message for the version changelog. Keep @version current.
