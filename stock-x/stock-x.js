@@ -1791,7 +1791,6 @@ function renderEditMode() {
                 type="text"
                 id="MoDuL-preset-input"
                 class="MoDuL-input MoDuL-w-100"
-                value="${presets.join(", ")}"
             >
             <div class="MoDuL-edit-actions">
                 <button id="savep" class="MoDuL-action-btn MoDuL-save">Save</button>
@@ -1799,6 +1798,7 @@ function renderEditMode() {
             </div>
         </div>
     `);
+    $("#MoDuL-preset-input").val(presets.join(", "));
 
     $("#MoDuL-edit-trigger").hide();
 
