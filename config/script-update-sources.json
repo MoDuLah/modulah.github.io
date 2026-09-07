@@ -103,12 +103,9 @@
       "title": "JobCentre+",
       "displayPrefix": "v",
       "actionLabelTemplate": "Install Notifier {version}",
-      "initialDate": "2026-08-17",
-      "required": false,
-      "timelineHref": "https://pp-api.sokin.xyz/jobcentreplus/",
       "source": {
-        "type": "userscript",
-        "path": "jobcentre-plus/jobcentre-plus-notifier.user.js"
+        "type": "greasyfork",
+        "scriptId": 594723
       }
     }
   ]

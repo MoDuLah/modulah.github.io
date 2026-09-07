@@ -22,8 +22,10 @@ The deployment workflow runs twice daily to refresh that fallback snapshot.
 Pit Guru installation and version tracking use GreasyFork script 578342.
 The repository carries the same public bundle for the GitHub sync source and
 legacy GitHub update URLs. VM download URLs redirect to GreasyFork.
-JobCentre+ has a public sync-ready bundle under jobcentre-plus/; until its
-GreasyFork import is configured, the install link remains the live service URL.
+JC+ Live Notifier uses GreasyFork script 594723, with its generic public source
+under jobcentre-plus/. Both legacy VM notifier download routes redirect there.
+Version 2.3.1 moves automatic updates to GreasyFork without changing notifier
+behaviour or stored connections. The JobCentre+ application stays on the VM.
 Never publish a personalised notifier bundle containing an account token.
 
 GreasyFork JSON endpoints on api.greasyfork.org provide script metadata and

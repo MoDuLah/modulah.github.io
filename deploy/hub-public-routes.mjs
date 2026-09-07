@@ -14,4 +14,18 @@ export function registerHubPublicRoutes(app) {
       "https://update.greasyfork.org/scripts/578342/MoDuL%27s%20Pit%20Guru.user.js"
     );
   });
+
+  app.get(
+    [
+      "/jobcentreplus/jobcentre-plus-notifier.user.js",
+      "/jobcentreplus/api/notifications/install/jobcentre-plus-notifier.user.js",
+    ],
+    (_req, res) => {
+      res.set("Cache-Control", "no-store");
+      res.redirect(
+        302,
+        "https://update.greasyfork.org/scripts/594723/JC%2B%20Live%20Notifier.user.js"
+      );
+    }
+  );
 }

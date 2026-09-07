@@ -24,8 +24,8 @@ describe("command centre catalogue", () => {
     expect(catalogue).toContain('"label": "Install v2.4.8"');
     expect(catalogue).toContain('"version": "v0.3.4"');
     expect(catalogue).toContain('"label": "Install v0.3.4"');
-    expect(catalogue).toContain('"version": "v2.3.0"');
-    expect(catalogue).toContain('"label": "Install Notifier v2.3.0"');
+    expect(catalogue).toContain('"version": "v2.3.1"');
+    expect(catalogue).toContain('"label": "Install Notifier v2.3.1"');
   });
 
   test("uses a script release timeline instead of repository commits", () => {
@@ -37,7 +37,7 @@ describe("command centre catalogue", () => {
     expect(app).toContain("release.scriptId || release.title.toLocaleLowerCase()");
     expect(app).toContain("Latest release check:");
     expect(app).toContain("requestUrl.searchParams.set('fresh', Date.now().toString())");
-    expect(app).toContain('setTimeout(() => controller.abort(), 8000)');
+    expect(app).toContain("setTimeout(() => controller.abort(), 8000)");
     expect(code).not.toContain('src="assets/js/repository-activity.js"');
     expect(code).not.toContain("Full Git Log");
     expect(workflow).not.toContain("generate-activity-timeline");
@@ -50,7 +50,7 @@ describe("command centre catalogue", () => {
     expect(styles).toContain(".module-card:hover .module-card-reveal");
     expect(styles).toContain(".module-card.loading .module-card-progress");
     expect(styles).toContain("@keyframes module-load-progress");
-    expect(styles).toContain("#module-grid[aria-busy=\"true\"]::after");
+    expect(styles).toContain('#module-grid[aria-busy="true"]::after');
     expect(styles).toContain("backdrop-filter: blur(2.5px)");
     expect(styles).toMatch(/\.module-grid\s*\{[\s\S]*?padding-top:\s*0\.75rem;/);
     expect(styles).toMatch(/\.module-card\.active\s*\{[\s\S]*?z-index:\s*20;/);
@@ -80,7 +80,9 @@ describe("command centre catalogue", () => {
     expect(app).toContain("details.dataset.transitionMode = 'fallback-contract'");
     expect(app).toContain("document.documentElement.classList.add('module-transition-reverse')");
     expect(app).toContain("releaseModuleSelection(grid)");
-    expect(app).not.toContain("currentFilter = 'ALL';\n                activeModuleId = null;\n                updateRegistrySummary();\n                grid.replaceChildren();");
+    expect(app).not.toContain(
+      "currentFilter = 'ALL';\n                activeModuleId = null;\n                updateRegistrySummary();\n                grid.replaceChildren();"
+    );
     expect(styles).toMatch(/\.module-card\.active\s*\{[\s\S]*?opacity:\s*1;/);
     expect(app).not.toContain("script.badge === 'dev' ? 'group-hover:opacity-100");
   });
@@ -198,8 +200,12 @@ describe("command centre catalogue", () => {
     let importedQuestions = 0;
     faqFiles.forEach((relativePath) => {
       const faqPage = fs.readFileSync(path.join(repositoryRoot, relativePath), "utf8");
-      const questions = [...faqPage.matchAll(/<summary>([\s\S]*?)<\/summary>/g)]
-        .map((match) => match[1].replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim());
+      const questions = [...faqPage.matchAll(/<summary>([\s\S]*?)<\/summary>/g)].map((match) =>
+        match[1]
+          .replace(/<[^>]+>/g, "")
+          .replace(/\s+/g, " ")
+          .trim()
+      );
       expect(questions.length).toBeGreaterThan(0);
       questions.forEach((question) => expect(moduleFaqs).toContain(JSON.stringify(question)));
       importedQuestions += questions.length;
@@ -210,15 +216,17 @@ describe("command centre catalogue", () => {
     expect(catalogue).not.toContain('"label": "Archive FAQ"');
   });
 
-  test("tracks all nine GreasyFork scripts plus VM-only sources", () => {
+  test("tracks all ten GreasyFork scripts plus the shared theme source", () => {
     const greasyForkIds = updaterConfig.scripts
       .filter((entry) => entry.source.type === "greasyfork")
       .map((entry) => entry.source.scriptId)
       .sort((left, right) => left - right);
     expect(greasyForkIds).toEqual([
-      562954, 563153, 563548, 575111, 575131, 578342, 579366, 580933, 589397,
+      562954, 563153, 563548, 575111, 575131, 578342, 579366, 580933, 589397, 594723,
     ]);
-    expect(updaterConfig.scripts.filter((entry) => entry.source.type === "userscript")).toHaveLength(2);
+    expect(
+      updaterConfig.scripts.filter((entry) => entry.source.type === "userscript")
+    ).toHaveLength(1);
   });
 
   test("refreshes generated manifests during deploy and scheduled sync", () => {

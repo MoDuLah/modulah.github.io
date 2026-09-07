@@ -3,7 +3,7 @@ import {
   scriptReleases,
   moduleFaqs,
   moduleScreenshots,
-} from './catalogue.js?v=20260907.1';
+} from './catalogue.js?v=20260907.2';
 
 const scriptUpdateManifestUrl = 'https://pp-api.sokin.xyz/assets/data/script-updates.json';
 const screenshotManifestUrl = 'assets/data/module-screenshots.json';

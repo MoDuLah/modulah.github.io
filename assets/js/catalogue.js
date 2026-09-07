@@ -473,12 +473,12 @@ export const scripts = [
     "title": "JobCentre+",
     "desc":
       "A privacy-first Torn employment marketplace with verified profiles, vacancies, applications, dashboards and the JC+ Live Notifier companion userscript.",
-    "version": "v2.3.0",
+    "version": "v2.3.1",
     "versionPrefix": "NOTIFIER",
     "category": "Employment marketplace",
     "projectType": "Hosted application + userscript",
     "releaseState": "Live service and notifier",
-    "updated": "6 September 2026",
+    "updated": "7 September 2026",
     "badge": "web-tool",
     "badgeText": "WEB TOOL",
     "logo": "assets/images/job-centre-plus/og.png",
@@ -497,9 +497,8 @@ export const scripts = [
         "primary": true,
       },
       {
-        "label": "Install Notifier v2.3.0",
-        "href":
-          "https://pp-api.sokin.xyz/jobcentreplus/api/notifications/install/jobcentre-plus-notifier.user.js",
+        "label": "Install Notifier v2.3.1",
+        "href": "https://greasyfork.org/en/scripts/594723-jc-live-notifier",
         "icon": "notifications_active",
         "primary": false,
       },

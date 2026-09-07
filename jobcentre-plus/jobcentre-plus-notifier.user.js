@@ -1,14 +1,14 @@
 // ==UserScript==
 // @name         JC+ Live Notifier
 // @namespace    https://jobcentreplus.torn
-// @version      2.3.0
+// @version      2.3.1
 // @description  JC+ companion panel and real-time notifications for Torn directors and applicants.
 // @author       JC+ Team
 // @icon         data:image/svg+xml,%3Csvg%20xmlns=%22http://www.w3.org/2000/svg%22%20viewBox=%220%200%2064%2064%22%3E%3Crect%20width=%2264%22%20height=%2264%22%20rx=%2214%22%20fill=%22%2311170d%22/%3E%3Cg%20transform=%22translate(-5%20-1)%22%3E%3Cpath%20d=%22M15%2014h10v25c0%208-5%2013-13%2013H9V43h3c2%200%203-1%203-4V14Z%22%20fill=%22%23d9ff52%22/%3E%3Cpath%20d=%22M45%2013c5%200%209%201%2012%204l-5%208c-2-2-4-3-7-3-6%200-10%204-10%2011s4%2011%2010%2011c3%200%206-1%208-3l5%208c-4%203-8%205-14%205-12%200-20-8-20-21s8-20%2021-20Z%22%20fill=%22%23f3f7ee%22/%3E%3Cpath%20d=%22M51%2029h5v-5h5v5h4v5h-4v5h-5v-5h-5v-5Z%22%20fill=%22%23d9ff52%22/%3E%3C/g%3E%3C/svg%3E
 // @homepageURL  https://pp-api.sokin.xyz/jobcentreplus/
 // @supportURL   https://pp-api.sokin.xyz/jobcentreplus/
-// @downloadURL  https://pp-api.sokin.xyz/jobcentreplus/jobcentre-plus-notifier.user.js
-// @updateURL    https://pp-api.sokin.xyz/jobcentreplus/jobcentre-plus-notifier.user.js
+// @downloadURL  https://update.greasyfork.org/scripts/594723/JC%2B%20Live%20Notifier.user.js
+// @updateURL    https://update.greasyfork.org/scripts/594723/JC%2B%20Live%20Notifier.meta.js
 // @match        https://www.torn.com/*
 // @match        https://torn.com/*
 // @match        https://*.torn.com/*
@@ -31,7 +31,7 @@
 (function () {
   "use strict";
 
-  const SCRIPT_VERSION = "2.3.0";
+  const SCRIPT_VERSION = "2.3.1";
   const NOTIFICATION_FEED_VERSION = "2";
   const ICON_SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="14" fill="#11170d"/><g transform="translate(-5 -1)"><path d="M15 14h10v25c0 8-5 13-13 13H9V43h3c2 0 3-1 3-4V14Z" fill="#d9ff52"/><path d="M45 13c5 0 9 1 12 4l-5 8c-2-2-4-3-7-3-6 0-10 4-10 11s4 11 10 11c3 0 6-1 8-3l5 8c-4 3-8 5-14 5-12 0-20-8-20-21s8-20 21-20Z" fill="#f3f7ee"/><path d="M51 29h5v-5h5v5h4v5h-4v5h-5v-5h-5v-5Z" fill="#d9ff52"/></g></svg>';
   const ICON_DATA_URL = `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(ICON_SVG)}`;

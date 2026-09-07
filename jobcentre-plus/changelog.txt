@@ -1,0 +1,6 @@
+JC+ Live Notifier 2.3.1 - 7 September 2026
+
+- Installations and automatic userscript updates now use GreasyFork.
+- Existing VM download links redirect to the official GreasyFork release.
+- Notifier behaviour and existing stored connections are unchanged.
+- The JobCentre+ application remains available at its existing address.
