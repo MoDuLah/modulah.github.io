@@ -120,6 +120,19 @@
 
         <div class="changelog-tree" role="tree">
           <details class="changelog-version" role="treeitem" open>
+            <summary class="changelog-summary">v3.1.4 - Historical Balance wages</summary>
+            <div class="changelog-content">
+              <ul class="changelog-list">
+                <li>Current employee wages are no longer copied into older Balance dates. Wage totals require dated staff wage-change logs or API observations, and explicitly recorded zero wages stay zero.</li>
+                <li>Wage-change logs preserve exact timestamps and use the existing 18:10 TCT company-day boundary, so late-night changes apply to the next closing date. Re-sync upgrades legacy date-only entries; ambiguous change dates stay unknown until their timing is recovered.</li>
+                <li>Ignores unverified wage totals backfilled by older versions while retaining advertising history. Newly reconstructed totals carry evidence metadata, and dated logs can correct previously saved totals.</li>
+                <li>Unknown historical wages and their profit remain blank in Balance and exported reports. Daily and weekly graphs leave gaps instead of plotting unknown costs as zero; company goals disclose missing wage coverage.</li>
+                <li>Loading older individual staff logs no longer overwrites current pay. Fresh staff-card history takes precedence over stale profile copies.</li>
+                <li>Use Sync all and, where necessary, older staff-log pages to recover wage history. Rebuild balance refreshes the displayed calculations; missing historical evidence is not replaced with suggested pay.</li>
+              </ul>
+            </div>
+          </details>
+          <details class="changelog-version" role="treeitem" open>
             <summary class="changelog-summary">v3.1.3 - Faster startup, authoritative sync, and role-aware wages</summary>
             <div class="changelog-content">
               <ul class="changelog-list">
