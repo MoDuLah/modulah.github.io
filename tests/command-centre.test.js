@@ -16,6 +16,14 @@ const updaterConfig = JSON.parse(
 const workflow = fs.readFileSync(path.join(repositoryRoot, ".github/workflows/deploy.yml"), "utf8");
 
 describe("command centre catalogue", () => {
+  test("same-day releases sort newest numeric version first regardless of insertion order", () => {
+    const source = app.match(/function compareScriptReleases\(left, right\) \{[\s\S]*?\n\}/)[0];
+    const compare = new Function(`${source}; return compareScriptReleases;`)();
+    const releases = ['v3.1.3', 'v3.1.4', 'v3.1.5', 'v3.1.10'].map(version => ({scriptId:'pythagoras', date:'2026-09-09', version}));
+    releases.push({scriptId:'pythagoras', date:'2026-09-08', version:'v9.0.0'});
+    expect(releases.sort(compare).map(row => row.version)).toEqual(['v3.1.10','v3.1.5','v3.1.4','v3.1.3','v9.0.0']);
+    expect(app).toContain('.sort(compareScriptReleases)');
+  });
   test("shows current distributed script versions", () => {
     expect(code).toContain("BUILD: v2.5.0-CYBER");
     expect(catalogue).toContain('"version": "v3.1.2"');

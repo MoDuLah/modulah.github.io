@@ -664,6 +664,14 @@ function handleBootFailure(error) {
   updateRegistrySummary();
 }
 
+function compareScriptReleases(left, right) {
+  const byDate = right.date.localeCompare(left.date);
+  if (byDate) return byDate;
+  const leftScript = left.scriptId || left.title.toLocaleLowerCase();
+  const rightScript = right.scriptId || right.title.toLocaleLowerCase();
+  return rightScript.localeCompare(leftScript) || right.version.localeCompare(left.version, undefined, { numeric: true, sensitivity: 'base' });
+}
+
 function renderScriptUpdateTimeline() {
   const timeline = document.getElementById('script-updates-timeline');
   const count = document.getElementById('script-release-count');
@@ -681,7 +689,7 @@ function renderScriptUpdateTimeline() {
       (release, index, all) =>
         all.findIndex((candidate) => releaseKey(candidate) === releaseKey(release)) === index
     )
-    .sort((left, right) => right.date.localeCompare(left.date));
+    .sort(compareScriptReleases);
 
   timeline.replaceChildren();
   count.textContent = `${releases.length} RELEASES`;

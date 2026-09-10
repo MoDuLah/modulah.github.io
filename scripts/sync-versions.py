@@ -785,7 +785,15 @@ def build_timeline(
             continue
         seen.add(key)
         unique.append(normalised)
-    return sorted(unique, key=lambda event: event["date"], reverse=True)[:MAX_TIMELINE_EVENTS]
+    # Dates have day precision: same-day versions must not retain insertion order.
+    def release_order(event):
+        version = tuple(
+            (1, int(part)) if part.isdigit() else (0, part.casefold())
+            for part in re.findall(r"\d+|\D+", event["version"])
+        )
+        return event["date"], event.get("scriptId") or event["title"].casefold(), version
+
+    return sorted(unique, key=release_order, reverse=True)[:MAX_TIMELINE_EVENTS]
 
 
 def write_atomic(path: Path, payload: dict[str, Any]) -> None:

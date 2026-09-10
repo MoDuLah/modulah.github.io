@@ -15,6 +15,15 @@ SPEC.loader.exec_module(sync_versions)
 
 
 class SyncVersionsTests(unittest.TestCase):
+    def test_same_day_versions_sort_numerically_newest_first(self):
+        previous = [dict(scriptId="pythagoras", title="CIS", version=version,
+                         date="2026-09-09", type="RELEASE", summary="A release.",
+                         href="https://greasyfork.org/en/scripts/580933/versions")
+                    for version in ["v3.1.3", "v3.1.4", "v3.1.5", "v3.1.10"]]
+        result = sync_versions.build_timeline([], {}, previous, [])
+        self.assertEqual([row["version"] for row in result], ["v3.1.10", "v3.1.5", "v3.1.4", "v3.1.3"])
+        self.assertEqual(sync_versions.build_timeline([], {}, result, []), result)
+
     def test_standalone_version_headers_and_wrapped_bullets(self):
         notes = sync_versions.summarise_release_note(
             "Changelog\n2.5.2\n• Fixed the button after a\npage refresh.\n2.5.1\n• Older change.",
@@ -178,12 +187,13 @@ class SyncVersionsTests(unittest.TestCase):
         timeline = sync_versions.build_timeline(records, previous, [], entries)
 
         self.assertEqual(len(timeline), 2)
-        self.assertEqual(timeline[0]["version"], "v2.3.0")
+        by_script = {event["scriptId"]: event for event in timeline}
+        self.assertEqual(by_script["cracked"]["version"], "v2.3.0")
         self.assertEqual(
-            timeline[0]["summary"],
+            by_script["cracked"]["summary"],
             "Added a real public changelog for this release.",
         )
-        self.assertEqual("No changelog was published for this version.", timeline[1]["summary"])
+        self.assertEqual("No changelog was published for this version.", by_script["jobCentrePlus"]["summary"])
         deduplicated = sync_versions.build_timeline(records, previous, timeline, entries)
         self.assertEqual(deduplicated, timeline)
 
