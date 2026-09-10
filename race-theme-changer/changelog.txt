@@ -32,6 +32,14 @@
 
 - **Miscellaneous**: Show release changelogs, add Race Stats, and retire Race Tracker
 
+## v1.2.6 (2026-09-10)
+
+### Miscellaneous
+
+- **Miscellaneous**: Release Pit Guru profile and race stats integration
+- **Miscellaneous**: Show release changelogs, add Race Stats, and retire Race Tracker
+
+
 
 
 
