@@ -1,11 +1,13 @@
 // ==UserScript==
 // @name         MoDuL's Pit Guru
 // @namespace    modul.torn.racing
-// @version      2.3.7
+// @version      2.3.8
 // @description  Live Torn race timing, gaps, sectors, speed and estimated telemetry analysis
 // @author       MoDuL
 // @copyright    2026 MoDuL. All rights reserved.
 // @license      All Rights Reserved
+// @updateURL    https://modulah.github.io/pit-guru/pit-guru.user.js
+// @downloadURL  https://modulah.github.io/pit-guru/pit-guru.user.js
 // @match        https://www.torn.com/page.php?sid=racing*
 // @match        https://www.torn.com/loader.php?sid=racing*
 // @include      https://www.torn.com/page.php*sid=racing*
@@ -21,14 +23,109 @@
 
 // @icon         https://www.google.com/s2/favicons?sz=64&domain=torn.com
 // @run-at       document-start
-// @downloadURL https://update.greasyfork.org/scripts/578342/MoDuL%27s%20Pit%20Guru.user.js
-// @updateURL https://update.greasyfork.org/scripts/578342/MoDuL%27s%20Pit%20Guru.meta.js
 // ==/UserScript==
 
 /*
 Copyright (c) 2026 MoDuL. All rights reserved.
 Unauthorized copying, modification, redistribution, or commercial use is prohibited without written permission.
 */
+
+/* Shared, credential-free personal racing history calculations. Times are milliseconds. */
+(function (root, factory) {
+    const api = factory();
+    if (typeof module === "object" && module.exports) module.exports = api;
+    else root.PitGuruProfile = api;
+})(typeof window !== "undefined" ? window : this, function () {
+    "use strict";
+    const number = value => value == null || value === "" || !Number.isFinite(Number(value)) ? null : Number(value);
+    function normalize(row) {
+        if (!row || !/^\d+$/.test(String(row.raceId || ""))) return null;
+        const pos = number(row.position);
+        const ts = number(row.ts);
+        if (ts == null || ts <= 0) return null;
+        const type = String(row.raceType || "").toLowerCase();
+        return {
+            raceId: String(row.raceId), ts, track: String(row.track || "Unknown").slice(0, 120),
+            raceType: type === "official" || type === "custom" ? type : "unknown",
+            laps: number(row.laps), position: pos != null && pos > 0 ? pos : null,
+            crashed: row.crashed === true, dnf: row.dnf === true || row.crashed === true,
+            carInstanceId: /^\d+$/.test(String(row.carInstanceId || "")) ? String(row.carInstanceId) : null,
+            car: String(row.car || "Unknown").slice(0, 120),
+            bestLapMs: number(row.bestLapMs) > 0 ? number(row.bestLapMs) : null,
+            raceTimeMs: number(row.raceTimeMs) > 0 ? number(row.raceTimeMs) : null,
+            points: number(row.points) >= 0 ? number(row.points) : null,
+            source: String(row.source || "Pit Guru").slice(0, 40)
+        };
+    }
+    function merge(primary, secondary) {
+        const map = new Map();
+        for (const row of [...(secondary || []), ...(primary || [])]) {
+            const r = normalize(row);
+            if (!r) continue;
+            const old = map.get(r.raceId);
+            if (old) {
+                for (const key of ["carInstanceId", "bestLapMs", "raceTimeMs", "points", "laps", "position"]) {
+                    if (r[key] == null) r[key] = old[key];
+                }
+                if (r.raceType === "unknown") r.raceType = old.raceType;
+                r.crashed ||= old.crashed;
+                r.dnf ||= old.dnf;
+            }
+            map.set(r.raceId, r);
+        }
+        return [...map.values()].sort((a,b) => b.ts-a.ts || Number(b.raceId)-Number(a.raceId));
+    }
+    function summarize(input, tracks = [], now = Date.now()) {
+        const rows = merge(input, []);
+        const win = r => !r.dnf && r.position === 1;
+        const podium = r => !r.dnf && r.position != null && r.position <= 3;
+        const finished = r => r.dnf || r.position != null;
+        const results = rows.filter(finished);
+        const counts = list => ({ entries: list.length, wins: list.filter(win).length,
+            first: list.filter(win).length, second: list.filter(r=>!r.dnf && r.position===2).length,
+            third: list.filter(r=>!r.dnf && r.position===3).length,
+            podiums: list.filter(podium).length, dnfs: list.filter(r=>r.dnf).length });
+        const streak = test => {
+            let current = 0, best = 0, run = 0, open = true;
+            // Unknown outcomes break streaks; they cannot silently join two runs.
+            for (const row of rows) {
+                if (finished(row) && test(row)) { run++; if (open) current++; best=Math.max(best,run); }
+                else { run=0; open=false; }
+            }
+            return {current,best};
+        };
+        const rank = key => {
+            const groups = new Map();
+            results.forEach(r => { const id=r[key]; if (!id) return; if (!groups.has(id)) groups.set(id,[]); groups.get(id).push(r); });
+            return [...groups].map(([id,list])=>({id,name:key==="carInstanceId"?list[0].car:id,...counts(list)}))
+                .sort((a,b)=>b.wins-a.wins || b.podiums-a.podiums || b.entries-a.entries || String(a.id).localeCompare(String(b.id))).slice(0,5);
+        };
+        const bestLap = new Map(), bestRace = new Map();
+        rows.forEach(r => {
+            if (r.raceType === "unknown") return;
+            const lk = `${r.track}\t${r.raceType}`;
+            if (r.bestLapMs && (!bestLap.has(lk) || r.bestLapMs < bestLap.get(lk).bestLapMs)) bestLap.set(lk,r);
+            if (r.raceType === "official" && !r.dnf && r.raceTimeMs && r.laps > 0) {
+                const rk = `${r.track}\t${r.laps}`;
+                if (!bestRace.has(rk) || r.raceTimeMs < bestRace.get(rk).raceTimeMs) bestRace.set(rk,r);
+            }
+        });
+        const names = [...new Set([...tracks, ...rows.map(r=>r.track)])].sort();
+        const lastCrash = rows.find(r=>r.crashed);
+        const pointRows = rows.filter(r=>r.raceType==="official" && r.points!=null);
+        return {rows, ...counts(results), unknownOutcomes: rows.length-results.length,
+            topCars:rank("carInstanceId"), topTracks:rank("track"),
+            unassignedCars:results.filter(r=>!r.carInstanceId).length,
+            lapBests:names.map(track=>({track,official:bestLap.get(`${track}\tofficial`)||null,custom:bestLap.get(`${track}\tcustom`)||null})),
+            raceBests:[...bestRace.values()].sort((a,b)=>a.track.localeCompare(b.track)||a.laps-b.laps),
+            streaks:{win:streak(win),podium:streak(podium),nonWin:streak(r=>!win(r)),nonPodium:streak(r=>!podium(r))},
+            lastCrashAt:lastCrash?.ts||null, daysSinceAccident:lastCrash?Math.max(0,Math.floor((now-lastCrash.ts)/86400000)):null,
+            racingPoints:pointRows.length?pointRows.reduce((sum,r)=>sum+r.points,0):null,pointsKnownRaces:pointRows.length
+        };
+    }
+    return {number,normalize,merge,summarize};
+});
+
 
 (function () {
     "use strict";
@@ -766,7 +863,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         return bigRaceSafeModeStatus_();
     };
 
-    const MPG_VERSION = "2.3.7";
+    const MPG_VERSION = "2.3.8";
     const PREDICTION_MODEL_VERSION = "pit-guru-local-v2";
     var TAG = "[MoDuL's Pit Guru v" + MPG_VERSION + "]";
 
@@ -5452,7 +5549,7 @@ self.onmessage=event=>{const id=event.data&&event.data.id;try{const root=JSON.pa
         try {
             const parsed = new URL(normalized);
             if (parsed.protocol === "https:" && (parsed.hostname === "torn.com" || parsed.hostname.endsWith(".torn.com"))) original = normalized;
-        } catch { /* Invalid URLs use the item-ID fallback below. */ }
+        } catch { }
         // Convert older hosted/cache URLs back to Torn too, regardless of endpoint mode.
         const torn = id ? `https://www.torn.com/images/items/${encodeURIComponent(id)}/large.png` : "";
         return { primary: original || torn, fallback: original && torn !== original ? torn : "" };
@@ -10783,7 +10880,9 @@ img.carIcon{
 .mpg-garage-compare-car.b{grid-template-columns:92px minmax(0,1fr);text-align:left}
 .mpg-garage-compare-car img{width:88px;height:52px;object-fit:contain;filter:drop-shadow(0 7px 11px rgba(0,0,0,.32))}
 .mpg-garage-compare-car.a img{order:2}
-.mpg-garage-compare-car select{width:100%;min-width:0}
+.mpg-garage-compare-car select{width:100%;min-width:0;background:var(--pill);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:8px;font:inherit;color-scheme:dark}
+.mpg-garage-compare-car select option{background:var(--panel);color:var(--text)}
+.mpg-garage-compare-car select:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .mpg-garage-compare-vs{display:grid;justify-items:center;gap:6px;text-align:center;color:var(--gapPos);font-weight:950;font-size:15px}
 .mpg-garage-compare-stats,.mpg-garage-compare-facts{display:grid;gap:4px}
 .mpg-garage-compare-stat{display:grid;grid-template-columns:minmax(80px,1fr) 38px 150px 38px minmax(80px,1fr);gap:7px;align-items:center;min-height:25px}
@@ -10858,9 +10957,12 @@ img.carIcon{
 #rtLapWin.rtCompact .mpg-modebar{grid-template-columns:repeat(auto-fit,minmax(42px,1fr))}
 #rtLapWin.rtCompact .mpg-modebar .mpg-mode-label{display:none}
 .mpg-status{font:12px system-ui;font-weight:800}
-.mpg-analysis{min-width:100%;box-sizing:border-box;color:var(--text) !important}
-.mpg-analysis table{
+.mpg-analysis{width:100%;min-width:0;box-sizing:border-box;color:var(--text) !important}
+#rtLapWin .mpg-analysis table{
+  display:table;
   width:100%;
+  min-width:100%;
+  max-width:none;
   border-collapse:separate;
   border-spacing:0;
   color:var(--text) !important;
@@ -10899,7 +11001,7 @@ img.carIcon{
 .mpg-table-help{position:relative;margin-left:auto;flex:0 0 auto;width:22px;height:22px;padding:0;border:1px solid var(--border);border-radius:50%;background:var(--pill);color:var(--accent);font:900 12px/20px system-ui;text-align:center;cursor:help}
 .mpg-table-help:hover,.mpg-table-help:focus-visible{background:var(--pillHover);outline:1px solid var(--accent);outline-offset:1px}
 .mpg-table-help:hover::after,.mpg-table-help:focus-visible::after{content:attr(data-help);position:absolute;right:0;top:calc(100% + 7px);z-index:20;width:min(340px,calc(100vw - 48px));padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text);box-shadow:0 10px 28px rgba(0,0,0,.5);font:12px/1.35 system-ui;font-weight:500;text-align:left;white-space:normal}
-.mpg-table-scroll{overflow:auto;border:1px solid var(--border);border-radius:10px;background:rgba(0,0,0,.12)}
+.mpg-table-scroll{width:100%;box-sizing:border-box;overflow:auto;border:1px solid var(--border);border-radius:10px;background:rgba(0,0,0,.12)}
 .mpg-table-block.mpg-table-compact{width:max-content;max-width:100%}
 .mpg-table-compact .mpg-table-scroll{width:max-content;max-width:100%}
 .mpg-table-compact table{width:auto;min-width:0}
@@ -11044,6 +11146,8 @@ img.carIcon{
 /* ========== Main laps table wrapper ========== */
 #mpgAnalysisWrap{
   flex:1;
+  min-width:0;
+  width:100%;
   overflow:auto;
   border:1px solid rgba(0,0,0,.25);
   border-radius:12px;
@@ -14514,11 +14618,104 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
         });
     }
 
+    // Embedded in the compatibility bundle; no separate install or network module.
+    let personalProfileState_ = {ownerId:"",data:null,error:"",loading:false,revision:0,attemptedAt:0};
+    let personalProfileBridge_ = null;
+    function personalProfileOwner_() { return String(playerId || ""); }
+    function personalProfileArchive_() {
+        const ownerId = personalProfileOwner_();
+        const value = GM_getValue(`MPG_PROFILE_ARCHIVE_V1_${ownerId}`, null);
+        return value && String(value.ownerId)===ownerId && Array.isArray(value.rows) ? value : {rows:[]};
+    }
+    async function loadPersonalProfile_(force=false) {
+        const ownerId=personalProfileOwner_();
+        if (!ownerId) return;
+        if (personalProfileState_.ownerId!==ownerId) personalProfileState_={ownerId,data:null,error:"",loading:false,revision:0,attemptedAt:0};
+        const state=personalProfileState_;
+        if (state.loading || (!force && Date.now()-state.attemptedAt<60000)) return;
+        state.loading=true; state.error=""; state.attemptedAt=Date.now(); state.revision++;
+        try {
+            const data=await pgLocalApiRequest('/api/pit-guru/v1/drivers/profile',{}, {maxRetries:1,timeout:20000});
+            if (!data.ok || String(data.ownerId)!==ownerId) throw new Error("The connected Pit Guru account does not match your Torn user.");
+            state.data=data;
+        } catch(error) { state.error=pgErrorMessage_(error,"Profile could not be loaded."); }
+        finally { state.loading=false; state.revision++; uiDirty=true; scheduleRender_(); }
+    }
+    function connectPersonalRaceStats_() {
+        const ownerId=personalProfileOwner_();
+        if (!ownerId) { toast_("Verify your Torn user in Settings first."); return; }
+        if (personalProfileBridge_) personalProfileBridge_();
+        const origin="https://pp-api.sokin.xyz", nonce=crypto.randomUUID();
+        const popup=window.open(`${origin}/racestats/pit-guru.html?owner=${encodeURIComponent(ownerId)}&channel=${nonce}`, "mpgRaceStatsBridge", "width=760,height=700");
+        if (!popup) { toast_("Allow this Race//Stats connection window, then try again."); return; }
+        const cleanup=()=>{window.removeEventListener("message",receive);clearTimeout(timer);personalProfileBridge_=null;};
+        const receive=event=>{
+            if (event.origin!==origin || event.source!==popup || event.data?.channel!==nonce || personalProfileOwner_()!==ownerId) return;
+            const msg=event.data;
+            if (String(msg.ownerId)!==ownerId) return;
+            if (msg.type==="race-stats:ready") {
+                const rows=window.PitGuruProfile.merge(personalProfileState_.data?.rows||[],personalProfileArchive_().rows);
+                popup.postMessage({type:"pit-guru:history",channel:nonce,ownerId,rows},origin);
+            }
+            if (msg.type==="race-stats:history" && Array.isArray(msg.rows) && msg.rows.length<=100000) {
+                const rows=window.PitGuruProfile.merge(msg.rows,personalProfileArchive_().rows);
+                GM_setValue(`MPG_PROFILE_ARCHIVE_V1_${ownerId}`,{ownerId,rows,syncedAt:Date.now()});
+                personalProfileState_.revision++;
+                popup.postMessage({type:"pit-guru:saved",channel:nonce,ownerId,count:rows.length},origin);
+                cleanup(); uiDirty=true; scheduleRender_(); toast_(`Race//Stats connected: ${rows.length.toLocaleString()} races available.`);
+            }
+        };
+        const timer=setTimeout(cleanup,10*60*1000);
+        personalProfileBridge_=cleanup;
+        window.addEventListener("message",receive);
+    }
+    function renderPersonalProfile_(body,status) {
+        const ownerId=personalProfileOwner_();
+        if(status){status.style.display="";status.textContent="PERSONAL PROFILE";}
+        if(personalProfileState_.ownerId!==ownerId && ownerId) personalProfileState_={ownerId,data:null,error:"",loading:false,revision:0,attemptedAt:0};
+        loadPersonalProfile_();
+        const key=`profile|${ownerId}|${personalProfileState_.revision}|${theme}`;
+        if(body.dataset.renderKey===key)return;
+        body.dataset.renderKey=key;
+        const data=personalProfileState_.data||{}, archive=personalProfileArchive_();
+        const intel=getCachedDriverIntel_(ownerId,24*7)||{};
+        const profile=data.profile||{};
+        const rows=window.PitGuruProfile.merge(data.rows||[],archive.rows);
+        const stats=window.PitGuruProfile.summarize(rows,data.tracks||[]);
+        const n=value=>value==null||!Number.isFinite(Number(value))?"—":Number(value).toLocaleString();
+        const ratio=(value,total)=>total>0?`${(value/total*100).toFixed(2)}%`:"—";
+        const card=(label,value,note="")=>`<div class="mpg-card-stat"><span>${esc_(label)}</span><b>${esc_(value)}</b>${note?`<small class="muted">${esc_(note)}</small>`:""}</div>`;
+        const starts=profile.races_entered??(Number.isFinite(intel.racesEntered)?intel.racesEntered:null);
+        const wins=profile.races_won??(Number.isFinite(intel.racesWon)?intel.racesWon:null);
+        const avatar=profileImageForRender_(profile.avatar_url||intel.avatar||"");
+        const time=r=>r?formatTimeSeconds_(r.bestLapMs/1000):"—";
+        const cells=values=>`<tr>${values.map(v=>`<td>${esc_(v)}</td>`).join("")}</tr>`;
+        const ranking=(list,label,car)=>renderTable_([car?"Car instance":"Track",...(car?["Car"]:[]),"Entries","Wins","Win ratio","1st / 2nd / 3rd","Podium ratio","DNFs"],list.map(r=>cells([car?`#${r.id}`:r.name,...(car?[r.name]:[]),n(r.entries),n(r.wins),ratio(r.wins,r.entries),`${r.first} / ${r.second} / ${r.third}`,ratio(r.podiums,r.entries),n(r.dnfs)])),"No recorded results yet.",label);
+        const streaks=Object.entries(stats.streaks).map(([name,value])=>card(({win:"Win streak",podium:"Podium streak",nonWin:"Non-win streak",nonPodium:"Non-podium streak"})[name],n(value.current),`Best recorded: ${value.best}`)).join("");
+        body.innerHTML=`<div class="mpg-card">
+            <div class="mpg-driver-card-head">${avatar?`<img src="${escAttr_(avatar)}" alt="User avatar" loading="lazy">`:"<span style='font-size:36px' aria-label='Avatar unavailable'>👤</span>"}<h3>${esc_(profile.display_name||intel.name||playerName||"Your profile")} [${esc_(ownerId||"Unverified")}]</h3></div>
+            <div style="display:flex;flex-wrap:wrap;gap:8px;margin:12px 0"><button class="pill" id="mpgProfileRefresh">Refresh profile</button><button class="pill" id="mpgProfileConnect">Connect to Race//Stats</button></div>
+            ${personalProfileState_.loading?'<p class="mpg-note">Loading your stored history…</p>':""}
+            ${personalProfileState_.error?`<p class="mpg-note" role="status">${esc_(personalProfileState_.error)}</p>`:""}
+            ${!ownerId?'<p class="mpg-note">Verify your API key in Settings to identify your profile.</p>':""}
+            <div class="mpg-table-label">Lifetime · last captured Torn profile</div><div class="mpg-card-grid">${card("Race entries",n(starts))}${card("Race wins",n(wins))}${card("Win ratio",wins==null?"—":ratio(wins,starts))}${card("Points gained · total",n(profile.racing_points_earned??intel.racingPointsEarned))}</div>
+            <p class="mpg-note">History below covers ${n(stats.entries)} recorded outcomes${stats.unknownOutcomes?` and ${stats.unknownOutcomes} unknown outcomes`:""}. Ratios and streaks use this recorded history; gaps may exist.${archive.syncedAt?` Race//Stats last exchanged ${new Date(archive.syncedAt).toLocaleString()}.`:" Connect Race//Stats to add your personal archive."}</p>
+            <div class="mpg-card-grid">${card("Recorded entries",n(stats.entries))}${card("Wins",n(stats.wins),ratio(stats.wins,stats.entries))}${card("Podiums",n(stats.podiums),ratio(stats.podiums,stats.entries))}${card("Podium breakdown",`${stats.first} first · ${stats.second} second · ${stats.third} third`)}${card("DNFs",n(stats.dnfs),ratio(stats.dnfs,stats.entries))}${card("Days since last accident",n(stats.daysSinceAccident),stats.lastCrashAt?new Date(stats.lastCrashAt).toLocaleDateString():"No accident date in recorded history")}${streaks}${card("Points gained · racing",n(stats.racingPoints),`Known for ${stats.pointsKnownRaces} official races`)}${card("Points gained · job","—","Source breakdown not supplied by connected data")}${card("Points spent",n(data.garagePointsSpent),"Known upgrades on recorded garage instances")}</div>
+            ${ranking(stats.topCars,"Top 5 successful cars",true)}<p class="mpg-note">Ranked by wins, then podiums, then entries. ${stats.unassignedCars} results have no instance ID and cannot be assigned to a specific car.</p>
+            ${ranking(stats.topTracks,"Top 5 successful tracks",false)}
+            ${renderTable_(["Track","Official best lap","Custom best lap"],stats.lapBests.map(r=>cells([r.track,time(r.official),time(r.custom)])),"No lap times recorded.","Personal best laps · all tracks")}
+            ${renderTable_(["Track","Laps","Race time","Car instance","Race ID"],stats.raceBests.map(r=>cells([r.track,n(r.laps),formatTimeSeconds_(r.raceTimeMs/1000),r.carInstanceId?`#${r.carInstanceId}`:"—",r.raceId])),"No official race times recorded.","Personal best official races")}
+        </div>`;
+        body.querySelector('#mpgProfileRefresh').onclick=()=>{loadPersonalProfile_(true);uiDirty=true;scheduleRender_();};
+        body.querySelector('#mpgProfileConnect').onclick=connectPersonalRaceStats_;
+        setupAnalysisTableSort_(body);
+    }
+
     function renderModeBar_() {
         const bar = document.getElementById("mpgModeBar");
         if (!bar) return;
         const modes = [
-            ["gaps", "🏁", "Leaderboard"], ["laprec", "🧾", "Lap Recording"], ["sectors", "📍", "Sectors"], ["speed", "🚀", "Speed"],
+            ["profile", "👤", "Profile"], ["gaps", "🏁", "Leaderboard"], ["laprec", "🧾", "Lap Recording"], ["sectors", "📍", "Sectors"], ["speed", "🚀", "Speed"],
             ["pace", "⏱️", "Lap Pace"], ...(fuelEnabled ? [["fuel", "⛽", "Fuel"]] : []), ["gyro", "🌀", "Gyro"], ["summary", "📋", "Summary"], ["driver", "🪪", "Driver Stats"], ["predictions", "🔮", "Predictions"]
         ];
         if (analysisMode === "accel" || (analysisMode === "fuel" && !fuelEnabled)) {
@@ -14633,6 +14830,7 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
         const body = document.getElementById("mpgAnalysisBody");
         const status = document.getElementById("mpgStatusBadge");
         if (!body) return false;
+        if (analysisMode === "profile") { renderPersonalProfile_(body, status); return true; }
         const payload = findLatestRaceDataPayload_();
         if (payload && !analysis) maybeBuildAnalysisFromRaceData_(payload, "render");
         if (!analysis) {
@@ -15334,7 +15532,7 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
                 const leaderGap = index === 0 ? "" : (x.driver.crashed ? "DNF" : `${formatRaceGapSeconds_(currentGap)} (${prev.text})`);
                 const aheadPrevRaw = ahead ? previousLapGapSeconds_(x.driver, x.state) - previousLapGapSeconds_(ahead.driver, ahead.state) : NaN;
                 const aheadGap = index <= 1 ? "" : (x.driver.crashed || ahead?.driver?.crashed ? "DNF" : `${formatRaceGapSeconds_(aheadGapSec)}${Number.isFinite(aheadPrevRaw) ? ` (${formatRaceGapSeconds_(aheadPrevRaw)})` : ""}`);
-                return `<tr${focusRowDataAttrs_(x.driver)}><td data-sort="${pos}">${raceEndPositionIcon_(pos, true)}</td><td>${carComboCell_(x.driver)}</td><td>${driverWithRsCell_(x.driver)}</td><td class="mono">${leaderGap}</td><td class="mono">${aheadGap}</td><td class="mono mpg-timecell">${finishText}</td></tr>`;
+                return `<tr${focusRowDataAttrs_(x.driver)}><td data-sort="${pos}">${raceEndPositionIcon_(pos, true)}</td><td>${carComboCell_(x.driver)}</td><td>${driverNameCell_(x.driver)}</td><td class="mono">${driverRsCell_(x.driver)}</td><td class="mono">${leaderGap}</td><td class="mono">${aheadGap}</td><td class="mono mpg-timecell">${finishText}</td></tr>`;
             }
             const live = x.state || currentDistanceAtTime_(x.driver, elapsed);
             const leaderLive = frame.leaderRow?.state || null;
@@ -15357,9 +15555,9 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
             const leaderGapText = index === 0 ? "" : `${formatRaceGapSeconds_(leaderGap)} (${prev.text})`;
             const aheadGapText = index <= 1 ? "" : `${formatRaceGapSeconds_(aheadGap)}${Number.isFinite(aheadPrevRaw) ? ` (${formatRaceGapSeconds_(aheadPrevRaw)})` : ""}`;
             const finishText = live.finished ? (x.driver.crashed ? "DNF" : formatTimeSeconds_(x.driver.finalTime)) : "--";
-            return `<tr${focusRowDataAttrs_(x.driver)}><td data-sort="${pos}">${pos}</td><td>${carComboCell_(x.driver)}</td><td>${driverWithRsCell_(x.driver)}</td><td class="mono">${leaderGapText}</td><td class="mono">${aheadGapText}</td><td class="mono mpg-timecell">${finishText}</td></tr>`;
+            return `<tr${focusRowDataAttrs_(x.driver)}><td data-sort="${pos}">${pos}</td><td>${carComboCell_(x.driver)}</td><td>${driverNameCell_(x.driver)}</td><td class="mono">${driverRsCell_(x.driver)}</td><td class="mono">${leaderGapText}</td><td class="mono">${aheadGapText}</td><td class="mono mpg-timecell">${finishText}</td></tr>`;
         });
-        return `${focusedWindowNote_(win, "Leaderboard")}${renderTable_(["Pos", "Car image + Car name", "Driver (RS)", "Gap (Prev lap gap)", "Gap Ahead (Prev lap gap)", "Finish Time"], rows, "Waiting for leaderboard data...", "Leaderboard", { windowed: win.windowed })}`;
+        return `${focusedWindowNote_(win, "Leaderboard")}${renderTable_(["Pos", "Car image + Car name", "Driver", "RS", "Gap (Prev lap gap)", "Gap Ahead (Prev lap gap)", "Finish Time"], rows, "Waiting for leaderboard data...", "Leaderboard", { windowed: win.windowed })}`;
     }
 
     function missingLapText_() {
@@ -15412,7 +15610,7 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
         const driverCount = analysis?.drivers?.length || 0;
         const totalLapCells = driverCount * lapCount;
         const maxCells = hugeFieldMode_() ? 900 : (largeFieldMode_() ? 1800 : 3000);
-        if (totalLapCells <= maxCells) return Array.from({ length: lapCount }, (_, i) => i + 1);
+        if (totalLapCells <= maxCells) return Array.from({ length: lapCount }, (_, i) => lapCount - i);
 
         const windowSize = Math.max(3, Math.min(lapCount, Math.floor(maxCells / Math.max(1, driverCount))));
         const refDriver = replayMomentDriver_() || analysis?.drivers?.[0] || null;
@@ -15422,7 +15620,7 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
             centerLap = clamp_((state?.lapIndex || 0) + 1, 1, lapCount);
         }
         const startLap = Math.floor(clamp_(centerLap - Math.floor(windowSize / 2), 1, Math.max(1, lapCount - windowSize + 1)));
-        return Array.from({ length: windowSize }, (_, i) => startLap + i);
+        return Array.from({ length: windowSize }, (_, i) => startLap + windowSize - 1 - i);
     }
 
     function visibleDriverLapTime_(driver, lapNumber, elapsed, canFull) {
@@ -15502,7 +15700,7 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
                 const v = visibleDriverLapTime_(d, lapNumber, elapsed, canFull);
                 return `<td class="${lapCellClass(d, v)}">${Number.isFinite(v) ? formatTimeSeconds_(v) : missingLapText_()}</td>`;
             }).join("");
-            return `<tr${focusRowDataAttrs_(d)}><td data-sort="${pos}">${pos}</td><td>${carComboCell_(d)}</td><td>${driverNameCell_(d)}</td><td class="mono">${driverRsCell_(d)}</td><td class="${currentCls}">${currentLapText}</td>${lapCells}</tr>`;
+            return `<tr${focusRowDataAttrs_(d)}><td data-sort="${pos}">${pos}</td><td>${carComboCell_(d)}</td><td><span class="mpg-driver-rs">${driverNameCell_(d)}</span></td><td class="mono">${driverRsCell_(d)}</td><td class="${currentCls}">${currentLapText}</td>${lapCells}</tr>`;
         });
         const lapNote = isWindowedLaps
             ? `<div class="mpg-note">Large race protection: showing ${visibleLapNumbers.length}/${lapCount} lap columns (${visibleLapNumbers[0]}-${visibleLapNumbers[visibleLapNumbers.length - 1]}). Full lap data is still kept internally/exportable.</div>`

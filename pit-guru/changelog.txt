@@ -826,3 +826,8 @@ Reference pages
 - Hub page: https://modulah.github.io/pit-guru/
 - FAQ: https://modulah.github.io/pit-guru/faq.html
 - Lap Recorder archive handoff: https://modulah.github.io/lap-recorder/
+## v2.3.8 (2026-09-10)
+
+- Added a Profile tab with avatar, Torn user ID, lifetime race totals, podium breakdown, DNF ratio, streaks, accident recency, points, top five car instances, top five tracks, personal best laps, and official race bests.
+- Added a credential-free Race//Stats ↔ Pit Guru history exchange matched to the Torn user ID. API keys and sessions remain in their own application.
+- Reversed Lap Recording columns so the last lap appears first, separated RS into its own Leaderboard column, themed the Garage comparison selector, and expanded analysis tables across the full container.
