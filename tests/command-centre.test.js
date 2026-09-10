@@ -16,6 +16,24 @@ const updaterConfig = JSON.parse(
 const workflow = fs.readFileSync(path.join(repositoryRoot, ".github/workflows/deploy.yml"), "utf8");
 
 describe("command centre catalogue", () => {
+  test("archived cards stay last in every sort mode without mutating the catalogue", () => {
+    const sorter = app.match(/function sortModules\(modules\) \{[\s\S]*?\n\}/)[0];
+    const timestamp = app.match(/function getUpdatedTimestamp\(script\) \{[\s\S]*?\n\}/)[0];
+    const modules = [
+      {title:'Archive A', tier:'archive', updated:'2030-01-01'},
+      {title:'Active Z', tier:'supporter', updated:'2026-09-09'},
+      {title:'Archive Z', tier:'archive', updated:'2020-01-01'},
+      {title:'Active A', tier:'free', updated:'2026-09-08'},
+    ];
+    const original = JSON.stringify(modules);
+    for (const mode of ['az','za','newest','oldest']) {
+      const sorted = new Function('currentSort', 'scripts', `${timestamp}\n${sorter}\nreturn sortModules(scripts);`)(mode, modules);
+      expect(sorted.map(row => row.tier === 'archive')).toEqual([false,false,true,true]);
+      expect(sorted[0].title).toBe(['za','newest'].includes(mode) ? 'Active Z' : 'Active A');
+      expect(sorted[2].title).toBe(['za','oldest'].includes(mode) ? 'Archive Z' : 'Archive A');
+    }
+    expect(JSON.stringify(modules)).toBe(original);
+  });
   test("same-day releases sort newest numeric version first regardless of insertion order", () => {
     const source = app.match(/function compareScriptReleases\(left, right\) \{[\s\S]*?\n\}/)[0];
     const compare = new Function(`${source}; return compareScriptReleases;`)();

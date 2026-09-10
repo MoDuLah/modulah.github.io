@@ -273,6 +273,8 @@ function getUpdatedTimestamp(script) {
 
 function sortModules(modules) {
   return [...modules].sort((left, right) => {
+    const archiveOrder = Number(left.tier.toLowerCase() === 'archive') - Number(right.tier.toLowerCase() === 'archive');
+    if (archiveOrder) return archiveOrder;
     if (currentSort === 'az' || currentSort === 'za') {
       const direction = currentSort === 'az' ? 1 : -1;
       return left.title.localeCompare(right.title) * direction;
