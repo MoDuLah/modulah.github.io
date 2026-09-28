@@ -270,8 +270,8 @@ describe("command centre catalogue", () => {
       .map((entry) => entry.source.scriptId)
       .sort((left, right) => left - right);
     expect(greasyForkIds).toEqual([
-      562954, 563153, 563548, 575111, 575131, 577764, 578342, 579366, 580933, 589397,
-      594723, 595857, 596052,
+      562954, 563153, 563548, 575111, 575131, 577764, 578342, 579366, 580933, 589397, 594723,
+      595857, 596052,
     ]);
     expect(
       updaterConfig.scripts.filter((entry) => entry.source.type === "userscript")
