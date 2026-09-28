@@ -107,6 +107,36 @@
         "type": "greasyfork",
         "scriptId": 594723
       }
+    },
+    {
+      "id": "tanothSuffixRecorder",
+      "title": "Tanoth - Suffix Range Recorder",
+      "displayPrefix": "v",
+      "actionLabelTemplate": "Install {version}",
+      "source": {
+        "type": "greasyfork",
+        "scriptId": 577764
+      }
+    },
+    {
+      "id": "tanothDungeonRecorder",
+      "title": "Tanoth Dungeon Recorder",
+      "displayPrefix": "v",
+      "actionLabelTemplate": "Install {version}",
+      "source": {
+        "type": "greasyfork",
+        "scriptId": 595857
+      }
+    },
+    {
+      "id": "tanothMailboxCleaner",
+      "title": "Tanoth Mailbox Cleaner",
+      "displayPrefix": "v",
+      "actionLabelTemplate": "Install {version}",
+      "source": {
+        "type": "greasyfork",
+        "scriptId": 596052
+      }
     }
   ]
 }

@@ -572,6 +572,182 @@ export const scripts = [
     "note": "Connect a Minimal Torn API key with racing access to load your own data.",
   },
   {
+    "id": "tanothSuffixRecorder",
+    "tier": "free",
+    "title": "Tanoth - Suffix Range Recorder",
+    "desc":
+      "A passive Tanoth userscript that turns community item observations into cleaner suffix and equipment range evidence.",
+    "version": "v1.5.0",
+    "versionPrefix": "VER",
+    "category": "Tanoth item telemetry",
+    "projectType": "Free userscript",
+    "releaseState": "Live public release",
+    "updated": "28 September 2026",
+    "badge": "free",
+    "badgeText": "FREE",
+    "iconPath": '<path d="M4 4h16v16H4z"></path><path d="M8 8h8M8 12h8M8 16h5"></path>',
+    "features": [
+      "Records new suffix minimum and maximum boundaries while ignoring intermediate samples",
+      "Combines Normal and Rare item models and keeps weapon damage endpoint rolls",
+      "Contributes authenticated observations to the shared public Tanoth Atlas",
+    ],
+    "actions": [
+      {
+        "label": "Install v1.5.0",
+        "href": "https://greasyfork.org/en/scripts/577764-tanoth-suffix-range-recorder",
+        "icon": "download",
+        "primary": true,
+      },
+      {
+        "label": "Open Item Atlas",
+        "href": "https://pp-api.sokin.xyz/tanoth/suffix/atlas",
+        "icon": "database",
+        "primary": false,
+      },
+    ],
+  },
+  {
+    "id": "tanothDungeonRecorder",
+    "tier": "free",
+    "title": "Tanoth Dungeon Recorder",
+    "desc":
+      "A standalone Tanoth recorder that contributes Shadow and Illusion Dungeon encounters to the shared Dungeon Atlas.",
+    "version": "v1.1.8",
+    "versionPrefix": "VER",
+    "category": "Tanoth dungeon telemetry",
+    "projectType": "Free userscript",
+    "releaseState": "Live public release",
+    "updated": "22 September 2026",
+    "badge": "free",
+    "badgeText": "FREE",
+    "iconPath":
+      '<path d="M4 21V8l8-5 8 5v13"></path><path d="M8 21v-7h8v7M9 10h.01M15 10h.01"></path>',
+    "features": [
+      "Records Shadow and Illusion Dungeon encounters already loaded by the game",
+      "Uses the player-generated Atlas account key for authenticated uploads",
+      "Builds the shared encounter pool, boss coverage and public dungeon analysis",
+    ],
+    "actions": [
+      {
+        "label": "Install v1.1.8",
+        "href": "https://greasyfork.org/en/scripts/595857-tanoth-dungeon-recorder",
+        "icon": "download",
+        "primary": true,
+      },
+      {
+        "label": "Open Dungeon Atlas",
+        "href": "https://pp-api.sokin.xyz/tanoth/companion/dungeon/analysis",
+        "icon": "swords",
+        "primary": false,
+      },
+    ],
+  },
+  {
+    "id": "tanothMailboxCleaner",
+    "tier": "free",
+    "title": "Tanoth Mailbox Cleaner",
+    "desc":
+      "A focused inbox utility that clears Tanoth messages in the same small batches used by the game client.",
+    "version": "v1.0.2",
+    "versionPrefix": "VER",
+    "category": "Tanoth inbox utility",
+    "projectType": "Free userscript",
+    "releaseState": "Live public release",
+    "updated": "18 September 2026",
+    "badge": "free",
+    "badgeText": "FREE",
+    "iconPath": '<path d="M4 4h16v16H4z"></path><path d="m4 7 8 6 8-6M8 17h8"></path>',
+    "features": [
+      "Deletes inbox messages in game-native six-message batches",
+      "Uses the active Tanoth session already established in the browser",
+      "Keeps the cleanup workflow separate from the larger Companion project",
+    ],
+    "actions": [
+      {
+        "label": "Install v1.0.2",
+        "href": "https://greasyfork.org/en/scripts/596052-tanoth-mailbox-cleaner",
+        "icon": "download",
+        "primary": true,
+      },
+    ],
+  },
+  {
+    "id": "tanothAtlas",
+    "tier": "web tools",
+    "title": "Tanoth Atlas",
+    "desc":
+      "A public web-service for browsing shared Tanoth dungeon encounters, suffix boundaries and item-roll evidence.",
+    "version": "LIVE SERVICE",
+    "versionPrefix": "STATUS",
+    "category": "Tanoth community database",
+    "projectType": "Hosted web application",
+    "releaseState": "Live public service",
+    "updated": "28 September 2026",
+    "badge": "web-tool",
+    "badgeText": "WEB TOOL",
+    "iconPath": '<circle cx="12" cy="12" r="9"></circle><path d="m15 9-2 6-6 2 2-6 6-2z"></path>',
+    "features": [
+      "Public Item Atlas with merged Normal/Rare models and suffix-range charts",
+      "Public Dungeon Atlas backed by the common Shadow and Illusion encounter pool",
+      "Optional Atlas accounts let recorder users contribute with their own private key",
+    ],
+    "actions": [
+      {
+        "label": "Open Atlas Dashboard",
+        "href": "https://pp-api.sokin.xyz/tanoth/companion/ui",
+        "icon": "dashboard",
+        "primary": true,
+      },
+      {
+        "label": "Dungeon Atlas",
+        "href": "https://pp-api.sokin.xyz/tanoth/companion/dungeon/analysis",
+        "icon": "swords",
+        "primary": false,
+      },
+      {
+        "label": "Item Atlas",
+        "href": "https://pp-api.sokin.xyz/tanoth/suffix/atlas",
+        "icon": "database",
+        "primary": false,
+      },
+    ],
+    "note":
+      "Atlas browsing is public. An account key is only needed to manage an account or submit recorder telemetry.",
+  },
+  {
+    "id": "tanothCompanion",
+    "tier": "free",
+    "title": "Tanoth Companion",
+    "desc":
+      "The larger Tanoth automation and analysis project behind the Atlas ecosystem, listed here as active development rather than a public download.",
+    "version": "DEVELOPMENT",
+    "versionPrefix": "STATUS",
+    "category": "Tanoth automation and analysis",
+    "projectType": "Userscript under development",
+    "releaseState": "Under development",
+    "updated": "28 September 2026",
+    "badge": "dev",
+    "badgeText": "DEV",
+    "iconPath":
+      '<path d="M12 3 4 7v5c0 5 3.4 8.7 8 10 4.6-1.3 8-5 8-10V7l-8-4z"></path><path d="M9 12h6M12 9v6"></path>',
+    "features": [
+      "Unified Tanoth workflow automation and character-session tooling",
+      "Dungeon analysis, recorder integration and shared Atlas synchronization",
+      "Actively developed and deliberately not offered as a public download yet",
+    ],
+    "actions": [
+      {
+        "label": "View Atlas Dashboard",
+        "href": "https://pp-api.sokin.xyz/tanoth/companion/ui",
+        "icon": "dashboard",
+        "primary": true,
+      },
+    ],
+    "disabledActions": ["Public download not released"],
+    "note":
+      "Tanoth Companion is included as portfolio work in progress. No public install or download is offered from the hub.",
+  },
+  {
     "id": "lap-recorder",
     "tier": "archive",
     "title": "Lap Recorder",
@@ -719,7 +895,7 @@ export const scriptReleases = [
   },
 ];
 
-export { moduleFaqs } from "./module-faqs.js?v=20260907.1";
+export { moduleFaqs } from "./module-faqs.js?v=20260928.1";
 
 function screenshotSeries(slug, count) {
   return Array.from({ length: count }, (_, index) => ({
@@ -752,5 +928,10 @@ export const moduleScreenshots = {
     { src: "assets/images/job-centre-plus/og_promo16_9.png", alt: "JobCentre+ widescreen preview" },
   ],
   pythagorasDashboard: screenshotSeries("pythagoras-project-cis", 19),
+  tanothSuffixRecorder: [],
+  tanothDungeonRecorder: [],
+  tanothMailboxCleaner: [],
+  tanothAtlas: [],
+  tanothCompanion: [],
   "lap-recorder": screenshotSeries("lap-recorder", 2),
 };

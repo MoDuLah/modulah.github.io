@@ -124,8 +124,8 @@ describe("command centre catalogue", () => {
 
   test("uses access tags and existing script logos on cards", () => {
     expect(catalogue).not.toContain('"badgeText": "LIVE"');
-    expect(catalogue.match(/"badgeText": "FREE"/g)).toHaveLength(7);
-    expect(catalogue.match(/"badgeText": "WEB TOOL"/g)).toHaveLength(3);
+    expect(catalogue.match(/"badgeText": "FREE"/g)).toHaveLength(10);
+    expect(catalogue.match(/"badgeText": "WEB TOOL"/g)).toHaveLength(4);
     expect(app).toContain("logo.className = 'module-card-logo'");
     expect(app).toContain("/^assets\\/images\\/");
 
@@ -154,6 +154,11 @@ describe("command centre catalogue", () => {
       "jobCentrePlus",
       "pythagorasDashboard",
       "raceStats",
+      "tanothSuffixRecorder",
+      "tanothDungeonRecorder",
+      "tanothMailboxCleaner",
+      "tanothAtlas",
+      "tanothCompanion",
       "lap-recorder",
     ];
 
@@ -242,13 +247,31 @@ describe("command centre catalogue", () => {
     expect(catalogue).not.toContain('"label": "Archive FAQ"');
   });
 
-  test("tracks all ten GreasyFork scripts plus the shared theme source", () => {
+  test("lists the complete public Tanoth portfolio without publishing Companion", () => {
+    [
+      "https://greasyfork.org/en/scripts/577764-tanoth-suffix-range-recorder",
+      "https://greasyfork.org/en/scripts/595857-tanoth-dungeon-recorder",
+      "https://greasyfork.org/en/scripts/596052-tanoth-mailbox-cleaner",
+      "https://pp-api.sokin.xyz/tanoth/companion/dungeon/analysis",
+      "https://pp-api.sokin.xyz/tanoth/suffix/atlas",
+    ].forEach((href) => expect(catalogue).toContain(href));
+
+    const companionStart = catalogue.indexOf('"id": "tanothCompanion"');
+    const companionEnd = catalogue.indexOf('"id": "lap-recorder"', companionStart);
+    const companionEntry = catalogue.slice(companionStart, companionEnd);
+    expect(companionEntry).toContain('"releaseState": "Under development"');
+    expect(companionEntry).toContain('"disabledActions": ["Public download not released"]');
+    expect(companionEntry).not.toContain("greasyfork.org");
+  });
+
+  test("tracks all thirteen GreasyFork scripts plus the shared theme source", () => {
     const greasyForkIds = updaterConfig.scripts
       .filter((entry) => entry.source.type === "greasyfork")
       .map((entry) => entry.source.scriptId)
       .sort((left, right) => left - right);
     expect(greasyForkIds).toEqual([
-      562954, 563153, 563548, 575111, 575131, 578342, 579366, 580933, 589397, 594723,
+      562954, 563153, 563548, 575111, 575131, 577764, 578342, 579366, 580933, 589397,
+      594723, 595857, 596052,
     ]);
     expect(
       updaterConfig.scripts.filter((entry) => entry.source.type === "userscript")

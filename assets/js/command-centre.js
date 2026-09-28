@@ -3,7 +3,7 @@ import {
   scriptReleases,
   moduleFaqs,
   moduleScreenshots,
-} from './catalogue.js?v=20260907.2';
+} from './catalogue.js?v=20260928.1';
 
 const scriptUpdateManifestUrl = 'https://pp-api.sokin.xyz/assets/data/script-updates.json';
 const screenshotManifestUrl = 'assets/data/module-screenshots.json';
@@ -273,7 +273,9 @@ function getUpdatedTimestamp(script) {
 
 function sortModules(modules) {
   return [...modules].sort((left, right) => {
-    const archiveOrder = Number(left.tier.toLowerCase() === 'archive') - Number(right.tier.toLowerCase() === 'archive');
+    const archiveOrder =
+      Number(left.tier.toLowerCase() === 'archive') -
+      Number(right.tier.toLowerCase() === 'archive');
     if (archiveOrder) return archiveOrder;
     if (currentSort === 'az' || currentSort === 'za') {
       const direction = currentSort === 'az' ? 1 : -1;
@@ -671,7 +673,10 @@ function compareScriptReleases(left, right) {
   if (byDate) return byDate;
   const leftScript = left.scriptId || left.title.toLocaleLowerCase();
   const rightScript = right.scriptId || right.title.toLocaleLowerCase();
-  return rightScript.localeCompare(leftScript) || right.version.localeCompare(left.version, undefined, { numeric: true, sensitivity: 'base' });
+  return (
+    rightScript.localeCompare(leftScript) ||
+    right.version.localeCompare(left.version, undefined, { numeric: true, sensitivity: 'base' })
+  );
 }
 
 function renderScriptUpdateTimeline() {

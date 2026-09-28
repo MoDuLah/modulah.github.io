@@ -1,7 +1,7 @@
 {
   "name": "modulah-github-io",
   "version": "1.0.0",
-  "description": "MoDuL's Torn Racing Hub - GitHub Pages site with userscripts and tools",
+  "description": "MoDuL's Torn and Tanoth portfolio hub with userscripts, web tools and hosted services",
   "private": true,
   "scripts": {
     "lint:js": "eslint . --ext .js --ignore-pattern node_modules/",
@@ -40,6 +40,7 @@
   },
   "keywords": [
     "torn-racing",
+    "tanoth",
     "userscripts",
     "github-pages"
   ],
