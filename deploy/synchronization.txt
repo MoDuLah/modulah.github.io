@@ -1,6 +1,29 @@
 Hub publication and synchronization
 ==================================
 
+Production source mapping
+-------------------------
+
+The active static release is built from this repository. The VM updater is
+assembled without duplicating source:
+
+* /opt/moduls-hub-updater/sync-hub.py -> deploy/sync-hub.py
+* /opt/moduls-hub-updater/sync-versions.py -> scripts/sync-versions.py
+* /opt/moduls-hub-updater/script-update-sources.json -> config/script-update-sources.json
+* /opt/moduls-hub-updater/watch-cis-publication.py ->
+  MoDuLah/PythagorasProject_PE tools/watch-cis-publication.py
+
+The production copies are content-equivalent to these repository files; the
+watcher differs only by line-ending representation. The timestamped
+sync-versions.py.before-* production file is a historical backup, not source.
+
+The updater services are moduls-hub-site-sync.service,
+moduls-hub-script-updater.service, and cis-publication-watch.service. They run
+with Python 3.12. Static content is served by nginx on 127.0.0.1:80; the updater
+has no database. Generated live-data and release history are runtime state.
+The environment file is /etc/moduls-hub-updater.env and contains the variable
+name JOB_CENTRE_NOTIFIER_PATH. Values do not belong in Git.
+
 Edit and publish from MoDuLah/modulah.github.io main. GitHub Actions builds an
 allowlisted public artifact, generates screenshot galleries from numbered image
 files, and publishes a site-files.json checksum manifest. GitHub Pages uses the
