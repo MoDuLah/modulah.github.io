@@ -120,6 +120,20 @@
 
         <div class="changelog-tree" role="tree">
           <details class="changelog-version" role="treeitem" open>
+            <summary class="changelog-summary">v3.1.8 - Automatic company workspace handover</summary>
+            <div class="changelog-content">
+              <ul class="changelog-list">
+                <li>Verifies the saved Torn account and current company before startup workspace loading and before every company sync.</li>
+                <li>Detects company or account changes automatically, preserves the historical cloud workspace, and opens a pristine workspace for the verified company without carrying staff, news, stock, wage, ledger, planner, or company settings across.</li>
+                <li>Keeps only portable browser preferences and the remembered API identity during handover, clears unscoped company caches, and explains the switch in the interface.</li>
+                <li>Historical workspace shortcuts can only open when the Torn account is currently attached to that company; manual switching can no longer save or merge an old company into the new one.</li>
+                <li>Rejects business data if Torn returns another company or identifies another director before any current workspace data is mutated.</li>
+                <li>Requires the live backend to verify the current director from Torn&#39;s company profile, revoke stale company access, and deny ordinary staff accounts instead of recording them as directors.</li>
+                <li>Adds regression coverage for company moves, leaving a company, pristine-state boundaries, strict bootstrap failures, staff rejection, authoritative director verification, and stale-access revocation.</li>
+              </ul>
+            </div>
+          </details>
+          <details class="changelog-version" role="treeitem" open>
             <summary class="changelog-summary">v3.1.7 - More reliable train payments and closing wages</summary>
             <div class="changelog-content">
               <ul class="changelog-list">
