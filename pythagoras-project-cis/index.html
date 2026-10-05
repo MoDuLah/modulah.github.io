@@ -120,6 +120,17 @@
 
         <div class="changelog-tree" role="tree">
           <details class="changelog-version" role="treeitem" open>
+            <summary class="changelog-summary">v3.1.7 - More reliable train payments and closing wages</summary>
+            <div class="changelog-content">
+              <ul class="changelog-list">
+                <li>Training Ledger payment imports accept `!train` or `!trains` at the start of the money-transfer message when extra instructions follow.</li>
+                <li>Message text also tolerates `train` or `trains` without the exclamation mark, while exact trigger fields remain strict and unrelated words such as `training` or `restrains` are rejected.</li>
+                <li>Balance can recover one isolated missing closing-wage day when the immediately adjacent verified company days have matching wage evidence. Wider or contradictory gaps remain unknown.</li>
+                <li>Adds regression coverage for supported train-message forms, false positives, exact trigger fields, and the single-day wage recovery boundary.</li>
+              </ul>
+            </div>
+          </details>
+          <details class="changelog-version" role="treeitem" open>
             <summary class="changelog-summary">v3.1.6 - Accurate daily records and event timing</summary>
             <div class="changelog-content">
               <ul class="changelog-list">
