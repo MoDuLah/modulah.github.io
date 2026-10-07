@@ -23,12 +23,6 @@ export const scripts = [
     ],
     "actions": [
       {
-        "label": "Open Project",
-        "href": "pythagoras-project-cis/",
-        "icon": "open_in_new",
-        "primary": false,
-      },
-      {
         "label": "Install v3.1.2",
         "href": "https://greasyfork.org/en/scripts/580933-pythagoras-project-cis",
         "icon": "download",
@@ -65,12 +59,6 @@ export const scripts = [
       "Public race player and persistent PostgreSQL-backed history",
     ],
     "actions": [
-      {
-        "label": "Open Project",
-        "href": "pit-guru/",
-        "icon": "open_in_new",
-        "primary": false,
-      },
       {
         "label": "Install v2.3.7",
         "href": "https://greasyfork.org/en/scripts/578342-modul-s-pit-guru",
@@ -109,16 +97,10 @@ export const scripts = [
     ],
     "actions": [
       {
-        "label": "Open Project",
-        "href": "custom-race-filter/",
-        "icon": "open_in_new",
-        "primary": true,
-      },
-      {
         "label": "GreasyFork Page",
         "href": "https://greasyfork.org/en/scripts/562954-modul-s-custom-race-filter",
         "icon": "download",
-        "primary": false,
+        "primary": true,
       },
     ],
   },
@@ -143,17 +125,10 @@ export const scripts = [
       "Owned-home, current-home and partner-contract fetch flow",
       "Rent and sale suggestions for owned properties",
     ],
-    "actions": [
-      {
-        "label": "Open Project",
-        "href": "tornfolio/",
-        "icon": "open_in_new",
-        "primary": true,
-      },
-    ],
+    "actions": [],
     "disabledActions": ["Public install not released"],
     "note":
-      "Tornfolio is currently a private preview. The project page is public, but there is no public install link yet.",
+      "Tornfolio is currently a private preview. Its details are available here in the hub, but there is no public install link yet.",
   },
   {
     "id": "modulHubControl",
@@ -177,12 +152,6 @@ export const scripts = [
       "Draggable launcher with saved positioning and touch support",
     ],
     "actions": [
-      {
-        "label": "Open Project",
-        "href": "global-theme/",
-        "icon": "open_in_new",
-        "primary": false,
-      },
       {
         "label": "Install v0.2.10",
         "href": "global-theme/modul-hub-global-theme.user.js",
@@ -243,17 +212,11 @@ export const scripts = [
     ],
     "actions": [
       {
-        "label": "Open Archive",
-        "href": "race-tracker/",
-        "icon": "inventory_2",
-        "primary": true,
-      },
-      {
         "label": "Archived Workbook",
         "href":
           "https://docs.google.com/spreadsheets/d/1ANiFcBuMgpXYXGhycc4HaFHfUZsLjoKsLyRB5llFIz8/copy",
         "icon": "table_view",
-        "primary": false,
+        "primary": true,
       },
     ],
     "note":
@@ -281,12 +244,6 @@ export const scripts = [
       "Navigator and finder tools in one interface",
     ],
     "actions": [
-      {
-        "label": "Open Project",
-        "href": "eggsterminator/",
-        "icon": "open_in_new",
-        "primary": false,
-      },
       {
         "label": "Install v2.5.12",
         "href": "https://greasyfork.org/en/scripts/575131-eggsterminator",
@@ -318,12 +275,6 @@ export const scripts = [
     ],
     "actions": [
       {
-        "label": "Open Project",
-        "href": "race-theme-changer/",
-        "icon": "open_in_new",
-        "primary": false,
-      },
-      {
         "label": "Install v1.2.6",
         "href": "https://greasyfork.org/en/scripts/563548-modul-s-racing-theme-changer",
         "icon": "download",
@@ -354,12 +305,6 @@ export const scripts = [
     ],
     "actions": [
       {
-        "label": "Open Project",
-        "href": "restore-og-names/",
-        "icon": "open_in_new",
-        "primary": false,
-      },
-      {
         "label": "Install v1.3.2",
         "href": "https://greasyfork.org/en/scripts/563153-modul-s-restore-og-car-names",
         "icon": "download",
@@ -388,17 +333,10 @@ export const scripts = [
       "ROI-focused guidance and benefit-lock protection",
       "Trade-assistant workflow for faster market checks",
     ],
-    "actions": [
-      {
-        "label": "Open Project",
-        "href": "stock-x/",
-        "icon": "open_in_new",
-        "primary": true,
-      },
-    ],
+    "actions": [],
     "disabledActions": ["Public download pending review"],
     "note":
-      "Stock-X documentation is live, but the current hub intentionally does not expose a public install route while the workflow remains in development.",
+      "Stock-X documentation is available in this hub entry, but there is no public install route while the workflow remains in development.",
   },
   {
     "id": "smuggler",
@@ -422,12 +360,6 @@ export const scripts = [
       "Desktop hotkey and TornPDA plane-button support",
     ],
     "actions": [
-      {
-        "label": "Open Project",
-        "href": "smuggler/",
-        "icon": "open_in_new",
-        "primary": false,
-      },
       {
         "label": "Install v3.0.6",
         "href": "https://greasyfork.org/en/scripts/575111-modul-s-smuggler",
@@ -532,12 +464,6 @@ export const scripts = [
         "href": "https://pp-api.sokin.xyz/dashboard",
         "icon": "dashboard",
         "primary": true,
-      },
-      {
-        "label": "Open CIS Project",
-        "href": "pythagoras-project-cis/",
-        "icon": "open_in_new",
-        "primary": false,
       },
     ],
   },
@@ -765,20 +691,13 @@ export const scripts = [
     "iconPath":
       '<rect x="3" y="3" width="18" height="18" rx="2"></rect><path d="M8 3v18M16 3v18M3 8h18M3 16h18"></path>',
     "features": [
-      "Project termination notice and archive page",
+      "Project termination notice and history preserved in this hub",
       "Screenshots and development history preserved",
       "Key lessons carried forward into MoDuL's Pit Guru",
     ],
-    "actions": [
-      {
-        "label": "Open Archive",
-        "href": "lap-recorder/",
-        "icon": "inventory_2",
-        "primary": true,
-      },
-    ],
+    "actions": [],
     "note":
-      "Lap Recorder is no longer maintained or promoted. Its archive remains online for screenshots, history and the development lessons carried into Pit Guru.",
+      "Lap Recorder is no longer maintained or promoted. Its screenshots, history and the development lessons carried into Pit Guru remain in this hub entry.",
   },
 ];
 
@@ -791,7 +710,7 @@ export const scriptReleases = [
     type: "RELEASE",
     summary:
       "Added cache-first Driver Intel lookups, paced API requests and clearer licence progress.",
-    href: "https://modulah.github.io/pit-guru/",
+    href: "https://greasyfork.org/en/scripts/578342-modul-s-pit-guru/versions",
   },
   {
     scriptId: "jobCentrePlus",
@@ -821,7 +740,7 @@ export const scriptReleases = [
     type: "RELEASE",
     summary:
       "Repaired prediction and history car images and linked Records race IDs directly to replay.",
-    href: "pit-guru/",
+    href: "https://greasyfork.org/en/scripts/578342-modul-s-pit-guru/versions",
   },
   {
     scriptId: "modulHubControl",
@@ -831,7 +750,7 @@ export const scriptReleases = [
     type: "RELEASE",
     summary:
       "Added a draggable saved launcher and dedicated selected-control colours to the shared theme contract.",
-    href: "global-theme/",
+    href: "global-theme/modul-hub-global-theme.user.js",
   },
   {
     scriptId: "pythagoras",
@@ -841,7 +760,7 @@ export const scriptReleases = [
     type: "RELEASE",
     summary:
       "Reconciled Company News with exact training-action records for correct grouped and raw totals.",
-    href: "pythagoras-project-cis/",
+    href: "https://greasyfork.org/en/scripts/580933-pythagoras-project-cis/versions",
   },
   {
     scriptId: "customRaceFilter",
@@ -851,7 +770,7 @@ export const scriptReleases = [
     type: "RELEASE",
     summary:
       "Made compact join controls own their navigation so refreshed Torn handlers cannot swallow clicks.",
-    href: "custom-race-filter/",
+    href: "https://greasyfork.org/en/scripts/562954-modul-s-custom-race-filter/versions",
   },
   {
     scriptId: "smuggler",
@@ -861,7 +780,7 @@ export const scriptReleases = [
     type: "RELEASE",
     summary:
       "Kept active flight sessions stable across page changes and preserved route progress without repeated fetches.",
-    href: "smuggler/",
+    href: "https://greasyfork.org/en/scripts/575111-modul-s-smuggler/versions",
   },
   {
     scriptId: "restoreOgNames",
@@ -871,7 +790,7 @@ export const scriptReleases = [
     type: "RELEASE",
     summary:
       "Published the current cross-page naming build for racing, markets, bazaars, logs and docks.",
-    href: "restore-og-names/",
+    href: "https://greasyfork.org/en/scripts/563153-modul-s-restore-og-car-names/versions",
   },
   {
     scriptId: "eggsTerminator",
@@ -881,7 +800,7 @@ export const scriptReleases = [
     type: "RELEASE",
     summary:
       "Stabilised state-aware navigation, manual log sync and separate found and collected counters.",
-    href: "eggsterminator/",
+    href: "https://greasyfork.org/en/scripts/575131-eggsterminator/versions",
   },
   {
     scriptId: "raceThemeChanger",
@@ -891,7 +810,7 @@ export const scriptReleases = [
     type: "RELEASE",
     summary:
       "Added lock and sizing controls while retaining the permanent PDA-safe racing information bar.",
-    href: "race-theme-changer/",
+    href: "https://greasyfork.org/en/scripts/563548-modul-s-racing-theme-changer/versions",
   },
 ];
 

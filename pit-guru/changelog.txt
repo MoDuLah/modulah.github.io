@@ -831,9 +831,9 @@ Development direction
 
 Reference pages
 ---------------
-- Hub page: https://modulah.github.io/pit-guru/
-- FAQ: https://modulah.github.io/pit-guru/faq.html
-- Lap Recorder archive handoff: https://modulah.github.io/lap-recorder/
+- Hub: https://modulah.github.io/
+- FAQ: open Pit Guru in the hub and use its Module FAQ.
+- Lap Recorder archive handoff: open Lap Recorder in the hub.
 ## v2.3.8 (2026-09-10)
 
 - Added a Profile tab with avatar, Torn user ID, lifetime race totals, podium breakdown, DNF ratio, streaks, accident recency, points, top five car instances, top five tracks, personal best laps, and official race bests.

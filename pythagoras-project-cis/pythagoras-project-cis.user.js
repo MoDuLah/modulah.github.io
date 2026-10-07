@@ -66,7 +66,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
   const BUILD_CONFIG = {
     enabled: true,
     buildName: '',
-    faqUrl: 'https://modulah.github.io/pythagoras-project-cis/faq.html',
+    faqUrl: 'https://modulah.github.io/',
     bugReportUrl: 'https://discord.com/channels/1492449197729775817/1493218818078806046',
     contactUrl: 'https://www.torn.com/messages.php#/p=compose&XID=4022159',
     apiBaseUrl: 'https://pp-api.sokin.xyz',

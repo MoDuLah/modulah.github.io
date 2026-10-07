@@ -36,7 +36,7 @@
       "displayPrefix": "v",
       "actionLabelTemplate": "Install {version}",
       "initialDate": "2026-07-28",
-      "timelineHref": "global-theme/",
+      "timelineHref": "global-theme/modul-hub-global-theme.user.js",
       "source": {
         "type": "userscript",
         "path": "global-theme/modul-hub-global-theme.user.js"

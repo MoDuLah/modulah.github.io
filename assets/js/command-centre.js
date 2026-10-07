@@ -9,6 +9,20 @@ const scriptUpdateManifestUrl = 'https://pp-api.sokin.xyz/assets/data/script-upd
 const screenshotManifestUrl = 'assets/data/module-screenshots.json';
 let automaticScriptReleases = [];
 let discoveredModuleScreenshots = {};
+const legacyPageHrefs = new Set([
+  'custom-race-filter/',
+  'eggsterminator/',
+  'global-theme/',
+  'lap-recorder/',
+  'pit-guru/',
+  'pythagoras-project-cis/',
+  'race-theme-changer/',
+  'race-tracker/',
+  'restore-og-names/',
+  'smuggler/',
+  'stock-x/',
+  'tornfolio/',
+]);
 
 function isAllowedMetadataUrl(value, prefix) {
   return typeof value === 'string' && value.length <= 300 && value.startsWith(prefix);
@@ -57,9 +71,12 @@ function sanitiseMarketplace(value) {
 
 function isSafeTimelineHref(value) {
   if (typeof value !== 'string' || value.length > 300) return false;
+  if (value === 'https://modulah.github.io/') return true;
   if (value.startsWith('https://greasyfork.org/') || value.startsWith('https://pp-api.sokin.xyz/'))
     return true;
-  return /^[A-Za-z0-9][A-Za-z0-9_./-]{0,199}$/.test(value) && !value.split('/').includes('..');
+  return (
+    /^[A-Za-z0-9][A-Za-z0-9_./-]{0,199}\.user\.js$/.test(value) && !value.split('/').includes('..')
+  );
 }
 
 function sanitiseTimelineEvent(value) {
@@ -78,7 +95,8 @@ function sanitiseTimelineEvent(value) {
   if (!['RELEASE', 'HOTFIX'].includes(value.type)) return null;
   if (typeof value.summary !== 'string' || !value.summary.length || value.summary.length > 360)
     return null;
-  if (!isSafeTimelineHref(value.href)) return null;
+  const href = legacyPageHrefs.has(value.href) ? 'https://modulah.github.io/' : value.href;
+  if (!isSafeTimelineHref(href)) return null;
   return {
     scriptId: value.scriptId,
     title: value.title,
@@ -86,7 +104,7 @@ function sanitiseTimelineEvent(value) {
     date: value.date,
     type: value.type,
     summary: value.summary,
-    href: value.href,
+    href,
   };
 }
 
@@ -774,7 +792,7 @@ function renderModuleFaq(data) {
     {
       question: `Where can I get help with ${data.title}?`,
       answer:
-        'Open the project page for current documentation or join the MoDuL Hub Discord for support.',
+        'Use the module details in this hub for current documentation or join the MoDuL Hub Discord for support.',
     },
   ];
   container.replaceChildren();

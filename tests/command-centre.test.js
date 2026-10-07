@@ -14,6 +14,15 @@ const updaterConfig = JSON.parse(
   fs.readFileSync(path.join(repositoryRoot, "config/script-update-sources.json"), "utf8")
 );
 const workflow = fs.readFileSync(path.join(repositoryRoot, ".github/workflows/deploy.yml"), "utf8");
+const siteBuilder = fs.readFileSync(path.join(repositoryRoot, "scripts/build-site.py"), "utf8");
+const customRaceFilter = fs.readFileSync(
+  path.join(repositoryRoot, "custom-race-filter/custom-race-filter.user.js"),
+  "utf8"
+);
+const pythagorasScript = fs.readFileSync(
+  path.join(repositoryRoot, "pythagoras-project-cis/pythagoras-project-cis.user.js"),
+  "utf8"
+);
 
 describe("command centre catalogue", () => {
   test("archived cards stay last in every sort mode without mutating the catalogue", () => {
@@ -64,6 +73,10 @@ describe("command centre catalogue", () => {
     expect(app).toContain("Latest release check:");
     expect(app).toContain("requestUrl.searchParams.set('fresh', Date.now().toString())");
     expect(app).toContain("setTimeout(() => controller.abort(), 8000)");
+    expect(app).toContain("{0,199}\\.user\\.js$");
+    expect(app).not.toContain("{0,199}$/.test(value)");
+    expect(app).toContain("legacyPageHrefs.has(value.href)");
+    expect(app).toContain("value === 'https://modulah.github.io/'");
     expect(code).not.toContain('src="assets/js/repository-activity.js"');
     expect(code).not.toContain("Full Git Log");
     expect(workflow).not.toContain("generate-activity-timeline");
@@ -208,43 +221,58 @@ describe("command centre catalogue", () => {
     expect(code).not.toContain("> Source\n");
   });
 
-  test("removes generic Open Project buttons from module details", () => {
+  test("does not expose links to removed standalone project pages", () => {
     expect(app).toContain("function getVisibleModuleActions(data)");
     expect(app).toContain("action.label.trim().toLowerCase() !== 'open project'");
     expect(app).toContain("getVisibleModuleActions(data).forEach");
     expect(app).toContain("const availableActions = getVisibleModuleActions(data).length");
+    expect(catalogue).not.toContain('"label": "Open Project"');
+    expect(catalogue).not.toContain('"label": "Open Archive"');
+    expect(catalogue).not.toContain('"label": "Open CIS Project"');
   });
 
-  test("moves standalone FAQ-page content into Module FAQ", () => {
-    const faqFiles = [
-      "pythagoras-project-cis/faq.html",
-      "pit-guru/faq.html",
+  test("keeps the Command Centre as the only public HTML page", () => {
+    const removedLegacyPages = [
+      "index.old",
+      "custom-race-filter/index.html",
       "custom-race-filter/faq.html",
-      "race-tracker/faq.html",
+      "custom-race-filter/update-notice.html",
+      "eggsterminator/index.html",
       "eggsterminator/faq.html",
-      "race-theme-changer/faq.html",
-      "restore-og-names/faq.html",
-      "stock-x/faq.html",
-      "smuggler/faq.html",
+      "global-theme/index.html",
+      "lap-recorder/index.html",
       "lap-recorder/faq.html",
+      "pit-guru/index.html",
+      "pit-guru/faq.html",
+      "pythagoras-project-cis/index.html",
+      "pythagoras-project-cis/faq.html",
+      "race-theme-changer/index.html",
+      "race-theme-changer/faq.html",
+      "race-tracker/index.html",
+      "race-tracker/faq.html",
+      "restore-og-names/index.html",
+      "restore-og-names/faq.html",
+      "smuggler/index.html",
+      "smuggler/faq.html",
+      "stock-x/index.html",
+      "stock-x/faq.html",
+      "tornfolio/index.html",
     ];
-    let importedQuestions = 0;
-    faqFiles.forEach((relativePath) => {
-      const faqPage = fs.readFileSync(path.join(repositoryRoot, relativePath), "utf8");
-      const questions = [...faqPage.matchAll(/<summary>([\s\S]*?)<\/summary>/g)].map((match) =>
-        match[1]
-          .replace(/<[^>]+>/g, "")
-          .replace(/\s+/g, " ")
-          .trim()
-      );
-      expect(questions.length).toBeGreaterThan(0);
-      questions.forEach((question) => expect(moduleFaqs).toContain(JSON.stringify(question)));
-      importedQuestions += questions.length;
-    });
-    expect(importedQuestions).toBe(92);
+    removedLegacyPages.forEach((relativePath) =>
+      expect(fs.existsSync(path.join(repositoryRoot, relativePath))).toBe(false)
+    );
+
+    expect(siteBuilder).toContain('PUBLIC_FILES = {"index.html", "favicon.png"}');
+    expect(siteBuilder).not.toMatch(/EXTENSIONS\s*=\s*\{[^\n]*"\.html"/);
+    expect(code).toContain('<link rel="canonical" href="https://modulah.github.io/">');
+    expect(code).toContain('<meta property="og:url" content="https://modulah.github.io/">');
+    expect(customRaceFilter).not.toContain("update-notice.html");
+    expect(customRaceFilter).toContain("sanitizeNoticeHtml(fallbackUpdateNoticeHtml())");
+    expect(pythagorasScript).toContain("faqUrl: 'https://modulah.github.io/'");
+    expect(pythagorasScript).not.toContain("pythagoras-project-cis/faq.html");
     expect(catalogue).not.toContain("faq.html");
-    expect(catalogue).not.toContain('"label": "FAQ"');
-    expect(catalogue).not.toContain('"label": "Archive FAQ"');
+    expect(moduleFaqs).toContain('"What is Pythagoras CIS?"');
+    expect(moduleFaqs).toContain('"What was Lap Recorder?"');
   });
 
   test("lists the complete public Tanoth portfolio without publishing Companion", () => {

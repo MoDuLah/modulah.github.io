@@ -37,7 +37,6 @@ var VERSION = "2.5.2";
 
   const LICENSE_PRODUCT = "custom-race-filter";
   const LICENSE_API_BASE_URL = "https://pp-api.sokin.xyz";
-  const UPDATE_NOTICE_URL = "https://modulah.github.io/custom-race-filter/update-notice.html";
   const DISCORD_INVITE_URL = "https://discord.gg/cR8ZTU6V58";
   const FORUM_POST_URL = "https://www.torn.com/forums.php#/p=threads&f=67&t=16533183";
   const LICENSE_STATUS_CACHE_TTL_MS = 5 * 60 * 1000;
@@ -404,50 +403,6 @@ var VERSION = "2.5.2";
             if (!response.ok && !data.reason) throw new Error(`License API returned HTTP ${response.status}.`);
             resolve(data);
           })
-          .catch(reject);
-        return;
-      }
-
-      reject(new Error("No supported request API is available."));
-    });
-  }
-
-  function getText(url, timeoutMs) {
-    return new Promise((resolve, reject) => {
-      const details = {
-        method: "GET",
-        url,
-        timeout: timeoutMs || 20000,
-        headers: { "Accept": "text/html,text/plain,*/*" },
-        onload(response) {
-          if (response.status >= 500) {
-            reject(new Error(`Update notice returned HTTP ${response.status}.`));
-            return;
-          }
-          if (response.status >= 400) {
-            reject(new Error(`Update notice returned HTTP ${response.status}.`));
-            return;
-          }
-          resolve(String(response.responseText || ""));
-        },
-        onerror() { reject(new Error("Update notice request failed.")); },
-        ontimeout() { reject(new Error("Update notice request timed out.")); }
-      };
-
-      const request = gmRequest(details);
-      if (request) {
-        wireGmRequestResult(request, details);
-        return;
-      }
-
-      if (typeof fetch === "function") {
-        fetch(url, { method: "GET", headers: details.headers, credentials: "omit" })
-          .then(response => {
-            if (response.status >= 500) throw new Error(`Update notice returned HTTP ${response.status}.`);
-            if (!response.ok) throw new Error(`Update notice returned HTTP ${response.status}.`);
-            return response.text();
-          })
-          .then(resolve)
           .catch(reject);
         return;
       }
@@ -1373,9 +1328,7 @@ var VERSION = "2.5.2";
       if (e.target === overlay) closeUpdateNoticeModal();
     });
 
-    getText(UPDATE_NOTICE_URL, 20000)
-      .then(html => { body.innerHTML = sanitizeNoticeHtml(html); })
-      .catch(error => { body.innerHTML = fallbackUpdateNoticeHtml(error); });
+    body.innerHTML = sanitizeNoticeHtml(fallbackUpdateNoticeHtml());
   }
 
   function scheduleUpdateNoticeOnce() {

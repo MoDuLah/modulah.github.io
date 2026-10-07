@@ -16,8 +16,15 @@ PUBLIC_DIRECTORIES = {
     "pythagoras-project-cis", "race-theme-changer", "race-tracker",
     "restore-og-names", "smuggler", "stock-x", "tornfolio", "jobcentre-plus",
 }
-PUBLIC_FILES = {"index.html", "favicon.png", "shader.html", "torn_racing_visual_upgrade_demo.html"}
-EXTENSIONS = {".html", ".css", ".js", ".json", ".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg", ".ico", ".txt", ".zip", ".woff", ".woff2"}
+# The Command Centre is the site's only public page. Project folders still carry
+# downloads, changelogs, screenshots and other assets, but never standalone HTML.
+PUBLIC_FILES = {"index.html", "favicon.png"}
+EXTENSIONS = {".css", ".js", ".json", ".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg", ".ico", ".txt", ".zip", ".woff", ".woff2"}
+LEGACY_PAGE_HREFS = {
+    "custom-race-filter/", "eggsterminator/", "global-theme/", "lap-recorder/",
+    "pit-guru/", "pythagoras-project-cis/", "race-theme-changer/", "race-tracker/",
+    "restore-og-names/", "smuggler/", "stock-x/", "tornfolio/",
+}
 
 
 def build(root, output):
@@ -30,6 +37,9 @@ def build(root, output):
             snapshot = json.load(response)
         if snapshot.get("schemaVersion") != 1 or not isinstance(snapshot.get("scripts"), list) or not isinstance(snapshot.get("timeline"), list):
             raise ValueError("Invalid release snapshot")
+        for event in snapshot["timeline"]:
+            if isinstance(event, dict) and event.get("href") in LEGACY_PAGE_HREFS:
+                event["href"] = "https://modulah.github.io/"
         (root / "assets/data/script-updates.json").write_text(json.dumps(snapshot, indent=2) + "\n", encoding="utf-8")
     except (OSError, ValueError) as error:
         print(f"Live feed unavailable; retaining the saved release snapshot ({type(error).__name__})")

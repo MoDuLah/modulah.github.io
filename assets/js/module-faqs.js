@@ -194,7 +194,7 @@ export const moduleFaqs = {
     {
       "question": "Can I install Tornfolio now?",
       "answer":
-        "Not publicly yet. The project page documents the private preview while the property and lease workflow is refined.",
+        "Not publicly yet. This hub entry documents the private preview while the property and lease workflow is refined.",
     },
     {
       "question": "What will Tornfolio manage?",
@@ -710,7 +710,7 @@ export const moduleFaqs = {
     {
       "question": "Can I still download or install it from the hub?",
       "answer":
-        "No active download links are being promoted on the hub anymore. The Lap Recorder pages remain online as an archive and memory piece, not as a live install route.",
+        "No active download links are being promoted on the hub anymore. Its history remains in this hub entry as an archive and memory piece, not as a live install route.",
     },
     {
       "question": "What did Lap Recorder leave behind?",
