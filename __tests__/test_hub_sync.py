@@ -50,6 +50,30 @@ class MirrorTests(unittest.TestCase):
             fetch.assert_not_called()
         self.assertEqual((self.root / "stage/index.html").read_bytes(), self.files["index.html"])
 
+    def test_release_pruning_keeps_live_release_and_newest_rollback(self):
+        releases = self.root / "releases"
+        releases.mkdir()
+        old = releases / "old"
+        rollback = releases / "rollback"
+        current = releases / "current-release"
+        for modified, release in enumerate((old, rollback, current), start=1):
+            release.mkdir()
+            os.utime(release, (modified, modified))
+
+        removed = mirror.prune_releases(releases, current)
+
+        self.assertEqual(removed, [old])
+        self.assertFalse(old.exists())
+        self.assertTrue(rollback.is_dir())
+        self.assertTrue(current.is_dir())
+
+    def test_release_pruning_requires_a_rollback(self):
+        releases = self.root / "releases"
+        current = releases / "current-release"
+        current.mkdir(parents=True)
+        with self.assertRaisesRegex(ValueError, "At least two releases"):
+            mirror.prune_releases(releases, current, keep=1)
+
     @unittest.skipIf(os.name == "nt", "Release activation uses POSIX symlinks and locking")
     def test_activation_and_failure_preserve_previous_release(self):
         previous = self.root / "releases/old"
@@ -72,6 +96,10 @@ class MirrorTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "Checksum mismatch"):
                 mirror.sync(self.root)
             self.assertEqual((self.root / "current").resolve(), live)
+            self.assertEqual(
+                {release.resolve() for release in (self.root / "releases").iterdir()},
+                {previous.resolve(), live},
+            )
 
 
 if __name__ == "__main__":

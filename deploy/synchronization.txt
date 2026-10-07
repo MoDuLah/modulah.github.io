@@ -33,7 +33,8 @@ On the VM, moduls-hub-site-sync.timer checks the public GitHub Pages publication
 every five minutes. Only a complete, checksum-verified build replaces the current
 release symlink. Unchanged files are reused. Failed downloads or publications
 changing during a download leave the current release untouched. Prior release
-directories remain available for rollback.
+directories are bounded to the live release and one rollback; failed staging
+directories are removed so five-minute retries cannot consume the VM disk.
 
 Both frontends request the VM's public assets/data/script-updates.json feed.
 The existing script updater owns that feed and its accumulated history; its

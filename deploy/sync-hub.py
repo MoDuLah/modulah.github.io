@@ -2,7 +2,8 @@
 """Mirror a published GitHub Pages build; validate every byte before activation.
 
 Only public files are downloaded. API routes and the live release feed remain
-owned by Nginx and their existing services. Previous releases are kept for rollback.
+owned by Nginx and their existing services. The live release and one rollback
+are retained after each successful synchronization.
 """
 
 import argparse
@@ -20,6 +21,7 @@ from pathlib import Path, PurePosixPath
 SOURCE = "https://modulah.github.io/"
 MAX_FILE_BYTES = 64 * 1024 * 1024
 MAX_TOTAL_BYTES = 300 * 1024 * 1024
+DEFAULT_RELEASES_TO_KEEP = 2
 
 
 def fetch(path, limit):
@@ -80,7 +82,42 @@ def materialise(record, previous, stage):
     target.chmod(0o644)
 
 
-def sync(root):
+def prune_releases(releases, current, keep=DEFAULT_RELEASES_TO_KEEP):
+    if keep < 2:
+        raise ValueError("At least two releases are required for rollback")
+    releases = releases.resolve()
+    current = current.resolve()
+    if not current.is_dir() or current.parent != releases:
+        raise ValueError("The live release must be a direct child of the release root")
+
+    candidates = []
+    for candidate in releases.iterdir():
+        if candidate.is_symlink() or not candidate.is_dir():
+            continue
+        resolved = candidate.resolve()
+        if resolved != candidate or resolved.parent != releases:
+            raise ValueError(f"Unsafe release directory: {candidate}")
+        candidates.append(candidate)
+
+    candidates.sort(key=lambda candidate: (candidate.stat().st_mtime_ns, candidate.name), reverse=True)
+    retained = {current}
+    for candidate in candidates:
+        if len(retained) >= keep:
+            break
+        retained.add(candidate)
+
+    removed = []
+    for candidate in candidates:
+        if candidate in retained:
+            continue
+        shutil.rmtree(candidate)
+        removed.append(candidate)
+    if removed:
+        print(f"Pruned {len(removed)} stale release(s); retained {len(retained)}")
+    return removed
+
+
+def sync(root, releases_to_keep=DEFAULT_RELEASES_TO_KEEP):
     import fcntl
     root.mkdir(parents=True, exist_ok=True)
     with (root / ".sync.lock").open("w") as lock:
@@ -92,12 +129,13 @@ def sync(root):
         previous = current.resolve()
         if current.exists() and not current.is_symlink():
             raise ValueError("The live site must use a release symlink")
-        marker = previous / "site-files.json"
-        if marker.is_file() and marker.read_bytes() == content:
-            print(f"Already synchronized: {payload['revision']}")
-            return
         releases = root / "releases"
         releases.mkdir(exist_ok=True)
+        marker = previous / "site-files.json"
+        if marker.is_file() and marker.read_bytes() == content:
+            prune_releases(releases, previous, releases_to_keep)
+            print(f"Already synchronized: {payload['revision']}")
+            return
         stage = Path(tempfile.mkdtemp(prefix=f"sync-{payload['revision'][:12]}-", dir=releases))
         stage.chmod(0o755)
         try:
@@ -118,13 +156,18 @@ def sync(root):
             link.symlink_to(stage, target_is_directory=True)
             os.replace(link, current)
             print(f"Activated {payload['revision']}: {len(files)} verified files. Rollback: {previous}")
+            prune_releases(releases, stage, releases_to_keep)
         except Exception:
-            # Failed stages remain for diagnosis; the live symlink is unchanged.
-            print(f"Synchronization failed; staging retained at {stage}")
+            # A failed stage is never live and repeated timer retries must not
+            # accumulate partial releases on the production filesystem.
+            shutil.rmtree(stage, ignore_errors=True)
+            print(f"Synchronization failed; staging removed: {stage}")
             raise
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--root", type=Path, default=Path("/var/www/moduls-hub"))
-    sync(parser.parse_args().root.resolve())
+    parser.add_argument("--keep-releases", type=int, default=DEFAULT_RELEASES_TO_KEEP)
+    arguments = parser.parse_args()
+    sync(arguments.root.resolve(), arguments.keep_releases)
