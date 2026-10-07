@@ -1,3 +1,11 @@
+## v1.0.0 (2026-10-07)
+
+### Miscellaneous
+
+- **Miscellaneous**: Add minified Stock-X userscript styles
+- **Miscellaneous**: Host Stock-X userscript styles
+
+
 Stock-X Changelog
 =================
 

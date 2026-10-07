@@ -207,6 +207,13 @@
 - **Miscellaneous**: Release Pit Guru profile and race stats integration
 - **Miscellaneous**: Document the published Pit Guru image fallback
 
+## v2.3.8 (2026-10-07)
+
+### Miscellaneous
+
+- **Miscellaneous**: Release Pit Guru profile and race stats integration
+
+
 
 
 
