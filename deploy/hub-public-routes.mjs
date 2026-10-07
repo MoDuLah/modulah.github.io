@@ -1,5 +1,25 @@
-// Register before API CORS and application proxies: this feed is public.
+const publicOrigin = "https://pp-api.sokin.xyz";
+
+function firstForwardedProtocol(req) {
+  return String(req.get("x-forwarded-proto") || "")
+    .split(",", 1)[0]
+    .trim()
+    .toLowerCase();
+}
+
+// Register before API CORS and application proxies: the redirect and feed are public.
 export function registerHubPublicRoutes(app) {
+  app.use((req, res, next) => {
+    if (firstForwardedProtocol(req) !== "http") {
+      next();
+      return;
+    }
+
+    const requestTarget = req.originalUrl.startsWith("/") ? req.originalUrl : "/";
+    res.set("Cache-Control", "no-store");
+    res.redirect(308, `${publicOrigin}${requestTarget}`);
+  });
+
   app.get("/assets/data/script-updates.json", (_req, res) => {
     res.set("Access-Control-Allow-Origin", "https://modulah.github.io");
     res.set("Cache-Control", "no-store");

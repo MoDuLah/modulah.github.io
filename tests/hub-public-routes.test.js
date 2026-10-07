@@ -6,16 +6,63 @@ const vm = require("node:vm");
 const root = path.join(__dirname, "..");
 const source = fs.readFileSync(path.join(root, "deploy/hub-public-routes.mjs"), "utf8");
 const routes = new Map();
+let httpsRedirectMiddleware;
 vm.runInNewContext(
   source.replace("export function", "function") + "\nregisterHubPublicRoutes(app);",
   {
     app: {
+      use(handler) {
+        httpsRedirectMiddleware = handler;
+      },
       get(paths, handler) {
         for (const route of Array.isArray(paths) ? paths : [paths]) routes.set(route, handler);
       },
     },
   }
 );
+
+function runHttpsRedirect({ protocol, originalUrl = "/" }) {
+  const response = { set: jest.fn(), redirect: jest.fn() };
+  const next = jest.fn();
+  const request = {
+    originalUrl,
+    get(name) {
+      return name.toLowerCase() === "x-forwarded-proto" ? protocol : undefined;
+    },
+  };
+  httpsRedirectMiddleware(request, response, next);
+  return { response, next };
+}
+
+describe("public HTTPS redirect", () => {
+  test("preserves the path and query on forwarded HTTP requests", () => {
+    const { response, next } = runHttpsRedirect({
+      protocol: "http",
+      originalUrl: "/pit-guru/health?fresh=1",
+    });
+
+    expect(response.set).toHaveBeenCalledWith("Cache-Control", "no-store");
+    expect(response.redirect).toHaveBeenCalledWith(
+      308,
+      "https://pp-api.sokin.xyz/pit-guru/health?fresh=1"
+    );
+    expect(next).not.toHaveBeenCalled();
+  });
+
+  test.each(["https", undefined, ""])("allows protocol %p to continue", (protocol) => {
+    const { response, next } = runHttpsRedirect({ protocol });
+    expect(response.redirect).not.toHaveBeenCalled();
+    expect(next).toHaveBeenCalledTimes(1);
+  });
+
+  test("does not trust an absolute request target", () => {
+    const { response } = runHttpsRedirect({
+      protocol: "http",
+      originalUrl: "https://example.invalid/",
+    });
+    expect(response.redirect).toHaveBeenCalledWith(308, "https://pp-api.sokin.xyz/");
+  });
+});
 
 describe("public userscript migration routes", () => {
   test.each([
