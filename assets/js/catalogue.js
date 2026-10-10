@@ -140,7 +140,7 @@ export const scripts = [
     "title": "Tornfolio",
     "desc":
       "A Torn property, lease and ROI manager for owners and renters, evolving from the former Landlord Tenant Ledger.",
-    "version": "v0.6.10",
+    "version": "v0.6.11",
     "versionPrefix": "VER",
     "category": "Property management",
     "projectType": "Supporter property tool",
@@ -157,7 +157,7 @@ export const scripts = [
     ],
     "actions": [
       {
-        "label": "Install v0.6.10",
+        "label": "Install v0.6.11",
         "href": "https://modulah.github.io/tornfolio/tornfolio.user.js",
         "icon": "download",
         "primary": true,

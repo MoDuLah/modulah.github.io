@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Tornfolio — Property, Lease & ROI Manager
 // @namespace    https://github.com/local/torn-landlord-tenant-ledger
-// @version      0.6.10
+// @version      0.6.11
 // @description  Manage your Torn property portfolio, rentals, market pricing, archive, and ROI.
 // @author       MoDuL
 // @copyright    2026 MoDuL. All rights reserved.
@@ -6275,7 +6275,6 @@
       market_min_daily: "Market min/day",
       market_max_daily: "Market max/day",
       rent_listings: "Rent listings",
-      sale_listings: "Sale listings",
       market_basis: "Market basis",
       target_rent_per_day: "Target rent/day",
       suggested_rent_per_day: "Suggested rent/day",
