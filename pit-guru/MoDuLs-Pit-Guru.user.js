@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         MoDuL's Pit Guru
 // @namespace    modul.torn.racing
-// @version      2.3.9
+// @version      2.4.0
 // @description  Live Torn race timing, gaps, sectors, speed and estimated telemetry analysis
 // @author       MoDuL
 // @copyright    2026 MoDuL. All rights reserved.
@@ -873,7 +873,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         return bigRaceSafeModeStatus_();
     };
 
-    const MPG_VERSION = "2.3.9";
+    const MPG_VERSION = "2.4.0";
     const PREDICTION_MODEL_VERSION = "pit-guru-local-v2";
     var TAG = "[MoDuL's Pit Guru v" + MPG_VERSION + "]";
 
@@ -1227,6 +1227,8 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
     const STORE_FOCUSED_ROW_WINDOW_EACH_SIDE_KEY = "RT_TORN_RA_FOCUS_WINDOW_EACH_SIDE";
     const STORE_DIRECT_FETCH_LEASE_KEY = "RT_TORN_RA_DIRECT_FETCH_LEASE_V1";
     const STORE_ONBOARDING_COMPLETE_KEY = "RT_TORN_RA_ONBOARDING_COMPLETE_V1";
+    const TUTORIAL_SKIP_DELAY_MS = 10 * 1000;
+    const TUTORIAL_NEXT_DELAY_MS = 5 * 1000;
     const STORE_HOSTED_TRACK_INTERVALS_KEY = "RT_TORN_MPG_HOSTED_TRACK_INTERVALS_V1";
     const STORE_BIG_RACE_SAFE_MODE_KEY = "RT_TORN_MPG_BIG_RACE_SAFE_MODE";
     const BIG_RACE_DB_NAME = "MoDuLsPitGuruBigRaceCache";
@@ -1450,6 +1452,9 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
     let tutorialActive = false;
     let tutorialStep = 0;
     let tutorialHighlightedEl = null;
+    let tutorialStartedAt = 0;
+    let tutorialStepStartedAt = 0;
+    let tutorialCountdownTimer = 0;
     let focusApiKeyPending = false;
     let garageOpen = false;
     let garageLoading = false;
@@ -10759,6 +10764,7 @@ img.carIcon{
 .mpg-tutorial-actions{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:12px}
 .mpg-tutorial-nav{display:flex;align-items:center;gap:7px}
 .mpg-tutorial-progress{color:var(--muted);font-size:11px;font-weight:800}
+.mpg-tutorial-actions .pill[disabled]{opacity:.48;cursor:wait;pointer-events:none}
 .mpg-tutorial-target{outline:3px solid var(--gapPos) !important;outline-offset:3px;box-shadow:0 0 20px color-mix(in srgb,var(--gapPos) 55%,transparent) !important}
 .mpg-garage-modal{
   position:fixed;
@@ -13057,12 +13063,45 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
         saveWinOpen_(false);
     }
 
+    function prepareTutorialMain_(mode = "") {
+        openWin_();
+        settingsOpen = false;
+        garageOpen = false;
+        if (mode && (mode !== "fuel" || fuelEnabled)) analysisMode = mode;
+    }
+
     function tutorialSteps_() {
         return [
             {
+                selector: "#rtLapWin",
+                title: "Your movable Pit Guru window",
+                copy: "Pit Guru opens as a movable, resizable race window. Drag its header, resize from the lower corner, close it to the small launcher, and reopen it without losing the current analysis.",
+                prepare() {
+                    prepareTutorialMain_();
+                }
+            },
+            {
+                selector: "#rtMeta",
+                title: "Race context at a glance",
+                copy: "This header identifies the Race ID, track, lap count, lap and race distance, your car and driver, and the detected start time. The Race ID opens the matching Pit Guru Player page.",
+                prepare() {
+                    prepareTutorialMain_();
+                }
+            },
+            {
+                selector: "#mpgSettingsTitle",
+                title: "Settings control every part of the script",
+                copy: "Settings covers Driver Intel, themes and telemetry display, predictions, scan and large-race performance, Records and cleanup, diagnostics, plus optional fuel and G-force features. Quick tour restarts this guide.",
+                prepare() {
+                    openWin_();
+                    garageOpen = false;
+                    settingsOpen = true;
+                }
+            },
+            {
                 selector: "#mpgApiKey",
                 title: "Connect Driver Intel",
-                copy: "Add your public Torn API key here. It stays in your userscript storage and unlocks Racing Skill, driver profiles, garage refreshes, and hosted-player verification.",
+                copy: "Add a public Torn API key here. It stays in userscript storage and unlocks Racing Skill, driver profiles, garage refreshes, and hosted-player verification; Check key refreshes those checks on demand.",
                 prepare() {
                     openWin_();
                     garageOpen = false;
@@ -13071,56 +13110,178 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
                 }
             },
             {
-                selector: "#mpgModeBar",
-                title: "Live analysis containers",
-                copy: "Switch between the live leaderboard, lap recording, sectors, speed, pace, gyro, summaries, driver stats, and predictions. Each view follows the same live race or replay moment.",
+                selector: "#mpgModeBar button[data-mode=\"profile\"]",
+                title: "Profile: your racing history",
+                copy: "Profile combines your latest Torn racing snapshot with Pit Guru history: results, streaks, points, successful cars and tracks, official/custom lap bests, and official race bests linked to the Player.",
                 prepare() {
-                    openWin_();
-                    settingsOpen = false;
-                    garageOpen = false;
+                    prepareTutorialMain_("profile");
+                }
+            },
+            {
+                selector: "#mpgModeBar button[data-mode=\"gaps\"]",
+                title: "Leaderboard: live order and gaps",
+                copy: "Leaderboard follows position, car, driver and Racing Skill, with live or final gaps to the leader and the car ahead. Large grids stay focused around the selected driver for responsiveness.",
+                prepare() {
+                    prepareTutorialMain_("gaps");
+                }
+            },
+            {
+                selector: "#mpgModeBar button[data-mode=\"laprec\"]",
+                title: "Lap Recording: every completed lap",
+                copy: "Lap Recording shows each driver's current lap and completed lap times. Colour cues identify the race fastest lap, personal bests, and slower laps without revealing final results before they unlock.",
+                prepare() {
+                    prepareTutorialMain_("laprec");
+                }
+            },
+            {
+                selector: "#mpgModeBar button[data-mode=\"sectors\"]",
+                title: "Sectors: find where time is won",
+                copy: "Sectors splits every lap into three parts, highlights the quickest driver in each sector, and compares theoretical ideal laps with actual fastest laps and each driver's time loss.",
+                prepare() {
+                    prepareTutorialMain_("sectors");
+                }
+            },
+            {
+                selector: "#mpgModeBar button[data-mode=\"speed\"]",
+                title: "Speed: current, top and average",
+                copy: "Speed estimates current, top, and average speed from Torn's segment timing and the official track distance. Change between km/h and mph in Settings.",
+                prepare() {
+                    prepareTutorialMain_("speed");
+                }
+            },
+            {
+                selector: "#mpgModeBar button[data-mode=\"pace\"]",
+                title: "Lap Pace: compare consistency",
+                copy: "Lap Pace compares each driver's current lap, personal best, and average lap time. Its colours show whether the live lap is threatening the race fastest lap or that driver's best.",
+                prepare() {
+                    prepareTutorialMain_("pace");
+                }
+            },
+            {
+                selector: "#mpgModeBar button[data-mode=\"fuel\"]",
+                fallbackSelector: "#mpgModeBar",
+                title: "Fuel: optional flavour telemetry",
+                copy: "Fuel estimates session and lifetime consumption from real-model baselines plus racing load. Enable it in Settings and choose L/100km, UK mpg, or US mpg; treat the figures as approximate flavour telemetry.",
+                prepare() {
+                    prepareTutorialMain_("fuel");
+                }
+            },
+            {
+                selector: "#mpgModeBar button[data-mode=\"gyro\"]",
+                title: "Gyro: estimated G-force",
+                copy: "Gyro visualises longitudinal acceleration and braking, plus lateral force when a usable track route exists. Pick a driver and optionally enable the five-second G-force trace in Settings.",
+                prepare() {
+                    prepareTutorialMain_("gyro");
+                }
+            },
+            {
+                selector: "#mpgModeBar button[data-mode=\"summary\"]",
+                title: "Summary: the race in one view",
+                copy: "Summary shows a live or replay snapshot, then unlocks final times, best and ideal laps, top speed, estimated G, and lead history when the race is complete.",
+                prepare() {
+                    prepareTutorialMain_("summary");
+                }
+            },
+            {
+                selector: "#mpgModeBar button[data-mode=\"driver\"]",
+                title: "Driver Stats: performance and history",
+                copy: "Driver Stats combines lap pace, consistency, sectors won, lead time, speed and G estimates with each driver's saved history on this track. That history can also feed Predictions.",
+                prepare() {
+                    prepareTutorialMain_("driver");
                 }
             },
             {
                 selector: "#mpgModeBar button[data-mode=\"predictions\"]",
-                title: "Know the grid before lights out",
-                copy: "Predictions combine Driver Intel and matching track history before the race starts, so you can assess the field while the grid is still forming.",
+                title: "Predictions: assess the grid before the start",
+                copy: "Predictions ranks the visible pre-race grid using Driver Intel, Racing Skill, matching track history, field size, and bounded past forecast learning. It never substitutes a forecast for delivered results.",
                 prepare() {
-                    openWin_();
-                    settingsOpen = false;
-                    garageOpen = false;
+                    prepareTutorialMain_("predictions");
                 }
             },
             {
                 selector: "#rtLocalPlayer",
-                title: "Open the visual race player",
-                copy: "The Player reconstructs Torn racingData into an external replay with the track map, timing tower, commentary, telemetry comparisons, and G-Live Accelerator.",
+                title: "Player: open the visual replay",
+                copy: "Player caches the current race and opens Pit Guru's hosted replay with its track map, timing tower, commentary, telemetry comparisons, and G-Live Accelerator. Licence and race availability are checked first.",
                 prepare() {
-                    openWin_();
-                    settingsOpen = false;
-                    garageOpen = false;
+                    prepareTutorialMain_();
                 }
             },
             {
                 selector: "#mpgGarageBtn",
-                title: "Manage and compare your garage",
-                copy: "My Garage tracks each enlisted-car instance, upgrades, mileage, stats, fuel data, and side-by-side car comparisons.",
+                title: "My Garage: inspect and compare cars",
+                copy: "My Garage tracks each enlisted car instance, upgrades, mileage, stats and fuel data. Refresh the garage, include delisted cars when needed, inspect logs, and compare two cars side by side.",
                 prepare() {
-                    openWin_();
-                    settingsOpen = false;
-                    garageOpen = false;
+                    prepareTutorialMain_();
+                }
+            },
+            {
+                selector: "#rtExportHtml",
+                title: "HTML reports and imports",
+                copy: "HTML exports a portable report only after a race has genuinely finished. Import reads Pit Guru or compatible legacy HTML reports back into Records, including multiple selected files.",
+                prepare() {
+                    prepareTutorialMain_();
                 }
             },
             {
                 selector: "#rtToggleRecords",
-                title: "Keep results and export reports",
-                copy: "Records retain your best laps and race times, while HTML export creates a portable race report. Auto-clear prepares the same window for the next event.",
+                title: "Records: saved laps and race times",
+                copy: "Records keeps lap and race-time results separately from the live view. Filter by track, official/custom type, and Mine only; delete individual entries or Pop out the table into its own movable window.",
                 prepare() {
-                    openWin_();
-                    settingsOpen = false;
-                    garageOpen = false;
+                    prepareTutorialMain_();
+                }
+            },
+            {
+                selector: "#rtClear",
+                title: "Clear View and Auto-clear ID",
+                copy: "Clear View removes the displayed race while leaving saved Records intact. Auto-clear ID prepares the window automatically whenever Torn switches to a different race or replay ID.",
+                prepare() {
+                    prepareTutorialMain_();
+                }
+            },
+            {
+                selector: "#rtToggle",
+                title: "Capture status, help, and closing",
+                copy: "JSON confirms that Pit Guru analyses racingData already delivered to this Torn page. Release thread opens support and update discussion, while Close collapses Pit Guru back to its launcher.",
+                prepare() {
+                    prepareTutorialMain_();
                 }
             }
         ];
+    }
+
+    function tutorialCountdownSeconds_(startedAt, delayMs, now = Date.now()) {
+        const start = Number(startedAt);
+        const delay = Math.max(0, Number(delayMs) || 0);
+        if (!Number.isFinite(start) || start <= 0) return Math.ceil(delay / 1000);
+        return Math.max(0, Math.ceil((start + delay - Number(now)) / 1000));
+    }
+
+    function stopTutorialCountdown_() {
+        if (!tutorialCountdownTimer) return;
+        clearInterval(tutorialCountdownTimer);
+        tutorialCountdownTimer = 0;
+    }
+
+    function updateTutorialLocks_() {
+        if (!tutorialActive) return;
+        const tutorial = ensureTutorial_();
+        const skipButton = tutorial.querySelector("#mpgTutorialSkip");
+        const nextButton = tutorial.querySelector("#mpgTutorialNext");
+        const steps = tutorialSteps_();
+        const skipSeconds = tutorialCountdownSeconds_(tutorialStartedAt, TUTORIAL_SKIP_DELAY_MS);
+        const nextSeconds = tutorialCountdownSeconds_(tutorialStepStartedAt, TUTORIAL_NEXT_DELAY_MS);
+        const nextLabel = tutorialStep >= steps.length - 1 ? "Done" : "Next";
+        skipButton.disabled = skipSeconds > 0;
+        skipButton.textContent = skipSeconds > 0 ? `Skip (${skipSeconds}s)` : "Skip";
+        nextButton.disabled = nextSeconds > 0;
+        nextButton.textContent = nextSeconds > 0 ? `${nextLabel} (${nextSeconds}s)` : nextLabel;
+        if (!skipButton.disabled && !nextButton.disabled) stopTutorialCountdown_();
+    }
+
+    function startTutorialCountdown_() {
+        stopTutorialCountdown_();
+        updateTutorialLocks_();
+        if (tutorialActive) tutorialCountdownTimer = setInterval(updateTutorialLocks_, 200);
     }
 
     function clearTutorialHighlight_() {
@@ -13148,9 +13309,13 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
             </div>
           </div>`;
         document.body.appendChild(tutorial);
-        tutorial.querySelector("#mpgTutorialSkip").onclick = () => finishTutorial_();
+        tutorial.querySelector("#mpgTutorialSkip").onclick = e => {
+            if (e.currentTarget.disabled) return;
+            finishTutorial_();
+        };
         tutorial.querySelector("#mpgTutorialPrev").onclick = () => showTutorialStep_(tutorialStep - 1);
-        tutorial.querySelector("#mpgTutorialNext").onclick = () => {
+        tutorial.querySelector("#mpgTutorialNext").onclick = e => {
+            if (e.currentTarget.disabled) return;
             const steps = tutorialSteps_();
             if (tutorialStep >= steps.length - 1) finishTutorial_();
             else showTutorialStep_(tutorialStep + 1);
@@ -13172,7 +13337,9 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
         const step = tutorialSteps_()[tutorialStep];
         if (!card || !step) return;
         clearTutorialHighlight_();
-        const target = document.querySelector(step.selector) || document.getElementById("rtLapWin");
+        const target = document.querySelector(step.selector)
+            || (step.fallbackSelector ? document.querySelector(step.fallbackSelector) : null)
+            || document.getElementById("rtLapWin");
         if (!target) return;
         tutorialHighlightedEl = target;
         target.classList.add("mpg-tutorial-target");
@@ -13208,6 +13375,8 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
         const steps = tutorialSteps_();
         tutorialStep = Math.max(0, Math.min(steps.length - 1, Number(stepIndex) || 0));
         tutorialActive = true;
+        if (!tutorialStartedAt) tutorialStartedAt = Date.now();
+        tutorialStepStartedAt = Date.now();
         const step = steps[tutorialStep];
         step.prepare();
         const tutorial = ensureTutorial_();
@@ -13216,7 +13385,7 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
         tutorial.querySelector("#mpgTutorialCopy").textContent = step.copy;
         tutorial.querySelector("#mpgTutorialProgress").textContent = `${tutorialStep + 1} / ${steps.length}`;
         tutorial.querySelector("#mpgTutorialPrev").disabled = tutorialStep === 0;
-        tutorial.querySelector("#mpgTutorialNext").textContent = tutorialStep === steps.length - 1 ? "Done" : "Next";
+        startTutorialCountdown_();
         uiDirty = true;
         scheduleRender_();
         requestAnimationFrame(() => requestAnimationFrame(() => {
@@ -13226,11 +13395,15 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
     }
 
     function startTutorial_() {
+        tutorialStartedAt = Date.now();
         showTutorialStep_(0);
     }
 
     function finishTutorial_() {
         tutorialActive = false;
+        stopTutorialCountdown_();
+        tutorialStartedAt = 0;
+        tutorialStepStartedAt = 0;
         onboardingRequired = false;
         saveBoolSetting_(STORE_ONBOARDING_COMPLETE_KEY, true);
         clearTutorialHighlight_();

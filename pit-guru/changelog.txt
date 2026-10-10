@@ -1,3 +1,11 @@
+## v2.4.0 (2026-10-10)
+
+- Expanded the quick tour from six broad pages to 21 focused steps covering every analysis section and the main Pit Guru controls.
+- Hold Skip for the first 10 seconds of each tour and show the remaining countdown in the button.
+- Give Next and Done a fresh five-second reading window on every step, including after backward navigation.
+- Keep the optional Fuel explanation available when Fuel is disabled and fall back safely when a highlighted control is unavailable.
+- Added focused regression coverage and verified desktop and mobile tutorial layouts with a clean browser console.
+
 ## v2.3.6 (2026-08-30)
 
 - Reuse complete driver profiles from the browser and shared database for seven days before calling Torn.
