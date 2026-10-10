@@ -139,8 +139,8 @@ export const scripts = [
     "tier": "supporter",
     "title": "Tornfolio",
     "desc":
-      "A Torn property, lease and ROI manager for owners and renters, evolving from the former Landlord Tenant Ledger.",
-    "version": "v0.6.11",
+      "A Torn property, rental, market pricing and ROI manager for owners and renters.",
+    "version": "v0.6.12",
     "versionPrefix": "VER",
     "category": "Property management",
     "projectType": "Supporter property tool",
@@ -148,8 +148,8 @@ export const scripts = [
     "updated": "10 October 2026",
     "badge": "supporter",
     "badgeText": "SUPPORTER",
-    "logo": "assets/images/landlord-tenant-ledger/landlord-tenant-ledger-logo.png",
-    "iconPath": '<path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>',
+    "logo": "assets/images/tornfolio/tornfolio-logo.svg",
+    "iconPath": '<path d="M12 21c.2-5.8-.2-10.3-1.3-13.5"></path><path d="M11 7.7C8.9 4.9 6.2 4.5 3.8 5.3c2.1.4 3.7 1.6 4.8 3.4"></path><path d="M11 7.3c.2-3.2 2-5.2 4.6-6.1-.9 2.1-.9 4.1.1 5.9"></path><path d="M11.6 7.5c2.7-2.2 5.5-2.1 7.8-.6-2.2-.1-4 .7-5.5 2.2"></path><path d="M4 21c2.7-1.4 5.3-1.4 8 0 2.7-1.4 5.3-1.4 8 0"></path>',
     "features": [
       "Readable lease records for owners, renters, dates, rent and days left",
       "Owned-home, current-home and partner-contract fetch flow",
@@ -157,7 +157,7 @@ export const scripts = [
     ],
     "actions": [
       {
-        "label": "Install v0.6.11",
+        "label": "Install v0.6.12",
         "href": "https://modulah.github.io/tornfolio/tornfolio.user.js",
         "icon": "download",
         "primary": true,
@@ -739,6 +739,26 @@ export const scripts = [
 
 export const scriptReleases = [
   {
+    scriptId: "tornfolio",
+    title: "Tornfolio",
+    version: "v0.6.12",
+    date: "2026-10-10",
+    type: "RELEASE",
+    summary:
+      "Added Tornfolio's SVG branding to the Hub and userscript metadata, connected GreasyFork to the automatic release feed, and corrected the version shown inside the app.",
+    href: "https://greasyfork.org/en/scripts/591996-tornfolio-property-lease-roi-manager/versions",
+  },
+  {
+    scriptId: "tornfolio",
+    title: "Tornfolio",
+    version: "v0.6.11",
+    date: "2026-10-10",
+    type: "RELEASE",
+    summary:
+      "Rebuilt syncing and market comparisons: removed duplicate rentals and spouse household occupancy, separated rental and sale scans, added live sync progress, and restored suggestions for eligible spouse properties.",
+    href: "https://greasyfork.org/en/scripts/591996-tornfolio-property-lease-roi-manager/versions",
+  },
+  {
     scriptId: "pitGuru",
     title: "MoDuL's Pit Guru",
     version: "v2.3.6",
@@ -865,7 +885,7 @@ export const moduleScreenshots = {
   customRaceFilter: screenshotSeries("custom-race-filter", 4),
   tornfolio: [
     {
-      src: "assets/images/landlord-tenant-ledger/landlord-tenant-ledger-logo.png",
+      src: "assets/images/tornfolio/tornfolio-logo.svg",
       alt: "Tornfolio project preview",
     },
   ],

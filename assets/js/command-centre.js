@@ -119,6 +119,15 @@ function isSafeScriptUpdate(update) {
   );
 }
 
+function compareDisplayVersions(left, right) {
+  return String(left || '')
+    .replace(/^v/i, '')
+    .localeCompare(String(right || '').replace(/^v/i, ''), undefined, {
+      numeric: true,
+      sensitivity: 'base',
+    });
+}
+
 async function loadScriptUpdates() {
   const status = document.getElementById('script-update-status');
   const controller = new AbortController();
@@ -158,6 +167,7 @@ async function loadScriptUpdates() {
       if (marketplace) script.marketplace = marketplace;
 
       if (update.updateVersion === false) return;
+      if (compareDisplayVersions(update.displayVersion, script.version) < 0) return;
       script.version = update.displayVersion;
       script.updated = update.updated;
 
@@ -200,7 +210,7 @@ function sanitiseScreenshot(value) {
   if (!value || typeof value !== 'object') return null;
   if (
     typeof value.src !== 'string' ||
-    !/^assets\/images\/[A-Za-z0-9/_-]+\.(?:gif|jpe?g|png|webp)$/i.test(value.src) ||
+    !/^assets\/images\/[A-Za-z0-9/_-]+\.(?:gif|jpe?g|png|svg|webp)$/i.test(value.src) ||
     typeof value.alt !== 'string' ||
     value.alt.length > 160
   )
@@ -718,7 +728,7 @@ function renderScriptUpdateTimeline() {
     `${release.scriptId || release.title.toLocaleLowerCase()}\u0000${release.version.toLocaleLowerCase()}`;
   const fetchedReleases = automaticScriptReleases.filter(
     (release) =>
-      release.summary !== 'No changelog was published for this version.' ||
+      !['No changelog was published for this version.', 'Imported from URL.'].includes(release.summary) ||
       !scriptReleases.some((editorial) => releaseKey(editorial) === releaseKey(release))
   );
   const releases = [...fetchedReleases, ...scriptReleases]
@@ -914,7 +924,7 @@ function createModuleCard(script, index) {
     'w-10 h-10 rounded border border-white/10 bg-surface-container-lowest/50 flex items-center justify-center group-hover:border-[#98f05f]/50 transition-colors';
   const safeLogo =
     typeof script.logo === 'string' &&
-    /^assets\/images\/[a-z0-9/_-]+\.(?:gif|jpe?g|png|webp)$/i.test(script.logo);
+    /^assets\/images\/[a-z0-9/_-]+\.(?:gif|jpe?g|png|svg|webp)$/i.test(script.logo);
   if (safeLogo) {
     const logo = document.createElement('img');
     logo.className = 'module-card-logo';

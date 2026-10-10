@@ -51,11 +51,6 @@ SCRIPT_CONFIG = {
         'userjs': 'restore-og-names/restore-og-car-names.user.js',
         'changelog': 'restore-og-names/changelog.txt',
         'display_name': 'Restore OG Names'
-    },
-    'landlord-tenant-ledger': {
-        'userjs': 'landlord-tenant-ledger/landlord-tenant-ledger.user.js',
-        'changelog': 'landlord-tenant-ledger/changelog.txt',
-        'display_name': 'Landlord Tenant Ledger'
     }
 }
 

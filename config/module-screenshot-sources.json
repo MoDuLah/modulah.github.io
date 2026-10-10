@@ -5,7 +5,7 @@
     "pitGuru": { "directory": "pit-guru", "title": "Pit Guru" },
     "customRaceFilter": { "directory": "custom-race-filter", "title": "Custom Race Filter" },
     "tornfolio": {
-      "files": ["landlord-tenant-ledger/landlord-tenant-ledger-logo.png"],
+      "files": ["tornfolio/tornfolio-logo.svg"],
       "title": "Tornfolio"
     },
     "modulHubControl": { "title": "MoDuL Hub Control Room" },

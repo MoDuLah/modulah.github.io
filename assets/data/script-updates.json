@@ -1,17 +1,17 @@
 {
   "schemaVersion": 1,
-  "checkedAt": "2026-09-27T23:00:01.090060Z",
+  "checkedAt": "2026-10-10T22:18:21.587639Z",
   "scripts": [
     {
       "id": "pythagoras",
       "title": "Pythagoras Project - CIS",
-      "version": "3.1.6",
-      "displayVersion": "v3.1.6",
-      "date": "2026-09-12",
-      "updated": "12 September 2026",
+      "version": "3.2.3",
+      "displayVersion": "v3.2.3",
+      "date": "2026-10-09",
+      "updated": "9 October 2026",
       "source": "greasyfork",
       "updateVersion": true,
-      "actionLabel": "Install v3.1.6",
+      "actionLabel": "Install v3.2.3",
       "sourceUrl": "https://greasyfork.org/en/scripts/580933",
       "marketplace": {
         "author": {
@@ -19,14 +19,14 @@
           "url": "https://greasyfork.org/users/1561217-modul"
         },
         "dailyInstalls": 1,
-        "totalInstalls": 72,
-        "version": "3.1.6",
+        "totalInstalls": 79,
+        "version": "3.2.3",
         "created": "2026-06-03",
         "createdDisplay": "Jun 3, 2026",
-        "updated": "2026-09-12",
-        "updatedDisplay": "Sep 12, 2026",
-        "sizeBytes": 976984,
-        "size": "954.1 KB",
+        "updated": "2026-10-09",
+        "updatedDisplay": "Oct 9, 2026",
+        "sizeBytes": 1040006,
+        "size": "1015.6 KB",
         "license": {
           "name": "All Rights Reserved"
         },
@@ -41,13 +41,13 @@
     {
       "id": "pitGuru",
       "title": "MoDuL's Pit Guru",
-      "version": "2.3.8",
-      "displayVersion": "v2.3.8",
-      "date": "2026-09-10",
-      "updated": "10 September 2026",
+      "version": "2.4.0",
+      "displayVersion": "v2.4.0",
+      "date": "2026-10-10",
+      "updated": "10 October 2026",
       "source": "greasyfork",
       "updateVersion": true,
-      "actionLabel": "Install v2.3.8",
+      "actionLabel": "Install v2.4.0",
       "sourceUrl": "https://greasyfork.org/en/scripts/578342",
       "marketplace": {
         "author": {
@@ -55,14 +55,50 @@
           "url": "https://greasyfork.org/users/1561217-modul"
         },
         "dailyInstalls": 0,
-        "totalInstalls": 10,
-        "version": "2.3.8",
+        "totalInstalls": 11,
+        "version": "2.4.0",
         "created": "2026-05-15",
         "createdDisplay": "May 15, 2026",
-        "updated": "2026-09-10",
-        "updatedDisplay": "Sep 10, 2026",
-        "sizeBytes": 917869,
-        "size": "896.4 KB",
+        "updated": "2026-10-10",
+        "updatedDisplay": "Oct 10, 2026",
+        "sizeBytes": 935798,
+        "size": "913.9 KB",
+        "license": {
+          "name": "All Rights Reserved"
+        },
+        "appliesTo": [
+          {
+            "name": "torn.com",
+            "url": "https://greasyfork.org/en/scripts/by-site/torn.com"
+          }
+        ]
+      }
+    },
+    {
+      "id": "tornfolio",
+      "title": "Tornfolio",
+      "version": "0.6.11",
+      "displayVersion": "v0.6.11",
+      "date": "2026-10-10",
+      "updated": "10 October 2026",
+      "source": "greasyfork",
+      "updateVersion": true,
+      "actionLabel": "Install v0.6.11",
+      "sourceUrl": "https://greasyfork.org/en/scripts/591996",
+      "marketplace": {
+        "author": {
+          "name": "MoDuL",
+          "url": "https://greasyfork.org/users/1561217-modul"
+        },
+        "dailyInstalls": 0,
+        "totalInstalls": 0,
+        "version": "0.6.11",
+        "created": "2026-08-19",
+        "createdDisplay": "Aug 19, 2026",
+        "updated": "2026-10-10",
+        "updatedDisplay": "Oct 10, 2026",
+        "sizeBytes": 384619,
+        "size": "375.6 KB",
         "license": {
           "name": "All Rights Reserved"
         },
@@ -90,7 +126,7 @@
           "url": "https://greasyfork.org/users/1561217-modul"
         },
         "dailyInstalls": 0,
-        "totalInstalls": 41,
+        "totalInstalls": 43,
         "version": "2.5.2",
         "created": "2026-01-17",
         "createdDisplay": "Jan 17, 2026",
@@ -136,8 +172,8 @@
           "name": "MoDuL",
           "url": "https://greasyfork.org/users/1561217-modul"
         },
-        "dailyInstalls": 4,
-        "totalInstalls": 286,
+        "dailyInstalls": 5,
+        "totalInstalls": 341,
         "version": "2.4.8",
         "created": "2026-07-31",
         "createdDisplay": "Jul 31, 2026",
@@ -173,7 +209,7 @@
           "url": "https://greasyfork.org/users/1561217-modul"
         },
         "dailyInstalls": 0,
-        "totalInstalls": 19,
+        "totalInstalls": 20,
         "version": "2.5.12",
         "created": "2026-04-23",
         "createdDisplay": "Apr 23, 2026",
@@ -209,7 +245,7 @@
           "url": "https://greasyfork.org/users/1561217-modul"
         },
         "dailyInstalls": 0,
-        "totalInstalls": 68,
+        "totalInstalls": 69,
         "version": "1.2.6",
         "created": "2026-01-22",
         "createdDisplay": "Jan 22, 2026",
@@ -281,7 +317,7 @@
           "url": "https://greasyfork.org/users/1561217-modul"
         },
         "dailyInstalls": 0,
-        "totalInstalls": 119,
+        "totalInstalls": 121,
         "version": "3.0.6",
         "created": "2026-04-23",
         "createdDisplay": "Apr 23, 2026",
@@ -302,7 +338,7 @@
     },
     {
       "id": "bootleggingHelper",
-      "title": "Torn Bootlegging \u2014 Copy DVDs Stock+Queue Helper",
+      "title": "Torn Bootlegging — Copy DVDs Stock+Queue Helper",
       "version": "0.3.4",
       "displayVersion": "v0.3.4",
       "date": "2026-05-22",
@@ -317,7 +353,7 @@
           "url": "https://greasyfork.org/users/1561217-modul"
         },
         "dailyInstalls": 0,
-        "totalInstalls": 42,
+        "totalInstalls": 45,
         "version": "0.3.4",
         "created": "2026-05-22",
         "createdDisplay": "May 22, 2026",
@@ -353,8 +389,8 @@
           "name": "MoDuL",
           "url": "https://greasyfork.org/users/1561217-modul"
         },
-        "dailyInstalls": 0,
-        "totalInstalls": 0,
+        "dailyInstalls": 1,
+        "totalInstalls": 1,
         "version": "2.3.1",
         "created": "2026-09-07",
         "createdDisplay": "Sep 7, 2026",
@@ -372,16 +408,270 @@
           }
         ]
       }
+    },
+    {
+      "id": "tanothSuffixRecorder",
+      "title": "Tanoth - Suffix Range Recorder",
+      "version": "1.5.1",
+      "displayVersion": "v1.5.1",
+      "date": "2026-10-10",
+      "updated": "10 October 2026",
+      "source": "greasyfork",
+      "updateVersion": true,
+      "actionLabel": "Install v1.5.1",
+      "sourceUrl": "https://greasyfork.org/en/scripts/577764",
+      "marketplace": {
+        "author": {
+          "name": "MoDuL",
+          "url": "https://greasyfork.org/users/1561217-modul"
+        },
+        "dailyInstalls": 0,
+        "totalInstalls": 11,
+        "version": "1.5.1",
+        "created": "2026-05-12",
+        "createdDisplay": "May 12, 2026",
+        "updated": "2026-10-10",
+        "updatedDisplay": "Oct 10, 2026",
+        "sizeBytes": 135246,
+        "size": "132.1 KB",
+        "license": {
+          "name": "MIT",
+          "url": "https://spdx.org/licenses/MIT.html"
+        },
+        "appliesTo": [
+          {
+            "name": "tanoth.gameforge.com",
+            "url": "https://greasyfork.org/en/scripts/by-site/tanoth.gameforge.com"
+          }
+        ]
+      }
+    },
+    {
+      "id": "tanothDungeonRecorder",
+      "title": "Tanoth Dungeon Recorder",
+      "version": "1.1.8",
+      "displayVersion": "v1.1.8",
+      "date": "2026-09-22",
+      "updated": "22 September 2026",
+      "source": "greasyfork",
+      "updateVersion": true,
+      "actionLabel": "Install v1.1.8",
+      "sourceUrl": "https://greasyfork.org/en/scripts/595857",
+      "marketplace": {
+        "author": {
+          "name": "MoDuL",
+          "url": "https://greasyfork.org/users/1561217-modul"
+        },
+        "dailyInstalls": 0,
+        "totalInstalls": 4,
+        "version": "1.1.8",
+        "created": "2026-09-15",
+        "createdDisplay": "Sep 15, 2026",
+        "updated": "2026-09-22",
+        "updatedDisplay": "Sep 22, 2026",
+        "sizeBytes": 52902,
+        "size": "51.7 KB",
+        "license": {
+          "name": "MIT",
+          "url": "https://spdx.org/licenses/MIT.html"
+        },
+        "appliesTo": [
+          {
+            "name": "tanoth.gameforge.com",
+            "url": "https://greasyfork.org/en/scripts/by-site/tanoth.gameforge.com"
+          }
+        ]
+      }
+    },
+    {
+      "id": "tanothMailboxCleaner",
+      "title": "Tanoth Mailbox Cleaner",
+      "version": "1.0.2",
+      "displayVersion": "v1.0.2",
+      "date": "2026-09-18",
+      "updated": "18 September 2026",
+      "source": "greasyfork",
+      "updateVersion": true,
+      "actionLabel": "Install v1.0.2",
+      "sourceUrl": "https://greasyfork.org/en/scripts/596052",
+      "marketplace": {
+        "author": {
+          "name": "MoDuL",
+          "url": "https://greasyfork.org/users/1561217-modul"
+        },
+        "dailyInstalls": 0,
+        "totalInstalls": 3,
+        "version": "1.0.2",
+        "created": "2026-09-16",
+        "createdDisplay": "Sep 16, 2026",
+        "updated": "2026-09-18",
+        "updatedDisplay": "Sep 18, 2026",
+        "sizeBytes": 16626,
+        "size": "16.2 KB",
+        "license": {
+          "name": "Unspecified"
+        },
+        "appliesTo": [
+          {
+            "name": "tanoth.gameforge.com",
+            "url": "https://greasyfork.org/en/scripts/by-site/tanoth.gameforge.com"
+          }
+        ]
+      }
     }
   ],
   "timeline": [
+    {
+      "scriptId": "tornfolio",
+      "title": "Tornfolio",
+      "version": "v0.6.11",
+      "date": "2026-10-10",
+      "type": "RELEASE",
+      "summary": "Imported from URL.",
+      "href": "https://greasyfork.org/en/scripts/591996/versions"
+    },
+    {
+      "scriptId": "tanothSuffixRecorder",
+      "title": "Tanoth - Suffix Range Recorder",
+      "version": "v1.5.1",
+      "date": "2026-10-10",
+      "type": "RELEASE",
+      "summary": "Imported from URL.",
+      "href": "https://greasyfork.org/en/scripts/577764/versions"
+    },
+    {
+      "scriptId": "pitGuru",
+      "title": "MoDuL's Pit Guru",
+      "version": "v2.4.0",
+      "date": "2026-10-10",
+      "type": "RELEASE",
+      "summary": "Release Pit Guru v2.4.0 tutorial guidance.",
+      "href": "https://greasyfork.org/en/scripts/578342/versions"
+    },
+    {
+      "scriptId": "pitGuru",
+      "title": "MoDuL's Pit Guru",
+      "version": "v2.3.9",
+      "date": "2026-10-10",
+      "type": "RELEASE",
+      "summary": "Release Pit Guru 2.3.9 profile polish.",
+      "href": "https://greasyfork.org/en/scripts/578342/versions"
+    },
+    {
+      "scriptId": "pythagoras",
+      "title": "Pythagoras Project - CIS",
+      "version": "v3.2.3",
+      "date": "2026-10-09",
+      "type": "RELEASE",
+      "summary": "Independent training batches: Consumes exact training actions chronologically across a player's orders; Stops earlier actions from being reused by a later training purchase; Keeps Racehorce's 10-train and 21-train batches independent and totaling 31; Preserves entered usage on manual orders without Torn payment event IDs.",
+      "href": "https://greasyfork.org/en/scripts/580933/versions"
+    },
+    {
+      "scriptId": "pythagoras",
+      "title": "Pythagoras Project - CIS",
+      "version": "v3.2.2",
+      "date": "2026-10-09",
+      "type": "RELEASE",
+      "summary": "Live CIS activity: Replaces the blank startup rectangle with a compact bottom-right activity card; Shows real checked startup milestones, progress, and failures above Torn's icon bar; Gives Sync all the same live progress card with scrolling Sync console messages; Keeps freshly checked key-access status visible after the company workspace loads.",
+      "href": "https://greasyfork.org/en/scripts/580933/versions"
+    },
+    {
+      "scriptId": "pythagoras",
+      "title": "Pythagoras Project - CIS",
+      "version": "v3.2.1",
+      "date": "2026-10-09",
+      "type": "RELEASE",
+      "summary": "Event-backed training orders: Uses Torn's real event ID internally so imported payments survive cloud reloads without duplicating; Keeps the original order row and removes surplus copies during history sync; Preserves distinct same-day payments and never removes manual additions that have no event ID…",
+      "href": "https://greasyfork.org/en/scripts/580933/versions"
+    },
+    {
+      "scriptId": "pythagoras",
+      "title": "Pythagoras Project - CIS",
+      "version": "v3.2.0",
+      "date": "2026-10-09",
+      "type": "RELEASE",
+      "summary": "Organized training-order history: Splits active orders, manual entry, and completed orders into clear tabs; Follows every validated Torn payment and training-action history page; Recognizes bounded historical Traine/Tains references while leaving blank messages manual; Updates only affected rows when orders are edited, completed, or deleted.",
+      "href": "https://greasyfork.org/en/scripts/580933/versions"
+    },
+    {
+      "scriptId": "pythagoras",
+      "title": "Pythagoras Project - CIS",
+      "version": "v3.1.10",
+      "date": "2026-10-09",
+      "type": "RELEASE",
+      "summary": "Training ledger reconciliation: Recognizes Torn's \"received 10 trains by the director\" company-news wording; Reconciles stored training history when payment-log orders are imported; Repairs existing orders even when their payment is skipped as a duplicate; Adds regression coverage for new and existing ledger entries.",
+      "href": "https://greasyfork.org/en/scripts/580933/versions"
+    },
+    {
+      "scriptId": "pythagoras",
+      "title": "Pythagoras Project - CIS",
+      "version": "v3.1.9",
+      "date": "2026-10-07",
+      "type": "RELEASE",
+      "summary": "Reliable launcher, training, and daily records: Restores the minimized launcher when Torn redraws its footer, without resetting saved settings; Auto sponsored/free trains now exclude enabled addiction or inactivity threshold breaches; paid FIFO remains unaffected; Corrects advertising-budget and isolated departure-wage records at the 18:10 TCT boundary…",
+      "href": "https://greasyfork.org/en/scripts/580933/versions"
+    },
+    {
+      "scriptId": "pythagoras",
+      "title": "Pythagoras Project - CIS",
+      "version": "v3.1.8",
+      "date": "2026-10-05",
+      "type": "RELEASE",
+      "summary": "Automatic company workspace handover: Detects Torn account and company changes before loading or syncing, preserves the historical cloud workspace, and opens a pristine workspace for the verified company; Prevents staff, news, stock, wages, ledgers, planners, and company settings from crossing between companies; Requires verified current-director access…",
+      "href": "https://greasyfork.org/en/scripts/580933/versions"
+    },
+    {
+      "scriptId": "pythagoras",
+      "title": "Pythagoras Project - CIS",
+      "version": "v3.1.7",
+      "date": "2026-10-05",
+      "type": "RELEASE",
+      "summary": "More reliable train payments and closing wages: Recognizes train-payment triggers with extra instructions and tolerates a missing exclamation mark in transfer messages without matching unrelated words; Recovers one isolated missing Balance wage day only when the adjacent verified closing days agree…",
+      "href": "https://greasyfork.org/en/scripts/580933/versions"
+    },
+    {
+      "scriptId": "tanothSuffixRecorder",
+      "title": "Tanoth - Suffix Range Recorder",
+      "version": "v1.5.0",
+      "date": "2026-09-28",
+      "type": "RELEASE",
+      "summary": "Imported from URL.",
+      "href": "https://greasyfork.org/en/scripts/577764/versions"
+    },
+    {
+      "scriptId": "tanothSuffixRecorder",
+      "title": "Tanoth - Suffix Range Recorder",
+      "version": "v1.4.9",
+      "date": "2026-09-28",
+      "type": "RELEASE",
+      "summary": "Imported from URL.",
+      "href": "https://greasyfork.org/en/scripts/577764/versions"
+    },
+    {
+      "scriptId": "tanothDungeonRecorder",
+      "title": "Tanoth Dungeon Recorder",
+      "version": "v1.1.8",
+      "date": "2026-09-22",
+      "type": "RELEASE",
+      "summary": "No changelog was published for this version.",
+      "href": "https://greasyfork.org/en/scripts/595857/versions"
+    },
+    {
+      "scriptId": "tanothMailboxCleaner",
+      "title": "Tanoth Mailbox Cleaner",
+      "version": "v1.0.2",
+      "date": "2026-09-18",
+      "type": "RELEASE",
+      "summary": "No changelog was published for this version.",
+      "href": "https://greasyfork.org/en/scripts/596052/versions"
+    },
     {
       "scriptId": "pythagoras",
       "title": "Pythagoras Project - CIS",
       "version": "v3.1.6",
       "date": "2026-09-12",
       "type": "RELEASE",
-      "summary": "Accurate daily records and event timing: Restores closing wages and profit after 18:10 using verified staff and wage history; Assigns pre-18:10 employee snapshots to the previous company day and repairs stored rows; Shows exact Torn training-log times in Timeline and preserves them across cloud reloads\u2026",
+      "summary": "Accurate daily records and event timing: Restores closing wages and profit after 18:10 using verified staff and wage history; Assigns pre-18:10 employee snapshots to the previous company day and repairs stored rows; Shows exact Torn training-log times in Timeline and preserves them across cloud reloads…",
       "href": "https://greasyfork.org/en/scripts/580933/versions"
     },
     {
@@ -399,7 +689,7 @@
       "version": "v3.1.5",
       "date": "2026-09-09",
       "type": "RELEASE",
-      "summary": "Wage history from joining: Staff history starts at Joined - salary $0, followed by dated pay changes; Sync all retrieves every available hire/wage page; later syncs fetch new changes and retain history; Balance reconstructs zero-pay periods from joining once log coverage is established; Rehires reset starting pay; missing logs remain gaps.\u2026",
+      "summary": "Wage history from joining: Staff history starts at Joined - salary $0, followed by dated pay changes; Sync all retrieves every available hire/wage page; later syncs fetch new changes and retain history; Balance reconstructs zero-pay periods from joining once log coverage is established; Rehires reset starting pay; missing logs remain gaps.…",
       "href": "https://greasyfork.org/en/scripts/580933/versions"
     },
     {
@@ -417,7 +707,7 @@
       "version": "v3.1.3",
       "date": "2026-09-09",
       "type": "RELEASE",
-      "summary": "Faster loading, reliable sync and role-aware wages: Timeline and report settings persist; disabling Timeline skips its startup data; Sync all refreshes routine company data in one action; Fresh employee rosters move departed staff to Past Staff and retain local history; Wages use each role's two effective stats\u2026",
+      "summary": "Faster loading, reliable sync and role-aware wages: Timeline and report settings persist; disabling Timeline skips its startup data; Sync all refreshes routine company data in one action; Fresh employee rosters move departed staff to Past Staff and retain local history; Wages use each role's two effective stats…",
       "href": "https://greasyfork.org/en/scripts/580933/versions"
     },
     {
@@ -426,7 +716,7 @@
       "version": "v2.3.1",
       "date": "2026-09-07",
       "type": "RELEASE",
-      "summary": "JC+ Live Notifier 2.3.1: move installs and automatic updates to GreasyFork \u2014 Existing download links now lead to the official GreasyFork release. Notifier behaviour and stored connections are unchanged; the JobCentre+ application stays at its existing address.",
+      "summary": "JC+ Live Notifier 2.3.1: move installs and automatic updates to GreasyFork — Existing download links now lead to the official GreasyFork release. Notifier behaviour and stored connections are unchanged; the JobCentre+ application stays at its existing address.",
       "href": "https://greasyfork.org/en/scripts/594723/versions"
     },
     {
@@ -435,7 +725,7 @@
       "version": "v3.1.2",
       "date": "2026-09-06",
       "type": "RELEASE",
-      "summary": "Screenshot privacy coverage: Privacy mode now masks staff names and dates in Training log, Train Schedule, Staff, Directors, and Employee Efficiency history; Business identity, director, age, founded date, staff metrics, customer counts, chart axes, stock restock quantities, and wage calculator values are covered\u2026",
+      "summary": "Screenshot privacy coverage: Privacy mode now masks staff names and dates in Training log, Train Schedule, Staff, Directors, and Employee Efficiency history; Business identity, director, age, founded date, staff metrics, customer counts, chart axes, stock restock quantities, and wage calculator values are covered…",
       "href": "https://greasyfork.org/en/scripts/580933/versions"
     },
     {
@@ -462,7 +752,7 @@
       "version": "v2.4.8",
       "date": "2026-09-03",
       "type": "RELEASE",
-      "summary": "cRaCked 2.4.8 \u2014 action button rebind recovery \u2014 Detects when Torn swaps the visible brute-force button after a suggested character is sent and rebinds the cRaCked action without a page refresh; Also repairs the binding when Torn reuses the same button node but removes cRaCked's display class or action data during reconciliation\u2026",
+      "summary": "cRaCked 2.4.8 — action button rebind recovery — Detects when Torn swaps the visible brute-force button after a suggested character is sent and rebinds the cRaCked action without a page refresh; Also repairs the binding when Torn reuses the same button node but removes cRaCked's display class or action data during reconciliation…",
       "href": "https://greasyfork.org/en/scripts/589397/versions"
     },
     {
@@ -471,7 +761,7 @@
       "version": "v3.0.9",
       "date": "2026-09-02",
       "type": "RELEASE",
-      "summary": "Safer sync and forum testimonies: Fixed the Settings Sync center markup so clicking its explanation, group labels, blank space, or Sync console no longer activates Smart sync. Only an actual sync button starts a request; User-started sync actions are serialized across the title bar, Settings, Stock, staff history, and Testimonies controls.\u2026",
+      "summary": "Safer sync and forum testimonies: Fixed the Settings Sync center markup so clicking its explanation, group labels, blank space, or Sync console no longer activates Smart sync. Only an actual sync button starts a request; User-started sync actions are serialized across the title bar, Settings, Stock, staff history, and Testimonies controls.…",
       "href": "https://greasyfork.org/en/scripts/580933/versions"
     },
     {
@@ -480,7 +770,7 @@
       "version": "v2.4.7",
       "date": "2026-09-01",
       "type": "RELEASE",
-      "summary": "cRaCked 2.4.7 \u2014 Android Firefox network compatibility \u2014 Supports both Tampermonkey HTTP request APIs so dictionary downloads, community sync and uploads work when Android Firefox exposes only the modern GM.xmlHttpRequest interface; Reports a direct grant/install error instead of an undefined-global failure if neither userscript request API is available.",
+      "summary": "cRaCked 2.4.7 — Android Firefox network compatibility — Supports both Tampermonkey HTTP request APIs so dictionary downloads, community sync and uploads work when Android Firefox exposes only the modern GM.xmlHttpRequest interface; Reports a direct grant/install error instead of an undefined-global failure if neither userscript request API is available.",
       "href": "https://greasyfork.org/en/scripts/589397/versions"
     },
     {
@@ -489,7 +779,7 @@
       "version": "v3.0.8",
       "date": "2026-08-31",
       "type": "RELEASE",
-      "summary": "Large tables and supporter credits: Weekly analytics, Balance, training orders, staff/director lists, Employee Efficiency rows, workspaces, employment history, and supporter credits now render 50 records at a time and append 50 more at the bottom; Full-data sorting happens before batching. Filters and sorting reset the visible batch\u2026",
+      "summary": "Large tables and supporter credits: Weekly analytics, Balance, training orders, staff/director lists, Employee Efficiency rows, workspaces, employment history, and supporter credits now render 50 records at a time and append 50 more at the bottom; Full-data sorting happens before batching. Filters and sorting reset the visible batch…",
       "href": "https://greasyfork.org/en/scripts/580933/versions"
     },
     {
@@ -498,7 +788,7 @@
       "version": "v3.0.7",
       "date": "2026-08-31",
       "type": "RELEASE",
-      "summary": "Restocking costs and smoother loading: Stock counts, sold quantities, warehouse totals, and stock warnings now use consistent thousands separators on every browser locale; Explicit zero stock values no longer fall back to stale alternate field values\u2026",
+      "summary": "Restocking costs and smoother loading: Stock counts, sold quantities, warehouse totals, and stock warnings now use consistent thousands separators on every browser locale; Explicit zero stock values no longer fall back to stale alternate field values…",
       "href": "https://greasyfork.org/en/scripts/580933/versions"
     },
     {
@@ -507,7 +797,7 @@
       "version": "v2.3.7",
       "date": "2026-08-31",
       "type": "RELEASE",
-      "summary": "Pit Guru v2.3.7 \u2014 2026-08-31 \u00b7 Userscript update; Changed; Successful Torn key and active Player licence checks are cached locally for up to 24 hours across page refreshes. Each check keeps its own expiry; a fresh key check no longer discards a valid licence result; Check key always requests fresh key and licence checks.\u2026",
+      "summary": "Pit Guru v2.3.7 — 2026-08-31 · Userscript update; Changed; Successful Torn key and active Player licence checks are cached locally for up to 24 hours across page refreshes. Each check keeps its own expiry; a fresh key check no longer discards a valid licence result; Check key always requests fresh key and licence checks.…",
       "href": "https://greasyfork.org/en/scripts/578342/versions"
     },
     {
@@ -516,7 +806,7 @@
       "version": "v2.4.6",
       "date": "2026-08-31",
       "type": "RELEASE",
-      "summary": "cRaCked 2.4.6 \u2014 one-second wait and retry recovery \u2014 Reduces the suggestion button's maximum wait from six seconds to one. Expiry unlocks the button without sending another guess automatically; Modifier keys, navigation, deletion and keyboard shortcuts no longer create phantom guesses or restart the countdown while a character input has focus\u2026",
+      "summary": "cRaCked 2.4.6 — one-second wait and retry recovery — Reduces the suggestion button's maximum wait from six seconds to one. Expiry unlocks the button without sending another guess automatically; Modifier keys, navigation, deletion and keyboard shortcuts no longer create phantom guesses or restart the countdown while a character input has focus…",
       "href": "https://greasyfork.org/en/scripts/589397/versions"
     },
     {
@@ -525,7 +815,7 @@
       "version": "v2.4.5",
       "date": "2026-08-31",
       "type": "RELEASE",
-      "summary": "cRaCked 2.4.5 \u2014 single tooltip and full button wording \u2014 Keeps Torn's styled hover tooltip without bringing back the browser's plain duplicate during button refreshes or modifier-key changes; Hover help updates inside the existing tooltip, preserving its arrow and accessibility association\u2026",
+      "summary": "cRaCked 2.4.5 — single tooltip and full button wording — Keeps Torn's styled hover tooltip without bringing back the browser's plain duplicate during button refreshes or modifier-key changes; Hover help updates inside the existing tooltip, preserving its arrow and accessibility association…",
       "href": "https://greasyfork.org/en/scripts/589397/versions"
     },
     {
@@ -534,7 +824,7 @@
       "version": "v2.4.4",
       "date": "2026-08-31",
       "type": "RELEASE",
-      "summary": "cRaCked 2.4.4 \u2014 encrypted job controls and Torn button font \u2014 Untouched fully encrypted jobs now receive the cRaCked button controls, so their modal and hover information remain available before any brute force. The same fix covers jobs with no guesses remaining; Modal hover text retains the encryption explanation and remaining brute-force workload.\u2026",
+      "summary": "cRaCked 2.4.4 — encrypted job controls and Torn button font — Untouched fully encrypted jobs now receive the cRaCked button controls, so their modal and hover information remain available before any brute force. The same fix covers jobs with no guesses remaining; Modal hover text retains the encryption explanation and remaining brute-force workload.…",
       "href": "https://greasyfork.org/en/scripts/589397/versions"
     },
     {
@@ -543,7 +833,7 @@
       "version": "v2.4.3",
       "date": "2026-08-30",
       "type": "RELEASE",
-      "summary": "cRaCked 2.4.3 \u2014 mobile Firefox identity detection \u2014 Detects the logged-in player's name and ID from Torn's embedded account data, even when mobile Firefox/Tampermonkey has no visible profile link; This browser-compatible path needs no API key, cookies, or extra permissions. TornPDA retains its API fallback when embedded account data is unavailable\u2026",
+      "summary": "cRaCked 2.4.3 — mobile Firefox identity detection — Detects the logged-in player's name and ID from Torn's embedded account data, even when mobile Firefox/Tampermonkey has no visible profile link; This browser-compatible path needs no API key, cookies, or extra permissions. TornPDA retains its API fallback when embedded account data is unavailable…",
       "href": "https://greasyfork.org/en/scripts/589397/versions"
     },
     {
@@ -552,7 +842,7 @@
       "version": "v2.4.2",
       "date": "2026-08-29",
       "type": "RELEASE",
-      "summary": "cRaCked 2.4.2 \u2014 TornPDA identity detection \u2014 TornPDA can now verify the current player's name and ID through TornPDA's documented API-key bridge and Torn's basic profile endpoint; The public-credit switch performs the identity check itself and reports actionable API-key errors instead of asking the user to reopen settings\u2026",
+      "summary": "cRaCked 2.4.2 — TornPDA identity detection — TornPDA can now verify the current player's name and ID through TornPDA's documented API-key bridge and Torn's basic profile endpoint; The public-credit switch performs the identity check itself and reports actionable API-key errors instead of asking the user to reopen settings…",
       "href": "https://greasyfork.org/en/scripts/589397/versions"
     },
     {
@@ -561,7 +851,7 @@
       "version": "v2.4.1",
       "date": "2026-08-29",
       "type": "RELEASE",
-      "summary": "cRaCked 2.4.1 \u2014 safe one-shot modifier actions \u2014 A modifier-click sends at most one suggested character and waits for Torn's verdict before another action can run. Duplicate miss notifications are collapsed instead of consuming the script's whole guess budget on screen\u2026",
+      "summary": "cRaCked 2.4.1 — safe one-shot modifier actions — A modifier-click sends at most one suggested character and waits for Torn's verdict before another action can run. Duplicate miss notifications are collapsed instead of consuming the script's whole guess budget on screen…",
       "href": "https://greasyfork.org/en/scripts/589397/versions"
     },
     {
@@ -570,7 +860,7 @@
       "version": "v2.4.0",
       "date": "2026-08-28",
       "type": "RELEASE",
-      "summary": "Clearer first-time privacy choice: Fresh installations now open Settings automatically on the cracking page; Public Torn-name credit is presented first and clearly marked as optional. Shared cracks remain anonymous unless the player explicitly opts in\u2026",
+      "summary": "Clearer first-time privacy choice: Fresh installations now open Settings automatically on the cracking page; Public Torn-name credit is presented first and clearly marked as optional. Shared cracks remain anonymous unless the player explicitly opts in…",
       "href": "https://greasyfork.org/en/scripts/589397/versions"
     },
     {
@@ -625,7 +915,7 @@
       "date": "2026-07-28",
       "type": "RELEASE",
       "summary": "No changelog was published for this version.",
-      "href": "https://modulah.github.io/"
+      "href": "global-theme/modul-hub-global-theme.user.js"
     },
     {
       "scriptId": "pythagoras",
@@ -633,7 +923,7 @@
       "version": "v3.0.4b",
       "date": "2026-07-26",
       "type": "RELEASE",
-      "summary": "Exact training counts in News: Company News now reconciles training entries against Torn's exact company training-action log by employee and date; Grouped News replaces timestamp-collapsed company-news totals with the exact daily total; Raw News shows each unique Torn training action after Training sync, including multiple actions in the same second\u2026",
+      "summary": "Exact training counts in News: Company News now reconciles training entries against Torn's exact company training-action log by employee and date; Grouped News replaces timestamp-collapsed company-news totals with the exact daily total; Raw News shows each unique Torn training action after Training sync, including multiple actions in the same second…",
       "href": "https://greasyfork.org/en/scripts/580933/versions"
     },
     {
@@ -642,7 +932,7 @@
       "version": "v3.0.4",
       "date": "2026-07-26",
       "type": "RELEASE",
-      "summary": "Mobile settings and exact training counts: Settings forms now collapse to full-width single-column layouts on phones, including Auto mode priority controls and full-width section headings; Training log sync now reads Torn's exact company training-action log (6263) alongside company news\u2026",
+      "summary": "Mobile settings and exact training counts: Settings forms now collapse to full-width single-column layouts on phones, including Auto mode priority controls and full-width section headings; Training log sync now reads Torn's exact company training-action log (6263) alongside company news…",
       "href": "https://greasyfork.org/en/scripts/580933/versions"
     },
     {
@@ -651,7 +941,7 @@
       "version": "v3.0.3",
       "date": "2026-07-22",
       "type": "RELEASE",
-      "summary": "Employee Efficiency component trends and web dashboard: Employee Efficiency history now runs newest to oldest, keeping the latest completed Torn company day closest to employee names; Added 7-day history alongside the existing 14, 30, 90, and all-time ranges; free accounts are strictly limited to their latest seven company days\u2026",
+      "summary": "Employee Efficiency component trends and web dashboard: Employee Efficiency history now runs newest to oldest, keeping the latest completed Torn company day closest to employee names; Added 7-day history alongside the existing 14, 30, 90, and all-time ranges; free accounts are strictly limited to their latest seven company days…",
       "href": "https://greasyfork.org/en/scripts/580933/versions"
     },
     {
@@ -660,7 +950,7 @@
       "version": "v2.9.4",
       "date": "2026-07-17",
       "type": "RELEASE",
-      "summary": "Training queue standards: Training setup now includes a Queue standard controller for Director chooses, Full staff rotation, Lower stats first, Closest under assigned role, and Role need first; Paid staff with remaining paid trains stay prioritized by default through the Paid orders first toggle\u2026",
+      "summary": "Training queue standards: Training setup now includes a Queue standard controller for Director chooses, Full staff rotation, Lower stats first, Closest under assigned role, and Role need first; Paid staff with remaining paid trains stay prioritized by default through the Paid orders first toggle…",
       "href": "https://greasyfork.org/en/scripts/580933/versions"
     },
     {
@@ -678,152 +968,8 @@
       "version": "v2.9.2",
       "date": "2026-07-13",
       "type": "RELEASE",
-      "summary": "Balance sync stability: Advertising budget history now records Torn API V2 profile values as explicit dated rows and ignores older unmarked zero rows in Balance; The Pythagoras API now returns ad-budget raw metadata and rejects unmarked zero ad-budget rows, while still allowing future explicit zeroes from updated clients\u2026",
+      "summary": "Balance sync stability: Advertising budget history now records Torn API V2 profile values as explicit dated rows and ignores older unmarked zero rows in Balance; The Pythagoras API now returns ad-budget raw metadata and rejects unmarked zero ad-budget rows, while still allowing future explicit zeroes from updated clients…",
       "href": "https://greasyfork.org/en/scripts/580933/versions"
-    },
-    {
-      "scriptId": "pitGuru",
-      "title": "MoDuL's Pit Guru",
-      "version": "v2.1.7",
-      "date": "2026-07-13",
-      "type": "RELEASE",
-      "summary": "MoDuL's Pit Guru Changelog \u2014 Project status (2026-07-13); MoDuL's Pit Guru is now the public-facing successor project to Lap Recorder on MoDuL's Hub; The live supporter userscript build is v2.1.7 at https://modulah.github.io/pit-guru/pit-guru.user.js\u2026",
-      "href": "https://greasyfork.org/en/scripts/578342/versions"
-    },
-    {
-      "scriptId": "customRaceFilter",
-      "title": "Custom Race Filter",
-      "version": "v2.4.8",
-      "date": "2026-07-13",
-      "type": "RELEASE",
-      "summary": "Fixed a bug after Refresh races button was pressed.",
-      "href": "https://greasyfork.org/en/scripts/562954/versions"
-    },
-    {
-      "scriptId": "customRaceFilter",
-      "title": "Custom Race Filter",
-      "version": "v2.4.6",
-      "date": "2026-07-13",
-      "type": "RELEASE",
-      "summary": "Added a manual Refresh races button that fetches Torn's custom-race page only when clicked: Refresh replaces #racingAdditionalContainer when Torn returns updated custom-race HTML; Race filtering now ignores Torn's final <li class=\"clear\"> layout row.",
-      "href": "https://greasyfork.org/en/scripts/562954/versions"
-    },
-    {
-      "scriptId": "pythagoras",
-      "title": "Pythagoras Project - CIS",
-      "version": "v2.9.1",
-      "date": "2026-07-11",
-      "type": "RELEASE",
-      "summary": "Stock settings persistence: Stock card restock toggles, warning thresholds, warning modes, and restock quantities now save to a dedicated stock settings map; Stock settings update the 24-hour sync cache immediately on input/change, so fast Torn page switches and refreshes keep the latest values\u2026",
-      "href": "https://greasyfork.org/en/scripts/580933/versions"
-    },
-    {
-      "scriptId": "smuggler",
-      "title": "Smuggler",
-      "version": "v3.0.6",
-      "date": "2026-07-08",
-      "type": "RELEASE",
-      "summary": "No changelog was published for this version.",
-      "href": "https://greasyfork.org/en/scripts/575111/versions"
-    },
-    {
-      "scriptId": "pythagoras",
-      "title": "Pythagoras Project - CIS",
-      "version": "v2.8.11",
-      "date": "2026-07-03",
-      "type": "RELEASE",
-      "summary": "Risk strike persistence: Visible risk notifications now record same-day risk-strike history, so warnings cannot appear without also updating the member record; Staff sync snapshots now include strikeHistory and raw strike-history data for the Pythagoras API snapshot path\u2026",
-      "href": "https://greasyfork.org/en/scripts/580933/versions"
-    },
-    {
-      "scriptId": "customRaceFilter",
-      "title": "Custom Race Filter",
-      "version": "v2.4.0",
-      "date": "2026-06-30",
-      "type": "RELEASE",
-      "summary": "Reworked the license panel into Discord Licensing instructions: Removed the manual key paste, verify/save, clear-license, and redirect progress flow from the UI; Supporter access now unlocks only through the active Discord bot License API status check for the detected Torn ID\u2026",
-      "href": "https://greasyfork.org/en/scripts/562954/versions"
-    },
-    {
-      "scriptId": "customRaceFilter",
-      "title": "Custom Race Filter",
-      "version": "v2.3.6",
-      "date": "2026-06-27",
-      "type": "RELEASE",
-      "summary": "Added a post-mount License API status refresh so an active bot-issued supporter license unlocks the UI after Torn exposes the user ID: Supports Promise-style GM.xmlHttpRequest responses used by some Firefox/Greasemonkey setups; Active custom-race-filter status now overrides stale local locked state immediately after the UI is mounted.",
-      "href": "https://greasyfork.org/en/scripts/562954/versions"
-    },
-    {
-      "scriptId": "restoreOgNames",
-      "title": "Restore OG Names",
-      "version": "v1.3.2",
-      "date": "2026-06-06",
-      "type": "RELEASE",
-      "summary": "No changelog was published for this version.",
-      "href": "https://greasyfork.org/en/scripts/563153/versions"
-    },
-    {
-      "scriptId": "bootleggingHelper",
-      "title": "Torn Bootlegging \u2014 Copy DVDs Stock+Queue Helper",
-      "version": "v0.3.4",
-      "date": "2026-05-22",
-      "type": "RELEASE",
-      "summary": "No changelog was published for this version.",
-      "href": "https://greasyfork.org/en/scripts/579366/versions"
-    },
-    {
-      "scriptId": "customRaceFilter",
-      "title": "Custom Race Filter",
-      "version": "v2.3.2",
-      "date": "2026-05-09",
-      "type": "RELEASE",
-      "summary": "Changed the script execution time to prevent unwanted outcomes and supporter key clearance. Hope this will fix the issue of Key suddenly gone \u2014 Apologies for the inconvinience.",
-      "href": "https://greasyfork.org/en/scripts/562954/versions"
-    },
-    {
-      "scriptId": "customRaceFilter",
-      "title": "Custom Race Filter",
-      "version": "v2.3.1",
-      "date": "2026-05-06",
-      "type": "RELEASE",
-      "summary": "Fixed a typo.",
-      "href": "https://greasyfork.org/en/scripts/562954/versions"
-    },
-    {
-      "scriptId": "customRaceFilter",
-      "title": "Custom Race Filter",
-      "version": "v2.3.0",
-      "date": "2026-05-06",
-      "type": "RELEASE",
-      "summary": "Added two extra JLT selectors that appear only when UTR / JLT is set to Only: Added optional League filter with L0 through L6; Added optional Group filter with A through P; The final race number in tags like JLT-L2-A-2 is treated as variable, so matching focuses on league and group only; The extra selectors stay hidden when UTR / JLT is set to Any or Hide.",
-      "href": "https://greasyfork.org/en/scripts/562954/versions"
-    },
-    {
-      "scriptId": "customRaceFilter",
-      "title": "Custom Race Filter",
-      "version": "v2.2.9",
-      "date": "2026-05-06",
-      "type": "RELEASE",
-      "summary": "Fixed a licensing bug where visiting race log pages could cause a valid saved license to be cleared on refresh: Saved licenses are now preserved when the page is in a transient racing state and user detection cannot be confirmed yet\u2026",
-      "href": "https://greasyfork.org/en/scripts/562954/versions"
-    },
-    {
-      "scriptId": "customRaceFilter",
-      "title": "Custom Race Filter",
-      "version": "v2.2.8",
-      "date": "2026-04-29",
-      "type": "RELEASE",
-      "summary": "Renamed the Supporter filter label from URT to UTR / JLT.",
-      "href": "https://greasyfork.org/en/scripts/562954/versions"
-    },
-    {
-      "scriptId": "eggsTerminator",
-      "title": "EggsTerminator",
-      "version": "v2.5.12",
-      "date": "2026-04-28",
-      "type": "RELEASE",
-      "summary": "No changelog was published for this version.",
-      "href": "https://greasyfork.org/en/scripts/575131/versions"
     }
   ],
   "errors": [],

@@ -12,7 +12,7 @@ from pathlib import Path
 PUBLIC_DIRECTORIES = {
     "assets", "banners", "Agar.io", "bounty_ledger", "cr4ck3d",
     "custom-race-filter", "eggsterminator", "global-theme",
-    "landlord-tenant-ledger", "lap-recorder", "pages", "pit-guru",
+    "lap-recorder", "pages", "pit-guru",
     "pythagoras-project-cis", "race-theme-changer", "race-tracker",
     "restore-og-names", "smuggler", "stock-x", "tornfolio", "jobcentre-plus",
 }

@@ -22,6 +22,16 @@
       }
     },
     {
+      "id": "tornfolio",
+      "title": "Tornfolio",
+      "displayPrefix": "v",
+      "actionLabelTemplate": "Install {version}",
+      "source": {
+        "type": "greasyfork",
+        "scriptId": 591996
+      }
+    },
+    {
       "id": "customRaceFilter",
       "title": "Custom Race Filter",
       "displayPrefix": "v",

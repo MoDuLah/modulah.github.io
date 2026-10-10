@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Tornfolio — Property, Lease & ROI Manager
 // @namespace    https://github.com/local/torn-landlord-tenant-ledger
-// @version      0.6.11
+// @version      0.6.12
 // @description  Manage your Torn property portfolio, rentals, market pricing, archive, and ROI.
 // @author       MoDuL
 // @copyright    2026 MoDuL. All rights reserved.
@@ -11,7 +11,7 @@
 // @match        https://www.torn.com/properties.php*
 // @connect      api.torn.com
 // @connect      pp-api.sokin.xyz
-// @icon         https://www.google.com/s2/favicons?sz=64&domain=torn.com
+// @icon         https://modulah.github.io/assets/images/tornfolio/tornfolio-logo.svg
 // @grant        GM_xmlhttpRequest
 // @grant        GM_getValue
 // @grant        GM_setValue
@@ -391,7 +391,7 @@
       access: { status: "done", detail: "Tornfolio access accepted and the Torn key owner matched." },
       profile: { status: "done", detail: `Fetched ${profileLabel}${spouse.id || spouse.name ? ` and spouse ${clean(spouse.name || spouse.id, "details")}` : "; no spouse was returned"}.` },
       portfolio: { status: "done", detail: `${owned.length.toLocaleString()} owned · ${current ? "current home found" : "no current home returned"} · ${partner.length.toLocaleString()} spouse-owned.` },
-      rentals: { status: "done", detail: `${leases.length.toLocaleString()} current property/contract ledger row${leases.length === 1 ? "" : "s"} rebuilt.` },
+      rentals: { status: "done", detail: `${leases.length.toLocaleString()} current rental record${leases.length === 1 ? "" : "s"} rebuilt.` },
       history: historyError
         ? { status: "warning", detail: `History was limited: ${historyError}` }
         : { status: "done", detail: `${historyEvents.toLocaleString()} history event${historyEvents === 1 ? "" : "s"} across ${historyProperties.toLocaleString()} propert${historyProperties === 1 ? "y" : "ies"}; ${archive.length.toLocaleString()} archived rental${archive.length === 1 ? "" : "s"}.` },
@@ -1155,7 +1155,7 @@
             body = { raw: response.responseText || "" };
           }
           if (response.status < 200 || response.status >= 300) {
-            const error = new Error(body.error || body.message || `The ledger helper returned error ${response.status}.`);
+            const error = new Error(body.error || body.message || `The Tornfolio service returned error ${response.status}.`);
             error.status = response.status;
             error.payload = body;
             reject(error);
@@ -1164,12 +1164,12 @@
           resolve(body);
         },
         onerror() {
-          const error = new Error("Could not reach the ledger helper.");
+          const error = new Error("Could not reach the Tornfolio service.");
           error.network = true;
           reject(error);
         },
         ontimeout() {
-          const error = new Error("The ledger helper timed out.");
+          const error = new Error("The Tornfolio service timed out.");
           error.network = true;
           reject(error);
         },
@@ -1321,7 +1321,7 @@
 
   async function runHostedFirst(scope, fallback) {
     try {
-      setStatus("Filling the ledger...");
+      setStatus("Refreshing Tornfolio...");
       return await syncHostedLedger(scope);
     } catch (error) {
       if (!canUseDirectTornFallback(error)) throw error;
@@ -1341,7 +1341,7 @@
   }
 
   function applyHostedLedgerSync(body, scope = "all") {
-    if (!body || typeof body !== "object") throw new Error("The ledger helper returned an empty response.");
+    if (!body || typeof body !== "object") throw new Error("The Tornfolio service returned an empty response.");
 
     applyHostedPropertyTypes(body);
     const profile = body.profile || body.userProfile || body.user || null;
@@ -1381,7 +1381,7 @@
     const tenancyArchive = firstArray(body, ["tenancyArchive", "tenancy_archive", "leaseArchive", "lease_archive"]);
     const propertyHistory = firstArray(body, ["propertyHistory", "property_history"]);
     const propertyHistoryEvents = firstArray(body, ["propertyHistoryEvents", "property_history_events", "propertyLogs", "property_logs"]);
-    const message = body.message || `Filled ${leases.length.toLocaleString()} ledger rows${suggestions.length ? ` and ${suggestions.length.toLocaleString()} suggestions` : ""}.`;
+    const message = body.message || `Refreshed ${leases.length.toLocaleString()} rental records${suggestions.length ? ` and ${suggestions.length.toLocaleString()} suggestions` : ""}.`;
 
     if (keyInfo) state.keyInfo = mergeProfileInfo(state.keyInfo, keyInfo);
     if (entitlement) {
@@ -1439,7 +1439,7 @@
     migrateContractLifecycle(state);
     state.lastSyncAt = nowIso();
     completeSyncProgressFromBody(body);
-    saveState("Ledger saved");
+    saveState("Tornfolio saved");
     render();
     setStatus(message);
   }
@@ -1934,7 +1934,7 @@
     const details = {
       profile: { status: profile.id || profile.name ? "done" : "warning", detail: profile.id || profile.name ? `Fetched ${clean(profile.name || profile.id, "the account profile")} directly from Torn.` : "No profile details were returned." },
       portfolio: { status: "done", detail: `${owned.length.toLocaleString()} owned · ${current ? "current home found" : "no current home returned"} · ${spouse.length.toLocaleString()} spouse-owned.` },
-      rentals: { status: "done", detail: `${(state.leases || []).length.toLocaleString()} saved property/contract ledger row${(state.leases || []).length === 1 ? "" : "s"} rebuilt.` },
+      rentals: { status: "done", detail: `${(state.leases || []).length.toLocaleString()} saved rental record${(state.leases || []).length === 1 ? "" : "s"} rebuilt.` },
       history: { status: "warning", detail: "The direct fallback does not rebuild the hosted property-log archive." },
       rentalMarket: { status: "warning", detail: "The direct fallback does not run server-side rental comparisons." },
       saleMarket: { status: "warning", detail: "The direct fallback does not run server-side sale comparisons." },
@@ -2613,7 +2613,7 @@
   function exportCsv() {
     const headers = ["propertyId", "property", "landlord", "tenant", "durationDays", "amount", "dailyAmount", "startDate", "endDate", "remainingDays", "status", "notes"];
     const rows = state.leases.map((lease) => headers.map((header) => csvCell(lease[header])).join(","));
-    download("torn-lease-ledger.csv", [headers.join(","), ...rows].join("\n"), "text/csv");
+    download("tornfolio-rentals.csv", [headers.join(","), ...rows].join("\n"), "text/csv");
   }
 
   function exportRoiCsv() {
@@ -3120,7 +3120,7 @@
         ${state.manualModalOpen ? manualLeaseModalHtml() : ""}
         ${state.settingsOpen ? tfSettingsModalHtml() : ""}
         ${state.detailView ? tfDetailModalHtml(model) : ""}
-        <footer class="tf-footer"><div class="tf-footer-brand">${tfIcon("logo")}<strong>Tornfolio</strong><small>Portfolio &amp; Rental Management</small></div><div><span>Help &amp; Support</span><span>Privacy Policy</span><span>Terms of Service</span><span>v0.6.7</span></div></footer>
+        <footer class="tf-footer"><div class="tf-footer-brand">${tfIcon("logo")}<strong>Tornfolio</strong><small>Portfolio &amp; Rental Management</small></div><div><span>Help &amp; Support</span><span>Privacy Policy</span><span>Terms of Service</span><span>v0.6.12</span></div></footer>
         ${tfSyncProgressHtml()}
         <div class="tlt-status tf-toast ${state.syncProgress ? "is-suppressed" : ""} ${state.syncState && state.syncState !== "idle" ? "is-visible" : ""} ${state.syncState === "error" ? "is-error" : ""}" aria-live="polite">${escapeHtml(state.syncMessage || "")}</div>
       </div>
