@@ -26,6 +26,13 @@
 - **Miscellaneous**: Add minified Stock-X userscript styles
 - **Miscellaneous**: Host Stock-X userscript styles
 
+## v1.0.0 (2026-10-10)
+
+### Miscellaneous
+
+- **Miscellaneous**: Add minified Stock-X userscript styles
+
+
 
 
 

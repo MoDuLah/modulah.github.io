@@ -244,6 +244,15 @@
 - **Miscellaneous**: Release Pit Guru v2.4.0 tutorial guidance
 - **Miscellaneous**: Release Pit Guru 2.3.9 profile polish
 
+## v2.4.0 (2026-10-10)
+
+### Miscellaneous
+
+- **Miscellaneous**: Fix hub timeline and Pit Guru access
+- **Miscellaneous**: Release Pit Guru v2.4.0 tutorial guidance
+- **Miscellaneous**: Release Pit Guru 2.3.9 profile polish
+
+
 
 
 
