@@ -149,7 +149,8 @@ export const scripts = [
     "badge": "supporter",
     "badgeText": "SUPPORTER",
     "logo": "assets/images/tornfolio/tornfolio-logo.svg",
-    "iconPath": '<path d="M12 21c.2-5.8-.2-10.3-1.3-13.5"></path><path d="M11 7.7C8.9 4.9 6.2 4.5 3.8 5.3c2.1.4 3.7 1.6 4.8 3.4"></path><path d="M11 7.3c.2-3.2 2-5.2 4.6-6.1-.9 2.1-.9 4.1.1 5.9"></path><path d="M11.6 7.5c2.7-2.2 5.5-2.1 7.8-.6-2.2-.1-4 .7-5.5 2.2"></path><path d="M4 21c2.7-1.4 5.3-1.4 8 0 2.7-1.4 5.3-1.4 8 0"></path>',
+    "iconPath":
+      '<path d="M12 21c.2-5.8-.2-10.3-1.3-13.5"></path><path d="M11 7.7C8.9 4.9 6.2 4.5 3.8 5.3c2.1.4 3.7 1.6 4.8 3.4"></path><path d="M11 7.3c.2-3.2 2-5.2 4.6-6.1-.9 2.1-.9 4.1.1 5.9"></path><path d="M11.6 7.5c2.7-2.2 5.5-2.1 7.8-.6-2.2-.1-4 .7-5.5 2.2"></path><path d="M4 21c2.7-1.4 5.3-1.4 8 0 2.7-1.4 5.3-1.4 8 0"></path>',
     "features": [
       "Readable lease records for owners, renters, dates, rent and days left",
       "Owned-home, current-home and partner-contract fetch flow",

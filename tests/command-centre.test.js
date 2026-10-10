@@ -318,14 +318,14 @@ describe("command centre catalogue", () => {
     expect(companionEntry).not.toContain("greasyfork.org");
   });
 
-  test("tracks all thirteen GreasyFork scripts plus the shared theme source", () => {
+  test("tracks all fourteen GreasyFork scripts plus the shared theme source", () => {
     const greasyForkIds = updaterConfig.scripts
       .filter((entry) => entry.source.type === "greasyfork")
       .map((entry) => entry.source.scriptId)
       .sort((left, right) => left - right);
     expect(greasyForkIds).toEqual([
-      562954, 563153, 563548, 575111, 575131, 577764, 578342, 579366, 580933, 589397, 594723,
-      595857, 596052,
+      562954, 563153, 563548, 575111, 575131, 577764, 578342, 579366, 580933, 589397, 591996,
+      594723, 595857, 596052,
     ]);
     expect(
       updaterConfig.scripts.filter((entry) => entry.source.type === "userscript")

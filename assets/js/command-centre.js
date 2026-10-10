@@ -728,7 +728,9 @@ function renderScriptUpdateTimeline() {
     `${release.scriptId || release.title.toLocaleLowerCase()}\u0000${release.version.toLocaleLowerCase()}`;
   const fetchedReleases = automaticScriptReleases.filter(
     (release) =>
-      !['No changelog was published for this version.', 'Imported from URL.'].includes(release.summary) ||
+      !['No changelog was published for this version.', 'Imported from URL.'].includes(
+        release.summary
+      ) ||
       !scriptReleases.some((editorial) => releaseKey(editorial) === releaseKey(release))
   );
   const releases = [...fetchedReleases, ...scriptReleases]
