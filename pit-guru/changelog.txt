@@ -846,3 +846,9 @@ Reference pages
 - Added a Profile tab with avatar, Torn user ID, lifetime race totals, podium breakdown, DNF ratio, streaks, accident recency, points, top five car instances, top five tracks, personal best laps, and official race bests.
 - Added a credential-free Race//Stats ↔ Pit Guru history exchange matched to the Torn user ID. API keys and sessions remain in their own application.
 - Reversed Lap Recording columns so the last lap appears first, separated RS into its own Leaderboard column, themed the Garage comparison selector, and expanded analysis tables across the full container.
+## v2.3.9 (2026-10-10)
+
+- Reworked the personal profile into a compact identity header with a cropped avatar and clearly labelled lifetime and recorded-history statistics.
+- Added car thumbnails to the top-five cars and expandable track-map thumbnails to the top-five tracks.
+- Limited personal best official races to each track's official lap distance, keeping custom-distance results out of that table.
+- Made profile Race IDs open the selected replay in the configured Pit Guru Player.

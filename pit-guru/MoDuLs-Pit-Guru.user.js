@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         MoDuL's Pit Guru
 // @namespace    modul.torn.racing
-// @version      2.3.8
+// @version      2.3.9
 // @description  Live Torn race timing, gaps, sectors, speed and estimated telemetry analysis
 // @author       MoDuL
 // @copyright    2026 MoDuL. All rights reserved.
@@ -75,8 +75,18 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         }
         return [...map.values()].sort((a,b) => b.ts-a.ts || Number(b.raceId)-Number(a.raceId));
     }
-    function summarize(input, tracks = [], now = Date.now()) {
+    function summarize(input, tracks = [], now = Date.now(), trackDetails = []) {
         const rows = merge(input, []);
+        const officialLaps = new Map((trackDetails || []).map(track => [
+            String(track?.name || track?.Name || "").trim().toLowerCase(),
+            number(track?.officialLaps ?? track?.officiallaps ?? track?.OfficialLaps)
+        ]).filter(([name, laps]) => name && laps > 0));
+        // Historical imports can carry an "official" label even when the lap
+        // count is a custom distance. The track catalogue is authoritative.
+        rows.forEach(row => {
+            const laps = officialLaps.get(String(row.track || "").trim().toLowerCase());
+            if (row.raceType === "official" && laps > 0 && row.laps > 0 && row.laps !== laps) row.raceType = "custom";
+        });
         const win = r => !r.dnf && r.position === 1;
         const podium = r => !r.dnf && r.position != null && r.position <= 3;
         const finished = r => r.dnf || r.position != null;
@@ -863,7 +873,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         return bigRaceSafeModeStatus_();
     };
 
-    const MPG_VERSION = "2.3.8";
+    const MPG_VERSION = "2.3.9";
     const PREDICTION_MODEL_VERSION = "pit-guru-local-v2";
     var TAG = "[MoDuL's Pit Guru v" + MPG_VERSION + "]";
 
@@ -8418,7 +8428,7 @@ self.onmessage=event=>{try{self.postMessage({ok:true,result:aggregate(event.data
 
     function pgLocalOfficialLaps_(trackName) {
         const row = pgLocalTrackMeta_(trackName);
-        const laps = Number(row?.officialLaps ?? row?.OfficialLaps);
+        const laps = Number(row?.officialLaps ?? row?.officiallaps ?? row?.OfficialLaps);
         return Number.isFinite(laps) && laps > 0 ? laps : 0;
     }
 
@@ -11032,6 +11042,38 @@ img.carIcon{
 .mpg-mode-glyph{font-size:14px;line-height:1}
 .mpg-mode-label{overflow:hidden;text-overflow:ellipsis}
 .mpg-card{padding:10px}
+.mpg-profile{display:grid;gap:12px;padding:14px}
+.mpg-profile-hero{display:grid;grid-template-columns:96px minmax(0,1fr);gap:16px;align-items:center;padding:16px;border:1px solid var(--border);border-radius:14px;background:linear-gradient(135deg,rgba(255,200,61,.10),rgba(255,255,255,.025) 48%,rgba(0,255,0,.035))}
+.mpg-profile-avatar{position:relative;width:96px;height:96px;display:grid;place-items:center;overflow:hidden;border:2px solid var(--accent);border-radius:18px;background:var(--pill);box-shadow:0 10px 28px rgba(0,0,0,.28);font-size:38px}
+.mpg-profile-avatar img{position:absolute;inset:0;display:block;width:100%;height:100%;max-width:none;object-fit:cover;object-position:center}
+.mpg-profile-identity{min-width:0}
+.mpg-profile-eyebrow{display:block;color:var(--accent);font-size:10px;font-weight:900;letter-spacing:.12em;text-transform:uppercase}
+.mpg-profile-identity h2{margin:3px 0 4px;color:var(--text);font-size:22px;line-height:1.15;overflow-wrap:anywhere}
+.mpg-profile-identity h2 span{color:var(--muted);font-size:.72em;font-weight:800}
+.mpg-profile-identity p{margin:0;color:var(--muted);font-size:12px}
+.mpg-profile-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+.mpg-profile-section{padding:14px;border:1px solid var(--border);border-radius:12px;background:var(--panel);min-width:0}
+.mpg-profile-section-head{margin-bottom:10px}
+.mpg-profile-section-head h3{margin:2px 0 0;color:var(--text);font-size:15px}
+.mpg-profile-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px}
+.mpg-profile-stat{min-width:0;padding:10px 11px;border:1px solid var(--border);border-radius:10px;background:var(--pill);text-align:left}
+.mpg-profile-stat span{display:block;color:var(--muted);font-size:10px;font-weight:800;letter-spacing:.03em;text-transform:uppercase}
+.mpg-profile-stat b{display:block;margin-top:4px;color:var(--text);font:900 17px/1.15 ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;overflow-wrap:anywhere}
+.mpg-profile-stat small{display:block;margin-top:4px;color:var(--muted);font-size:10px;line-height:1.3}
+.mpg-profile-scope,.mpg-profile-status{margin-bottom:10px;padding:9px 11px;border:1px solid var(--border);border-radius:9px;background:rgba(255,255,255,.035);color:var(--muted);font-size:11px;line-height:1.4}
+.mpg-profile-scope b{color:var(--text)}
+.mpg-profile-status{margin:0;background:var(--pill);color:var(--text)}
+.mpg-profile-status.error{border-color:var(--red);color:var(--red)}
+.mpg-profile-track{min-width:180px}
+.mpg-profile-track summary{display:inline-flex;align-items:center;justify-content:center;gap:7px;color:var(--text);font-weight:800;cursor:pointer;list-style:none;text-decoration:underline;text-decoration-color:var(--accent);text-underline-offset:3px}
+.mpg-profile-track summary::-webkit-details-marker{display:none}
+.mpg-profile-track summary:hover,.mpg-profile-track summary:focus-visible{color:var(--accent);outline:none}
+.mpg-profile-track-hint{padding:2px 6px;border:1px solid var(--border);border-radius:999px;color:var(--muted);font-size:9px;font-weight:800;text-decoration:none}
+.mpg-profile-track[open] .mpg-profile-track-hint{color:var(--accent)}
+.mpg-profile-track-thumb{width:min(240px,70vw);margin:8px auto 2px;padding:5px;border:1px solid var(--border);border-radius:10px;background:var(--pill)}
+.mpg-profile-track-thumb img{display:block;width:100%;height:120px;object-fit:cover;border-radius:7px}
+.mpg-profile-race-link{color:var(--accent) !important;font-weight:900;text-decoration:underline;text-underline-offset:3px}
+.mpg-profile-race-link:hover,.mpg-profile-race-link:focus-visible{color:var(--green) !important;outline:none}
 .mpg-empty-title{font-weight:900;font-size:15px;padding:2px 10px}
 .mpg-note{font-size:12px;line-height:1.35;margin:8px 10px;color:var(--muted)}
 .mpg-selected-row td{background:rgba(255,200,61,.08)}
@@ -11076,6 +11118,15 @@ img.carIcon{
 #mpgDriverHoverCard .mpg-card-stat span{display:block;color:var(--muted);font-size:10px}
 #mpgDriverHoverCard .mpg-card-stat b{display:block;margin-top:2px;font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace}
 @media (max-width:650px){
+  .mpg-profile{padding:8px}
+  .mpg-profile-hero{grid-template-columns:72px minmax(0,1fr);gap:11px;padding:12px}
+  .mpg-profile-avatar{width:72px;height:72px;border-radius:14px;font-size:30px}
+  .mpg-profile-identity h2{font-size:17px}
+  .mpg-profile-actions .pill{flex:1 1 150px}
+  .mpg-profile-section{padding:11px}
+  .mpg-profile-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .mpg-profile-stat{padding:9px}
+  .mpg-profile-stat b{font-size:14px}
   .mpg-settings{grid-template-columns:1fr}
   .mpg-settings-grid{grid-template-columns:1fr}
   .mpg-setting-row{grid-template-columns:1fr}
@@ -14620,6 +14671,7 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
 
     // Embedded in the compatibility bundle; no separate install or network module.
     let personalProfileState_ = {ownerId:"",data:null,error:"",loading:false,revision:0,attemptedAt:0};
+    const personalProfileAssets_ = {loading:false,revision:0,attemptedAt:0};
     let personalProfileBridge_ = null;
     function personalProfileOwner_() { return String(playerId || ""); }
     function personalProfileArchive_() {
@@ -14640,6 +14692,28 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
             state.data=data;
         } catch(error) { state.error=pgErrorMessage_(error,"Profile could not be loaded."); }
         finally { state.loading=false; state.revision++; uiDirty=true; scheduleRender_(); }
+    }
+    async function loadPersonalProfileAssets_(force=false) {
+        const state=personalProfileAssets_;
+        const ready=pgLocalTracksCache.rows.length>0 && garageCatalog.length>0;
+        if (state.loading || (!force && (ready || Date.now()-state.attemptedAt<60000))) return;
+        state.loading=true; state.attemptedAt=Date.now(); state.revision++;
+        try {
+            await Promise.allSettled([pgLocalEnsureTracks_(force),pgLocalEnsureCarCatalog_(force)]);
+        } finally {
+            state.loading=false; state.revision++; uiDirty=true; scheduleRender_();
+        }
+    }
+    function personalProfileTrackMeta_(track) {
+        const wanted=String(track||"").trim().toLowerCase();
+        return (pgLocalTracksCache.rows||[]).find(row=>String(row?.name||row?.Name||"").trim().toLowerCase()===wanted)||null;
+    }
+    function personalProfileTrackImage_(track) {
+        const meta=personalProfileTrackMeta_(track);
+        const direct=String(meta?.trackMap||meta?.trackmap||meta?.TrackMap||"").trim();
+        if (/^https?:\/\//i.test(direct)) return direct;
+        const pictureId=String(meta?.pictureId||meta?.pictureid||meta?.PictureID||"").trim();
+        return /^\d+$/.test(pictureId)?`https://www.torn.com/casino/race/images/A${encodeURIComponent(pictureId)}.jpg`:"";
     }
     function connectPersonalRaceStats_() {
         const ownerId=personalProfileOwner_();
@@ -14674,40 +14748,53 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
         if(status){status.style.display="";status.textContent="PERSONAL PROFILE";}
         if(personalProfileState_.ownerId!==ownerId && ownerId) personalProfileState_={ownerId,data:null,error:"",loading:false,revision:0,attemptedAt:0};
         loadPersonalProfile_();
-        const key=`profile|${ownerId}|${personalProfileState_.revision}|${theme}`;
+        loadPersonalProfileAssets_();
+        const key=`profile|${ownerId}|${personalProfileState_.revision}|${personalProfileAssets_.revision}|${pgLocalTracksCache.fetchedAt||0}|${garageCatalogLastFetchAt||0}|${theme}`;
         if(body.dataset.renderKey===key)return;
         body.dataset.renderKey=key;
         const data=personalProfileState_.data||{}, archive=personalProfileArchive_();
         const intel=getCachedDriverIntel_(ownerId,24*7)||{};
         const profile=data.profile||{};
         const rows=window.PitGuruProfile.merge(data.rows||[],archive.rows);
-        const stats=window.PitGuruProfile.summarize(rows,data.tracks||[]);
-        const n=value=>value==null||!Number.isFinite(Number(value))?"—":Number(value).toLocaleString();
+        const stats=window.PitGuruProfile.summarize(rows,data.tracks||[],Date.now(),pgLocalTracksCache.rows||[]);
+        const n=value=>value===null||value===undefined||!Number.isFinite(Number(value))?"—":Number(value).toLocaleString();
         const ratio=(value,total)=>total>0?`${(value/total*100).toFixed(2)}%`:"—";
-        const card=(label,value,note="")=>`<div class="mpg-card-stat"><span>${esc_(label)}</span><b>${esc_(value)}</b>${note?`<small class="muted">${esc_(note)}</small>`:""}</div>`;
+        const card=(label,value,note="")=>`<div class="mpg-profile-stat"><span>${esc_(label)}</span><b>${esc_(value)}</b>${note?`<small>${esc_(note)}</small>`:""}</div>`;
         const starts=profile.races_entered??(Number.isFinite(intel.racesEntered)?intel.racesEntered:null);
         const wins=profile.races_won??(Number.isFinite(intel.racesWon)?intel.racesWon:null);
         const avatar=profileImageForRender_(profile.avatar_url||intel.avatar||"");
         const time=r=>r?formatTimeSeconds_(r.bestLapMs/1000):"—";
-        const cells=values=>`<tr>${values.map(v=>`<td>${esc_(v)}</td>`).join("")}</tr>`;
-        const ranking=(list,label,car)=>renderTable_([car?"Car instance":"Track",...(car?["Car"]:[]),"Entries","Wins","Win ratio","1st / 2nd / 3rd","Podium ratio","DNFs"],list.map(r=>cells([car?`#${r.id}`:r.name,...(car?[r.name]:[]),n(r.entries),n(r.wins),ratio(r.wins,r.entries),`${r.first} / ${r.second} / ${r.third}`,ratio(r.podiums,r.entries),n(r.dnfs)])),"No recorded results yet.",label);
+        const html=value=>({html:String(value||"")});
+        const cells=values=>`<tr>${values.map(v=>`<td>${v&&typeof v==="object"&&Object.hasOwn(v,"html")?v.html:esc_(v)}</td>`).join("")}</tr>`;
+        const carCell=r=>html(carComboCell_({car:r.name,carImg:carImageFromCatalog_(r.name)}));
+        const trackCell=name=>{
+            const image=personalProfileTrackImage_(name);
+            if (!image || !analysisImagesEnabled_()) return name;
+            return html(`<details class="mpg-profile-track"><summary><span>${esc_(name)}</span><span class="mpg-profile-track-hint">View map</span></summary><div class="mpg-profile-track-thumb"><img data-mpg-profile-track-image="1" src="${escAttr_(image)}" alt="${escAttr_(`${name} track map`)}" loading="lazy" decoding="async"></div></details>`);
+        };
+        const ranking=(list,label,car)=>renderTable_([car?"Car instance":"Track",...(car?["Car"]:[]),"Entries","Wins","Win ratio","1st / 2nd / 3rd","Podium ratio","DNFs"],list.map(r=>cells([car?`#${r.id}`:trackCell(r.name),...(car?[carCell(r)]:[]),n(r.entries),n(r.wins),ratio(r.wins,r.entries),`${r.first} / ${r.second} / ${r.third}`,ratio(r.podiums,r.entries),n(r.dnfs)])),"No recorded results yet.",label,car?{}:{helpText:"Select a track name to expand its map thumbnail."});
+        const raceLink=raceId=>html(`<a class="mpg-profile-race-link" href="${escAttr_(pgPlayerRaceUrl_(raceId))}" target="_blank" rel="noopener noreferrer" aria-label="Open Race ${escAttr_(raceId)} in Pit Guru">${esc_(raceId)}</a>`);
         const streaks=Object.entries(stats.streaks).map(([name,value])=>card(({win:"Win streak",podium:"Podium streak",nonWin:"Non-win streak",nonPodium:"Non-podium streak"})[name],n(value.current),`Best recorded: ${value.best}`)).join("");
-        body.innerHTML=`<div class="mpg-card">
-            <div class="mpg-driver-card-head">${avatar?`<img src="${escAttr_(avatar)}" alt="User avatar" loading="lazy">`:"<span style='font-size:36px' aria-label='Avatar unavailable'>👤</span>"}<h3>${esc_(profile.display_name||intel.name||playerName||"Your profile")} [${esc_(ownerId||"Unverified")}]</h3></div>
-            <div style="display:flex;flex-wrap:wrap;gap:8px;margin:12px 0"><button class="pill" id="mpgProfileRefresh">Refresh profile</button><button class="pill" id="mpgProfileConnect">Connect to Race//Stats</button></div>
-            ${personalProfileState_.loading?'<p class="mpg-note">Loading your stored history…</p>':""}
-            ${personalProfileState_.error?`<p class="mpg-note" role="status">${esc_(personalProfileState_.error)}</p>`:""}
-            ${!ownerId?'<p class="mpg-note">Verify your API key in Settings to identify your profile.</p>':""}
-            <div class="mpg-table-label">Lifetime · last captured Torn profile</div><div class="mpg-card-grid">${card("Race entries",n(starts))}${card("Race wins",n(wins))}${card("Win ratio",wins==null?"—":ratio(wins,starts))}${card("Points gained · total",n(profile.racing_points_earned??intel.racingPointsEarned))}</div>
-            <p class="mpg-note">History below covers ${n(stats.entries)} recorded outcomes${stats.unknownOutcomes?` and ${stats.unknownOutcomes} unknown outcomes`:""}. Ratios and streaks use this recorded history; gaps may exist.${archive.syncedAt?` Race//Stats last exchanged ${new Date(archive.syncedAt).toLocaleString()}.`:" Connect Race//Stats to add your personal archive."}</p>
-            <div class="mpg-card-grid">${card("Recorded entries",n(stats.entries))}${card("Wins",n(stats.wins),ratio(stats.wins,stats.entries))}${card("Podiums",n(stats.podiums),ratio(stats.podiums,stats.entries))}${card("Podium breakdown",`${stats.first} first · ${stats.second} second · ${stats.third} third`)}${card("DNFs",n(stats.dnfs),ratio(stats.dnfs,stats.entries))}${card("Days since last accident",n(stats.daysSinceAccident),stats.lastCrashAt?new Date(stats.lastCrashAt).toLocaleDateString():"No accident date in recorded history")}${streaks}${card("Points gained · racing",n(stats.racingPoints),`Known for ${stats.pointsKnownRaces} official races`)}${card("Points gained · job","—","Source breakdown not supplied by connected data")}${card("Points spent",n(data.garagePointsSpent),"Known upgrades on recorded garage instances")}</div>
+        body.innerHTML=`<div class="mpg-card mpg-profile">
+            <header class="mpg-profile-hero">
+                <div class="mpg-profile-avatar">${avatar?`<img src="${escAttr_(avatar)}" alt="${escAttr_(profile.display_name||intel.name||playerName||"User")} profile picture" loading="lazy" decoding="async">`:'<span aria-label="Profile picture unavailable">👤</span>'}</div>
+                <div class="mpg-profile-identity"><span class="mpg-profile-eyebrow">Personal racing profile</span><h2>${esc_(profile.display_name||intel.name||playerName||"Your profile")} <span>[${esc_(ownerId||"Unverified")}]</span></h2><p>Your lifetime Torn snapshot and the race history recorded by Pit Guru.</p>
+                    <div class="mpg-profile-actions"><button class="pill" id="mpgProfileRefresh">Refresh profile</button><button class="pill" id="mpgProfileConnect">Connect to Race//Stats</button></div>
+                </div>
+            </header>
+            ${personalProfileState_.loading?'<div class="mpg-profile-status" role="status">Loading your stored history…</div>':""}
+            ${personalProfileState_.error?`<div class="mpg-profile-status error" role="status">${esc_(personalProfileState_.error)}</div>`:""}
+            ${!ownerId?'<div class="mpg-profile-status">Verify your API key in Settings to identify your profile.</div>':""}
+            <section class="mpg-profile-section"><div class="mpg-profile-section-head"><span class="mpg-profile-eyebrow">Last captured from Torn</span><h3>Lifetime snapshot</h3></div><div class="mpg-profile-grid">${card("Race entries",n(starts))}${card("Race wins",n(wins))}${card("Win ratio",wins===null||wins===undefined?"—":ratio(wins,starts))}${card("Points gained · total",n(profile.racing_points_earned??intel.racingPointsEarned))}</div></section>
+            <section class="mpg-profile-section"><div class="mpg-profile-section-head"><span class="mpg-profile-eyebrow">Pit Guru history</span><h3>Recorded race performance</h3></div><div class="mpg-profile-scope">Covers <b>${n(stats.entries)}</b> recorded outcomes${stats.unknownOutcomes?` and <b>${n(stats.unknownOutcomes)}</b> unknown outcomes`:""}. Ratios and streaks use this history, so gaps may exist.${archive.syncedAt?` Race//Stats last exchanged ${esc_(new Date(archive.syncedAt).toLocaleString())}.`:" Connect Race//Stats to add your personal archive."}</div><div class="mpg-profile-grid">${card("Recorded entries",n(stats.entries))}${card("Wins",n(stats.wins),ratio(stats.wins,stats.entries))}${card("Podiums",n(stats.podiums),ratio(stats.podiums,stats.entries))}${card("Podium breakdown",`${stats.first} first · ${stats.second} second · ${stats.third} third`)}${card("DNFs",n(stats.dnfs),ratio(stats.dnfs,stats.entries))}${card("Days since last accident",n(stats.daysSinceAccident),stats.lastCrashAt?new Date(stats.lastCrashAt).toLocaleDateString():"No accident date in recorded history")}${streaks}${card("Points gained · racing",n(stats.racingPoints),`Known for ${stats.pointsKnownRaces} official races`)}${card("Points gained · job","—","Source breakdown not supplied by connected data")}${card("Points spent",n(data.garagePointsSpent),"Known upgrades on recorded garage instances")}</div></section>
             ${ranking(stats.topCars,"Top 5 successful cars",true)}<p class="mpg-note">Ranked by wins, then podiums, then entries. ${stats.unassignedCars} results have no instance ID and cannot be assigned to a specific car.</p>
             ${ranking(stats.topTracks,"Top 5 successful tracks",false)}
             ${renderTable_(["Track","Official best lap","Custom best lap"],stats.lapBests.map(r=>cells([r.track,time(r.official),time(r.custom)])),"No lap times recorded.","Personal best laps · all tracks")}
-            ${renderTable_(["Track","Laps","Race time","Car instance","Race ID"],stats.raceBests.map(r=>cells([r.track,n(r.laps),formatTimeSeconds_(r.raceTimeMs/1000),r.carInstanceId?`#${r.carInstanceId}`:"—",r.raceId])),"No official race times recorded.","Personal best official races")}
+            ${renderTable_(["Track","Laps","Race time","Car instance","Race ID"],stats.raceBests.map(r=>cells([r.track,n(r.laps),formatTimeSeconds_(r.raceTimeMs/1000),r.carInstanceId?`#${r.carInstanceId}`:"—",raceLink(r.raceId)])),"No official race times recorded.","Personal best official races",{helpText:"Only the official lap distance for each track is included. Race IDs open in your configured Pit Guru Player."})}
         </div>`;
-        body.querySelector('#mpgProfileRefresh').onclick=()=>{loadPersonalProfile_(true);uiDirty=true;scheduleRender_();};
+        body.querySelector('#mpgProfileRefresh').onclick=()=>{loadPersonalProfile_(true);loadPersonalProfileAssets_(true);uiDirty=true;scheduleRender_();};
         body.querySelector('#mpgProfileConnect').onclick=connectPersonalRaceStats_;
+        body.querySelectorAll('[data-mpg-profile-track-image]').forEach(img=>img.addEventListener('error',()=>img.closest('.mpg-profile-track-thumb')?.remove(),{once:true}));
         setupAnalysisTableSort_(body);
     }
 
