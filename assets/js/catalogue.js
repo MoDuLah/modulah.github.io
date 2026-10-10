@@ -140,14 +140,14 @@ export const scripts = [
     "title": "Tornfolio",
     "desc":
       "A Torn property, lease and ROI manager for owners and renters, evolving from the former Landlord Tenant Ledger.",
-    "version": "PRIVATE PREVIEW",
-    "versionPrefix": "STATUS",
+    "version": "v0.6.10",
+    "versionPrefix": "VER",
     "category": "Property management",
     "projectType": "Supporter property tool",
-    "releaseState": "Under development",
-    "updated": "28 July 2026",
-    "badge": "dev",
-    "badgeText": "DEV",
+    "releaseState": "Current supporter build",
+    "updated": "10 October 2026",
+    "badge": "supporter",
+    "badgeText": "SUPPORTER",
     "logo": "assets/images/landlord-tenant-ledger/landlord-tenant-ledger-logo.png",
     "iconPath": '<path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>',
     "features": [
@@ -155,10 +155,16 @@ export const scripts = [
       "Owned-home, current-home and partner-contract fetch flow",
       "Rent and sale suggestions for owned properties",
     ],
-    "actions": [],
-    "disabledActions": ["Public install not released"],
+    "actions": [
+      {
+        "label": "Install v0.6.10",
+        "href": "https://modulah.github.io/tornfolio/tornfolio.user.js",
+        "icon": "download",
+        "primary": true,
+      },
+    ],
     "note":
-      "Tornfolio is currently a private preview. Its details are available here in the hub, but there is no public install link yet.",
+      "The userscript is publicly installable; account verification and hosted market scans require Tornfolio supporter access.",
   },
   {
     "id": "modulHubControl",

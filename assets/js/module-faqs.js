@@ -216,7 +216,7 @@ export const moduleFaqs = {
     {
       "question": "Can I install Tornfolio now?",
       "answer":
-        "Not publicly yet. This hub entry documents the private preview while the property and lease workflow is refined.",
+        "Yes. Use the Install button on the Tornfolio card. The userscript is publicly downloadable, while account verification and hosted market scans require Tornfolio supporter access.",
     },
     {
       "question": "What will Tornfolio manage?",
