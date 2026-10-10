@@ -38,40 +38,70 @@ export const scripts = [
   },
   {
     "id": "pitGuru",
-    "tier": "supporter",
+    "tier": "free",
     "title": "MoDuL's Pit Guru",
     "desc":
-      "A supporter racing-analysis tool with live gaps, sectors, speed, predictions, replay links and persistent hosted race history.",
-    "version": "v2.3.7",
+      "A free Torn racing userscript with live gaps, sectors, speed, predictions and replay links.",
+    "version": "v2.4.0",
     "versionPrefix": "VER",
-    "category": "Racing analysis",
-    "projectType": "Supporter userscript",
-    "releaseState": "Current supporter build",
-    "updated": "31 August 2026",
-    "badge": "supporter",
-    "badgeText": "SUPPORTER",
+    "category": "Racing userscript",
+    "projectType": "Free userscript",
+    "releaseState": "Current free build",
+    "updated": "10 October 2026",
+    "badge": "free",
+    "badgeText": "FREE",
+    "installActionPrefix": "Install Free",
     "logo": "assets/images/pit-guru/pit-guru-logo.png",
     "iconPath":
       '<rect height="18" rx="2" width="18" x="3" y="3"></rect><path d="M9 3v18M15 3v18M3 9h18M3 15h18" stroke-dasharray="2 2"></path>',
     "features": [
       "Live race analysis focused on gaps, sectors and speed",
       "Configurable focused drawing for large 50–100 driver races",
-      "Public race player and persistent PostgreSQL-backed history",
+      "Predictions, records and direct replay links inside Torn",
     ],
     "actions": [
       {
-        "label": "Install v2.3.7",
+        "label": "Install Free v2.4.0",
         "href": "https://greasyfork.org/en/scripts/578342-modul-s-pit-guru",
         "icon": "download",
         "primary": true,
       },
+    ],
+    "note":
+      "The Pit Guru userscript is free to install and use. The separately listed Pit Guru Web Tool requires supporter access.",
+  },
+  {
+    "id": "pitGuruWeb",
+    "tier": "supporter",
+    "filters": ["web tools"],
+    "title": "Pit Guru Web Tool",
+    "desc":
+      "The supporter-hosted Pit Guru race player and analysis service for saved races, replays and persistent race history.",
+    "version": "LIVE SERVICE",
+    "versionPrefix": "STATUS",
+    "category": "Hosted race analysis",
+    "projectType": "Supporter web tool",
+    "releaseState": "Live supporter service",
+    "updated": "Current service",
+    "badge": "supporter",
+    "badgeText": "SUPPORTER",
+    "logo": "assets/images/pit-guru/pit-guru-logo.png",
+    "iconPath": '<path d="M4 6h16v12H4z"></path><path d="m10 9 5 3-5 3z"></path>',
+    "features": [
+      "Hosted race player for saved races and replay links",
+      "Persistent PostgreSQL-backed race history",
+      "Supporter access with account verification",
+    ],
+    "actions": [
       {
-        "label": "Race Player",
+        "label": "Open Pit Guru Web Tool",
         "href": "https://pp-api.sokin.xyz/pit-guru/",
         "icon": "sports_motorsports",
-        "primary": false,
+        "primary": true,
       },
     ],
+    "note":
+      "This hosted web tool requires Pit Guru supporter access. The Pit Guru userscript itself remains free.",
   },
   {
     "id": "customRaceFilter",
@@ -814,7 +844,7 @@ export const scriptReleases = [
   },
 ];
 
-export { moduleFaqs } from "./module-faqs.js?v=20260928.1";
+export { moduleFaqs } from "./module-faqs.js?v=20261010.1";
 
 function screenshotSeries(slug, count) {
   return Array.from({ length: count }, (_, index) => ({

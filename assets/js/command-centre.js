@@ -3,7 +3,7 @@ import {
   scriptReleases,
   moduleFaqs,
   moduleScreenshots,
-} from './catalogue.js?v=20260928.1';
+} from './catalogue.js?v=20261010.1';
 
 const scriptUpdateManifestUrl = 'https://pp-api.sokin.xyz/assets/data/script-updates.json';
 const screenshotManifestUrl = 'assets/data/module-screenshots.json';
@@ -163,7 +163,11 @@ async function loadScriptUpdates() {
 
       if (typeof update.actionLabel === 'string' && update.actionLabel.length <= 80) {
         const installAction = script.actions?.find((action) => /^Install\b/.test(action.label));
-        if (installAction) installAction.label = update.actionLabel;
+        if (installAction) {
+          installAction.label = script.installActionPrefix
+            ? update.actionLabel.replace(/^Install\b/, script.installActionPrefix)
+            : update.actionLabel;
+        }
       }
     });
 
@@ -278,10 +282,18 @@ function cancelScheduledUnload() {
   unloadSequenceActive = false;
 }
 
+function getModuleFilters(script) {
+  return [script.tier, ...(Array.isArray(script.filters) ? script.filters : [])];
+}
+
+function moduleMatchesFilter(script, filter) {
+  return getModuleFilters(script).some((tier) => tier.toUpperCase() === filter);
+}
+
 function getFilteredScripts() {
   return currentFilter === 'ALL'
     ? scripts
-    : scripts.filter((script) => script.tier.toUpperCase() === currentFilter);
+    : scripts.filter((script) => moduleMatchesFilter(script, currentFilter));
 }
 
 function getUpdatedTimestamp(script) {
@@ -331,11 +343,11 @@ function updateRegistrySummary() {
   document.getElementById('registry-summary').textContent =
     `${filteredCount} OF ${totalCount} MODULES AVAILABLE`;
   document.getElementById('registry-module-count').textContent = totalCount;
-  document.getElementById('registry-supporter-count').textContent = scripts.filter(
-    (script) => script.tier === 'supporter'
+  document.getElementById('registry-supporter-count').textContent = scripts.filter((script) =>
+    moduleMatchesFilter(script, 'SUPPORTER')
   ).length;
-  document.getElementById('registry-web-tools-count').textContent = scripts.filter(
-    (script) => script.tier === 'web tools'
+  document.getElementById('registry-web-tools-count').textContent = scripts.filter((script) =>
+    moduleMatchesFilter(script, 'WEB TOOLS')
   ).length;
   document.getElementById('registry-filtered-count').textContent = filteredCount;
 }

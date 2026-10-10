@@ -65,6 +65,9 @@ describe("command centre catalogue", () => {
 
   test("uses a script release timeline instead of repository commits", () => {
     expect(code).toContain("Script Update Timeline");
+    expect(code).toContain('class="glass-panel rounded-lg flex h-[34rem] min-h-0 flex-col"');
+    expect(code).toContain('id="script-timeline-scroll"');
+    expect(code).toContain("overflow-y-auto custom-scrollbar");
     expect(catalogue).toContain("export const scriptReleases = [");
     expect(app).toContain("renderScriptUpdateTimeline();");
     expect(app).toContain("automaticScriptReleases");
@@ -137,13 +140,13 @@ describe("command centre catalogue", () => {
 
   test("uses access tags and existing script logos on cards", () => {
     expect(catalogue).not.toContain('"badgeText": "LIVE"');
-    expect(catalogue.match(/"badgeText": "FREE"/g)).toHaveLength(10);
+    expect(catalogue.match(/"badgeText": "FREE"/g)).toHaveLength(11);
     expect(catalogue.match(/"badgeText": "WEB TOOL"/g)).toHaveLength(4);
     expect(app).toContain("logo.className = 'module-card-logo'");
     expect(app).toContain("/^assets\\/images\\/");
 
     const logos = [...catalogue.matchAll(/"logo": "([^"]+)"/g)].map((match) => match[1]);
-    expect(logos).toHaveLength(14);
+    expect(logos).toHaveLength(15);
     logos.forEach((relativePath) => {
       expect(fs.existsSync(path.join(repositoryRoot, relativePath))).toBe(true);
     });
@@ -153,6 +156,7 @@ describe("command centre catalogue", () => {
     const ids = [
       "pythagoras",
       "pitGuru",
+      "pitGuruWeb",
       "customRaceFilter",
       "tornfolio",
       "modulHubControl",
@@ -181,6 +185,28 @@ describe("command centre catalogue", () => {
     });
     expect(code).toContain('id="detail-faq"');
     expect(app).toContain("renderModuleFaq(data);");
+  });
+
+  test("separates the free Pit Guru userscript from its supporter web tool", () => {
+    const scriptStart = catalogue.indexOf('"id": "pitGuru"');
+    const webStart = catalogue.indexOf('"id": "pitGuruWeb"');
+    const nextModule = catalogue.indexOf('"id": "customRaceFilter"', webStart);
+    const scriptEntry = catalogue.slice(scriptStart, webStart);
+    const webEntry = catalogue.slice(webStart, nextModule);
+
+    expect(scriptEntry).toContain('"tier": "free"');
+    expect(scriptEntry).toContain('"projectType": "Free userscript"');
+    expect(scriptEntry).toContain('"installActionPrefix": "Install Free"');
+    expect(scriptEntry).toContain('"label": "Install Free v2.4.0"');
+    expect(scriptEntry).not.toContain("pp-api.sokin.xyz/pit-guru/");
+    expect(webEntry).toContain('"tier": "supporter"');
+    expect(webEntry).toContain('"filters": ["web tools"]');
+    expect(webEntry).toContain('"projectType": "Supporter web tool"');
+    expect(webEntry).toContain('"label": "Open Pit Guru Web Tool"');
+    expect(webEntry).toContain("https://pp-api.sokin.xyz/pit-guru/");
+    expect(app).toContain("function moduleMatchesFilter(script, filter)");
+    expect(app).toContain("moduleMatchesFilter(script, currentFilter)");
+    expect(app).toContain("update.actionLabel.replace(/^Install\\b/, script.installActionPrefix)");
   });
 
   test("renders screenshot galleries with a keyboard-accessible viewer", () => {

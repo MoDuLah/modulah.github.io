@@ -105,7 +105,7 @@ export const moduleFaqs = {
     {
       "question": "What is MoDuL's Pit Guru?",
       "answer":
-        "MoDuL's Pit Guru is a supporter racing-analysis project for Torn that is being built around live timing, driver gaps, sectors, pace, estimated telemetry, and stronger post-race insight. The aim is to understand the race while it is happening instead of treating lap capture as the whole product.",
+        "MoDuL's Pit Guru is a free racing-analysis userscript for Torn built around live timing, driver gaps, sectors, pace, estimated telemetry, predictions, records and stronger post-race insight.",
     },
     {
       "question": "How is it related to Lap Recorder?",
@@ -128,24 +128,46 @@ export const moduleFaqs = {
         "The race-analysis path uses racingData already delivered to the currently viewed Torn racing page. Completed race, replay, track, driver, garage, fuel, and prediction data can be persisted by the hosted Pit Guru API. The hosted service does not decide or generate Torn race outcomes.",
     },
     {
-      "question": "Can I use the public race player?",
+      "question": "Is the userscript free?",
       "answer":
-        "Yes. The public race player is available at pp-api.sokin.xyz/pit-guru/. It can load saved races from the PostgreSQL-backed service. Verify your account with a public Torn API key to save settings and use the one-race demo. The API key is never saved in the Pit Guru database.",
+        "Yes. The Pit Guru userscript is free to install and use. The separately listed Pit Guru Web Tool is the supporter service.",
     },
     {
-      "question": "Will this be a supporter script?",
+      "question": "Where is the supporter web tool?",
       "answer":
-        "Yes, it is being positioned on the hub as a supporter racing project. Licensing is handled through the Pit Guru Discord. Verify first, then run /buylicense in any server channel. Plans are 7 days for 7,000,000 Torn dollars or 31 days for 20,000,000 Torn dollars.",
+        "Open the separate Pit Guru Web Tool entry under Supporter or Web Tools. That hosted race player and analysis service requires supporter access; the userscript does not.",
     },
     {
       "question": "Can I install it right now?",
       "answer":
-        "Yes. Install Pit Guru v2.3.4. On first run, Settings opens with the public Torn API-key field focused and a short guided tour. Its update and download routes point to the same hosted build. v2.3.4 fixes car images in Predictions and Past Races by using Pit Guru's hosted car asset first, Torn's canonical item image as a fallback, and clean failure handling if neither loads. v2.3.3 opens Race IDs in Records directly in the configured Pit Guru Player instead of navigating back to Torn. v2.3.2 fixes current custom-race lap metadata and race length. Predictions now make RS the strongest prior, use same-track lap pace regardless of race distance, normalize finishes for field size, and learn bounded corrections from frozen pre-race forecasts. The launcher-pill and detached Records-window corrections from v2.3.1 remain included. For a reproducible cold-cache performance run, v2.2.4 exposes pgPerformanceCleanSlate(). It clears Pit Guru performance data while preserving credentials, licence/session state, settings, and layout. v2.2.3 fixes the remaining 100-driver loading and freezing path by capturing racingData once, blocking empty pre-race builds, decoding timing once, deferring heavy route geometry, and scheduling live updates by render bucket. v2.1.7 keeps HTML report export disabled until the live race has finished or the page is a replay, then exports richer completed-race overview and full-data driver tables. v2.1.6 warm-restores cached heavy-race data after refreshing the same race, then checks fresh Torn racingData before marking the cache verified. v2.1.5 completes the performance rewrite release pass with bounded persistent caches, capped heavy-race IndexedDB cleanup, page lifecycle cleanup, and refreshed hosted install artifacts. v2.1.4 advances the phased performance rewrite with normalized race indexes, cached replay frame rows, bounded telemetry prefix stats, cached sector snapshots, and shared frame-state render paths. v2.1.3 started the phased performance rewrite with profiling, bounded race-data caches, render coalescing, incremental live overtake counting, and worker-backed heavy-race lead/sector aggregates. v2.1.1 cleans up public Settings, keeps hosted retry/cache/session-key hardening, and fixes Performance preset/theme behavior. v2.1.0 added hosted retry recovery for transient hosted failures, short TTL read caching, and legacy hosted-session key cleanup. v2.0.9 fixed a Predictions renderer crash after racingData capture while preserving the Big Race cache hardening from v2.0.8. Large custom races now let you choose how many positions around the focused driver are drawn on screen, while keeping the full race data for analysis and exports. Driver Intel sync and hosted race uploads now show notifications, and prediction scoring no longer lets a tiny amount of same-track history dominate the forecast. A verified inactive account can analyse one race as a demo before supporter access is required.",
+        "Yes. Install the current free Pit Guru userscript from GreasyFork. On first run, Settings opens with the public Torn API-key field focused and a short guided tour. The separately listed hosted web tool is optional and requires supporter access.",
     },
     {
       "question": "Where should I follow progress or share feedback?",
       "answer":
         "The Pit Guru Discord server is the best place for progress, support, licensing, and release routing. If you have feedback from Lap Recorder or ideas for what Pit Guru should solve better, that context is especially useful while the project is still taking shape.",
+    },
+  ],
+  "pitGuruWeb": [
+    {
+      "question": "What is the Pit Guru Web Tool?",
+      "answer":
+        "It is the hosted supporter race player and analysis service for saved races, replay links and persistent Pit Guru race history.",
+    },
+    {
+      "question": "Is the web tool free?",
+      "answer":
+        "No. The Pit Guru Web Tool requires supporter access. The Pit Guru userscript is listed separately and remains free to install and use.",
+    },
+    {
+      "question": "How do I open it?",
+      "answer":
+        "Use Open Pit Guru Web Tool on this module entry. The hosted service is available at pp-api.sokin.xyz/pit-guru/ and handles account verification before supporter features are unlocked.",
+    },
+    {
+      "question": "How is supporter access handled?",
+      "answer":
+        "Licensing is handled through the Pit Guru Discord. Verify your Torn account there, then use /buylicense to start the supporter access flow.",
     },
   ],
   "customRaceFilter": [
