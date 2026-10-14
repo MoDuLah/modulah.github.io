@@ -89,7 +89,7 @@ describe("command centre catalogue", () => {
     expect(app).toContain("'RELEASE', 'HOTFIX', 'SERVICE', 'BUILD'");
     expect(app).toContain("`${releases.length} UPDATES`");
     expect(app).toContain("['SERVICE', 'BUILD'].includes(release.type)");
-    expect(app).toContain('`${release.type}\\u0000${project}`');
+    expect(app).toContain("`${release.type}\\u0000${project}`");
     expect(app).toContain("release.scriptId || release.title.toLocaleLowerCase()");
     expect(app).toContain("Latest release check:");
     expect(app).toContain("requestUrl.searchParams.set('fresh', Date.now().toString())");
