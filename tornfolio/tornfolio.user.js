@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Tornfolio — Property, Lease & ROI Manager
 // @namespace    https://github.com/local/torn-landlord-tenant-ledger
-// @version      0.6.12
+// @version      0.7.0
 // @description  Manage your Torn property portfolio, rentals, market pricing, archive, and ROI.
 // @author       MoDuL
 // @copyright    2026 MoDuL. All rights reserved.
@@ -982,7 +982,7 @@
       else active.push(normalized);
     }
     targetState.leases = compactLeaseListWithoutMigration(active);
-    targetState.archivedRentals = dedupeArchiveRows(archived);
+    targetState.archivedRentals = dedupeArchiveRows(archived).filter(isCompletedArchiveRow);
     targetState.schemaVersion = 2;
   }
 
@@ -1026,7 +1026,8 @@
     const byId = new Map();
     for (const row of rows || []) {
       if (!row || typeof row !== "object") continue;
-      const key = clean(row.contractId || row.contract_id, "") || [
+      const sourceLogId = clean(row.start_log_id || row.log_id, "");
+      const key = sourceLogId ? `contract-log:${sourceLogId}` : clean(row.contractId || row.contract_id, "") || [
         row.property_id || row.propertyId || row.id,
         row.role || row.roleHint || row.source,
         row.owner || row.landlord,
@@ -1037,6 +1038,14 @@
       byId.set(key, { ...(byId.get(key) || {}), ...row, contractId: key });
     }
     return Array.from(byId.values());
+  }
+
+  function isCompletedArchiveRow(row = {}) {
+    const status = normalizeLookup(row.status);
+    if (["active", "rented", "leased", "pending"].includes(status)) return false;
+    if (["completed", "ended", "expired", "sold"].includes(status)) return true;
+    const end = new Date(row.end_date || row.endDate || "").getTime();
+    return Number.isFinite(end) && end <= Date.now();
   }
 
   function preferredStatus(previous, incoming) {
@@ -1435,7 +1444,7 @@
     };
     state.leases = (state.leases || []).filter((lease) => !isHouseholdOccupancyLease(lease, currentProperty, spouse));
     if (leases.length) state.leases = compactLeaseList([...(state.leases || []), ...leases]);
-    state.archivedRentals = dedupeArchiveRows([...(state.archivedRentals || []), ...tenancyArchive]);
+    state.archivedRentals = dedupeArchiveRows([...(state.archivedRentals || []), ...tenancyArchive]).filter(isCompletedArchiveRow);
     migrateContractLifecycle(state);
     state.lastSyncAt = nowIso();
     completeSyncProgressFromBody(body);
@@ -1506,6 +1515,11 @@
       status: clean(row.status, "manual"),
       roleHint: clean(row.roleHint || row.role || row.source, "landlord"),
       notes: clean(row.notes || row.note, ""),
+      extensionCount: positiveNumber(row.extensionCount || row.extension_count),
+      extensionDays: positiveNumber(row.extensionDays || row.extension_days),
+      extensionStatus: clean(row.extensionStatus || row.extension_status, ""),
+      lastExtensionAt: clean(row.lastExtensionAt || row.last_extension_at, ""),
+      historyContractId: clean(row.historyContractId || row.history_contract_id, ""),
       updatedAt: nowIso(),
       source: "server",
     }, "server");
@@ -2669,7 +2683,7 @@
         if (parsed && !Array.isArray(parsed)) {
           state.propertyCosts = { ...(state.propertyCosts || {}), ...(parsed.propertyCosts || {}) };
           state.settings = { ...appSettings(), ...(parsed.settings || {}) };
-          state.archivedRentals = dedupeArchiveRows([...(state.archivedRentals || []), ...(parsed.archivedRentals || [])]);
+          state.archivedRentals = dedupeArchiveRows([...(state.archivedRentals || []), ...(parsed.archivedRentals || [])]).filter(isCompletedArchiveRow);
           state.activity = Array.isArray(parsed.activity) ? parsed.activity : (state.activity || []);
           state.endpointData = { ...(state.endpointData || {}), ...(parsed.endpointData || {}) };
           state.keyInfo = parsed.keyInfo || state.keyInfo;
@@ -2752,6 +2766,8 @@
     const spouseRows = partner.length ? partner : propertiesFromBody(spouseOwnedPropertiesBody(endpointBody("spouse-properties")));
     const current = currentPropertyFromBody(server) || currentPropertyFromBody(endpointBody("user-property")) || currentPropertyFromBody(endpointBody("user-id-property"));
     const propertyMap = new Map();
+    const lifecycle = serverPropertyLifecycleRows();
+    const lifecycleByProperty = new Map(lifecycle.map((row) => [String(row.property_id || row.propertyId || ""), row]));
 
     const addProperty = (raw, ownershipHint = "") => {
       if (!raw || typeof raw !== "object") return;
@@ -2788,6 +2804,7 @@
     }
 
     for (const property of propertyMap.values()) {
+      property.lifecycle = lifecycleByProperty.get(property.id) || null;
       property.status = property.isCurrentHome
         ? "occupied"
         : property.activeContract && property.activeContract.direction === "out"
@@ -2799,11 +2816,11 @@
     }
 
     const properties = Array.from(propertyMap.values()).sort((a, b) => tfOwnershipOrder(a.ownership) - tfOwnershipOrder(b.ownership) || a.name.localeCompare(b.name));
-    const archive = dedupeArchiveRows([...(state.archivedRentals || []), ...serverArchiveRows()]).map(tfNormalizeArchive).sort((a, b) => String(b.endDate || b.startDate).localeCompare(String(a.endDate || a.startDate)));
+    const archive = dedupeArchiveRows([...(state.archivedRentals || []), ...serverArchiveRows()]).filter(isCompletedArchiveRow).map(tfNormalizeArchive).sort((a, b) => String(b.endDate || b.startDate).localeCompare(String(a.endDate || a.startDate)));
     const activities = tfActivityRows(properties, activeRentals, archive);
     const suggestions = serverRentSuggestionRows().map((row) => tfNormalizeSuggestion(row, properties));
     const marketSummary = serverRoiSummaryRows();
-    return { profile, spouse, myId, properties, currentHome, activeRentals, archive, activities, suggestions, marketSummary };
+    return { profile, spouse, myId, properties, currentHome, activeRentals, archive, activities, suggestions, marketSummary, lifecycle };
   }
 
   function tfNormalizeProperty(raw, ownershipHint, context) {
@@ -2894,6 +2911,10 @@
       endDate: lease.endDate || lease.end_date || "",
       remaining: Number.isFinite(remaining) ? remaining : "",
       notes: clean(lease.notes, ""),
+      extensionCount: positiveNumber(lease.extensionCount || lease.extension_count),
+      extensionDays: positiveNumber(lease.extensionDays || lease.extension_days),
+      extensionStatus: clean(lease.extensionStatus || lease.extension_status, ""),
+      lastExtensionAt: clean(lease.lastExtensionAt || lease.last_extension_at, ""),
       source: lease.source || "saved",
       raw: lease,
       context,
@@ -2925,7 +2946,7 @@
       ...row,
       propertyId,
       property: clean(row.property_type || row.property || row.home, propertyId ? `Property #${propertyId}` : "Property"),
-      ownership: role.includes("spouse") ? "spouse" : role.includes("tenant") || role.includes("renter") ? "third-party" : "mine",
+      ownership: role.includes("spouse") ? "spouse" : role.includes("tenant") || role.includes("renter") || role.includes("leased from") ? "third-party" : "mine",
       owner: clean(row.owner || row.landlord, ""),
       tenant: clean(row.renter || row.tenant, ""),
       daily: moneyNumber(row.per_day || row.dailyAmount || row.cost_per_day),
@@ -2934,6 +2955,10 @@
       endDate: row.end_date || row.endDate || "",
       duration: positiveNumber(row.days || row.durationDays),
       status: clean(row.status, "expired"),
+      extensionCount: positiveNumber(row.extension_count || row.extensionCount),
+      extensionDays: positiveNumber(row.extension_days || row.extensionDays),
+      extensionStatus: clean(row.extension_status || row.extensionStatus, ""),
+      completionReason: clean(row.completion_reason || row.completionReason, ""),
       image: row.property_image || propertyImageUrl(row.property_type || row.property),
     };
   }
@@ -2986,6 +3011,8 @@
       type: clean(row.event || row.event_type, "Property updated"),
       property: clean(row.property_type || row.property, row.property_id ? `Property #${row.property_id}` : "Property"),
       detail: tfHistoryDetail(row),
+      category: clean(row.category, "property"),
+      state: clean(row.event_state, "recorded"),
     }));
     const archived = archive.map((row) => ({ at: row.endDate, type: "Contract archived", property: row.property, detail: row.tenant ? `Rental with ${row.tenant} finished.` : "Rental contract finished." }));
     if (!events.length && !archived.length) {
@@ -2999,8 +3026,73 @@
     if (row.renter) parts.push(`Renter: ${row.renter}`);
     if (row.owner) parts.push(`Owner: ${row.owner}`);
     if (row.rent) parts.push(`Rent: ${money(row.rent)}`);
+    if (row.cost) parts.push(`Amount: ${money(row.cost)}`);
+    if (row.days) parts.push(`${tfNumber(row.days)} days`);
     if (row.happy) parts.push(`Happiness: ${Number(row.happy).toLocaleString()}`);
+    if (row.upgrades) parts.push(`Upgrades: ${row.upgrades}`);
+    if (row.staff) parts.push(`Staff: ${row.staff}`);
+    if (row.other_user) parts.push(`Other player: ${row.other_user}`);
+    if (row.perspective) parts.push(`${humanHeader(row.perspective)} view`);
     return parts.join(" · ") || "Property history updated.";
+  }
+
+  function tfLifecycleTotals(model) {
+    return (model.lifecycle || []).reduce((totals, row) => {
+      totals.events += Number(row.event_count || 0);
+      totals.offers += Number(row.offers_made_or_received || 0);
+      totals.declinedOffers += Number(row.offers_declined || 0);
+      totals.pendingOffers += normalizeLookup(row.rental_offer_status) === "pending" ? 1 : 0;
+      totals.extensions += Number(row.extensions_accepted || 0);
+      totals.pendingExtensions += normalizeLookup(row.extension_status) === "pending" ? 1 : 0;
+      totals.expiredRentals += Number(row.tenancies_expired || 0);
+      totals.rent += Number(row.rent_received || 0);
+      totals.upkeep += Number(row.upkeep_paid || 0);
+      totals.net += Number(row.net_property_cashflow || 0);
+      return totals;
+    }, { events: 0, offers: 0, declinedOffers: 0, pendingOffers: 0, extensions: 0, pendingExtensions: 0, expiredRentals: 0, rent: 0, upkeep: 0, net: 0 });
+  }
+
+  function tfRentalJourneyPanel(model) {
+    const totals = tfLifecycleTotals(model);
+    const events = serverPropertyHistoryEventRows()
+      .filter((row) => ["rental_offer", "rental_extension", "rental_listing"].includes(clean(row.category, "")))
+      .slice(0, 5)
+      .map((row) => ({
+        at: row.event_at || "",
+        type: clean(row.event, "Rental activity"),
+        property: clean(row.property_type, row.property_id ? `Property #${row.property_id}` : "Property"),
+        detail: tfHistoryDetail(row),
+      }));
+    return `<section class="tf-card tf-journey-panel"><div class="tf-card-head"><h2>${tfIcon("exchange")} Rental Journey</h2></div><div class="tf-mini-stats"><span><b>${tfNumber(totals.pendingOffers)}</b><small>Pending offers</small></span><span><b>${tfNumber(totals.pendingExtensions)}</b><small>Pending extensions</small></span><span><b>${tfNumber(totals.extensions)}</b><small>Accepted extensions</small></span><span><b>${tfNumber(totals.expiredRentals)}</b><small>Expired contracts</small></span></div>${events.length ? tfActivityList(events) : tfEmpty("No rental journey yet", "Listings, offers, contracts and extensions appear after history sync.")}</section>`;
+  }
+
+  function tfLifecycleSnapshot(lifecycle) {
+    if (!lifecycle) return tfEmpty("No journey data yet", "Sync property history to reconstruct ownership, listings, offers and contracts.");
+    const states = [
+      ["Ownership", lifecycle.ownership_status],
+      ["Occupancy", lifecycle.occupancy_status],
+      ["Sale listing", lifecycle.sale_listing_status],
+      ["Rental listing", lifecycle.rental_listing_status],
+      ["Latest offer", lifecycle.rental_offer_status],
+      ["Rental contract", lifecycle.rental_contract_status],
+      ["Extension", lifecycle.extension_status],
+    ];
+    return `<div class="tf-lifecycle-grid">${states.map(([label, value]) => `<div><span>${escapeHtml(label)}</span><strong>${escapeHtml(humanHeader(value || "unknown"))}</strong></div>`).join("")}<div><span>Offers recorded</span><strong>${tfNumber(Number(lifecycle.offers_made_or_received || 0))}</strong></div><div><span>Extensions accepted</span><strong>${tfNumber(Number(lifecycle.extensions_accepted || 0))}</strong></div><div><span>Known net cashflow</span><strong>${escapeHtml(tfMoney(Number(lifecycle.net_property_cashflow || 0)))}</strong></div></div>`;
+  }
+
+  function tfPropertyJourney(propertyId) {
+    const rows = serverPropertyHistoryEventRows()
+      .filter((row) => String(row.property_id || row.propertyId || "") === String(propertyId || ""))
+      .sort((a, b) => String(b.event_at || "").localeCompare(String(a.event_at || "")))
+      .slice(0, 16);
+    if (!rows.length) return tfEmpty("No property journey yet", "Sync history to see ownership, occupancy, listings, offers, contracts, extensions and costs.");
+    return `<div class="tf-journey">${rows.map((row) => `<div class="tf-journey-row" data-category="${escapeAttr(clean(row.category, "property"))}"><time>${escapeHtml(tfDate(row.event_at))}</time><i></i><div><strong>${escapeHtml(clean(row.event, "Property event"))}</strong><span>${escapeHtml(tfHistoryDetail(row))}</span></div><em>${escapeHtml(humanHeader(clean(row.category, "property")))}</em></div>`).join("")}</div>`;
+  }
+
+  function tfLifecycleIntelligence(model) {
+    const totals = tfLifecycleTotals(model);
+    if (!totals.events) return tfEmpty("More history is needed", "Lifecycle intelligence appears after a property-history sync.");
+    return `<div class="tf-lifecycle-intelligence"><div class="tf-mini-stats"><span><b>${tfNumber(totals.offers)}</b><small>Offers recorded</small></span><span><b>${tfNumber(totals.declinedOffers)}</b><small>Offers declined</small></span><span><b>${tfNumber(totals.extensions)}</b><small>Extensions accepted</small></span><span><b>${tfNumber(totals.expiredRentals)}</b><small>Rentals completed</small></span></div><div class="tf-kv-list"><span><b>Upfront rent recorded</b><strong>${escapeHtml(tfMoney(totals.rent))}</strong></span><span><b>Upkeep recorded</b><strong>${escapeHtml(tfMoney(totals.upkeep))}</strong></span><span><b>Known lifecycle cashflow</b><strong>${escapeHtml(tfMoney(totals.net))}</strong></span><span><b>Events understood</b><strong>${tfNumber(totals.events)}</strong></span></div><small>Cashflow uses only events returned within your configured history depth; rent is recorded when Torn reports the upfront contract payment.</small></div>`;
   }
 
   function tfOwnershipOrder(value) {
@@ -3120,7 +3212,7 @@
         ${state.manualModalOpen ? manualLeaseModalHtml() : ""}
         ${state.settingsOpen ? tfSettingsModalHtml() : ""}
         ${state.detailView ? tfDetailModalHtml(model) : ""}
-        <footer class="tf-footer"><div class="tf-footer-brand">${tfIcon("logo")}<strong>Tornfolio</strong><small>Portfolio &amp; Rental Management</small></div><div><span>Help &amp; Support</span><span>Privacy Policy</span><span>Terms of Service</span><span>v0.6.12</span></div></footer>
+        <footer class="tf-footer"><div class="tf-footer-brand">${tfIcon("logo")}<strong>Tornfolio</strong><small>Portfolio &amp; Rental Management</small></div><div><span>Help &amp; Support</span><span>Privacy Policy</span><span>Terms of Service</span><span>v0.7.0</span></div></footer>
         ${tfSyncProgressHtml()}
         <div class="tlt-status tf-toast ${state.syncProgress ? "is-suppressed" : ""} ${state.syncState && state.syncState !== "idle" ? "is-visible" : ""} ${state.syncState === "error" ? "is-error" : ""}" aria-live="polite">${escapeHtml(state.syncMessage || "")}</div>
       </div>
@@ -3258,12 +3350,12 @@
     const total = rows.reduce((sum, row) => sum + Number(row.total || 0), 0);
     return `<section class="tf-page">${tfPageTitle("rentals", "Rentals", "Manage your active rental contracts.")}
       <div class="tf-filter-row"><div class="tf-segmented">${tfSegmentButton("rentalScope", "out", "key", "Renting Out", ui.rentalScope)}${tfSegmentButton("rentalScope", "from", "exchange", "Renting From", ui.rentalScope)}${tfSegmentButton("rentalScope", "all", "list", "All Rentals", ui.rentalScope)}</div><input type="search" data-ui-field="rentalSearch" placeholder="Search rentals…" value="${escapeAttr(ui.rentalSearch)}"><select data-ui-field="rentalOwner"><option value="all">All Owners</option><option value="mine"${ui.rentalOwner === "mine" ? " selected" : ""}>My Properties</option><option value="spouse"${ui.rentalOwner === "spouse" ? " selected" : ""}>Spouse Properties</option><option value="third-party"${ui.rentalOwner === "third-party" ? " selected" : ""}>Third Party</option></select><select data-ui-field="rentalType"><option value="all">All Types</option>${types.map((type) => `<option value="${escapeAttr(type)}"${ui.rentalType === type ? " selected" : ""}>${escapeHtml(type)}</option>`).join("")}</select></div>
-      <div class="tf-main-sidebar"><div><div class="tf-summary-strip">${tfMetric("home", tfNumber(rows.length), "Active Rentals")}${tfMetric("alert", tfNumber(soon.length), "Ending Soon", soon.length ? "danger" : "")}${tfMetric("money", tfMoney(daily), "Total Daily Rent", "success")}${tfMetric("rentals", tfMoney(total), "Total Contract Value", "info")}</div><div class="tf-rental-list">${rows.length ? rows.map(tfRentalCard).join("") : tfEmpty("No matching active rentals", "Finished contracts live in Archive. Sync or change the current filters.")}</div></div><aside class="tf-sidebar"><section class="tf-card"><div class="tf-card-head"><h2>${tfIcon("quick")} Quick Actions</h2></div><button class="tf-primary tf-wide" type="button" data-action="open-manual-modal">${tfIcon("add")} Add Manual Rental</button><button class="tf-wide" type="button" data-action="export-csv">Export CSV</button><button class="tf-wide" type="button" data-tab="archive">View Archive</button></section>${tfAttentionPanel(model)}<section class="tf-card"><div class="tf-card-head"><h2>${tfIcon("calendar")} Upcoming End Dates</h2></div>${tfUpcomingRentals(model.activeRentals)}</section></aside></div>
+      <div class="tf-main-sidebar"><div><div class="tf-summary-strip">${tfMetric("home", tfNumber(rows.length), "Active Rentals")}${tfMetric("alert", tfNumber(soon.length), "Ending Soon", soon.length ? "danger" : "")}${tfMetric("money", tfMoney(daily), "Total Daily Rent", "success")}${tfMetric("rentals", tfMoney(total), "Total Contract Value", "info")}</div><div class="tf-rental-list">${rows.length ? rows.map(tfRentalCard).join("") : tfEmpty("No matching active rentals", "Finished contracts live in Archive. Sync or change the current filters.")}</div></div><aside class="tf-sidebar"><section class="tf-card"><div class="tf-card-head"><h2>${tfIcon("quick")} Quick Actions</h2></div><button class="tf-primary tf-wide" type="button" data-action="open-manual-modal">${tfIcon("add")} Add Manual Rental</button><button class="tf-wide" type="button" data-action="export-csv">Export CSV</button><button class="tf-wide" type="button" data-tab="archive">View Archive</button></section>${tfAttentionPanel(model)}${tfRentalJourneyPanel(model)}<section class="tf-card"><div class="tf-card-head"><h2>${tfIcon("calendar")} Upcoming End Dates</h2></div>${tfUpcomingRentals(model.activeRentals)}</section></aside></div>
     </section>`;
   }
 
   function tfRentalCard(contract) {
-    return `<article class="tf-rental-card">${contract.image ? `<img src="${escapeAttr(contract.image)}" alt="">` : `<div class="tf-image-placeholder">${tfIcon("home")}</div>`}<div class="tf-rental-body"><div class="tf-property-head"><div><h2>${escapeHtml(contract.property)}${contract.propertyId && !contract.property.includes(contract.propertyId) ? ` <small>#${escapeHtml(contract.propertyId)}</small>` : ""}</h2><div class="tf-badges">${tfOwnershipBadge(contract.ownership, contract.direction === "from")}${tfStatusBadge("active")}</div></div></div><div class="tf-contract-grid"><div><span>${contract.direction === "out" ? "Tenant" : "Owner"}</span><strong>${escapeHtml(contract.direction === "out" ? contract.tenant : contract.owner)}</strong></div><div><span>Rent / Day</span><strong>${escapeHtml(tfMoney(contract.daily))}</strong></div><div><span>Total Contract</span><strong>${escapeHtml(tfMoney(contract.total))}</strong></div><div><span>Started</span><strong>${escapeHtml(tfDate(contract.startDate))}</strong></div><div><span>Ends</span><strong>${escapeHtml(tfDate(contract.endDate))}</strong></div><div><span>Remaining</span><strong class="${Number(contract.remaining) <= 7 ? "is-urgent" : "is-success"}">${contract.remaining === "" ? "Unknown" : `${tfNumber(contract.remaining)} days`}</strong></div></div></div><div class="tf-card-actions"><button type="button" data-action="open-property" data-property-key="${escapeAttr(contract.propertyKey)}">View Property →</button><button type="button" data-action="open-rental" data-contract-id="${escapeAttr(contract.contractId)}">View Rental →</button></div></article>`;
+    return `<article class="tf-rental-card">${contract.image ? `<img src="${escapeAttr(contract.image)}" alt="">` : `<div class="tf-image-placeholder">${tfIcon("home")}</div>`}<div class="tf-rental-body"><div class="tf-property-head"><div><h2>${escapeHtml(contract.property)}${contract.propertyId && !contract.property.includes(contract.propertyId) ? ` <small>#${escapeHtml(contract.propertyId)}</small>` : ""}</h2><div class="tf-badges">${tfOwnershipBadge(contract.ownership, contract.direction === "from")}${tfStatusBadge("active")}${contract.extensionCount ? `<span class="tf-badge tf-badge-info">Extended ×${tfNumber(contract.extensionCount)}</span>` : normalizeLookup(contract.extensionStatus) === "pending" ? `<span class="tf-badge tf-badge-warning">Extension pending</span>` : ""}</div></div></div><div class="tf-contract-grid"><div><span>${contract.direction === "out" ? "Tenant" : "Owner"}</span><strong>${escapeHtml(contract.direction === "out" ? contract.tenant : contract.owner)}</strong></div><div><span>Rent / Day</span><strong>${escapeHtml(tfMoney(contract.daily))}</strong></div><div><span>Total Contract</span><strong>${escapeHtml(tfMoney(contract.total))}</strong></div><div><span>Started</span><strong>${escapeHtml(tfDate(contract.startDate))}</strong></div><div><span>Ends</span><strong>${escapeHtml(tfDate(contract.endDate))}</strong></div><div><span>Remaining</span><strong class="${Number(contract.remaining) <= 7 ? "is-urgent" : "is-success"}">${contract.remaining === "" ? "Unknown" : `${tfNumber(contract.remaining)} days`}</strong></div></div></div><div class="tf-card-actions"><button type="button" data-action="open-property" data-property-key="${escapeAttr(contract.propertyKey)}">View Property →</button><button type="button" data-action="open-rental" data-contract-id="${escapeAttr(contract.contractId)}">View Rental →</button></div></article>`;
   }
 
   function tfUpcomingRentals(rows) {
@@ -3351,19 +3443,20 @@
       const query = normalizeLookup(ui.archiveSearch);
       if (query && ![row.property, row.propertyId, row.owner, row.tenant].join(" ").toLowerCase().includes(query)) return false;
       if (ui.archiveOwner !== "all" && row.ownership !== ui.archiveOwner) return false;
-      if (ui.archiveType !== "all" && !normalizeLookup(row.status).includes(normalizeLookup(ui.archiveType))) return false;
+      if (ui.archiveType === "expired" && !/completed|expired|ended/i.test(row.status)) return false;
+      if (ui.archiveType === "sold" && !/sold/i.test(row.status)) return false;
       return true;
     });
     const metadata = serverHistoryMetadata();
     return `<section class="tf-page">${tfPageTitle("archive", "Archive", "View past rental contracts and saved property history.")}
       <div class="tf-filter-row"><input class="tf-search-wide" type="search" data-ui-field="archiveSearch" placeholder="Search by property, tenant, owner or ID…" value="${escapeAttr(ui.archiveSearch)}"><select data-ui-field="archiveOwner"><option value="all">All Owners</option><option value="mine"${ui.archiveOwner === "mine" ? " selected" : ""}>My Properties</option><option value="spouse"${ui.archiveOwner === "spouse" ? " selected" : ""}>Spouse Properties</option><option value="third-party"${ui.archiveOwner === "third-party" ? " selected" : ""}>Third Party</option></select><select data-ui-field="archiveType"><option value="all">All Record Types</option><option value="expired">Expired Rentals</option><option value="sold">Sold Properties</option></select></div>
-      <div class="tf-main-sidebar"><div class="tf-archive-list">${rows.length ? rows.map(tfArchiveCard).join("") : tfEmpty("No archived records", historyEmptyMessage(metadata), `<button class="tf-primary" type="button" data-action="refresh-user-details">Sync History</button>`)}</div><aside class="tf-sidebar"><section class="tf-card"><div class="tf-card-head"><h2>${tfIcon("archive")} Archive Summary</h2></div><div class="tf-archive-summary">${tfMetric("archive", tfNumber(model.archive.length), "Total Archived Records")}${tfMetric("alert", tfNumber(model.archive.filter((row) => /expired|ended/i.test(row.status)).length), "Expired Rentals", "danger")}${tfMetric("home", tfNumber(model.archive.filter((row) => /sold/i.test(row.status)).length), "Sold Properties")}</div></section><section class="tf-card"><div class="tf-card-head"><h2>${tfIcon("activity")} Recent Archive Activity</h2></div>${tfActivityList(model.activities.filter((row) => /archiv|sold|expired/i.test(row.type)).slice(0, 6))}</section></aside></div>
+      <div class="tf-main-sidebar"><div class="tf-archive-list">${rows.length ? rows.map(tfArchiveCard).join("") : tfEmpty("No archived records", historyEmptyMessage(metadata), `<button class="tf-primary" type="button" data-action="refresh-user-details">Sync History</button>`)}</div><aside class="tf-sidebar"><section class="tf-card"><div class="tf-card-head"><h2>${tfIcon("archive")} Archive Summary</h2></div><div class="tf-archive-summary">${tfMetric("archive", tfNumber(model.archive.length), "Total Archived Records")}${tfMetric("alert", tfNumber(model.archive.filter((row) => /completed|expired|ended/i.test(row.status)).length), "Expired Rentals", "danger")}${tfMetric("home", tfNumber(model.archive.filter((row) => /sold/i.test(row.status)).length), "Sold Properties")}</div></section><section class="tf-card"><div class="tf-card-head"><h2>${tfIcon("activity")} Recent Archive Activity</h2></div>${tfActivityList(model.activities.filter((row) => /archiv|sold|expired/i.test(row.type)).slice(0, 6))}</section></aside></div>
     </section>`;
   }
 
   function tfArchiveCard(row) {
     const endedAgo = row.endDate ? tfRelative(row.endDate) : "End date unavailable";
-    return `<article class="tf-archive-card">${row.image ? `<img src="${escapeAttr(row.image)}" alt="">` : `<div class="tf-image-placeholder">${tfIcon("archive")}</div>`}<div class="tf-archive-property"><h2>${escapeHtml(row.property)}${row.propertyId && !row.property.includes(row.propertyId) ? ` <small>#${escapeHtml(row.propertyId)}</small>` : ""}</h2><div class="tf-badges">${tfStatusBadge(/sold/i.test(row.status) ? "sold" : "expired")}${tfOwnershipBadge(row.ownership)}</div><small>${escapeHtml(row.property)}</small></div><div class="tf-archive-facts"><span><b>${row.tenant ? "Tenant" : "Owner"}</b><strong>${escapeHtml(row.tenant || row.owner || "Unavailable")}</strong></span><span><b>Rent / Day</b><strong>${escapeHtml(tfMoney(row.daily))}</strong></span><span><b>Total Contract</b><strong>${escapeHtml(tfMoney(row.total))}</strong></span><span><b>Started</b><strong>${escapeHtml(tfDate(row.startDate))}</strong></span></div><div class="tf-archive-ended"><span>Ended</span><strong>${escapeHtml(tfDate(row.endDate))}</strong><b>${escapeHtml(endedAgo)}</b><small>${escapeHtml(row.status)}</small></div><div class="tf-card-actions"><button type="button" data-action="open-property" data-property-key="${escapeAttr(row.propertyId ? `property:${row.propertyId}` : "")}">View Property</button><button class="tf-primary" type="button" data-action="open-archive" data-contract-id="${escapeAttr(row.contractId)}">View Details →</button></div></article>`;
+    return `<article class="tf-archive-card">${row.image ? `<img src="${escapeAttr(row.image)}" alt="">` : `<div class="tf-image-placeholder">${tfIcon("archive")}</div>`}<div class="tf-archive-property"><h2>${escapeHtml(row.property)}${row.propertyId && !row.property.includes(row.propertyId) ? ` <small>#${escapeHtml(row.propertyId)}</small>` : ""}</h2><div class="tf-badges">${tfStatusBadge(/sold/i.test(row.status) ? "sold" : "expired")}${tfOwnershipBadge(row.ownership)}${row.extensionCount ? `<span class="tf-badge tf-badge-info">${tfNumber(row.extensionCount)} extension${Number(row.extensionCount) === 1 ? "" : "s"}</span>` : ""}</div><small>${escapeHtml(row.completionReason || row.property)}</small></div><div class="tf-archive-facts"><span><b>${row.tenant ? "Tenant" : "Owner"}</b><strong>${escapeHtml(row.tenant || row.owner || "Unavailable")}</strong></span><span><b>Rent / Day</b><strong>${escapeHtml(tfMoney(row.daily))}</strong></span><span><b>Total Contract</b><strong>${escapeHtml(tfMoney(row.total))}</strong></span><span><b>Started</b><strong>${escapeHtml(tfDate(row.startDate))}</strong></span></div><div class="tf-archive-ended"><span>Ended</span><strong>${escapeHtml(tfDate(row.endDate))}</strong><b>${escapeHtml(endedAgo)}</b><small>${escapeHtml(row.status)}</small></div><div class="tf-card-actions"><button type="button" data-action="open-property" data-property-key="${escapeAttr(row.propertyId ? `property:${row.propertyId}` : "")}">View Property</button><button class="tf-primary" type="button" data-action="open-archive" data-contract-id="${escapeAttr(row.contractId)}">View Details →</button></div></article>`;
   }
 
   function tfInsightsHtml(model) {
@@ -3379,7 +3472,7 @@
     const occupancy = owned.length ? Math.round((rentedCount / owned.length) * 100) : 0;
     return `<section class="tf-page">${tfPageTitle("insights", "Insights", "Analyse current portfolio performance, rental income and supported history.", `<div class="tf-title-filters"><select data-ui-field="insightOwner"><option value="all">All Owners</option><option value="mine"${ui.insightOwner === "mine" ? " selected" : ""}>My Properties</option><option value="spouse"${ui.insightOwner === "spouse" ? " selected" : ""}>Spouse Properties</option></select><select data-ui-field="insightType"><option value="all">All Types</option>${types.map((type) => `<option value="${escapeAttr(type)}"${ui.insightType === type ? " selected" : ""}>${escapeHtml(type)}</option>`).join("")}</select></div>`)}
       <div class="tf-kpi-row">${tfMetric("money", tfMoney(value), "Known Portfolio Value", "success")}${tfMetric("money", tfMoney(daily), "Daily Rental Income", "success")}${tfMetric("property", tfNumber(properties.length), "Total Properties")}${tfMetric("key", tfNumber(rentedCount), "Rented Properties", "info")}${tfMetric("home", tfNumber(owned.filter((row) => row.status === "available").length), "Available Properties")}${tfMetric("tag", tfNumber(owned.filter((row) => row.status === "listed").length), "Listed Properties", "warning")}</div>
-      <div class="tf-insights-grid"><section class="tf-card tf-chart-empty"><div class="tf-card-head"><h2>${tfIcon("money")} Rental Income Trend</h2></div>${tfEmpty("More history is needed", "Tornfolio will not invent a monthly income trend. This chart appears when dated income snapshots are available.")}</section><section class="tf-card"><div class="tf-card-head"><h2>${tfIcon("property")} Property Type Breakdown</h2></div>${tfBreakdownBars(breakdown, properties.length)}</section><section class="tf-card tf-occupancy"><div class="tf-card-head"><h2>${tfIcon("key")} Occupancy Rate</h2></div><div class="tf-donut" style="--tf-percent:${occupancy}"><strong>${occupancy}%</strong><span>Rented</span></div><div class="tf-kv-list"><span><b>Rented</b><strong>${rentedCount}</strong></span><span><b>Available</b><strong>${owned.filter((row) => row.status === "available").length}</strong></span><span><b>Listed</b><strong>${owned.filter((row) => row.status === "listed").length}</strong></span></div></section><section class="tf-card tf-wide-card"><div class="tf-card-head"><h2>${tfIcon("trophy")} Top Performing Properties</h2></div>${tfTopProperties(active)}</section><section class="tf-card"><div class="tf-card-head"><h2>${tfIcon("insights")} Income Comparison</h2></div>${tfOwnerIncome(active)}</section><section class="tf-card"><div class="tf-card-head"><h2>${tfIcon("money")} Portfolio Value by Type</h2></div>${tfValueByType(properties)}</section><section class="tf-card"><div class="tf-card-head"><h2>${tfIcon("activity")} Contract Durations</h2></div>${tfDurationBars(active)}</section><section class="tf-card tf-wide-card"><div class="tf-card-head"><h2>${tfIcon("idea")} Key Insights</h2></div>${tfKeyInsights(model, occupancy, daily)}</section></div>
+      <div class="tf-insights-grid"><section class="tf-card tf-wide-card"><div class="tf-card-head"><h2>${tfIcon("exchange")} Lifecycle Intelligence</h2></div>${tfLifecycleIntelligence(model)}</section><section class="tf-card tf-chart-empty"><div class="tf-card-head"><h2>${tfIcon("money")} Rental Income Trend</h2></div>${tfEmpty("More history is needed", "Tornfolio will not invent a monthly income trend. This chart appears when dated income snapshots are available.")}</section><section class="tf-card"><div class="tf-card-head"><h2>${tfIcon("property")} Property Type Breakdown</h2></div>${tfBreakdownBars(breakdown, properties.length)}</section><section class="tf-card tf-occupancy"><div class="tf-card-head"><h2>${tfIcon("key")} Occupancy Rate</h2></div><div class="tf-donut" style="--tf-percent:${occupancy}"><strong>${occupancy}%</strong><span>Rented</span></div><div class="tf-kv-list"><span><b>Rented</b><strong>${rentedCount}</strong></span><span><b>Available</b><strong>${owned.filter((row) => row.status === "available").length}</strong></span><span><b>Listed</b><strong>${owned.filter((row) => row.status === "listed").length}</strong></span></div></section><section class="tf-card tf-wide-card"><div class="tf-card-head"><h2>${tfIcon("trophy")} Top Performing Properties</h2></div>${tfTopProperties(active)}</section><section class="tf-card"><div class="tf-card-head"><h2>${tfIcon("insights")} Income Comparison</h2></div>${tfOwnerIncome(active)}</section><section class="tf-card"><div class="tf-card-head"><h2>${tfIcon("money")} Portfolio Value by Type</h2></div>${tfValueByType(properties)}</section><section class="tf-card"><div class="tf-card-head"><h2>${tfIcon("activity")} Contract Durations</h2></div>${tfDurationBars(active)}</section><section class="tf-card tf-wide-card"><div class="tf-card-head"><h2>${tfIcon("idea")} Key Insights</h2></div>${tfKeyInsights(model, occupancy, daily)}</section></div>
     </section>`;
   }
 
@@ -3452,7 +3545,7 @@
       if (!property) return tfMissingDetailModal("Property unavailable", "That property is not present in the latest portfolio data.");
       const history = model.archive.filter((row) => row.propertyId && row.propertyId === property.id);
       const contracts = model.activeRentals.filter((row) => row.propertyKey === property.key);
-      return `<div class="tlt-modal-backdrop tf-modal-backdrop" data-action="close-detail"><div class="tlt-modal tf-modal tf-detail-modal" role="dialog" aria-modal="true" aria-label="Property details" data-modal-stop><div class="tlt-modal-head"><div><strong>${escapeHtml(property.name)}</strong><span>${property.id ? `Property #${escapeHtml(property.id)} · ` : ""}${escapeHtml(property.type)}</span></div><button class="tf-icon-button" type="button" data-action="close-detail" aria-label="Close property details">${tfIcon("close")}</button></div><div class="tf-detail-body">${property.image ? `<img class="tf-detail-image" src="${escapeAttr(property.image)}" alt="${escapeAttr(property.type)}">` : ""}<div class="tf-badges">${tfOwnershipBadge(property.ownership)}${tfStatusBadge(property.status)}</div><div class="tf-detail-grid"><div><span>Owner</span><strong>${escapeHtml(property.owner)}</strong></div><div><span>Happiness</span><strong>${property.happy ? tfNumber(property.happy) : "Unavailable"}</strong></div><div><span>Known Upgrades</span><strong>${property.upgrades.length ? property.upgrades.length : "Unavailable"}</strong></div><div><span>Residents</span><strong>${escapeHtml(property.residents.join(", ") || "Unavailable")}</strong></div><div><span>Daily Upkeep</span><strong>${escapeHtml(tfMoney(property.upkeep))}</strong></div><div><span>Market Value</span><strong>${escapeHtml(tfMoney(property.marketValue))}</strong></div><div><span>Investment Basis</span><strong>${escapeHtml(tfMoney(property.investment))}</strong></div></div>${property.upgrades.length ? `<section><h2>Upgrades / Modifications</h2><div class="tf-chip-list">${property.upgrades.map((value) => `<span>${escapeHtml(value)}</span>`).join("")}</div></section>` : ""}<section><h2>Current Rental</h2>${contracts.length ? contracts.map(tfRentalCard).join("") : tfEmpty("No active rental", "This property has no active rental contract in the latest data.")}</section><section><h2>Rental History</h2>${history.length ? history.map(tfArchiveCard).join("") : tfEmpty("No rental history", "Archived contracts for this property will appear after history has been synced.")}</section></div></div></div>`;
+      return `<div class="tlt-modal-backdrop tf-modal-backdrop" data-action="close-detail"><div class="tlt-modal tf-modal tf-detail-modal" role="dialog" aria-modal="true" aria-label="Property details" data-modal-stop><div class="tlt-modal-head"><div><strong>${escapeHtml(property.name)}</strong><span>${property.id ? `Property #${escapeHtml(property.id)} · ` : ""}${escapeHtml(property.type)}</span></div><button class="tf-icon-button" type="button" data-action="close-detail" aria-label="Close property details">${tfIcon("close")}</button></div><div class="tf-detail-body">${property.image ? `<img class="tf-detail-image" src="${escapeAttr(property.image)}" alt="${escapeAttr(property.type)}">` : ""}<div class="tf-badges">${tfOwnershipBadge(property.ownership)}${tfStatusBadge(property.status)}</div><div class="tf-detail-grid"><div><span>Owner</span><strong>${escapeHtml(property.owner)}</strong></div><div><span>Happiness</span><strong>${property.happy ? tfNumber(property.happy) : "Unavailable"}</strong></div><div><span>Known Upgrades</span><strong>${property.upgrades.length ? property.upgrades.length : "Unavailable"}</strong></div><div><span>Residents</span><strong>${escapeHtml(property.residents.join(", ") || "Unavailable")}</strong></div><div><span>Daily Upkeep</span><strong>${escapeHtml(tfMoney(property.upkeep))}</strong></div><div><span>Market Value</span><strong>${escapeHtml(tfMoney(property.marketValue))}</strong></div><div><span>Investment Basis</span><strong>${escapeHtml(tfMoney(property.investment))}</strong></div></div><section><h2>Lifecycle Snapshot</h2>${tfLifecycleSnapshot(property.lifecycle)}</section>${property.upgrades.length ? `<section><h2>Upgrades / Modifications</h2><div class="tf-chip-list">${property.upgrades.map((value) => `<span>${escapeHtml(value)}</span>`).join("")}</div></section>` : ""}<section><h2>Current Rental</h2>${contracts.length ? contracts.map(tfRentalCard).join("") : tfEmpty("No active rental", "This property has no active rental contract in the latest data.")}</section><section><h2>Property Journey</h2>${tfPropertyJourney(property.id)}</section><section><h2>Rental History</h2>${history.length ? history.map(tfArchiveCard).join("") : tfEmpty("No rental history", "Archived contracts for this property will appear after history has been synced.")}</section></div></div></div>`;
     }
     if (detail.kind === "rental") {
       const contract = model.activeRentals.find((row) => row.contractId === detail.id);
@@ -3468,7 +3561,7 @@
   }
 
   function tfContractDetailModal(contract, title) {
-    return `<div class="tlt-modal-backdrop tf-modal-backdrop" data-action="close-detail"><div class="tlt-modal tf-modal tf-detail-modal" role="dialog" aria-modal="true" aria-label="Rental details" data-modal-stop><div class="tlt-modal-head"><div><strong>${escapeHtml(title)}</strong><span>${escapeHtml(contract.property)}</span></div><button class="tf-icon-button" type="button" data-action="close-detail" aria-label="Close rental details">${tfIcon("close")}</button></div><div class="tf-detail-body">${contract.image ? `<img class="tf-detail-image" src="${escapeAttr(contract.image)}" alt="">` : ""}<div class="tf-badges">${tfOwnershipBadge(contract.ownership, contract.direction === "from")}${tfStatusBadge(title.startsWith("Archived") ? "expired" : "active")}</div><div class="tf-detail-grid"><div><span>Property ID</span><strong>${escapeHtml(contract.propertyId || "Unavailable")}</strong></div><div><span>${contract.direction === "out" ? "Tenant" : "Owner"}</span><strong>${escapeHtml(contract.direction === "out" ? contract.tenant : contract.owner)}</strong></div><div><span>Rent / Day</span><strong>${escapeHtml(tfMoney(contract.daily))}</strong></div><div><span>Total Contract</span><strong>${escapeHtml(tfMoney(contract.total))}</strong></div><div><span>Start Date</span><strong>${escapeHtml(tfDate(contract.startDate))}</strong></div><div><span>End Date</span><strong>${escapeHtml(tfDate(contract.endDate))}</strong></div><div><span>Duration</span><strong>${contract.duration !== "" ? `${tfNumber(contract.duration)} days` : "Unavailable"}</strong></div><div><span>Remaining</span><strong>${contract.remaining !== "" ? `${tfNumber(contract.remaining)} days` : "Finished / unavailable"}</strong></div></div>${contract.notes ? `<section><h2>Notes</h2><p>${escapeHtml(contract.notes)}</p></section>` : ""}<div class="tf-button-row">${contract.propertyKey ? `<button type="button" data-action="open-property" data-property-key="${escapeAttr(contract.propertyKey)}">View Property</button>` : ""}</div></div></div></div>`;
+    return `<div class="tlt-modal-backdrop tf-modal-backdrop" data-action="close-detail"><div class="tlt-modal tf-modal tf-detail-modal" role="dialog" aria-modal="true" aria-label="Rental details" data-modal-stop><div class="tlt-modal-head"><div><strong>${escapeHtml(title)}</strong><span>${escapeHtml(contract.property)}</span></div><button class="tf-icon-button" type="button" data-action="close-detail" aria-label="Close rental details">${tfIcon("close")}</button></div><div class="tf-detail-body">${contract.image ? `<img class="tf-detail-image" src="${escapeAttr(contract.image)}" alt="">` : ""}<div class="tf-badges">${tfOwnershipBadge(contract.ownership, contract.direction === "from")}${tfStatusBadge(title.startsWith("Archived") ? "expired" : "active")}${contract.extensionCount ? `<span class="tf-badge tf-badge-info">Extended ×${tfNumber(contract.extensionCount)}</span>` : ""}</div><div class="tf-detail-grid"><div><span>Property ID</span><strong>${escapeHtml(contract.propertyId || "Unavailable")}</strong></div><div><span>${contract.direction === "out" ? "Tenant" : "Owner"}</span><strong>${escapeHtml(contract.direction === "out" ? contract.tenant : contract.owner)}</strong></div><div><span>Rent / Day</span><strong>${escapeHtml(tfMoney(contract.daily))}</strong></div><div><span>Total Contract</span><strong>${escapeHtml(tfMoney(contract.total))}</strong></div><div><span>Start Date</span><strong>${escapeHtml(tfDate(contract.startDate))}</strong></div><div><span>End Date</span><strong>${escapeHtml(tfDate(contract.endDate))}</strong></div><div><span>Duration</span><strong>${contract.duration !== "" ? `${tfNumber(contract.duration)} days` : "Unavailable"}</strong></div><div><span>Remaining</span><strong>${contract.remaining !== "" ? `${tfNumber(contract.remaining)} days` : "Finished / unavailable"}</strong></div><div><span>Extension status</span><strong>${escapeHtml(contract.extensionStatus || "None recorded")}</strong></div><div><span>Extension days</span><strong>${contract.extensionDays ? `${tfNumber(contract.extensionDays)} days` : "None recorded"}</strong></div></div>${contract.completionReason ? `<section><h2>Completion</h2><p>${escapeHtml(contract.completionReason)}</p></section>` : ""}${contract.notes ? `<section><h2>Notes</h2><p>${escapeHtml(contract.notes)}</p></section>` : ""}<div class="tf-button-row">${contract.propertyKey ? `<button type="button" data-action="open-property" data-property-key="${escapeAttr(contract.propertyKey)}">View Property</button>` : ""}</div></div></div></div>`;
   }
 
   function tfMissingDetailModal(title, text) {
@@ -3582,6 +3675,8 @@
       #${APP_ID} .tf-current-home h1 small, #${APP_ID} h2 small { color: #c6d7e2; font-size: .78em; }
       #${APP_ID} .tf-badges { display: flex; flex-wrap: wrap; gap: 7px; }
       #${APP_ID} .tf-badge { display: inline-flex; align-items: center; width: max-content; min-height: 25px; margin: 0; padding: 4px 9px; border: 1px solid #159976; border-radius: 999px; background: rgba(15, 126, 99, .24); color: #63f4ca; font-size: 11px; font-weight: 700; text-transform: none; }
+      #${APP_ID} .tf-badge-info { border-color: #3c8fc4; background: rgba(46, 126, 177, .24); color: #a9ddff; }
+      #${APP_ID} .tf-badge-warning { border-color: #a97923; background: rgba(169, 121, 35, .22); color: #ffe39a; }
       #${APP_ID} .tf-owner-spouse { border-color: #bb45b9; background: rgba(187, 69, 185, .25); color: #ff9ff5; }
       #${APP_ID} .tf-owner-third { border-color: #3689c8; background: rgba(43, 119, 177, .25); color: #98d4ff; }
       #${APP_ID} .tf-status-occupied, #${APP_ID} .tf-status-rented, #${APP_ID} .tf-status-active { border-color: #258fd2; background: rgba(24, 111, 169, .25); color: #8dd2ff; }
@@ -3627,6 +3722,24 @@
       #${APP_ID} .tf-attention-row small { color: var(--tf-muted); font-size: 10px; }
       #${APP_ID} .tf-attention-row b { min-width: 23px; padding: 4px; border-radius: 7px; background: #a83f47; color: white; text-align: center; }
       #${APP_ID} .tf-activity-list { display: grid; min-width: 0; max-width: 100%; overflow: hidden; }
+      #${APP_ID} .tf-mini-stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 7px; margin: 10px 0; }
+      #${APP_ID} .tf-mini-stats > span { display: grid; gap: 2px; min-width: 0; padding: 8px; border: 1px solid rgba(74, 122, 143, .25); border-radius: 8px; background: rgba(5, 25, 35, .72); }
+      #${APP_ID} .tf-mini-stats b { color: var(--tf-teal); font-size: 16px; }
+      #${APP_ID} .tf-mini-stats small { color: var(--tf-muted); font-size: 10px; }
+      #${APP_ID} .tf-journey-panel .tf-activity-list { max-height: 230px; overflow: auto; padding-right: 3px; }
+      #${APP_ID} .tf-lifecycle-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+      #${APP_ID} .tf-lifecycle-grid > div { display: grid; gap: 3px; min-width: 0; padding: 9px; border: 1px solid rgba(74, 122, 143, .25); border-radius: 8px; background: rgba(5, 25, 35, .72); }
+      #${APP_ID} .tf-lifecycle-grid span { color: var(--tf-muted); font-size: 10px; }
+      #${APP_ID} .tf-lifecycle-grid strong { overflow-wrap: anywhere; color: var(--tf-text); }
+      #${APP_ID} .tf-journey { display: grid; max-height: 390px; overflow: auto; padding-right: 4px; }
+      #${APP_ID} .tf-journey-row { display: grid; grid-template-columns: 88px 12px minmax(0, 1fr) auto; align-items: start; gap: 8px; padding: 9px 2px; border-bottom: 1px solid rgba(74, 122, 143, .2); }
+      #${APP_ID} .tf-journey-row time, #${APP_ID} .tf-journey-row span { color: var(--tf-muted); font-size: 10px; }
+      #${APP_ID} .tf-journey-row i { width: 9px; height: 9px; margin-top: 4px; border-radius: 50%; background: var(--tf-teal); box-shadow: 0 0 9px rgba(20, 228, 186, .55); }
+      #${APP_ID} .tf-journey-row > div { display: grid; gap: 3px; min-width: 0; }
+      #${APP_ID} .tf-journey-row strong, #${APP_ID} .tf-journey-row span { overflow-wrap: anywhere; }
+      #${APP_ID} .tf-journey-row em { padding: 3px 6px; border-radius: 999px; background: rgba(73, 169, 255, .12); color: #a9d7ff; font-size: 9px; font-style: normal; white-space: nowrap; }
+      #${APP_ID} .tf-lifecycle-intelligence { display: grid; gap: 10px; }
+      #${APP_ID} .tf-lifecycle-intelligence > small { color: var(--tf-muted); }
       #${APP_ID} .tf-activity-row { display: grid; grid-template-columns: 90px 14px minmax(120px, .55fr) minmax(180px, 1.4fr); align-items: center; gap: 9px; min-width: 0; max-width: 100%; min-height: 36px; border-bottom: 1px solid rgba(74, 122, 143, .18); }
       #${APP_ID} .tf-activity-row > * { min-width: 0; }
       #${APP_ID} .tf-activity-row strong, #${APP_ID} .tf-activity-row span { overflow-wrap: anywhere; }
@@ -3864,6 +3977,9 @@
         #${APP_ID} .tf-card-actions { flex-direction: row; }
         #${APP_ID} .tf-footer > div:last-child span:not(:last-child) { display: none; }
         #${APP_ID} .tf-detail-grid { grid-template-columns: 1fr 1fr; }
+        #${APP_ID} .tf-lifecycle-grid, #${APP_ID} .tf-mini-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        #${APP_ID} .tf-journey-row { grid-template-columns: 72px 10px minmax(0, 1fr); }
+        #${APP_ID} .tf-journey-row em { grid-column: 3; width: max-content; }
         #${APP_ID} .tf-activity-row { grid-template-columns: 70px 12px 1fr; }
         #${APP_ID} .tf-activity-row span { grid-column: 3; }
       }
@@ -5193,6 +5309,11 @@
     return [];
   }
 
+  function serverPropertyLifecycleRows() {
+    const body = endpointBody("server-sync") || {};
+    return firstArray(body, ["propertyLifecycle", "property_lifecycle", "lifecycles"]);
+  }
+
   function serverHistoryMetadata() {
     const body = endpointBody("property-history") || endpointBody("lease-archive") || endpointBody("server-sync") || {};
     return body.metadata || body._metadata || {};
@@ -6192,8 +6313,8 @@
     const columns = {
       "torn-properties": ["property_image", "id", "name", "cost", "happy", "upkeep", "modifications", "staff"],
       "lease-archive": ["property_image", "property_type", "property_id", "role", "renter", "owner", "start_date", "end_date", "days", "total", "per_day", "happy", "status", "source"],
-      "property-history": ["property_image", "property_type", "property_id", "current_status", "first_seen", "last_seen", "buy_cost", "upgrade_cost", "known_investment", "rent_seen", "sale_seen", "listed_count", "tenancies_seen", "last_happy", "events", "upgrades"],
-      "property-history-events": ["event_at", "property_image", "property_type", "property_id", "event", "happy", "rent", "days", "cost", "renter", "owner", "other_user", "upgrades"],
+      "property-history": ["property_image", "property_type", "property_id", "current_status", "first_seen", "last_seen", "buy_cost", "upgrade_cost", "staff_cost", "known_investment", "rent_seen", "sale_seen", "upkeep_seen", "net_cashflow_seen", "listed_count", "tenancies_seen", "offers_seen", "offers_declined", "extensions_accepted", "rental_listing_status", "rental_offer_status", "rental_contract_status", "last_happy", "events", "upgrades"],
+      "property-history-events": ["event_at", "property_image", "property_type", "property_id", "event", "category", "perspective", "event_state", "happy", "rent", "days", "cost", "renter", "owner", "other_user", "upgrades", "staff"],
       "roi-summary": ["property_image", "property_type", "rental_listings", "sale_listings", "avg_daily", "median_daily", "min_daily", "max_daily", "avg_market_price", "avg_happy", "avg_landlord_roi_market", "best_landlord_roi_market", "avg_landlord_roi_investment", "avg_rent_per_happy", "avg_tenant_cost_per_happy", "error"],
       "roi-rentals": ["property_image", "property_type", "owner", "happy", "cost", "cost_per_day", "rental_period", "market_price", "base_cost", "estimated_upgrade_cost", "estimated_investment", "tenant_upkeep_total", "annual_rent", "landlord_roi_market", "landlord_roi_base", "landlord_roi_investment", "rent_per_happy", "tenant_daily_cost", "tenant_cost_per_happy", "property", "staff", "modifications"],
       "user-properties": ["property_image", "id", "owner", "property", "happy", "upkeep.property", "upkeep.staff", "market_price", "used_by", "rented_by", "staff", "modifications"],

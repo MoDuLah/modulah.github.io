@@ -140,25 +140,25 @@ export const scripts = [
     "title": "Tornfolio",
     "desc":
       "A Torn property, rental, market pricing and ROI manager for owners and renters.",
-    "version": "v0.6.12",
+    "version": "v0.7.0",
     "versionPrefix": "VER",
     "category": "Property management",
     "projectType": "Supporter property tool",
     "releaseState": "Current supporter build",
-    "updated": "10 October 2026",
+    "updated": "14 October 2026",
     "badge": "supporter",
     "badgeText": "SUPPORTER",
     "logo": "assets/images/tornfolio/tornfolio-logo.svg",
     "iconPath":
       '<path d="M12 21c.2-5.8-.2-10.3-1.3-13.5"></path><path d="M11 7.7C8.9 4.9 6.2 4.5 3.8 5.3c2.1.4 3.7 1.6 4.8 3.4"></path><path d="M11 7.3c.2-3.2 2-5.2 4.6-6.1-.9 2.1-.9 4.1.1 5.9"></path><path d="M11.6 7.5c2.7-2.2 5.5-2.1 7.8-.6-2.2-.1-4 .7-5.5 2.2"></path><path d="M4 21c2.7-1.4 5.3-1.4 8 0 2.7-1.4 5.3-1.4 8 0"></path>',
     "features": [
-      "Readable lease records for owners, renters, dates, rent and days left",
-      "Owned-home, current-home and partner-contract fetch flow",
-      "Rent and sale suggestions for owned properties",
+      "Property Journey across ownership, occupancy, listings, offers and contracts",
+      "Stable rental contracts with extensions, expiry and duplicate protection",
+      "Lifecycle intelligence for rent, upkeep, upgrades and known cashflow",
     ],
     "actions": [
       {
-        "label": "Install v0.6.12",
+        "label": "Install v0.7.0",
         "href": "https://modulah.github.io/tornfolio/tornfolio.user.js",
         "icon": "download",
         "primary": true,
@@ -739,6 +739,16 @@ export const scripts = [
 ];
 
 export const scriptReleases = [
+  {
+    scriptId: "tornfolio",
+    title: "Tornfolio",
+    version: "v0.7.0",
+    date: "2026-10-14",
+    type: "RELEASE",
+    summary:
+      "Turned Torn's complete property log catalogue into a Property Journey: ownership, occupancy, listings, offers, contracts, extensions and expenses now stay distinct, accepted extensions update one stable rental, and only completed contracts enter Archive.",
+    href: "https://greasyfork.org/en/scripts/591996-tornfolio-property-lease-roi-manager/versions",
+  },
   {
     scriptId: "tornfolio",
     title: "Tornfolio",
