@@ -29,27 +29,41 @@ describe("command centre catalogue", () => {
     const sorter = app.match(/function sortModules\(modules\) \{[\s\S]*?\n\}/)[0];
     const timestamp = app.match(/function getUpdatedTimestamp\(script\) \{[\s\S]*?\n\}/)[0];
     const modules = [
-      {title:'Archive A', tier:'archive', updated:'2030-01-01'},
-      {title:'Active Z', tier:'supporter', updated:'2026-09-09'},
-      {title:'Archive Z', tier:'archive', updated:'2020-01-01'},
-      {title:'Active A', tier:'free', updated:'2026-09-08'},
+      { title: "Archive A", tier: "archive", updated: "2030-01-01" },
+      { title: "Active Z", tier: "supporter", updated: "2026-09-09" },
+      { title: "Archive Z", tier: "archive", updated: "2020-01-01" },
+      { title: "Active A", tier: "free", updated: "2026-09-08" },
     ];
     const original = JSON.stringify(modules);
-    for (const mode of ['az','za','newest','oldest']) {
-      const sorted = new Function('currentSort', 'scripts', `${timestamp}\n${sorter}\nreturn sortModules(scripts);`)(mode, modules);
-      expect(sorted.map(row => row.tier === 'archive')).toEqual([false,false,true,true]);
-      expect(sorted[0].title).toBe(['za','newest'].includes(mode) ? 'Active Z' : 'Active A');
-      expect(sorted[2].title).toBe(['za','oldest'].includes(mode) ? 'Archive Z' : 'Archive A');
+    for (const mode of ["az", "za", "newest", "oldest"]) {
+      const sorted = new Function(
+        "currentSort",
+        "scripts",
+        `${timestamp}\n${sorter}\nreturn sortModules(scripts);`
+      )(mode, modules);
+      expect(sorted.map((row) => row.tier === "archive")).toEqual([false, false, true, true]);
+      expect(sorted[0].title).toBe(["za", "newest"].includes(mode) ? "Active Z" : "Active A");
+      expect(sorted[2].title).toBe(["za", "oldest"].includes(mode) ? "Archive Z" : "Archive A");
     }
     expect(JSON.stringify(modules)).toBe(original);
   });
   test("same-day releases sort newest numeric version first regardless of insertion order", () => {
     const source = app.match(/function compareScriptReleases\(left, right\) \{[\s\S]*?\n\}/)[0];
     const compare = new Function(`${source}; return compareScriptReleases;`)();
-    const releases = ['v3.1.3', 'v3.1.4', 'v3.1.5', 'v3.1.10'].map(version => ({scriptId:'pythagoras', date:'2026-09-09', version}));
-    releases.push({scriptId:'pythagoras', date:'2026-09-08', version:'v9.0.0'});
-    expect(releases.sort(compare).map(row => row.version)).toEqual(['v3.1.10','v3.1.5','v3.1.4','v3.1.3','v9.0.0']);
-    expect(app).toContain('.sort(compareScriptReleases)');
+    const releases = ["v3.1.3", "v3.1.4", "v3.1.5", "v3.1.10"].map((version) => ({
+      scriptId: "pythagoras",
+      date: "2026-09-09",
+      version,
+    }));
+    releases.push({ scriptId: "pythagoras", date: "2026-09-08", version: "v9.0.0" });
+    expect(releases.sort(compare).map((row) => row.version)).toEqual([
+      "v3.1.10",
+      "v3.1.5",
+      "v3.1.4",
+      "v3.1.3",
+      "v9.0.0",
+    ]);
+    expect(app).toContain(".sort(compareScriptReleases)");
   });
   test("shows current distributed script versions", () => {
     expect(code).toContain("BUILD: v2.5.0-CYBER");
@@ -63,8 +77,8 @@ describe("command centre catalogue", () => {
     expect(catalogue).toContain('"label": "Install Notifier v2.3.1"');
   });
 
-  test("uses a script release timeline instead of repository commits", () => {
-    expect(code).toContain("Script Update Timeline");
+  test("uses a script and service update timeline instead of repository commits", () => {
+    expect(code).toContain("Script &amp; Service Update Timeline");
     expect(code).toContain('class="glass-panel rounded-lg flex h-[34rem] min-h-0 flex-col"');
     expect(code).toContain('id="script-timeline-scroll"');
     expect(code).toContain("overflow-y-auto custom-scrollbar");
@@ -72,6 +86,9 @@ describe("command centre catalogue", () => {
     expect(app).toContain("renderScriptUpdateTimeline();");
     expect(app).toContain("automaticScriptReleases");
     expect(app).toContain("payload.timeline.map(sanitiseTimelineEvent)");
+    expect(app).toContain("'RELEASE', 'HOTFIX', 'SERVICE', 'BUILD'");
+    expect(app).toContain("`${releases.length} UPDATES`");
+    expect(app).toContain("release.eventId");
     expect(app).toContain("release.scriptId || release.title.toLocaleLowerCase()");
     expect(app).toContain("Latest release check:");
     expect(app).toContain("requestUrl.searchParams.set('fresh', Date.now().toString())");
@@ -318,18 +335,36 @@ describe("command centre catalogue", () => {
     expect(companionEntry).not.toContain("greasyfork.org");
   });
 
-  test("tracks all fourteen GreasyFork scripts plus the shared theme source", () => {
+  test("tracks public scripts, local builds, and every hosted service source", () => {
     const greasyForkIds = updaterConfig.scripts
       .filter((entry) => entry.source.type === "greasyfork")
       .map((entry) => entry.source.scriptId)
       .sort((left, right) => left - right);
     expect(greasyForkIds).toEqual([
-      562954, 563153, 563548, 575111, 575131, 577764, 578342, 579366, 580933, 589397, 591996,
-      594723, 595857, 596052,
+      562954, 563153, 563548, 575111, 575131, 577764, 578342, 579366, 580933, 589397, 594723,
+      595857, 596052,
     ]);
     expect(
-      updaterConfig.scripts.filter((entry) => entry.source.type === "userscript")
-    ).toHaveLength(1);
+      updaterConfig.scripts
+        .filter((entry) => entry.source.type === "userscript")
+        .map((entry) => entry.id)
+        .sort()
+    ).toEqual(["modulHubControl", "stockx", "tornfolio"]);
+    expect(
+      updaterConfig.scripts
+        .filter((entry) => entry.source.type === "service")
+        .map((entry) => entry.id)
+        .sort()
+    ).toEqual([
+      "jobCentrePlusService",
+      "modulHubWebsite",
+      "pitGuruWeb",
+      "pythagorasDashboard",
+      "raceStats",
+      "tanothAtlas",
+      "tanothCompanion",
+      "tornfolioService",
+    ]);
   });
 
   test("refreshes generated manifests during deploy and scheduled sync", () => {

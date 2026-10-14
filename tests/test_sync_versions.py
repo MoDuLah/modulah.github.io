@@ -1,8 +1,10 @@
 import importlib.util
 import json
+import os
 import sys
 import tempfile
 import unittest
+from datetime import datetime, timezone
 from pathlib import Path
 from unittest import mock
 
@@ -274,6 +276,70 @@ class SyncVersionsTests(unittest.TestCase):
             sync_versions.build_timeline(records, {}, [], [{"id": "pitGuru"}]),
             [],
         )
+
+    def test_fingerprints_service_files_and_keeps_each_deployment_event(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            service_file = root / "service" / "app.py"
+            service_file.parent.mkdir()
+            service_file.write_text("print('first')\n", encoding="utf-8")
+            first_timestamp = datetime(2026, 10, 13, 20, 15, tzinfo=timezone.utc).timestamp()
+            os.utime(service_file, (first_timestamp, first_timestamp))
+            entry = {
+                "id": "exampleService",
+                "title": "Example Service",
+                "required": False,
+                "updateVersion": False,
+                "timelineSummary": "The hosted example service changed on the VM.",
+                "timelineHref": "https://pp-api.sokin.xyz/example/",
+                "source": {"type": "service", "paths": ["service/app.py"]},
+            }
+
+            first_record = sync_versions.build_record(entry, root, None, "2026-10-14", 20)
+            first_timeline = sync_versions.build_timeline([first_record], {}, [], [entry])
+
+            self.assertEqual(first_record["source"], "service")
+            self.assertFalse(first_record["updateVersion"])
+            self.assertEqual(first_timeline[0]["type"], "SERVICE")
+            self.assertEqual(first_timeline[0]["version"], "LIVE")
+            self.assertEqual(first_timeline[0]["timestamp"], "2026-10-13T20:15:00Z")
+            self.assertTrue(first_timeline[0]["eventId"].startswith("exampleService:svc-"))
+
+            snapshot_path = root / "state" / "service-fingerprints.json"
+            sync_versions.write_atomic(
+                snapshot_path,
+                sync_versions.build_service_snapshot([entry], root),
+            )
+            snapshot_record = sync_versions.build_record(
+                entry,
+                root,
+                None,
+                "2026-10-14",
+                20,
+                sync_versions.load_service_snapshot(snapshot_path),
+            )
+            self.assertEqual(snapshot_record["version"], first_record["version"])
+            self.assertEqual(
+                snapshot_record["_timelineTimestamp"],
+                first_record["_timelineTimestamp"],
+            )
+
+            service_file.write_text("print('second')\n", encoding="utf-8")
+            second_timestamp = datetime(2026, 10, 14, 7, 30, tzinfo=timezone.utc).timestamp()
+            os.utime(service_file, (second_timestamp, second_timestamp))
+            second_record = sync_versions.build_record(
+                entry, root, first_record, "2026-10-14", 20
+            )
+            second_timeline = sync_versions.build_timeline(
+                [second_record],
+                {"exampleService": first_record},
+                first_timeline,
+                [entry],
+            )
+
+            self.assertEqual(len(second_timeline), 2)
+            self.assertNotEqual(second_timeline[0]["eventId"], second_timeline[1]["eventId"])
+            self.assertEqual(second_timeline[0]["timestamp"], "2026-10-14T07:30:00Z")
 
 
 if __name__ == "__main__":

@@ -26,9 +26,13 @@
       "title": "Tornfolio",
       "displayPrefix": "v",
       "actionLabelTemplate": "Install {version}",
+      "timelineEnabled": true,
+      "timelineType": "RELEASE",
+      "timelineSummary": "The Tornfolio property lifecycle, rental, market and update-checker userscript changed.",
+      "timelineHref": "tornfolio/tornfolio.user.js",
       "source": {
-        "type": "greasyfork",
-        "scriptId": 591996
+        "type": "userscript",
+        "path": "tornfolio/tornfolio.user.js"
       }
     },
     {
@@ -46,6 +50,9 @@
       "displayPrefix": "v",
       "actionLabelTemplate": "Install {version}",
       "initialDate": "2026-07-28",
+      "timelineEnabled": true,
+      "timelineType": "RELEASE",
+      "timelineSummary": "The shared MoDuL Hub theme and control-room userscript changed.",
       "timelineHref": "global-theme/modul-hub-global-theme.user.js",
       "source": {
         "type": "userscript",
@@ -87,6 +94,20 @@
       "source": {
         "type": "greasyfork",
         "scriptId": 563153
+      }
+    },
+    {
+      "id": "stockx",
+      "title": "Stock-X",
+      "displayPrefix": "v",
+      "initialDate": "2026-09-06",
+      "timelineEnabled": true,
+      "timelineType": "RELEASE",
+      "timelineSummary": "The Stock-X portfolio and stock-history userscript changed.",
+      "timelineHref": "https://modulah.github.io/",
+      "source": {
+        "type": "userscript",
+        "path": "stock-x/stock-x.js"
       }
     },
     {
@@ -146,6 +167,118 @@
       "source": {
         "type": "greasyfork",
         "scriptId": 596052
+      }
+    },
+    {
+      "id": "tanothCompanion",
+      "title": "Tanoth Companion",
+      "required": false,
+      "updateVersion": false,
+      "timelineType": "BUILD",
+      "timelineVersion": "DEVELOPMENT",
+      "timelineSummary": "The Tanoth Companion development userscript changed on the VM.",
+      "timelineHref": "https://pp-api.sokin.xyz/tanoth/companion/ui",
+      "source": {
+        "type": "service",
+        "paths": ["/opt/tanoth-companion/tanoth-companion.user.js"]
+      }
+    },
+    {
+      "id": "pitGuruWeb",
+      "title": "Pit Guru Web Tool",
+      "required": false,
+      "updateVersion": false,
+      "timelineSummary": "The hosted Pit Guru race player and analysis service changed on the VM.",
+      "timelineHref": "https://pp-api.sokin.xyz/pit-guru/",
+      "source": {
+        "type": "service",
+        "paths": ["/opt/pit-guru-api/pitguru", "/opt/pit-guru-api-pg-real/app.py"]
+      }
+    },
+    {
+      "id": "tornfolioService",
+      "title": "Tornfolio Service",
+      "required": false,
+      "updateVersion": false,
+      "timelineSummary": "The hosted Tornfolio property, rental, market and lifecycle service changed on the VM.",
+      "timelineHref": "https://pp-api.sokin.xyz/tornfolio/",
+      "source": {
+        "type": "service",
+        "paths": ["/opt/landlord-ledger-api/landlord_ledger_api.py"]
+      }
+    },
+    {
+      "id": "jobCentrePlusService",
+      "title": "JobCentre+ Web Service",
+      "required": false,
+      "updateVersion": false,
+      "timelineSummary": "The hosted JobCentre+ marketplace deployment changed on the VM.",
+      "timelineHref": "https://pp-api.sokin.xyz/jobcentreplus/",
+      "source": {
+        "type": "service",
+        "paths": ["/opt/jobcentreplus/current/release-metadata.txt"]
+      }
+    },
+    {
+      "id": "pythagorasDashboard",
+      "title": "Pythagoras Project - Dashboard",
+      "required": false,
+      "updateVersion": false,
+      "timelineSummary": "The hosted Pythagoras dashboard and workspace service changed on the VM.",
+      "timelineHref": "https://pp-api.sokin.xyz/dashboard",
+      "source": {
+        "type": "service",
+        "paths": [
+          "/opt/torn-licences-generator/public/dashboard",
+          "/opt/torn-licences-generator/src/dashboard-access.js",
+          "/opt/torn-licences-generator/src/server.js",
+          "/opt/torn-licences-generator/src/cis.js",
+          "/opt/torn-licences-generator/src/pythagoras-features.js"
+        ]
+      }
+    },
+    {
+      "id": "raceStats",
+      "title": "Race//Stats",
+      "required": false,
+      "updateVersion": false,
+      "timelineSummary": "The hosted Race//Stats dashboard deployment changed on the VM.",
+      "timelineHref": "https://pp-api.sokin.xyz/racestats/",
+      "source": {
+        "type": "service",
+        "paths": ["/var/www/racestats/current"]
+      }
+    },
+    {
+      "id": "tanothAtlas",
+      "title": "Tanoth Atlas",
+      "required": false,
+      "updateVersion": false,
+      "timelineSummary": "The hosted Tanoth Atlas companion, dungeon or suffix service changed on the VM.",
+      "timelineHref": "https://pp-api.sokin.xyz/tanoth/companion/ui",
+      "source": {
+        "type": "service",
+        "paths": [
+          "/opt/tanoth-companion/tanoth_companion_api.py",
+          "/opt/tanoth-companion/dungeon_analysis.py",
+          "/opt/tanoth-companion/atlas_auth.py",
+          "/opt/tanoth-companion/dungeon_site",
+          "/opt/tanoth-suffix-api/tanoth_suffix_api.py",
+          "/opt/tanoth-suffix-api/atlas_auth.py",
+          "/opt/tanoth-suffix-api/suffix_site"
+        ]
+      }
+    },
+    {
+      "id": "modulHubWebsite",
+      "title": "MoDuL Hub Website",
+      "required": false,
+      "updateVersion": false,
+      "timelineSummary": "The published MoDuL Hub website build changed on the VM.",
+      "timelineHref": "https://modulah.github.io/",
+      "source": {
+        "type": "service",
+        "paths": ["/var/www/moduls-hub/current/site-files.json"]
       }
     }
   ]

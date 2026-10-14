@@ -3,7 +3,7 @@ import {
   scriptReleases,
   moduleFaqs,
   moduleScreenshots,
-} from './catalogue.js?v=20261010.1';
+} from './catalogue.js?v=20261014.1';
 
 const scriptUpdateManifestUrl = 'https://pp-api.sokin.xyz/assets/data/script-updates.json';
 const screenshotManifestUrl = 'assets/data/module-screenshots.json';
@@ -92,11 +92,22 @@ function sanitiseTimelineEvent(value) {
     return null;
   if (typeof value.date !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value.date)) return null;
   if (Number.isNaN(Date.parse(`${value.date}T00:00:00Z`))) return null;
-  if (!['RELEASE', 'HOTFIX'].includes(value.type)) return null;
+  if (!['RELEASE', 'HOTFIX', 'SERVICE', 'BUILD'].includes(value.type)) return null;
   if (typeof value.summary !== 'string' || !value.summary.length || value.summary.length > 360)
     return null;
   const href = legacyPageHrefs.has(value.href) ? 'https://modulah.github.io/' : value.href;
   if (!isSafeTimelineHref(href)) return null;
+  const eventId =
+    typeof value.eventId === 'string' && /^[0-9A-Za-z][0-9A-Za-z_.:-]{0,179}$/.test(value.eventId)
+      ? value.eventId
+      : '';
+  const timestamp =
+    typeof value.timestamp === 'string' &&
+    /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/.test(value.timestamp) &&
+    !Number.isNaN(Date.parse(value.timestamp)) &&
+    value.timestamp.startsWith(value.date)
+      ? value.timestamp
+      : '';
   return {
     scriptId: value.scriptId,
     title: value.title,
@@ -105,6 +116,8 @@ function sanitiseTimelineEvent(value) {
     type: value.type,
     summary: value.summary,
     href,
+    ...(eventId ? { eventId } : {}),
+    ...(timestamp ? { timestamp } : {}),
   };
 }
 
@@ -640,7 +653,7 @@ async function runPageBootSequence() {
     ['MOUNTING VISUAL KERNEL / SHADER LAYER...', null, 260],
     ['LOADING COMMAND INTERFACE...', 'interface', 260],
     ['STARTING REGISTRY DIAGNOSTICS...', 'diagnostics', 240],
-    ['CONNECTING SCRIPT RELEASE TIMELINE...', 'activity', 240],
+    ['CONNECTING SCRIPT + SERVICE TIMELINE...', 'activity', 240],
     ['CONNECTING TO MODULE REGISTRY...', 'registry', 260],
   ];
 
@@ -709,7 +722,7 @@ function handleBootFailure(error) {
 }
 
 function compareScriptReleases(left, right) {
-  const byDate = right.date.localeCompare(left.date);
+  const byDate = (right.timestamp || right.date).localeCompare(left.timestamp || left.date);
   if (byDate) return byDate;
   const leftScript = left.scriptId || left.title.toLocaleLowerCase();
   const rightScript = right.scriptId || right.title.toLocaleLowerCase();
@@ -725,13 +738,13 @@ function renderScriptUpdateTimeline() {
   if (!timeline || !count) return;
 
   const releaseKey = (release) =>
+    (['SERVICE', 'BUILD'].includes(release.type) && release.eventId) ||
     `${release.scriptId || release.title.toLocaleLowerCase()}\u0000${release.version.toLocaleLowerCase()}`;
   const fetchedReleases = automaticScriptReleases.filter(
     (release) =>
       !['No changelog was published for this version.', 'Imported from URL.'].includes(
         release.summary
-      ) ||
-      !scriptReleases.some((editorial) => releaseKey(editorial) === releaseKey(release))
+      ) || !scriptReleases.some((editorial) => releaseKey(editorial) === releaseKey(release))
   );
   const releases = [...fetchedReleases, ...scriptReleases]
     .filter(
@@ -741,7 +754,7 @@ function renderScriptUpdateTimeline() {
     .sort(compareScriptReleases);
 
   timeline.replaceChildren();
-  count.textContent = `${releases.length} RELEASES`;
+  count.textContent = `${releases.length} UPDATES`;
 
   releases.forEach((release, index) => {
     const item = document.createElement('li');
@@ -754,7 +767,11 @@ function renderScriptUpdateTimeline() {
     dot.className =
       release.type === 'HOTFIX'
         ? 'relative z-10 mt-1.5 h-3 w-3 shrink-0 rounded-full border border-tertiary-fixed-dim bg-background shadow-[0_0_8px_rgba(255,186,56,0.45)]'
-        : 'relative z-10 mt-1.5 h-3 w-3 shrink-0 rounded-full border border-secondary-fixed bg-background shadow-[0_0_8px_rgba(121,255,91,0.45)]';
+        : release.type === 'SERVICE'
+          ? 'relative z-10 mt-1.5 h-3 w-3 shrink-0 rounded-full border border-primary-fixed-dim bg-background shadow-[0_0_8px_rgba(0,218,243,0.45)]'
+          : release.type === 'BUILD'
+            ? 'relative z-10 mt-1.5 h-3 w-3 shrink-0 rounded-full border border-outline bg-background shadow-[0_0_8px_rgba(174,199,204,0.35)]'
+            : 'relative z-10 mt-1.5 h-3 w-3 shrink-0 rounded-full border border-secondary-fixed bg-background shadow-[0_0_8px_rgba(121,255,91,0.45)]';
 
     const content = document.createElement('div');
     content.className = 'min-w-0 flex-1';
@@ -764,7 +781,11 @@ function renderScriptUpdateTimeline() {
     type.className =
       release.type === 'HOTFIX'
         ? 'shrink-0 font-label-caps text-[9px] uppercase tracking-widest text-tertiary-fixed-dim'
-        : 'shrink-0 font-label-caps text-[9px] uppercase tracking-widest text-secondary-fixed';
+        : release.type === 'SERVICE'
+          ? 'shrink-0 font-label-caps text-[9px] uppercase tracking-widest text-primary-fixed-dim'
+          : release.type === 'BUILD'
+            ? 'shrink-0 font-label-caps text-[9px] uppercase tracking-widest text-outline'
+            : 'shrink-0 font-label-caps text-[9px] uppercase tracking-widest text-secondary-fixed';
     type.textContent = release.type;
     const link = document.createElement('a');
     link.className = 'min-w-0 break-words text-on-surface hover:text-[#98f05f] transition-colors';
@@ -782,13 +803,21 @@ function renderScriptUpdateTimeline() {
     const metadata = document.createElement('div');
     metadata.className = 'mt-1 text-[10px] text-outline-variant uppercase';
     const date = document.createElement('time');
-    date.dateTime = release.date;
+    date.dateTime = release.timestamp || release.date;
     date.textContent = new Intl.DateTimeFormat('en-GB', {
       day: '2-digit',
       month: 'short',
       year: 'numeric',
+      ...(release.timestamp
+        ? {
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: false,
+          }
+        : {}),
       timeZone: 'UTC',
-    }).format(new Date(`${release.date}T00:00:00Z`));
+      ...(release.timestamp ? { timeZoneName: 'short' } : {}),
+    }).format(new Date(release.timestamp || `${release.date}T00:00:00Z`));
     metadata.append(date);
 
     const summary = document.createElement('p');

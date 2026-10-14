@@ -1,14 +1,16 @@
 #!/usr/bin/env python3
-"""Build the MoDuL Hub runtime script-version manifest.
+"""Build the MoDuL Hub runtime project-update manifest.
 
 The command centre keeps editorial descriptions in its static catalogue. This
 checker synchronises authoritative machine-readable fields, imports public
-GreasyFork changelogs, and maintains a deduplicated script-release timeline.
+GreasyFork changelogs, fingerprints deployed VM services, and maintains a
+deduplicated script-and-service update timeline.
 """
 
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import re
@@ -25,9 +27,22 @@ from typing import Any
 
 SCHEMA_VERSION = 1
 DEFAULT_TIMEOUT_SECONDS = 20
-MAX_TIMELINE_EVENTS = 50
+MAX_TIMELINE_EVENTS = 100
+MAX_SERVICE_FILES = 2_000
+MAX_SERVICE_BYTES = 64 * 1024 * 1024
 USER_AGENT = "MoDuL-Hub-Update-Checker/1.0"
 VERSION_PATTERN = re.compile(r"^[0-9A-Za-z][0-9A-Za-z.+_-]{0,63}$")
+EVENT_ID_PATTERN = re.compile(r"^[0-9A-Za-z][0-9A-Za-z_.:-]{0,179}$")
+SERVICE_IGNORED_PARTS = {
+    ".git",
+    ".venv",
+    "__pycache__",
+    "backups",
+    "cache",
+    "node_modules",
+    "tts-cache",
+}
+SERVICE_IGNORED_SUFFIXES = {".db", ".db3", ".log", ".mp3", ".pyc", ".sqlite", ".sqlite3"}
 METADATA_PATTERN = re.compile(
     r"^//\s+@(?P<key>[A-Za-z][A-Za-z0-9_-]*)\s+(?P<value>.*?)\s*$",
     re.MULTILINE,
@@ -48,6 +63,7 @@ class SourceResult:
     marketplace: dict[str, Any] | None = None
     release_notes: dict[str, str] | None = None
     release_history: list[dict[str, str]] | None = None
+    timestamp: str | None = None
 
 
 def parse_args() -> argparse.Namespace:
@@ -80,6 +96,16 @@ def parse_args() -> argparse.Namespace:
         "--write",
         action="store_true",
         help="Atomically replace the output file after every required source passes.",
+    )
+    parser.add_argument(
+        "--service-snapshot",
+        type=Path,
+        help="Root-generated service fingerprint snapshot used by the restricted updater.",
+    )
+    parser.add_argument(
+        "--write-service-snapshot",
+        type=Path,
+        help="Write service fingerprints only, without contacting external sources.",
     )
     return parser.parse_args()
 
@@ -115,6 +141,8 @@ def load_previous(path: Path) -> dict[str, dict[str, Any]]:
 
 def is_safe_timeline_href(value: Any) -> bool:
     href = str(value or "").strip()
+    if href == "https://modulah.github.io/":
+        return True
     if href.startswith(("https://greasyfork.org/", "https://pp-api.sokin.xyz/")):
         return len(href) <= 300
     if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_./-]{0,199}", href):
@@ -132,6 +160,8 @@ def normalise_timeline_event(value: Any) -> dict[str, str] | None:
     event_type = value.get("type")
     summary = value.get("summary")
     href = value.get("href")
+    event_id = value.get("eventId")
+    timestamp = value.get("timestamp")
     if not isinstance(script_id, str) or not re.fullmatch(r"[A-Za-z0-9_-]{1,80}", script_id):
         return None
     if not isinstance(title, str) or not 1 <= len(title) <= 140:
@@ -144,13 +174,28 @@ def normalise_timeline_event(value: Any) -> dict[str, str] | None:
         datetime.strptime(date, "%Y-%m-%d")
     except ValueError:
         return None
-    if event_type not in {"RELEASE", "HOTFIX"}:
+    if event_type not in {"RELEASE", "HOTFIX", "SERVICE", "BUILD"}:
         return None
     if not isinstance(summary, str) or not 1 <= len(summary) <= 360:
         return None
     if not is_safe_timeline_href(href):
         return None
-    return {
+    if event_id is not None and (
+        not isinstance(event_id, str) or not EVENT_ID_PATTERN.fullmatch(event_id)
+    ):
+        return None
+    if timestamp is not None:
+        if not isinstance(timestamp, str) or not re.fullmatch(
+            r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z", timestamp
+        ):
+            return None
+        try:
+            parsed_timestamp = datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
+        except ValueError:
+            return None
+        if parsed_timestamp.date().isoformat() != date:
+            return None
+    event = {
         "scriptId": script_id,
         "title": title,
         "version": version,
@@ -159,6 +204,11 @@ def normalise_timeline_event(value: Any) -> dict[str, str] | None:
         "summary": summary,
         "href": str(href),
     }
+    if event_id is not None:
+        event["eventId"] = event_id
+    if timestamp is not None:
+        event["timestamp"] = timestamp
+    return event
 
 
 def load_previous_timeline(path: Path) -> list[dict[str, str]]:
@@ -595,6 +645,169 @@ def expand_source_path(raw_path: str, site_root: Path) -> Path:
     return path.resolve()
 
 
+def _is_within(path: Path, root: Path) -> bool:
+    try:
+        path.relative_to(root)
+        return True
+    except ValueError:
+        return False
+
+
+def _service_file_allowed(path: Path) -> bool:
+    lowered_parts = {part.casefold() for part in path.parts}
+    if lowered_parts & {part.casefold() for part in SERVICE_IGNORED_PARTS}:
+        return False
+    if path.name.startswith(".") or path.suffix.casefold() in SERVICE_IGNORED_SUFFIXES:
+        return False
+    lowered_name = path.name.casefold()
+    return not (
+        lowered_name.endswith(".env")
+        or "secret" in lowered_name
+        or "credential" in lowered_name
+    )
+
+
+def service_source_files(source: dict[str, Any], site_root: Path) -> list[tuple[str, Path]]:
+    raw_paths = source.get("paths")
+    if not isinstance(raw_paths, list) or not raw_paths or len(raw_paths) > 32:
+        raise UpdateCheckError("Service paths must be a non-empty list of at most 32 entries")
+
+    allowed_roots = [site_root.resolve(), Path("/opt").resolve(), Path("/var/www").resolve()]
+    files: list[tuple[str, Path]] = []
+    seen: set[Path] = set()
+    for source_index, raw_path in enumerate(raw_paths):
+        if not isinstance(raw_path, str) or not raw_path.strip():
+            raise UpdateCheckError("Service path entries must be non-empty strings")
+        try:
+            path = expand_source_path(raw_path, site_root)
+        except OSError as error:
+            raise UpdateCheckError(f"Service path is inaccessible: {raw_path}") from error
+        if not any(_is_within(path, root) for root in allowed_roots):
+            raise UpdateCheckError("Service path is outside the permitted deployment roots")
+        try:
+            if not path.exists():
+                raise UpdateCheckError(f"Service path is unavailable: {raw_path}")
+            candidates = (
+                [path]
+                if path.is_file()
+                else sorted(candidate for candidate in path.rglob("*") if candidate.is_file())
+            )
+        except OSError as error:
+            raise UpdateCheckError(f"Service path is inaccessible: {raw_path}") from error
+        for candidate in candidates:
+            resolved = candidate.resolve()
+            if resolved in seen or not _service_file_allowed(resolved):
+                continue
+            if not any(_is_within(resolved, root) for root in allowed_roots):
+                raise UpdateCheckError("Service path resolved outside the permitted deployment roots")
+            relative = candidate.name if path.is_file() else candidate.relative_to(path).as_posix()
+            files.append((f"{source_index}:{relative}", resolved))
+            seen.add(resolved)
+            if len(files) > MAX_SERVICE_FILES:
+                raise UpdateCheckError("Service source contains too many files")
+    if not files:
+        raise UpdateCheckError("Service source has no fingerprintable files")
+    return files
+
+
+def fingerprint_service(source: dict[str, Any], site_root: Path) -> SourceResult:
+    digest = hashlib.sha256()
+    newest_mtime = 0.0
+    total_bytes = 0
+    for label, path in service_source_files(source, site_root):
+        try:
+            stat = path.stat()
+            total_bytes += stat.st_size
+            if total_bytes > MAX_SERVICE_BYTES:
+                raise UpdateCheckError("Service source exceeds the fingerprint size limit")
+            newest_mtime = max(newest_mtime, stat.st_mtime)
+            digest.update(label.encode("utf-8"))
+            digest.update(b"\0")
+            with path.open("rb") as handle:
+                while chunk := handle.read(1024 * 1024):
+                    digest.update(chunk)
+            digest.update(b"\0")
+        except OSError as error:
+            raise UpdateCheckError(f"Service file is inaccessible: {path.name}") from error
+
+    changed_at = datetime.fromtimestamp(newest_mtime, timezone.utc).replace(microsecond=0)
+    timestamp = changed_at.isoformat().replace("+00:00", "Z")
+    return SourceResult(
+        version=f"svc-{digest.hexdigest()[:16]}",
+        date=changed_at.date().isoformat(),
+        updated=human_date(changed_at.date().isoformat()),
+        source="service",
+        timestamp=timestamp,
+    )
+
+
+def load_service_snapshot(path: Path | None) -> dict[str, dict[str, str]]:
+    if path is None:
+        return {}
+    payload = load_json(path)
+    services = payload.get("services")
+    if payload.get("schemaVersion") != 1 or not isinstance(services, dict):
+        raise UpdateCheckError("Service snapshot is invalid")
+    return {
+        key: value
+        for key, value in services.items()
+        if isinstance(key, str) and isinstance(value, dict)
+    }
+
+
+def check_service(
+    entry_id: str,
+    source: dict[str, Any],
+    site_root: Path,
+    service_snapshot: dict[str, dict[str, str]] | None,
+) -> SourceResult:
+    if not service_snapshot:
+        return fingerprint_service(source, site_root)
+    snapshot = service_snapshot.get(entry_id)
+    if not snapshot:
+        raise UpdateCheckError(f"Service snapshot is missing {entry_id}")
+    version = validate_version(snapshot.get("version"), f"Service snapshot {entry_id}")
+    date = str(snapshot.get("date") or "")
+    if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", date):
+        raise UpdateCheckError(f"Service snapshot {entry_id} has an invalid date")
+    timestamp = str(snapshot.get("timestamp") or "")
+    if not re.fullmatch(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z", timestamp):
+        raise UpdateCheckError(f"Service snapshot {entry_id} has an invalid timestamp")
+    if not timestamp.startswith(date):
+        raise UpdateCheckError(f"Service snapshot {entry_id} has a mismatched timestamp")
+    return SourceResult(
+        version=version,
+        date=date,
+        updated=human_date(date),
+        source="service",
+        timestamp=timestamp,
+    )
+
+
+def build_service_snapshot(entries: list[dict[str, Any]], site_root: Path) -> dict[str, Any]:
+    services: dict[str, dict[str, str]] = {}
+    for entry in entries:
+        source = entry.get("source") if isinstance(entry, dict) else None
+        if not isinstance(source, dict) or source.get("type") != "service":
+            continue
+        entry_id = entry.get("id")
+        if not isinstance(entry_id, str) or not entry_id:
+            raise UpdateCheckError("Every service source requires an id")
+        result = fingerprint_service(source, site_root)
+        services[entry_id] = {
+            "version": result.version,
+            "date": result.date,
+            "timestamp": str(result.timestamp),
+        }
+    if not services:
+        raise UpdateCheckError("No service sources were configured")
+    return {
+        "schemaVersion": 1,
+        "generatedAt": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+        "services": services,
+    }
+
+
 def check_userscript(
     entry: dict[str, Any],
     source: dict[str, Any],
@@ -629,6 +842,7 @@ def build_record(
     previous: dict[str, Any] | None,
     today: str,
     timeout: int,
+    service_snapshot: dict[str, dict[str, str]] | None = None,
 ) -> dict[str, Any]:
     entry_id = entry.get("id")
     title = entry.get("title")
@@ -645,6 +859,8 @@ def build_record(
         result = check_greasyfork(source, timeout)
     elif source_type == "userscript":
         result = check_userscript(entry, source, site_root, previous, today)
+    elif source_type == "service":
+        result = check_service(entry_id, source, site_root, service_snapshot)
     else:
         raise UpdateCheckError(f"{entry_id} has an unsupported source type")
 
@@ -679,6 +895,28 @@ def build_record(
             {**item, "version": format_display_version(item["version"], str(entry.get("displayPrefix", "")))}
             for item in result.release_history
         ]
+    if result.source == "service" or entry.get("timelineEnabled") is True:
+        timeline_type = str(entry.get("timelineType") or ("SERVICE" if result.source == "service" else "BUILD"))
+        timeline_version = str(entry.get("timelineVersion") or ("LIVE" if result.source == "service" else display_version))
+        timeline_summary = str(entry.get("timelineSummary") or "The deployed project files changed.").strip()
+        if timeline_type not in {"RELEASE", "HOTFIX", "SERVICE", "BUILD"}:
+            raise UpdateCheckError(f"{entry_id} has an invalid timeline type")
+        if not VERSION_PATTERN.fullmatch(timeline_version):
+            raise UpdateCheckError(f"{entry_id} has an invalid timeline version label")
+        if not 1 <= len(timeline_summary) <= 360:
+            raise UpdateCheckError(f"{entry_id} has an invalid timeline summary")
+        record["_timelineEnabled"] = True
+        record["_timelineType"] = timeline_type
+        record["_timelineVersion"] = timeline_version
+        record["_timelineSummary"] = timeline_summary
+        event_identity = (
+            result.version
+            if result.source == "service" or entry.get("updateVersion") is False
+            else display_version
+        )
+        record["_timelineEventId"] = f"{entry_id}:{event_identity}"
+        if result.timestamp:
+            record["_timelineTimestamp"] = result.timestamp
     return record
 
 
@@ -697,6 +935,13 @@ def release_note_for(record: dict[str, Any], display_version: str) -> str:
         ),
         "",
     )
+
+
+def timeline_event_key(event: dict[str, str]) -> str:
+    event_id = event.get("eventId")
+    if event_id:
+        return event_id.casefold()
+    return f"{event['scriptId'].casefold()}:{event['version'].casefold()}"
 
 
 def build_timeline(
@@ -739,18 +984,18 @@ def build_timeline(
                 "href": f"{record['sourceUrl']}/versions",
             })
 
-    existing_pairs = {
-        (event["scriptId"].casefold(), event["version"].casefold())
-        for event in enriched_previous
-    }
+    existing_keys = {timeline_event_key(event) for event in enriched_previous}
     new_events: list[dict[str, str]] = []
     for record in records:
         script_id = record["id"]
         entry = entries_by_id.get(script_id, {})
-        if record.get("updateVersion") is False:
+        timeline_enabled = record.get("_timelineEnabled") is True
+        if record.get("updateVersion") is False and not timeline_enabled:
             continue
-        event_pair = (script_id.casefold(), record["displayVersion"].casefold())
-        if event_pair in existing_pairs:
+        event_version = str(record.get("_timelineVersion") or record["displayVersion"])
+        event_id = str(record.get("_timelineEventId") or "")
+        candidate_key = event_id.casefold() or f"{script_id.casefold()}:{event_version.casefold()}"
+        if candidate_key in existing_keys:
             continue
         href = record.get("sourceUrl") or entry.get("timelineHref")
         if record["source"] == "greasyfork":
@@ -758,29 +1003,32 @@ def build_timeline(
         if not is_safe_timeline_href(href):
             continue
         release_note = release_note_for(record, record["displayVersion"])
-        summary = release_note or "No changelog was published for this version."
-        event = normalise_timeline_event(
-            {
-                "scriptId": script_id,
-                "title": record["title"],
-                "version": record["displayVersion"],
-                "date": record["date"],
-                "type": "RELEASE",
-                "summary": summary,
-                "href": href,
-            }
-        )
+        summary = str(record.get("_timelineSummary") or release_note or "No changelog was published for this version.")
+        event_payload = {
+            "scriptId": script_id,
+            "title": record["title"],
+            "version": event_version,
+            "date": record["date"],
+            "type": str(record.get("_timelineType") or "RELEASE"),
+            "summary": summary,
+            "href": href,
+        }
+        if event_id:
+            event_payload["eventId"] = event_id
+        if record.get("_timelineTimestamp"):
+            event_payload["timestamp"] = record["_timelineTimestamp"]
+        event = normalise_timeline_event(event_payload)
         if event:
             new_events.append(event)
 
     combined = new_events + enriched_previous
     unique: list[dict[str, str]] = []
-    seen: set[tuple[str, str]] = set()
+    seen: set[str] = set()
     for event in combined:
         normalised = normalise_timeline_event(event)
         if not normalised:
             continue
-        key = (normalised["scriptId"].casefold(), normalised["version"].casefold())
+        key = timeline_event_key(normalised)
         if key in seen:
             continue
         seen.add(key)
@@ -791,7 +1039,11 @@ def build_timeline(
             (1, int(part)) if part.isdigit() else (0, part.casefold())
             for part in re.findall(r"\d+|\D+", event["version"])
         )
-        return event["date"], event.get("scriptId") or event["title"].casefold(), version
+        return (
+            event.get("timestamp") or f"{event['date']}T00:00:00Z",
+            event.get("scriptId") or event["title"].casefold(),
+            version,
+        )
 
     return sorted(unique, key=release_order, reverse=True)[:MAX_TIMELINE_EVENTS]
 
@@ -823,9 +1075,18 @@ def main() -> int:
     if not isinstance(entries, list) or not entries:
         raise UpdateCheckError("Config scripts must be a non-empty array")
 
+    if args.write_service_snapshot:
+        snapshot = build_service_snapshot(entries, args.site_root.resolve())
+        write_atomic(args.write_service_snapshot.resolve(), snapshot)
+        print(f"Wrote {len(snapshot['services'])} service fingerprints.", file=sys.stderr)
+        return 0
+
     output = args.output.resolve()
     previous = load_previous(output)
     previous_timeline = load_previous_timeline(output)
+    service_snapshot = load_service_snapshot(
+        args.service_snapshot.resolve() if args.service_snapshot else None
+    )
     checked_at = datetime.now(timezone.utc)
     today = checked_at.date().isoformat()
     records: list[dict[str, Any]] = []
@@ -844,6 +1105,7 @@ def main() -> int:
                     previous.get(entry_id),
                     today,
                     args.timeout,
+                    service_snapshot,
                 )
             )
         except UpdateCheckError as error:
