@@ -176,7 +176,7 @@
       "updateVersion": false,
       "timelineType": "BUILD",
       "timelineVersion": "DEVELOPMENT",
-      "timelineSummary": "The Tanoth Companion development userscript changed on the VM.",
+      "timelineSummary": "A new Tanoth Companion development build was detected.",
       "timelineHref": "https://pp-api.sokin.xyz/tanoth/companion/ui",
       "source": {
         "type": "service",
@@ -188,7 +188,7 @@
       "title": "Pit Guru Web Tool",
       "required": false,
       "updateVersion": false,
-      "timelineSummary": "The hosted Pit Guru race player and analysis service changed on the VM.",
+      "timelineSummary": "The hosted Pit Guru race player and analysis service was updated.",
       "timelineHref": "https://pp-api.sokin.xyz/pit-guru/",
       "source": {
         "type": "service",
@@ -200,7 +200,7 @@
       "title": "Tornfolio Service",
       "required": false,
       "updateVersion": false,
-      "timelineSummary": "The hosted Tornfolio property, rental, market and lifecycle service changed on the VM.",
+      "timelineSummary": "The hosted Tornfolio property, rental, market and lifecycle service was updated.",
       "timelineHref": "https://pp-api.sokin.xyz/tornfolio/",
       "source": {
         "type": "service",
@@ -212,7 +212,7 @@
       "title": "JobCentre+ Web Service",
       "required": false,
       "updateVersion": false,
-      "timelineSummary": "The hosted JobCentre+ marketplace deployment changed on the VM.",
+      "timelineSummary": "The hosted JobCentre+ marketplace service was updated.",
       "timelineHref": "https://pp-api.sokin.xyz/jobcentreplus/",
       "source": {
         "type": "service",
@@ -224,7 +224,7 @@
       "title": "Pythagoras Project - Dashboard",
       "required": false,
       "updateVersion": false,
-      "timelineSummary": "The hosted Pythagoras dashboard and workspace service changed on the VM.",
+      "timelineSummary": "The hosted Pythagoras dashboard and workspace service was updated.",
       "timelineHref": "https://pp-api.sokin.xyz/dashboard",
       "source": {
         "type": "service",
@@ -242,7 +242,7 @@
       "title": "Race//Stats",
       "required": false,
       "updateVersion": false,
-      "timelineSummary": "The hosted Race//Stats dashboard deployment changed on the VM.",
+      "timelineSummary": "The hosted Race//Stats dashboard was updated.",
       "timelineHref": "https://pp-api.sokin.xyz/racestats/",
       "source": {
         "type": "service",
@@ -254,7 +254,7 @@
       "title": "Tanoth Atlas",
       "required": false,
       "updateVersion": false,
-      "timelineSummary": "The hosted Tanoth Atlas companion, dungeon or suffix service changed on the VM.",
+      "timelineSummary": "The hosted Tanoth Atlas companion, dungeon or suffix service was updated.",
       "timelineHref": "https://pp-api.sokin.xyz/tanoth/companion/ui",
       "source": {
         "type": "service",
@@ -274,7 +274,7 @@
       "title": "MoDuL Hub Website",
       "required": false,
       "updateVersion": false,
-      "timelineSummary": "The published MoDuL Hub website build changed on the VM.",
+      "timelineSummary": "The published MoDuL Hub website build was updated.",
       "timelineHref": "https://modulah.github.io/",
       "source": {
         "type": "service",

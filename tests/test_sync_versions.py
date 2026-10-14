@@ -277,7 +277,7 @@ class SyncVersionsTests(unittest.TestCase):
             [],
         )
 
-    def test_fingerprints_service_files_and_keeps_each_deployment_event(self):
+    def test_fingerprints_service_files_and_keeps_latest_deployment_event(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             service_file = root / "service" / "app.py"
@@ -337,9 +337,15 @@ class SyncVersionsTests(unittest.TestCase):
                 [entry],
             )
 
-            self.assertEqual(len(second_timeline), 2)
-            self.assertNotEqual(second_timeline[0]["eventId"], second_timeline[1]["eventId"])
+            self.assertNotEqual(
+                second_record["_timelineEventId"], first_record["_timelineEventId"]
+            )
+            self.assertEqual(len(second_timeline), 1)
             self.assertEqual(second_timeline[0]["timestamp"], "2026-10-14T07:30:00Z")
+            self.assertEqual(
+                second_timeline[0]["summary"],
+                "The hosted example service was updated.",
+            )
 
 
 if __name__ == "__main__":

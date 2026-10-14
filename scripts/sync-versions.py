@@ -150,6 +150,16 @@ def is_safe_timeline_href(value: Any) -> bool:
     return ".." not in Path(href).parts
 
 
+def public_timeline_summary(value: str) -> str:
+    summary = re.sub(
+        r"\s+changed on the VM(?=[.!?]|$)",
+        " was updated",
+        value,
+        flags=re.IGNORECASE,
+    )
+    return re.sub(r"\bVM-hosted\b", "hosted", summary, flags=re.IGNORECASE).strip()
+
+
 def normalise_timeline_event(value: Any) -> dict[str, str] | None:
     if not isinstance(value, dict):
         return None
@@ -176,7 +186,10 @@ def normalise_timeline_event(value: Any) -> dict[str, str] | None:
         return None
     if event_type not in {"RELEASE", "HOTFIX", "SERVICE", "BUILD"}:
         return None
-    if not isinstance(summary, str) or not 1 <= len(summary) <= 360:
+    if not isinstance(summary, str):
+        return None
+    summary = public_timeline_summary(summary)
+    if not 1 <= len(summary) <= 360:
         return None
     if not is_safe_timeline_href(href):
         return None
@@ -964,7 +977,7 @@ def build_timeline(
     for event in previous_timeline:
         record = records_by_id.get(event["scriptId"].casefold())
         note = release_note_for(record, event["version"]) if record else ""
-        generic = re.search(r"hub (?:refreshed|keeps)|Current VM-hosted", event["summary"])
+        generic = re.search(r"hub (?:refreshed|keeps)|Current (?:VM-)?hosted", event["summary"])
         summary = note or ("No changelog was published for this version." if generic else event["summary"])
         href = f"{record['sourceUrl']}/versions" if record and record.get("source") == "greasyfork" else event["href"]
         enriched_previous.append({**event, "summary": summary, "href": href})
@@ -1045,7 +1058,20 @@ def build_timeline(
             version,
         )
 
-    return sorted(unique, key=release_order, reverse=True)[:MAX_TIMELINE_EVENTS]
+    ordered = sorted(unique, key=release_order, reverse=True)
+    latest_updates: list[dict[str, str]] = []
+    visible_keys: set[str] = set()
+    for event in ordered:
+        visible_key = (
+            f"{event['type'].casefold()}:{event['scriptId'].casefold()}"
+            if event["type"] in {"SERVICE", "BUILD"}
+            else timeline_event_key(event)
+        )
+        if visible_key in visible_keys:
+            continue
+        visible_keys.add(visible_key)
+        latest_updates.append(event)
+    return latest_updates[:MAX_TIMELINE_EVENTS]
 
 
 def write_atomic(path: Path, payload: dict[str, Any]) -> None:

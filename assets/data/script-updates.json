@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "checkedAt": "2026-10-14T08:11:18.339418Z",
+  "checkedAt": "2026-10-14T20:38:43.403558Z",
   "scripts": [
     {
       "id": "pythagoras",
@@ -147,8 +147,8 @@
           "name": "MoDuL",
           "url": "https://greasyfork.org/users/1561217-modul"
         },
-        "dailyInstalls": 2,
-        "totalInstalls": 347,
+        "dailyInstalls": 3,
+        "totalInstalls": 348,
         "version": "2.4.8",
         "created": "2026-07-31",
         "createdDisplay": "Jul 31, 2026",
@@ -323,7 +323,7 @@
     },
     {
       "id": "bootleggingHelper",
-      "title": "Torn Bootlegging \u2014 Copy DVDs Stock+Queue Helper",
+      "title": "Torn Bootlegging — Copy DVDs Stock+Queue Helper",
       "version": "0.3.4",
       "displayVersion": "v0.3.4",
       "date": "2026-05-22",
@@ -577,8 +577,8 @@
     {
       "id": "modulHubWebsite",
       "title": "MoDuL Hub Website",
-      "version": "svc-8c514f0f9bbc29e4",
-      "displayVersion": "svc-8c514f0f9bbc29e4",
+      "version": "svc-cc50af37fb9524cb",
+      "displayVersion": "svc-cc50af37fb9524cb",
       "date": "2026-10-14",
       "updated": "14 October 2026",
       "source": "service",
@@ -592,10 +592,10 @@
       "version": "LIVE",
       "date": "2026-10-14",
       "type": "SERVICE",
-      "summary": "The published MoDuL Hub website build changed on the VM.",
+      "summary": "The published MoDuL Hub website build was updated.",
       "href": "https://modulah.github.io/",
-      "eventId": "modulHubWebsite:svc-8c514f0f9bbc29e4",
-      "timestamp": "2026-10-14T07:21:11Z"
+      "eventId": "modulHubWebsite:svc-cc50af37fb9524cb",
+      "timestamp": "2026-10-14T17:15:46Z"
     },
     {
       "scriptId": "tornfolioService",
@@ -603,7 +603,7 @@
       "version": "LIVE",
       "date": "2026-10-14",
       "type": "SERVICE",
-      "summary": "The hosted Tornfolio property, rental, market and lifecycle service changed on the VM.",
+      "summary": "The hosted Tornfolio property, rental, market and lifecycle service was updated.",
       "href": "https://pp-api.sokin.xyz/tornfolio/",
       "eventId": "tornfolioService:svc-22c09bab838020bd",
       "timestamp": "2026-10-14T07:00:10Z"
@@ -624,7 +624,7 @@
       "version": "LIVE",
       "date": "2026-10-13",
       "type": "SERVICE",
-      "summary": "The hosted Pythagoras dashboard and workspace service changed on the VM.",
+      "summary": "The hosted Pythagoras dashboard and workspace service was updated.",
       "href": "https://pp-api.sokin.xyz/dashboard",
       "eventId": "pythagorasDashboard:svc-83c214d400b2875e",
       "timestamp": "2026-10-13T21:21:51Z"
@@ -635,7 +635,7 @@
       "version": "v3.3.1",
       "date": "2026-10-13",
       "type": "RELEASE",
-      "summary": "Complete daily history before upload. Daily sync now retrieves exact training, wage-change, role-change, hire, advertisement, and restocking logs before sending one coherent completed state to the Pythagoras API.\u2026",
+      "summary": "Complete daily history before upload. Daily sync now retrieves exact training, wage-change, role-change, hire, advertisement, and restocking logs before sending one coherent completed state to the Pythagoras API.…",
       "href": "https://greasyfork.org/en/scripts/580933/versions"
     },
     {
@@ -644,7 +644,7 @@
       "version": "v3.3.0",
       "date": "2026-10-13",
       "type": "RELEASE",
-      "summary": "Reliable staff-history pagination. CIS now follows valid Torn hire and wage-history pages when the same-second nanostamp is supplied in response metadata, while retaining strict endpoint, scope, cursor, and repeat-link safeguards.\u2026",
+      "summary": "Reliable staff-history pagination. CIS now follows valid Torn hire and wage-history pages when the same-second nanostamp is supplied in response metadata, while retaining strict endpoint, scope, cursor, and repeat-link safeguards.…",
       "href": "https://greasyfork.org/en/scripts/580933/versions"
     },
     {
@@ -653,7 +653,7 @@
       "version": "v3.2.9",
       "date": "2026-10-13",
       "type": "RELEASE",
-      "summary": "Clear EE details and readable employee graphs. Staff efficiency totals now recover their matching stored EE breakdown and always open a hover or keyboard-focus explanation. Selecting one employee shows exact values above every graph point, replaces irrelevant disabled controls with clear component guidance, and turns each coloured legend tag into a\u2026",
+      "summary": "Clear EE details and readable employee graphs. Staff efficiency totals now recover their matching stored EE breakdown and always open a hover or keyboard-focus explanation. Selecting one employee shows exact values above every graph point, replaces irrelevant disabled controls with clear component guidance, and turns each coloured legend tag into a…",
       "href": "https://greasyfork.org/en/scripts/580933/versions"
     },
     {
@@ -662,7 +662,7 @@
       "version": "v3.2.8",
       "date": "2026-10-13",
       "type": "RELEASE",
-      "summary": "Clearer staff insights and update status. Restores the Staff efficiency breakdown tooltip, role labels and previous-day comparisons in Employee Efficiency history, and unused paid-training credit on player cards. A persistent status beside PRV now shows green when current or red with one-click updating when GreasyFork has a newer release.\u2026",
+      "summary": "Clearer staff insights and update status. Restores the Staff efficiency breakdown tooltip, role labels and previous-day comparisons in Employee Efficiency history, and unused paid-training credit on player cards. A persistent status beside PRV now shows green when current or red with one-click updating when GreasyFork has a newer release.…",
       "href": "https://greasyfork.org/en/scripts/580933/versions"
     },
     {
@@ -680,7 +680,7 @@
       "version": "DEVELOPMENT",
       "date": "2026-10-12",
       "type": "BUILD",
-      "summary": "The Tanoth Companion development userscript changed on the VM.",
+      "summary": "The Tanoth Companion development userscript was updated.",
       "href": "https://pp-api.sokin.xyz/tanoth/companion/ui",
       "eventId": "tanothCompanion:svc-2a7f949be1a80be0",
       "timestamp": "2026-10-12T21:27:50Z"
@@ -691,7 +691,7 @@
       "version": "LIVE",
       "date": "2026-10-12",
       "type": "SERVICE",
-      "summary": "The hosted Tanoth Atlas companion, dungeon or suffix service changed on the VM.",
+      "summary": "The hosted Tanoth Atlas companion, dungeon or suffix service was updated.",
       "href": "https://pp-api.sokin.xyz/tanoth/companion/ui",
       "eventId": "tanothAtlas:svc-7706e04231a2d733",
       "timestamp": "2026-10-12T08:51:32Z"
@@ -702,7 +702,7 @@
       "version": "v3.2.6",
       "date": "2026-10-12",
       "type": "RELEASE",
-      "summary": "Explicit training instructions Automatic imports now honor explicit counts such as !train 10 even when payment-only math would estimate 9. Training comments, Primary and Secondary stats, and requested positions are visible and saved. Int & End and Trainer instructions are parsed automatically, while Add order supports the same fields.\u2026",
+      "summary": "Explicit training instructions Automatic imports now honor explicit counts such as !train 10 even when payment-only math would estimate 9. Training comments, Primary and Secondary stats, and requested positions are visible and saved. Int & End and Trainer instructions are parsed automatically, while Add order supports the same fields.…",
       "href": "https://greasyfork.org/en/scripts/580933/versions"
     },
     {
@@ -711,7 +711,7 @@
       "version": "v3.2.5",
       "date": "2026-10-12",
       "type": "RELEASE",
-      "summary": "Faster verified startup and timed sync activity: Uses Torn's numeric uid cookie as the early account hint so matching cached workspaces can open before page globals render; Shows per-step elapsed times during startup, Daily sync, and Sync all; Pauses activity-toast dismissal while hovered\u2026",
+      "summary": "Faster verified startup and timed sync activity: Uses Torn's numeric uid cookie as the early account hint so matching cached workspaces can open before page globals render; Shows per-step elapsed times during startup, Daily sync, and Sync all; Pauses activity-toast dismissal while hovered…",
       "href": "https://greasyfork.org/en/scripts/580933/versions"
     },
     {
@@ -720,7 +720,7 @@
       "version": "v3.2.4",
       "date": "2026-10-12",
       "type": "RELEASE",
-      "summary": "Faster cached startup and reliable training orders: Opens the verified saved company workspace before live identity checks and keeps fresh cloud data authoritative; Adds Daily sync and uploads only new or changed daily reports; Keeps deleted or refunded imported orders dismissed and restores staff merits on older orders\u2026",
+      "summary": "Faster cached startup and reliable training orders: Opens the verified saved company workspace before live identity checks and keeps fresh cloud data authoritative; Adds Daily sync and uploads only new or changed daily reports; Keeps deleted or refunded imported orders dismissed and restores staff merits on older orders…",
       "href": "https://greasyfork.org/en/scripts/580933/versions"
     },
     {
@@ -774,7 +774,7 @@
       "version": "v3.2.1",
       "date": "2026-10-09",
       "type": "RELEASE",
-      "summary": "Event-backed training orders: Uses Torn's real event ID internally so imported payments survive cloud reloads without duplicating; Keeps the original order row and removes surplus copies during history sync; Preserves distinct same-day payments and never removes manual additions that have no event ID\u2026",
+      "summary": "Event-backed training orders: Uses Torn's real event ID internally so imported payments survive cloud reloads without duplicating; Keeps the original order row and removes surplus copies during history sync; Preserves distinct same-day payments and never removes manual additions that have no event ID…",
       "href": "https://greasyfork.org/en/scripts/580933/versions"
     },
     {
@@ -801,7 +801,7 @@
       "version": "LIVE",
       "date": "2026-10-07",
       "type": "SERVICE",
-      "summary": "The hosted JobCentre+ marketplace deployment changed on the VM.",
+      "summary": "The hosted JobCentre+ marketplace deployment was updated.",
       "href": "https://pp-api.sokin.xyz/jobcentreplus/",
       "eventId": "jobCentrePlusService:svc-8de7a467d279c82b",
       "timestamp": "2026-10-07T22:23:00Z"
@@ -812,7 +812,7 @@
       "version": "v3.1.9",
       "date": "2026-10-07",
       "type": "RELEASE",
-      "summary": "Reliable launcher, training, and daily records: Restores the minimized launcher when Torn redraws its footer, without resetting saved settings; Auto sponsored/free trains now exclude enabled addiction or inactivity threshold breaches; paid FIFO remains unaffected; Corrects advertising-budget and isolated departure-wage records at the 18:10 TCT boundary\u2026",
+      "summary": "Reliable launcher, training, and daily records: Restores the minimized launcher when Torn redraws its footer, without resetting saved settings; Auto sponsored/free trains now exclude enabled addiction or inactivity threshold breaches; paid FIFO remains unaffected; Corrects advertising-budget and isolated departure-wage records at the 18:10 TCT boundary…",
       "href": "https://greasyfork.org/en/scripts/580933/versions"
     },
     {
@@ -821,7 +821,7 @@
       "version": "v3.1.8",
       "date": "2026-10-05",
       "type": "RELEASE",
-      "summary": "Automatic company workspace handover: Detects Torn account and company changes before loading or syncing, preserves the historical cloud workspace, and opens a pristine workspace for the verified company; Prevents staff, news, stock, wages, ledgers, planners, and company settings from crossing between companies; Requires verified current-director access\u2026",
+      "summary": "Automatic company workspace handover: Detects Torn account and company changes before loading or syncing, preserves the historical cloud workspace, and opens a pristine workspace for the verified company; Prevents staff, news, stock, wages, ledgers, planners, and company settings from crossing between companies; Requires verified current-director access…",
       "href": "https://greasyfork.org/en/scripts/580933/versions"
     },
     {
@@ -830,7 +830,7 @@
       "version": "v3.1.7",
       "date": "2026-10-05",
       "type": "RELEASE",
-      "summary": "More reliable train payments and closing wages: Recognizes train-payment triggers with extra instructions and tolerates a missing exclamation mark in transfer messages without matching unrelated words; Recovers one isolated missing Balance wage day only when the adjacent verified closing days agree\u2026",
+      "summary": "More reliable train payments and closing wages: Recognizes train-payment triggers with extra instructions and tolerates a missing exclamation mark in transfer messages without matching unrelated words; Recovers one isolated missing Balance wage day only when the adjacent verified closing days agree…",
       "href": "https://greasyfork.org/en/scripts/580933/versions"
     },
     {
@@ -875,7 +875,7 @@
       "version": "v3.1.6",
       "date": "2026-09-12",
       "type": "RELEASE",
-      "summary": "Accurate daily records and event timing: Restores closing wages and profit after 18:10 using verified staff and wage history; Assigns pre-18:10 employee snapshots to the previous company day and repairs stored rows; Shows exact Torn training-log times in Timeline and preserves them across cloud reloads\u2026",
+      "summary": "Accurate daily records and event timing: Restores closing wages and profit after 18:10 using verified staff and wage history; Assigns pre-18:10 employee snapshots to the previous company day and repairs stored rows; Shows exact Torn training-log times in Timeline and preserves them across cloud reloads…",
       "href": "https://greasyfork.org/en/scripts/580933/versions"
     },
     {
@@ -884,7 +884,7 @@
       "version": "LIVE",
       "date": "2026-09-10",
       "type": "SERVICE",
-      "summary": "The hosted Pit Guru race player and analysis service changed on the VM.",
+      "summary": "The hosted Pit Guru race player and analysis service was updated.",
       "href": "https://pp-api.sokin.xyz/pit-guru/",
       "eventId": "pitGuruWeb:svc-e17eca080b98c0ab",
       "timestamp": "2026-09-10T01:18:33Z"
@@ -895,7 +895,7 @@
       "version": "LIVE",
       "date": "2026-09-10",
       "type": "SERVICE",
-      "summary": "The hosted Race//Stats dashboard deployment changed on the VM.",
+      "summary": "The hosted Race//Stats dashboard deployment was updated.",
       "href": "https://pp-api.sokin.xyz/racestats/",
       "eventId": "raceStats:svc-8654f3aa1af32108",
       "timestamp": "2026-09-10T01:18:09Z"
@@ -915,7 +915,7 @@
       "version": "v3.1.5",
       "date": "2026-09-09",
       "type": "RELEASE",
-      "summary": "Wage history from joining: Staff history starts at Joined - salary $0, followed by dated pay changes; Sync all retrieves every available hire/wage page; later syncs fetch new changes and retain history; Balance reconstructs zero-pay periods from joining once log coverage is established; Rehires reset starting pay; missing logs remain gaps.\u2026",
+      "summary": "Wage history from joining: Staff history starts at Joined - salary $0, followed by dated pay changes; Sync all retrieves every available hire/wage page; later syncs fetch new changes and retain history; Balance reconstructs zero-pay periods from joining once log coverage is established; Rehires reset starting pay; missing logs remain gaps.…",
       "href": "https://greasyfork.org/en/scripts/580933/versions"
     },
     {
@@ -933,7 +933,7 @@
       "version": "v3.1.3",
       "date": "2026-09-09",
       "type": "RELEASE",
-      "summary": "Faster loading, reliable sync and role-aware wages: Timeline and report settings persist; disabling Timeline skips its startup data; Sync all refreshes routine company data in one action; Fresh employee rosters move departed staff to Past Staff and retain local history; Wages use each role's two effective stats\u2026",
+      "summary": "Faster loading, reliable sync and role-aware wages: Timeline and report settings persist; disabling Timeline skips its startup data; Sync all refreshes routine company data in one action; Fresh employee rosters move departed staff to Past Staff and retain local history; Wages use each role's two effective stats…",
       "href": "https://greasyfork.org/en/scripts/580933/versions"
     },
     {
@@ -942,7 +942,7 @@
       "version": "v2.3.1",
       "date": "2026-09-07",
       "type": "RELEASE",
-      "summary": "JC+ Live Notifier 2.3.1: move installs and automatic updates to GreasyFork \u2014 Existing download links now lead to the official GreasyFork release. Notifier behaviour and stored connections are unchanged; the JobCentre+ application stays at its existing address.",
+      "summary": "JC+ Live Notifier 2.3.1: move installs and automatic updates to GreasyFork — Existing download links now lead to the official GreasyFork release. Notifier behaviour and stored connections are unchanged; the JobCentre+ application stays at its existing address.",
       "href": "https://greasyfork.org/en/scripts/594723/versions"
     },
     {
@@ -961,7 +961,7 @@
       "version": "v3.1.2",
       "date": "2026-09-06",
       "type": "RELEASE",
-      "summary": "Screenshot privacy coverage: Privacy mode now masks staff names and dates in Training log, Train Schedule, Staff, Directors, and Employee Efficiency history; Business identity, director, age, founded date, staff metrics, customer counts, chart axes, stock restock quantities, and wage calculator values are covered\u2026",
+      "summary": "Screenshot privacy coverage: Privacy mode now masks staff names and dates in Training log, Train Schedule, Staff, Directors, and Employee Efficiency history; Business identity, director, age, founded date, staff metrics, customer counts, chart axes, stock restock quantities, and wage calculator values are covered…",
       "href": "https://greasyfork.org/en/scripts/580933/versions"
     },
     {
@@ -988,7 +988,7 @@
       "version": "v2.4.8",
       "date": "2026-09-03",
       "type": "RELEASE",
-      "summary": "cRaCked 2.4.8 \u2014 action button rebind recovery \u2014 Detects when Torn swaps the visible brute-force button after a suggested character is sent and rebinds the cRaCked action without a page refresh; Also repairs the binding when Torn reuses the same button node but removes cRaCked's display class or action data during reconciliation\u2026",
+      "summary": "cRaCked 2.4.8 — action button rebind recovery — Detects when Torn swaps the visible brute-force button after a suggested character is sent and rebinds the cRaCked action without a page refresh; Also repairs the binding when Torn reuses the same button node but removes cRaCked's display class or action data during reconciliation…",
       "href": "https://greasyfork.org/en/scripts/589397/versions"
     },
     {
@@ -997,7 +997,7 @@
       "version": "v3.0.9",
       "date": "2026-09-02",
       "type": "RELEASE",
-      "summary": "Safer sync and forum testimonies: Fixed the Settings Sync center markup so clicking its explanation, group labels, blank space, or Sync console no longer activates Smart sync. Only an actual sync button starts a request; User-started sync actions are serialized across the title bar, Settings, Stock, staff history, and Testimonies controls.\u2026",
+      "summary": "Safer sync and forum testimonies: Fixed the Settings Sync center markup so clicking its explanation, group labels, blank space, or Sync console no longer activates Smart sync. Only an actual sync button starts a request; User-started sync actions are serialized across the title bar, Settings, Stock, staff history, and Testimonies controls.…",
       "href": "https://greasyfork.org/en/scripts/580933/versions"
     },
     {
@@ -1006,7 +1006,7 @@
       "version": "v2.4.7",
       "date": "2026-09-01",
       "type": "RELEASE",
-      "summary": "cRaCked 2.4.7 \u2014 Android Firefox network compatibility \u2014 Supports both Tampermonkey HTTP request APIs so dictionary downloads, community sync and uploads work when Android Firefox exposes only the modern GM.xmlHttpRequest interface; Reports a direct grant/install error instead of an undefined-global failure if neither userscript request API is available.",
+      "summary": "cRaCked 2.4.7 — Android Firefox network compatibility — Supports both Tampermonkey HTTP request APIs so dictionary downloads, community sync and uploads work when Android Firefox exposes only the modern GM.xmlHttpRequest interface; Reports a direct grant/install error instead of an undefined-global failure if neither userscript request API is available.",
       "href": "https://greasyfork.org/en/scripts/589397/versions"
     },
     {
@@ -1015,7 +1015,7 @@
       "version": "v3.0.8",
       "date": "2026-08-31",
       "type": "RELEASE",
-      "summary": "Large tables and supporter credits: Weekly analytics, Balance, training orders, staff/director lists, Employee Efficiency rows, workspaces, employment history, and supporter credits now render 50 records at a time and append 50 more at the bottom; Full-data sorting happens before batching. Filters and sorting reset the visible batch\u2026",
+      "summary": "Large tables and supporter credits: Weekly analytics, Balance, training orders, staff/director lists, Employee Efficiency rows, workspaces, employment history, and supporter credits now render 50 records at a time and append 50 more at the bottom; Full-data sorting happens before batching. Filters and sorting reset the visible batch…",
       "href": "https://greasyfork.org/en/scripts/580933/versions"
     },
     {
@@ -1024,7 +1024,7 @@
       "version": "v3.0.7",
       "date": "2026-08-31",
       "type": "RELEASE",
-      "summary": "Restocking costs and smoother loading: Stock counts, sold quantities, warehouse totals, and stock warnings now use consistent thousands separators on every browser locale; Explicit zero stock values no longer fall back to stale alternate field values\u2026",
+      "summary": "Restocking costs and smoother loading: Stock counts, sold quantities, warehouse totals, and stock warnings now use consistent thousands separators on every browser locale; Explicit zero stock values no longer fall back to stale alternate field values…",
       "href": "https://greasyfork.org/en/scripts/580933/versions"
     },
     {
@@ -1033,7 +1033,7 @@
       "version": "v2.3.7",
       "date": "2026-08-31",
       "type": "RELEASE",
-      "summary": "Pit Guru v2.3.7 \u2014 2026-08-31 \u00b7 Userscript update; Changed; Successful Torn key and active Player licence checks are cached locally for up to 24 hours across page refreshes. Each check keeps its own expiry; a fresh key check no longer discards a valid licence result; Check key always requests fresh key and licence checks.\u2026",
+      "summary": "Pit Guru v2.3.7 — 2026-08-31 · Userscript update; Changed; Successful Torn key and active Player licence checks are cached locally for up to 24 hours across page refreshes. Each check keeps its own expiry; a fresh key check no longer discards a valid licence result; Check key always requests fresh key and licence checks.…",
       "href": "https://greasyfork.org/en/scripts/578342/versions"
     },
     {
@@ -1042,7 +1042,7 @@
       "version": "v2.4.6",
       "date": "2026-08-31",
       "type": "RELEASE",
-      "summary": "cRaCked 2.4.6 \u2014 one-second wait and retry recovery \u2014 Reduces the suggestion button's maximum wait from six seconds to one. Expiry unlocks the button without sending another guess automatically; Modifier keys, navigation, deletion and keyboard shortcuts no longer create phantom guesses or restart the countdown while a character input has focus\u2026",
+      "summary": "cRaCked 2.4.6 — one-second wait and retry recovery — Reduces the suggestion button's maximum wait from six seconds to one. Expiry unlocks the button without sending another guess automatically; Modifier keys, navigation, deletion and keyboard shortcuts no longer create phantom guesses or restart the countdown while a character input has focus…",
       "href": "https://greasyfork.org/en/scripts/589397/versions"
     },
     {
@@ -1051,7 +1051,7 @@
       "version": "v2.4.5",
       "date": "2026-08-31",
       "type": "RELEASE",
-      "summary": "cRaCked 2.4.5 \u2014 single tooltip and full button wording \u2014 Keeps Torn's styled hover tooltip without bringing back the browser's plain duplicate during button refreshes or modifier-key changes; Hover help updates inside the existing tooltip, preserving its arrow and accessibility association\u2026",
+      "summary": "cRaCked 2.4.5 — single tooltip and full button wording — Keeps Torn's styled hover tooltip without bringing back the browser's plain duplicate during button refreshes or modifier-key changes; Hover help updates inside the existing tooltip, preserving its arrow and accessibility association…",
       "href": "https://greasyfork.org/en/scripts/589397/versions"
     },
     {
@@ -1060,7 +1060,7 @@
       "version": "v2.4.4",
       "date": "2026-08-31",
       "type": "RELEASE",
-      "summary": "cRaCked 2.4.4 \u2014 encrypted job controls and Torn button font \u2014 Untouched fully encrypted jobs now receive the cRaCked button controls, so their modal and hover information remain available before any brute force. The same fix covers jobs with no guesses remaining; Modal hover text retains the encryption explanation and remaining brute-force workload.\u2026",
+      "summary": "cRaCked 2.4.4 — encrypted job controls and Torn button font — Untouched fully encrypted jobs now receive the cRaCked button controls, so their modal and hover information remain available before any brute force. The same fix covers jobs with no guesses remaining; Modal hover text retains the encryption explanation and remaining brute-force workload.…",
       "href": "https://greasyfork.org/en/scripts/589397/versions"
     },
     {
@@ -1069,7 +1069,7 @@
       "version": "v2.4.3",
       "date": "2026-08-30",
       "type": "RELEASE",
-      "summary": "cRaCked 2.4.3 \u2014 mobile Firefox identity detection \u2014 Detects the logged-in player's name and ID from Torn's embedded account data, even when mobile Firefox/Tampermonkey has no visible profile link; This browser-compatible path needs no API key, cookies, or extra permissions. TornPDA retains its API fallback when embedded account data is unavailable\u2026",
+      "summary": "cRaCked 2.4.3 — mobile Firefox identity detection — Detects the logged-in player's name and ID from Torn's embedded account data, even when mobile Firefox/Tampermonkey has no visible profile link; This browser-compatible path needs no API key, cookies, or extra permissions. TornPDA retains its API fallback when embedded account data is unavailable…",
       "href": "https://greasyfork.org/en/scripts/589397/versions"
     },
     {
@@ -1078,7 +1078,7 @@
       "version": "v2.4.2",
       "date": "2026-08-29",
       "type": "RELEASE",
-      "summary": "cRaCked 2.4.2 \u2014 TornPDA identity detection \u2014 TornPDA can now verify the current player's name and ID through TornPDA's documented API-key bridge and Torn's basic profile endpoint; The public-credit switch performs the identity check itself and reports actionable API-key errors instead of asking the user to reopen settings\u2026",
+      "summary": "cRaCked 2.4.2 — TornPDA identity detection — TornPDA can now verify the current player's name and ID through TornPDA's documented API-key bridge and Torn's basic profile endpoint; The public-credit switch performs the identity check itself and reports actionable API-key errors instead of asking the user to reopen settings…",
       "href": "https://greasyfork.org/en/scripts/589397/versions"
     },
     {
@@ -1087,7 +1087,7 @@
       "version": "v2.4.1",
       "date": "2026-08-29",
       "type": "RELEASE",
-      "summary": "cRaCked 2.4.1 \u2014 safe one-shot modifier actions \u2014 A modifier-click sends at most one suggested character and waits for Torn's verdict before another action can run. Duplicate miss notifications are collapsed instead of consuming the script's whole guess budget on screen\u2026",
+      "summary": "cRaCked 2.4.1 — safe one-shot modifier actions — A modifier-click sends at most one suggested character and waits for Torn's verdict before another action can run. Duplicate miss notifications are collapsed instead of consuming the script's whole guess budget on screen…",
       "href": "https://greasyfork.org/en/scripts/589397/versions"
     },
     {
@@ -1096,7 +1096,7 @@
       "version": "v2.4.0",
       "date": "2026-08-28",
       "type": "RELEASE",
-      "summary": "Clearer first-time privacy choice: Fresh installations now open Settings automatically on the cracking page; Public Torn-name credit is presented first and clearly marked as optional. Shared cracks remain anonymous unless the player explicitly opts in\u2026",
+      "summary": "Clearer first-time privacy choice: Fresh installations now open Settings automatically on the cracking page; Public Torn-name credit is presented first and clearly marked as optional. Shared cracks remain anonymous unless the player explicitly opts in…",
       "href": "https://greasyfork.org/en/scripts/589397/versions"
     },
     {
@@ -1160,7 +1160,7 @@
       "version": "v3.0.4b",
       "date": "2026-07-26",
       "type": "RELEASE",
-      "summary": "Exact training counts in News: Company News now reconciles training entries against Torn's exact company training-action log by employee and date; Grouped News replaces timestamp-collapsed company-news totals with the exact daily total; Raw News shows each unique Torn training action after Training sync, including multiple actions in the same second\u2026",
+      "summary": "Exact training counts in News: Company News now reconciles training entries against Torn's exact company training-action log by employee and date; Grouped News replaces timestamp-collapsed company-news totals with the exact daily total; Raw News shows each unique Torn training action after Training sync, including multiple actions in the same second…",
       "href": "https://greasyfork.org/en/scripts/580933/versions"
     },
     {
@@ -1169,7 +1169,7 @@
       "version": "v3.0.4",
       "date": "2026-07-26",
       "type": "RELEASE",
-      "summary": "Mobile settings and exact training counts: Settings forms now collapse to full-width single-column layouts on phones, including Auto mode priority controls and full-width section headings; Training log sync now reads Torn's exact company training-action log (6263) alongside company news\u2026",
+      "summary": "Mobile settings and exact training counts: Settings forms now collapse to full-width single-column layouts on phones, including Auto mode priority controls and full-width section headings; Training log sync now reads Torn's exact company training-action log (6263) alongside company news…",
       "href": "https://greasyfork.org/en/scripts/580933/versions"
     },
     {
@@ -1178,7 +1178,7 @@
       "version": "v3.0.3",
       "date": "2026-07-22",
       "type": "RELEASE",
-      "summary": "Employee Efficiency component trends and web dashboard: Employee Efficiency history now runs newest to oldest, keeping the latest completed Torn company day closest to employee names; Added 7-day history alongside the existing 14, 30, 90, and all-time ranges; free accounts are strictly limited to their latest seven company days\u2026",
+      "summary": "Employee Efficiency component trends and web dashboard: Employee Efficiency history now runs newest to oldest, keeping the latest completed Torn company day closest to employee names; Added 7-day history alongside the existing 14, 30, 90, and all-time ranges; free accounts are strictly limited to their latest seven company days…",
       "href": "https://greasyfork.org/en/scripts/580933/versions"
     },
     {
@@ -1187,7 +1187,7 @@
       "version": "v2.9.4",
       "date": "2026-07-17",
       "type": "RELEASE",
-      "summary": "Training queue standards: Training setup now includes a Queue standard controller for Director chooses, Full staff rotation, Lower stats first, Closest under assigned role, and Role need first; Paid staff with remaining paid trains stay prioritized by default through the Paid orders first toggle\u2026",
+      "summary": "Training queue standards: Training setup now includes a Queue standard controller for Director chooses, Full staff rotation, Lower stats first, Closest under assigned role, and Role need first; Paid staff with remaining paid trains stay prioritized by default through the Paid orders first toggle…",
       "href": "https://greasyfork.org/en/scripts/580933/versions"
     },
     {
@@ -1205,7 +1205,7 @@
       "version": "v2.9.2",
       "date": "2026-07-13",
       "type": "RELEASE",
-      "summary": "Balance sync stability: Advertising budget history now records Torn API V2 profile values as explicit dated rows and ignores older unmarked zero rows in Balance; The Pythagoras API now returns ad-budget raw metadata and rejects unmarked zero ad-budget rows, while still allowing future explicit zeroes from updated clients\u2026",
+      "summary": "Balance sync stability: Advertising budget history now records Torn API V2 profile values as explicit dated rows and ignores older unmarked zero rows in Balance; The Pythagoras API now returns ad-budget raw metadata and rejects unmarked zero ad-budget rows, while still allowing future explicit zeroes from updated clients…",
       "href": "https://greasyfork.org/en/scripts/580933/versions"
     },
     {
@@ -1214,7 +1214,7 @@
       "version": "v2.1.7",
       "date": "2026-07-13",
       "type": "RELEASE",
-      "summary": "MoDuL's Pit Guru Changelog \u2014 Project status (2026-07-13); MoDuL's Pit Guru is now the public-facing successor project to Lap Recorder on MoDuL's Hub; The live supporter userscript build is v2.1.7 at https://modulah.github.io/pit-guru/pit-guru.user.js\u2026",
+      "summary": "MoDuL's Pit Guru Changelog — Project status (2026-07-13); MoDuL's Pit Guru is now the public-facing successor project to Lap Recorder on MoDuL's Hub; The live supporter userscript build is v2.1.7 at https://modulah.github.io/pit-guru/pit-guru.user.js…",
       "href": "https://greasyfork.org/en/scripts/578342/versions"
     },
     {
@@ -1241,7 +1241,7 @@
       "version": "v2.9.1",
       "date": "2026-07-11",
       "type": "RELEASE",
-      "summary": "Stock settings persistence: Stock card restock toggles, warning thresholds, warning modes, and restock quantities now save to a dedicated stock settings map; Stock settings update the 24-hour sync cache immediately on input/change, so fast Torn page switches and refreshes keep the latest values\u2026",
+      "summary": "Stock settings persistence: Stock card restock toggles, warning thresholds, warning modes, and restock quantities now save to a dedicated stock settings map; Stock settings update the 24-hour sync cache immediately on input/change, so fast Torn page switches and refreshes keep the latest values…",
       "href": "https://greasyfork.org/en/scripts/580933/versions"
     },
     {
@@ -1259,7 +1259,7 @@
       "version": "v2.8.11",
       "date": "2026-07-03",
       "type": "RELEASE",
-      "summary": "Risk strike persistence: Visible risk notifications now record same-day risk-strike history, so warnings cannot appear without also updating the member record; Staff sync snapshots now include strikeHistory and raw strike-history data for the Pythagoras API snapshot path\u2026",
+      "summary": "Risk strike persistence: Visible risk notifications now record same-day risk-strike history, so warnings cannot appear without also updating the member record; Staff sync snapshots now include strikeHistory and raw strike-history data for the Pythagoras API snapshot path…",
       "href": "https://greasyfork.org/en/scripts/580933/versions"
     },
     {
@@ -1268,7 +1268,7 @@
       "version": "v2.4.0",
       "date": "2026-06-30",
       "type": "RELEASE",
-      "summary": "Reworked the license panel into Discord Licensing instructions: Removed the manual key paste, verify/save, clear-license, and redirect progress flow from the UI; Supporter access now unlocks only through the active Discord bot License API status check for the detected Torn ID\u2026",
+      "summary": "Reworked the license panel into Discord Licensing instructions: Removed the manual key paste, verify/save, clear-license, and redirect progress flow from the UI; Supporter access now unlocks only through the active Discord bot License API status check for the detected Torn ID…",
       "href": "https://greasyfork.org/en/scripts/562954/versions"
     },
     {
@@ -1291,7 +1291,7 @@
     },
     {
       "scriptId": "bootleggingHelper",
-      "title": "Torn Bootlegging \u2014 Copy DVDs Stock+Queue Helper",
+      "title": "Torn Bootlegging — Copy DVDs Stock+Queue Helper",
       "version": "v0.3.4",
       "date": "2026-05-22",
       "type": "RELEASE",
@@ -1304,7 +1304,7 @@
       "version": "v2.3.2",
       "date": "2026-05-09",
       "type": "RELEASE",
-      "summary": "Changed the script execution time to prevent unwanted outcomes and supporter key clearance. Hope this will fix the issue of Key suddenly gone \u2014 Apologies for the inconvinience.",
+      "summary": "Changed the script execution time to prevent unwanted outcomes and supporter key clearance. Hope this will fix the issue of Key suddenly gone — Apologies for the inconvinience.",
       "href": "https://greasyfork.org/en/scripts/562954/versions"
     },
     {
@@ -1331,7 +1331,7 @@
       "version": "v2.2.9",
       "date": "2026-05-06",
       "type": "RELEASE",
-      "summary": "Fixed a licensing bug where visiting race log pages could cause a valid saved license to be cleared on refresh: Saved licenses are now preserved when the page is in a transient racing state and user detection cannot be confirmed yet\u2026",
+      "summary": "Fixed a licensing bug where visiting race log pages could cause a valid saved license to be cleared on refresh: Saved licenses are now preserved when the page is in a transient racing state and user detection cannot be confirmed yet…",
       "href": "https://greasyfork.org/en/scripts/562954/versions"
     },
     {
@@ -1385,7 +1385,7 @@
       "version": "v1.2.3",
       "date": "2026-01-26",
       "type": "RELEASE",
-      "summary": "\u2705 Added support for the images on Stats page as well. Now they follow suit with your selection \u2014 \ud83e\uddf1 Finalized race details bar placement permanently under the track; \ud83d\udcd0 Improved padding and height to match the track canvas margins; \ud83d\udcf1 Fixed text clipping and alignment issues on PDA / mobile; \ud83c\udfaf Vertically and horizontally centered race details content\u2026",
+      "summary": "✅ Added support for the images on Stats page as well. Now they follow suit with your selection — 🧱 Finalized race details bar placement permanently under the track; 📐 Improved padding and height to match the track canvas margins; 📱 Fixed text clipping and alignment issues on PDA / mobile; 🎯 Vertically and horizontally centered race details content…",
       "href": "https://greasyfork.org/en/scripts/563548/versions"
     },
     {
@@ -1394,7 +1394,7 @@
       "version": "v2.1.8",
       "date": "2026-01-25",
       "type": "RELEASE",
-      "summary": "UI styling updated to better match Torn\u2019s native theme: Improved dropdown readability (fixed option colours in some browsers); Improved panel mounting reliability on page/tab updates; Fixed button interactions that could cause page errors.",
+      "summary": "UI styling updated to better match Torn’s native theme: Improved dropdown readability (fixed option colours in some browsers); Improved panel mounting reliability on page/tab updates; Fixed button interactions that could cause page errors.",
       "href": "https://greasyfork.org/en/scripts/562954/versions"
     },
     {
@@ -1403,7 +1403,7 @@
       "version": "v1.3.0",
       "date": "2026-01-22",
       "type": "RELEASE",
-      "summary": "Added support for Torn Docks (Car Shop) \u2728 New \u2022 Restores original (real-world) car names on Torn Docks \u2022 OG names now appear in: Buy lists; Item cards; Stock listings; Mobile / PDA view.",
+      "summary": "Added support for Torn Docks (Car Shop) ✨ New • Restores original (real-world) car names on Torn Docks • OG names now appear in: Buy lists; Item cards; Stock listings; Mobile / PDA view.",
       "href": "https://greasyfork.org/en/scripts/563153/versions"
     },
     {
@@ -1430,7 +1430,7 @@
       "version": "v2.1.7",
       "date": "2026-01-21",
       "type": "RELEASE",
-      "summary": "Added Popularity filter (Supporter feature): Filter races by minimum fill percentage (\u226530%, \u226550%, \u226570%); Uses current/max drivers for accurate popularity calculation.",
+      "summary": "Added Popularity filter (Supporter feature): Filter races by minimum fill percentage (≥30%, ≥50%, ≥70%); Uses current/max drivers for accurate popularity calculation.",
       "href": "https://greasyfork.org/en/scripts/562954/versions"
     },
     {
@@ -1439,7 +1439,7 @@
       "version": "v2.1.5",
       "date": "2026-01-21",
       "type": "RELEASE",
-      "summary": "Added **Car name mode selector**: Fictional (default); Real (OG) \u2013 compatible with Restore OG Car Names; Fixed car/class filtering when OG names are active; Improved compatibility between multiple MoDuL scripts; UI polish and icon consistency; Performance optimisations for mobile devices.",
+      "summary": "Added **Car name mode selector**: Fictional (default); Real (OG) – compatible with Restore OG Car Names; Fixed car/class filtering when OG names are active; Improved compatibility between multiple MoDuL scripts; UI polish and icon consistency; Performance optimisations for mobile devices.",
       "href": "https://greasyfork.org/en/scripts/562954/versions"
     }
   ],

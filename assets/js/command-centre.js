@@ -95,6 +95,9 @@ function sanitiseTimelineEvent(value) {
   if (!['RELEASE', 'HOTFIX', 'SERVICE', 'BUILD'].includes(value.type)) return null;
   if (typeof value.summary !== 'string' || !value.summary.length || value.summary.length > 360)
     return null;
+  const summary = value.summary
+    .replace(/\s+changed on the VM(?=[.!?]|$)/i, ' was updated')
+    .replace(/\bVM-hosted\b/gi, 'hosted');
   const href = legacyPageHrefs.has(value.href) ? 'https://modulah.github.io/' : value.href;
   if (!isSafeTimelineHref(href)) return null;
   const eventId =
@@ -114,7 +117,7 @@ function sanitiseTimelineEvent(value) {
     version: value.version,
     date: value.date,
     type: value.type,
-    summary: value.summary,
+    summary,
     href,
     ...(eventId ? { eventId } : {}),
     ...(timestamp ? { timestamp } : {}),
@@ -737,9 +740,12 @@ function renderScriptUpdateTimeline() {
   const count = document.getElementById('script-release-count');
   if (!timeline || !count) return;
 
-  const releaseKey = (release) =>
-    (['SERVICE', 'BUILD'].includes(release.type) && release.eventId) ||
-    `${release.scriptId || release.title.toLocaleLowerCase()}\u0000${release.version.toLocaleLowerCase()}`;
+  const releaseKey = (release) => {
+    const project = release.scriptId || release.title.toLocaleLowerCase();
+    return ['SERVICE', 'BUILD'].includes(release.type)
+      ? `${release.type}\u0000${project}`
+      : `${project}\u0000${release.version.toLocaleLowerCase()}`;
+  };
   const fetchedReleases = automaticScriptReleases.filter(
     (release) =>
       !['No changelog was published for this version.', 'Imported from URL.'].includes(
@@ -747,11 +753,11 @@ function renderScriptUpdateTimeline() {
       ) || !scriptReleases.some((editorial) => releaseKey(editorial) === releaseKey(release))
   );
   const releases = [...fetchedReleases, ...scriptReleases]
+    .sort(compareScriptReleases)
     .filter(
       (release, index, all) =>
         all.findIndex((candidate) => releaseKey(candidate) === releaseKey(release)) === index
-    )
-    .sort(compareScriptReleases);
+    );
 
   timeline.replaceChildren();
   count.textContent = `${releases.length} UPDATES`;

@@ -88,7 +88,8 @@ describe("command centre catalogue", () => {
     expect(app).toContain("payload.timeline.map(sanitiseTimelineEvent)");
     expect(app).toContain("'RELEASE', 'HOTFIX', 'SERVICE', 'BUILD'");
     expect(app).toContain("`${releases.length} UPDATES`");
-    expect(app).toContain("release.eventId");
+    expect(app).toContain("['SERVICE', 'BUILD'].includes(release.type)");
+    expect(app).toContain('`${release.type}\\u0000${project}`');
     expect(app).toContain("release.scriptId || release.title.toLocaleLowerCase()");
     expect(app).toContain("Latest release check:");
     expect(app).toContain("requestUrl.searchParams.set('fresh', Date.now().toString())");
@@ -365,6 +366,7 @@ describe("command centre catalogue", () => {
       "tanothCompanion",
       "tornfolioService",
     ]);
+    expect(JSON.stringify(updaterConfig)).not.toMatch(/\bon the VM\b/i);
   });
 
   test("refreshes generated manifests during deploy and scheduled sync", () => {
