@@ -65,6 +65,45 @@ describe("command centre catalogue", () => {
     ]);
     expect(app).toContain(".sort(compareScriptReleases)");
   });
+
+  test("sorts downloadable scripts by total installs and leaves unlisted tools below them", () => {
+    const sorter = app.match(/function sortModules\(modules\) \{[\s\S]*?\n\}/)[0];
+    const totals = app.match(/function getTotalInstalls\(script\) \{[\s\S]*?\n\}/)[0];
+    const modules = [
+      { title: "Unlisted Tool", tier: "web tools" },
+      { title: "Popular Script", tier: "free", marketplace: { totalInstalls: 900 } },
+      { title: "Smaller Script", tier: "free", marketplace: { totalInstalls: 75 } },
+      { title: "Archived Hit", tier: "archive", marketplace: { totalInstalls: 5000 } },
+    ];
+    const sorted = new Function(
+      "currentSort",
+      "scripts",
+      `${totals}\n${sorter}\nreturn sortModules(scripts);`
+    )("downloads", modules);
+    expect(sorted.map((row) => row.title)).toEqual([
+      "Popular Script",
+      "Smaller Script",
+      "Unlisted Tool",
+      "Archived Hit",
+    ]);
+  });
+
+  test("offers complete high-level catalogue categories", () => {
+    expect(code).toContain('data-sort="downloads"');
+    expect(code).toContain('id="module-category-menu"');
+    for (const category of [
+      "RACING",
+      "COMPANY &amp; JOBS",
+      "PROPERTY &amp; FINANCE",
+      "TANOTH",
+      "UTILITIES",
+    ]) {
+      expect(code).toContain(`data-category="${category}"`);
+    }
+    expect(catalogue.match(/"group":/g)).toHaveLength(23);
+    expect(app).toContain("function moduleMatchesCategory(script, category)");
+    expect(app).toContain("script.marketplace?.totalInstalls");
+  });
   test("shows current distributed script versions", () => {
     expect(code).toContain("BUILD: v2.5.0-CYBER");
     expect(catalogue).toContain('"version": "v3.1.2"');

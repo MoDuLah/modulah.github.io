@@ -3,7 +3,7 @@ import {
   scriptReleases,
   moduleFaqs,
   moduleScreenshots,
-} from './catalogue.js?v=20261014.1';
+} from './catalogue.js?v=20261014.2';
 
 const scriptUpdateManifestUrl = 'https://pp-api.sokin.xyz/assets/data/script-updates.json';
 const screenshotManifestUrl = 'assets/data/module-screenshots.json';
@@ -265,6 +265,7 @@ async function loadScreenshotManifest() {
 }
 
 let currentFilter = 'ALL';
+let currentCategory = 'ALL';
 let currentSort = 'newest';
 let currentView = 'registry';
 let moduleRenderToken = 0;
@@ -280,9 +281,18 @@ const pendingTerminalSteps = new Map();
 const sortLabels = {
   newest: 'NEW-OLD',
   oldest: 'OLD-NEW',
+  downloads: 'MOST DOWNLOADED',
   az: 'A-Z',
   za: 'Z-A',
 };
+const categoryLabels = new Set([
+  'ALL',
+  'RACING',
+  'COMPANY & JOBS',
+  'PROPERTY & FINANCE',
+  'TANOTH',
+  'UTILITIES',
+]);
 const bootStageSelectors = {
   interface: '[data-boot-stage="interface"]',
   diagnostics: '[data-boot-stage="diagnostics"]',
@@ -316,15 +326,26 @@ function moduleMatchesFilter(script, filter) {
   return getModuleFilters(script).some((tier) => tier.toUpperCase() === filter);
 }
 
+function moduleMatchesCategory(script, category) {
+  return category === 'ALL' || script.group?.toUpperCase() === category;
+}
+
 function getFilteredScripts() {
-  return currentFilter === 'ALL'
-    ? scripts
-    : scripts.filter((script) => moduleMatchesFilter(script, currentFilter));
+  return scripts.filter(
+    (script) =>
+      (currentFilter === 'ALL' || moduleMatchesFilter(script, currentFilter)) &&
+      moduleMatchesCategory(script, currentCategory)
+  );
 }
 
 function getUpdatedTimestamp(script) {
   const timestamp = Date.parse(script.updated);
   return Number.isNaN(timestamp) ? null : timestamp;
+}
+
+function getTotalInstalls(script) {
+  const totalInstalls = script.marketplace?.totalInstalls;
+  return Number.isSafeInteger(totalInstalls) && totalInstalls >= 0 ? totalInstalls : -1;
 }
 
 function sortModules(modules) {
@@ -336,6 +357,10 @@ function sortModules(modules) {
     if (currentSort === 'az' || currentSort === 'za') {
       const direction = currentSort === 'az' ? 1 : -1;
       return left.title.localeCompare(right.title) * direction;
+    }
+    if (currentSort === 'downloads') {
+      const installOrder = getTotalInstalls(right) - getTotalInstalls(left);
+      return installOrder || left.title.localeCompare(right.title);
     }
 
     const leftTimestamp = getUpdatedTimestamp(left);
@@ -360,12 +385,15 @@ function updateRegistrySummary() {
   const filteredCount = getFilteredScripts().length;
   const totalCount = scripts.length;
   const filterSuffix = currentFilter === 'ALL' ? '' : ` [${currentFilter}]`;
+  const categorySuffix = currentCategory === 'ALL' ? '' : ` [${currentCategory}]`;
 
   document.getElementById('module-header-title').innerText =
-    `Module Interface Array${filterSuffix}`;
+    `Module Interface Array${filterSuffix}${categorySuffix}`;
   document.getElementById('module-filter-text').innerText =
-    `FILTER: [${currentFilter}] · ${filteredCount} / ${totalCount}`;
+    `ACCESS: [${currentFilter}] · CATEGORY: [${currentCategory}] · ${filteredCount} / ${totalCount}`;
   document.getElementById('module-sort-label').textContent = sortLabels[currentSort];
+  document.getElementById('module-category-label').textContent =
+    currentCategory === 'ALL' ? 'CATEGORY: ALL' : currentCategory;
   document.getElementById('registry-summary').textContent =
     `${filteredCount} OF ${totalCount} MODULES AVAILABLE`;
   document.getElementById('registry-module-count').textContent = totalCount;
@@ -399,8 +427,35 @@ function toggleSortMenu() {
   const button = document.getElementById('module-sort-button');
   const menu = document.getElementById('module-sort-menu');
   const willOpen = menu.classList.contains('hidden');
+  closeCategoryMenu();
   menu.classList.toggle('hidden', !willOpen);
   button.setAttribute('aria-expanded', String(willOpen));
+}
+
+function closeCategoryMenu() {
+  const button = document.getElementById('module-category-button');
+  const menu = document.getElementById('module-category-menu');
+  menu.classList.add('hidden');
+  button.setAttribute('aria-expanded', 'false');
+}
+
+function toggleCategoryMenu() {
+  const button = document.getElementById('module-category-button');
+  const menu = document.getElementById('module-category-menu');
+  const willOpen = menu.classList.contains('hidden');
+  closeSortMenu();
+  menu.classList.toggle('hidden', !willOpen);
+  button.setAttribute('aria-expanded', String(willOpen));
+}
+
+function setModuleCategory(category) {
+  if (!pageBootComplete || currentView !== 'registry') return;
+  if (!categoryLabels.has(category)) return;
+
+  currentCategory = category;
+  closeCategoryMenu();
+  updateRegistrySummary();
+  renderModules(`APPLYING CATEGORY FILTER [${category}]...`);
 }
 
 function closeMobileMenu() {
@@ -1090,6 +1145,7 @@ function renderModuleFacts(data) {
     { label: 'Access', value: data.tier.toUpperCase() },
     { label: 'Release state', value: data.releaseState },
     { label: 'Updated', value: data.updated },
+    { label: 'Collection', value: data.group },
     { label: 'Category', value: data.category },
   ];
   if (data.marketplace) {
@@ -1239,6 +1295,7 @@ function getModuleDiagnosticSteps(data) {
     { message: `RELEASE: ${formatConsoleValue(data.releaseState)}` },
     { message: `VERSION: ${formatConsoleValue(data.version)}` },
     { message: `UPDATED: ${formatConsoleValue(data.updated)}` },
+    { message: `COLLECTION: ${formatConsoleValue(data.group)}` },
     { message: `CATEGORY: ${formatConsoleValue(data.category)}` },
   ];
 
@@ -1570,6 +1627,7 @@ function resetView() {
   currentView = 'registry';
   activeModuleId = null;
   currentFilter = 'ALL';
+  currentCategory = 'ALL';
   document.getElementById('module-grid').classList.remove('hidden');
   document.getElementById('script-details-container').classList.remove('active');
   updateRegistrySummary();
@@ -1588,8 +1646,12 @@ document.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('clock-toggle').addEventListener('click', toggleClock);
   document.getElementById('mobile-menu-toggle').addEventListener('click', toggleMobileMenu);
   document.getElementById('module-sort-button').addEventListener('click', toggleSortMenu);
+  document.getElementById('module-category-button').addEventListener('click', toggleCategoryMenu);
   document.querySelectorAll('[data-sort]').forEach((control) => {
     control.addEventListener('click', () => setModuleSort(control.dataset.sort));
+  });
+  document.querySelectorAll('[data-category]').forEach((control) => {
+    control.addEventListener('click', () => setModuleCategory(control.dataset.category));
   });
   document.querySelectorAll('[data-dialog]').forEach((control) => {
     control.addEventListener('click', () => {
@@ -1613,7 +1675,10 @@ document.addEventListener('DOMContentLoaded', async () => {
   document.addEventListener('click', (event) => {
     const target = event.target;
     if (!(target instanceof Element)) return;
-    if (!target.closest('#module-sort-group')) closeSortMenu();
+    if (!target.closest('#module-sort-group')) {
+      closeSortMenu();
+      closeCategoryMenu();
+    }
     if (!target.closest('#clock-toggle') && !target.closest('#clock-panel')) {
       document.getElementById('clock-panel').classList.add('hidden');
       document.getElementById('clock-toggle').setAttribute('aria-expanded', 'false');
