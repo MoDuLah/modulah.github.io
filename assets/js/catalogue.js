@@ -140,7 +140,7 @@ export const scripts = [
     "title": "Tornfolio",
     "desc":
       "A Torn property, rental, market pricing and ROI manager for owners and renters.",
-    "version": "v0.7.0",
+    "version": "v0.7.1",
     "versionPrefix": "VER",
     "category": "Property management",
     "projectType": "Supporter property tool",
@@ -155,10 +155,11 @@ export const scripts = [
       "Property Journey across ownership, occupancy, listings, offers and contracts",
       "Stable rental contracts with extensions, expiry and duplicate protection",
       "Lifecycle intelligence for rent, upkeep, upgrades and known cashflow",
+      "Automatic release status with a trusted one-click Tornfolio update path",
     ],
     "actions": [
       {
-        "label": "Install v0.7.0",
+        "label": "Install v0.7.1",
         "href": "https://modulah.github.io/tornfolio/tornfolio.user.js",
         "icon": "download",
         "primary": true,
@@ -739,6 +740,16 @@ export const scripts = [
 ];
 
 export const scriptReleases = [
+  {
+    scriptId: "tornfolio",
+    title: "Tornfolio",
+    version: "v0.7.1",
+    date: "2026-10-14",
+    type: "RELEASE",
+    summary:
+      "Added a Pythagoras-style update checker with clear checking, current, outdated and retry states, plus a guarded link to Tornfolio's trusted GreasyFork installer.",
+    href: "https://greasyfork.org/en/scripts/591996-tornfolio-property-lease-roi-manager/versions",
+  },
   {
     scriptId: "tornfolio",
     title: "Tornfolio",

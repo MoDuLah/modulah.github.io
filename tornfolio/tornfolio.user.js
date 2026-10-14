@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Tornfolio — Property, Lease & ROI Manager
 // @namespace    https://github.com/local/torn-landlord-tenant-ledger
-// @version      0.7.0
+// @version      0.7.1
 // @description  Manage your Torn property portfolio, rentals, market pricing, archive, and ROI.
 // @author       MoDuL
 // @copyright    2026 MoDuL. All rights reserved.
@@ -11,6 +11,7 @@
 // @match        https://www.torn.com/properties.php*
 // @connect      api.torn.com
 // @connect      pp-api.sokin.xyz
+// @connect      api.greasyfork.org
 // @icon         https://modulah.github.io/assets/images/tornfolio/tornfolio-logo.svg
 // @grant        GM_xmlhttpRequest
 // @grant        GM_getValue
@@ -22,6 +23,7 @@
   "use strict";
 
   const APP_ID = "tlt-ledger";
+  const APP_VERSION = "0.7.1";
   const STORE_KEY = "tornLandlordTenantLedger:v1";
   const API_BASE = "https://api.torn.com/v2";
   const HOSTED_API_BASE = "https://pp-api.sokin.xyz/tornfolio";
@@ -30,6 +32,9 @@
   const LEGACY_HOSTED_SESSION_KEYS = ["RT_TORN_LTL_HOSTED_SESSION", "RT_TORN_MPG_HOSTED_SESSION"];
   const ICON_SPRITE_CACHE_KEY = "RT_TORN_TF_ICON_SPRITE_V1";
   const ICON_SPRITE_URL = `${HOSTED_API_BASE}/assets/icons/tornfolio-icons.svg`;
+  const GREASYFORK_SCRIPT_ID = 591996;
+  const GREASYFORK_API_URL = `https://api.greasyfork.org/en/scripts/${GREASYFORK_SCRIPT_ID}.json`;
+  const GREASYFORK_PAGE_URL = "https://greasyfork.org/en/scripts/591996-tornfolio-property-lease-roi-manager";
   const ICON_NAMES = ["logo", "dashboard", "home", "properties", "property", "rentals", "market", "archive", "insights", "alert", "activity", "money", "key", "tag", "heart", "settings", "sync", "external", "minimize", "close", "quick", "idea", "trophy", "exchange", "list", "calendar", "more", "add"];
   const BUILTIN_ICON_CONTENT = {
     logo: '<path d="M12 21c.2-5.8-.2-10.3-1.3-13.5"/><path d="M11 7.7C8.9 4.9 6.2 4.5 3.8 5.3c2.1.4 3.7 1.6 4.8 3.4"/><path d="M11 7.3c.2-3.2 2-5.2 4.6-6.1-.9 2.1-.9 4.1.1 5.9"/><path d="M11.6 7.5c2.7-2.2 5.5-2.1 7.8-.6-2.2-.1-4 .7-5.5 2.2"/><path d="M4 21c2.7-1.4 5.3-1.4 8 0 2.7-1.4 5.3-1.4 8 0"/>',
@@ -184,6 +189,9 @@
   let iconCacheRecord = null;
   let iconFetchStarted = false;
   let syncProgressDismissTimer = null;
+  let availableUpdate = null;
+  let updateCheckStarted = false;
+  let updateCheckStatus = "checking";
 
   function loadState() {
     const raw = safeGet(STORE_KEY);
@@ -1184,6 +1192,106 @@
         },
       });
     });
+  }
+
+  function versionParts(value) {
+    const match = clean(value, "").trim().match(/^(\d+)(?:\.(\d+))?(?:\.(\d+))?/);
+    return match ? match.slice(1, 4).map((part) => Number(part || 0)) : [0, 0, 0];
+  }
+
+  function compareVersions(left, right) {
+    const a = versionParts(left);
+    const b = versionParts(right);
+    for (let index = 0; index < Math.max(a.length, b.length); index += 1) {
+      if ((a[index] || 0) !== (b[index] || 0)) return (a[index] || 0) > (b[index] || 0) ? 1 : -1;
+    }
+    return 0;
+  }
+
+  function safeGreasyForkUrl(value, fallback) {
+    try {
+      const url = new URL(clean(value, ""), GREASYFORK_PAGE_URL);
+      const allowedHost = ["greasyfork.org", "www.greasyfork.org", "update.greasyfork.org"].includes(url.hostname);
+      const matchesScript = new RegExp(`/scripts/${GREASYFORK_SCRIPT_ID}(?:/|-|$)`).test(url.pathname);
+      return url.protocol === "https:" && allowedHost && matchesScript ? url.href : fallback;
+    } catch (_error) {
+      return fallback;
+    }
+  }
+
+  function updateCandidate(payload, currentVersion = APP_VERSION) {
+    if (!payload || Number(payload.id) !== GREASYFORK_SCRIPT_ID) return null;
+    const version = clean(payload.version, "").trim();
+    if (!version || compareVersions(version, currentVersion) <= 0) return null;
+    const pageUrl = safeGreasyForkUrl(payload.url, GREASYFORK_PAGE_URL);
+    const installUrl = safeGreasyForkUrl(payload.code_url || payload.codeUrl, pageUrl);
+    return {
+      version,
+      pageUrl,
+      installUrl,
+      updatedAt: clean(payload.code_updated_at || payload.codeUpdatedAt, ""),
+    };
+  }
+
+  function requestLatestVersion() {
+    return new Promise((resolve, reject) => {
+      const accept = (status, responseText) => {
+        if (Number(status || 200) >= 400) {
+          reject(new Error(`GreasyFork update check returned HTTP ${status}.`));
+          return;
+        }
+        try {
+          resolve(JSON.parse(responseText || "{}"));
+        } catch (_error) {
+          reject(new Error("GreasyFork update check returned invalid JSON."));
+        }
+      };
+      if (typeof GM_xmlhttpRequest === "function") {
+        GM_xmlhttpRequest({
+          method: "GET",
+          url: GREASYFORK_API_URL,
+          timeout: 12000,
+          headers: { Accept: "application/json" },
+          onload: (response) => accept(response && response.status, response && response.responseText),
+          onerror: () => reject(new Error("GreasyFork update check failed.")),
+          ontimeout: () => reject(new Error("GreasyFork update check timed out.")),
+        });
+        return;
+      }
+      fetch(GREASYFORK_API_URL, { headers: { Accept: "application/json" }, cache: "no-store" })
+        .then((response) => {
+          if (!response.ok) throw new Error(`GreasyFork update check returned HTTP ${response.status}.`);
+          return response.json();
+        })
+        .then(resolve, reject);
+    });
+  }
+
+  async function checkForUpdates(force = false) {
+    if (updateCheckStarted && !force) return availableUpdate;
+    updateCheckStarted = true;
+    updateCheckStatus = "checking";
+    render();
+    try {
+      availableUpdate = updateCandidate(await requestLatestVersion());
+      updateCheckStatus = availableUpdate ? "outdated" : "current";
+      render();
+      return availableUpdate;
+    } catch (error) {
+      availableUpdate = null;
+      updateCheckStatus = "error";
+      updateCheckStarted = false;
+      render();
+      console.warn("[Tornfolio] GreasyFork update check failed.", error);
+      return null;
+    }
+  }
+
+  function openAvailableUpdate(root) {
+    if (!availableUpdate) return;
+    const sourceWindow = root && root.ownerDocument && root.ownerDocument.defaultView || window;
+    const opened = sourceWindow.open(availableUpdate.installUrl || availableUpdate.pageUrl || GREASYFORK_PAGE_URL, "_blank", "noopener,noreferrer");
+    if (!opened) setStatus("The update page was blocked. Allow pop-ups for Torn, then press Update again.", true);
   }
 
   async function verifyHostedAccess() {
@@ -3193,6 +3301,22 @@
     return `<section class="tf-sync-progress-toast ${progressClass} ${state.syncState === "error" ? "is-error" : ""}" aria-live="polite" aria-label="Tornfolio sync progress"><header><span class="tf-sync-progress-icon">${tfIcon(finished && state.syncState !== "error" ? "activity" : "sync")}</span><div><strong>${escapeHtml(progress.title)}</strong><small>${escapeHtml(progress.message)}</small></div><button class="tf-sync-progress-close" type="button" data-action="dismiss-sync-progress" aria-label="Dismiss sync details">${tfIcon("close")}</button></header><div class="tf-sync-progress-meta"><div class="tf-sync-progress-track" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${escapeAttr(Math.round(progress.percent))}"><i style="--tf-sync-progress:${escapeAttr(progress.percent)}%"></i></div><b>${Math.round(progress.percent)}%</b></div><ol>${progress.steps.map((step) => `<li class="is-${escapeAttr(step.status)}"><i>${symbols[step.status] || "○"}</i><span><strong>${escapeHtml(step.label)}</strong><small>${escapeHtml(step.detail)}</small></span></li>`).join("")}</ol>${finished ? `<footer><span>${progress.startedAt ? `Started ${escapeHtml(new Date(progress.startedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }))}` : "Sync finished"}</span><strong>${progress.finishedAt ? `Finished ${escapeHtml(new Date(progress.finishedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }))}` : ""}</strong></footer>` : `<footer><span>Live progress is reported by the hosted sync.</span><strong>Please keep Torn open</strong></footer>`}</section>`;
   }
 
+  function tfUpdateButtonHtml() {
+    if (availableUpdate && availableUpdate.version) {
+      const title = `Tornfolio ${availableUpdate.version} is available. Click here to update now.`;
+      return `<button class="tf-update-status is-outdated" type="button" data-action="install-update" title="${escapeAttr(title)}" aria-label="${escapeAttr(title)}"><i class="tf-update-dot" aria-hidden="true"></i><span>Out of date</span></button>`;
+    }
+    if (updateCheckStatus === "error") {
+      const title = "GreasyFork could not be reached. Click here to check again.";
+      return `<button class="tf-update-status is-error" type="button" data-action="retry-update-check" title="${escapeAttr(title)}" aria-label="${escapeAttr(title)}"><i class="tf-update-dot" aria-hidden="true"></i><span>Check failed</span></button>`;
+    }
+    if (updateCheckStatus === "current") {
+      const title = `Tornfolio ${APP_VERSION} is the latest GreasyFork version.`;
+      return `<span class="tf-update-status is-current" role="status" title="${escapeAttr(title)}"><i class="tf-update-dot" aria-hidden="true"></i><span>Up to date</span></span>`;
+    }
+    return `<span class="tf-update-status is-checking" role="status" title="Checking GreasyFork for a newer Tornfolio release"><i class="tf-update-dot" aria-hidden="true"></i><span>Checking…</span></span>`;
+  }
+
   function tfShellHtml(model, isPopup) {
     return `
       ${iconSpriteDefsHtml()}
@@ -3203,6 +3327,7 @@
           <div class="tf-header-actions">
             <div class="tf-sync-meta"><i class="tf-sync-dot is-${escapeAttr(state.syncState || "idle")}"></i><span>Last synced<strong>${state.lastSyncAt ? escapeHtml(new Date(state.lastSyncAt).toLocaleString()) : "Not yet"}</strong></span></div>
             <button class="tf-sync-button" type="button" data-action="refresh-user-details"${state.syncState === "syncing" ? " disabled" : ""}>${tfIcon("sync")}<span>${state.syncState === "syncing" ? "Syncing…" : "Sync Now"}</span></button>
+            ${tfUpdateButtonHtml()}
             <button class="tf-icon-button" type="button" data-action="open-settings" aria-label="Open settings">${tfIcon("settings")}</button>
             ${isPopup ? `<button class="tf-icon-button" type="button" data-action="close-popup" aria-label="Close popup">${tfIcon("close")}</button>` : `<button class="tf-icon-button" type="button" data-action="open-popup" aria-label="Open in popup">${tfIcon("external")}</button><button class="tf-icon-button" type="button" data-action="hide-panel" aria-label="Hide Tornfolio">${tfIcon("minimize")}</button>`}
           </div>
@@ -3212,7 +3337,7 @@
         ${state.manualModalOpen ? manualLeaseModalHtml() : ""}
         ${state.settingsOpen ? tfSettingsModalHtml() : ""}
         ${state.detailView ? tfDetailModalHtml(model) : ""}
-        <footer class="tf-footer"><div class="tf-footer-brand">${tfIcon("logo")}<strong>Tornfolio</strong><small>Portfolio &amp; Rental Management</small></div><div><span>Help &amp; Support</span><span>Privacy Policy</span><span>Terms of Service</span><span>v0.7.0</span></div></footer>
+        <footer class="tf-footer"><div class="tf-footer-brand">${tfIcon("logo")}<strong>Tornfolio</strong><small>Portfolio &amp; Rental Management</small></div><div><span>Help &amp; Support</span><span>Privacy Policy</span><span>Terms of Service</span><span>v${escapeHtml(APP_VERSION)}</span></div></footer>
         ${tfSyncProgressHtml()}
         <div class="tlt-status tf-toast ${state.syncProgress ? "is-suppressed" : ""} ${state.syncState && state.syncState !== "idle" ? "is-visible" : ""} ${state.syncState === "error" ? "is-error" : ""}" aria-live="polite">${escapeHtml(state.syncMessage || "")}</div>
       </div>
@@ -3641,6 +3766,17 @@
       #${APP_ID} button:hover { border-color: var(--tf-teal); background: #0d3444; }
       #${APP_ID} .tf-sync-button, #${APP_ID} button.tf-primary { border-color: #10a888; background: linear-gradient(180deg, #0c886f, #076955); color: #f2fffc; }
       #${APP_ID} .tf-sync-button { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-width: 150px; padding: 10px 18px; font-size: 14px; }
+      #${APP_ID} .tf-update-status { display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-height: 42px; padding: 0 11px; border: 1px solid var(--tf-border); border-radius: 8px; background: #092535; color: var(--tf-muted); box-sizing: border-box; font-size: 11px; font-weight: 700; white-space: nowrap; }
+      #${APP_ID} .tf-update-status.is-current { border-color: rgba(69,239,173,.5); background: rgba(19,86,69,.42); color: #bff8df; cursor: default; }
+      #${APP_ID} .tf-update-status.is-outdated { border-color: rgba(255,117,123,.82); background: #4c2028; color: #ffd2d4; box-shadow: 0 0 0 1px rgba(255,117,123,.16), 0 0 13px rgba(255,117,123,.22); animation: tfUpdatePulse 2.4s ease-in-out infinite; }
+      #${APP_ID} .tf-update-status.is-error { border-color: rgba(255,208,90,.72); background: #403315; color: #ffe7a3; }
+      #${APP_ID} .tf-update-status.is-checking { cursor: wait; }
+      #${APP_ID} .tf-update-dot { width: 8px; min-width: 8px; height: 8px; border-radius: 50%; background: #708794; box-shadow: 0 0 7px currentColor; }
+      #${APP_ID} .tf-update-status.is-current .tf-update-dot { background: var(--tf-green); }
+      #${APP_ID} .tf-update-status.is-outdated .tf-update-dot { background: var(--tf-red); }
+      #${APP_ID} .tf-update-status.is-error .tf-update-dot { background: var(--tf-amber); }
+      @keyframes tfUpdatePulse { 0%,100% { box-shadow: 0 0 0 1px rgba(255,117,123,.16), 0 0 7px rgba(255,117,123,.12); } 50% { box-shadow: 0 0 0 1px rgba(255,117,123,.42), 0 0 17px rgba(255,117,123,.34); } }
+      @media (prefers-reduced-motion: reduce) { #${APP_ID} .tf-update-status.is-outdated { animation: none; } }
       #${APP_ID} button.tf-primary:hover { background: linear-gradient(180deg, #10a888, #087961); }
       #${APP_ID} button.tf-danger { border-color: #a5424b; background: #5f252d; }
       #${APP_ID} .tf-icon-button { display: grid; place-items: center; width: 42px; min-width: 42px; height: 42px; padding: 0; font-size: 19px; }
@@ -3937,6 +4073,8 @@
       #${APP_ID} .tf-chip-list span { padding: 5px 8px; border: 1px solid var(--tf-border-bright); border-radius: 99px; color: #bcd6e5; }
       @media (max-width: 1120px) {
         #${APP_ID} { min-width: 520px; }
+        #${APP_ID} .tf-update-status { width: 42px; min-width: 42px; padding: 0; }
+        #${APP_ID} .tf-update-status > span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
         #${APP_ID} .tf-main-sidebar { grid-template-columns: 1fr; }
         #${APP_ID} .tf-sidebar { grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
         #${APP_ID} .tf-market-top { grid-template-columns: 1fr 1fr; }
@@ -7207,6 +7345,14 @@
           if (action === "delete" && confirmAction(root, "Remove this lease from the list?")) deleteLease(button.dataset.id);
           if (action === "export-json") exportJson();
           if (action === "export-csv") exportCsv();
+          if (action === "install-update") {
+            openAvailableUpdate(root);
+            return;
+          }
+          if (action === "retry-update-check") {
+            void checkForUpdates(true);
+            return;
+          }
           if (action === "pick-json") root.querySelector("[data-action='import-json']").click();
           if (action === "open-popup") openPopup();
           if (action === "close-popup") closePopup();
@@ -7471,6 +7617,7 @@
   function startTornfolio() {
     render();
     void primeIconCache();
+    void checkForUpdates();
   }
 
   if (document.readyState === "loading") {
