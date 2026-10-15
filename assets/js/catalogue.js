@@ -143,13 +143,13 @@ export const scripts = [
     "tier": "supporter",
     "title": "Tornfolio",
     "desc": "A Torn property, rental, market pricing and ROI manager for owners and renters.",
-    "version": "v0.7.1",
+    "version": "v0.7.4",
     "versionPrefix": "VER",
     "category": "Property management",
     "group": "Property & Finance",
     "projectType": "Supporter property tool",
     "releaseState": "Current supporter build",
-    "updated": "14 October 2026",
+    "updated": "15 October 2026",
     "badge": "supporter",
     "badgeText": "SUPPORTER",
     "logo": "assets/images/tornfolio/tornfolio-logo.svg",
@@ -159,11 +159,12 @@ export const scripts = [
       "Property Journey across ownership, occupancy, listings, offers and contracts",
       "Stable rental contracts with extensions, expiry and duplicate protection",
       "Lifecycle intelligence for rent, upkeep, upgrades and known cashflow",
+      "Guided Market and ROI pricing for rental listings and extension offers",
       "Automatic release status with a trusted one-click Tornfolio update path",
     ],
     "actions": [
       {
-        "label": "Install v0.7.1",
+        "label": "Install v0.7.4",
         "href": "https://modulah.github.io/tornfolio/tornfolio.user.js",
         "icon": "download",
         "primary": true,
@@ -762,6 +763,16 @@ export const scripts = [
 ];
 
 export const scriptReleases = [
+  {
+    scriptId: "tornfolio",
+    title: "Tornfolio",
+    version: "v0.7.4",
+    date: "2026-10-15",
+    type: "RELEASE",
+    summary:
+      "Added reviewed property listing, removal, extension and upkeep payments, then guided rental pricing with selectable Market and ROI sources, automatic period totals, projected ROI, quick listing and extension access.",
+    href: "https://greasyfork.org/en/scripts/591996-tornfolio-property-lease-roi-manager/versions",
+  },
   {
     scriptId: "tornfolio",
     title: "Tornfolio",

@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Tornfolio — Property, Lease & ROI Manager
 // @namespace    https://github.com/local/torn-landlord-tenant-ledger
-// @version      0.7.1
+// @version      0.7.4
 // @description  Manage your Torn property portfolio, rentals, market pricing, archive, and ROI.
 // @author       MoDuL
 // @copyright    2026 MoDuL. All rights reserved.
@@ -23,7 +23,7 @@
   "use strict";
 
   const APP_ID = "tlt-ledger";
-  const APP_VERSION = "0.7.1";
+  const APP_VERSION = "0.7.4";
   const STORE_KEY = "tornLandlordTenantLedger:v1";
   const API_BASE = "https://api.torn.com/v2";
   const HOSTED_API_BASE = "https://pp-api.sokin.xyz/tornfolio";
@@ -192,6 +192,8 @@
   let availableUpdate = null;
   let updateCheckStarted = false;
   let updateCheckStatus = "checking";
+  let propertyAction = null;
+  const propertyActionOverrides = new Map();
 
   function loadState() {
     const raw = safeGet(STORE_KEY);
@@ -1194,6 +1196,194 @@
     });
   }
 
+  function tornPropertyActionEnvironmentReason() {
+    const pageLocation = window.location || location;
+    if (String(pageLocation.hostname || "").toLowerCase() !== "www.torn.com" || !/^\/properties\.php$/i.test(pageLocation.pathname || "")) {
+      return "Property actions only run on Torn's properties page.";
+    }
+    if (window.top !== window.self) return "Property actions are unavailable inside an embedded page.";
+    if (document.visibilityState !== "visible" || (typeof document.hasFocus === "function" && !document.hasFocus())) {
+      return "Bring the Torn properties page to the foreground before continuing.";
+    }
+    return "";
+  }
+
+  function tornCsrfToken() {
+    const row = String(document.cookie || "").split(";").map((part) => part.trim()).find((part) => part.startsWith("rfc_v="));
+    if (!row) return "";
+    const value = row.slice("rfc_v=".length);
+    try {
+      return decodeURIComponent(value);
+    } catch (_error) {
+      return value;
+    }
+  }
+
+  function propertyActionInteger(value, label, minimum = 1, maximum = Number.MAX_SAFE_INTEGER) {
+    const normalized = String(value === null || value === undefined ? "" : value).trim().replace(/^\$/, "").replace(/[\s,]/g, "");
+    if (!/^\d+$/.test(normalized)) throw new Error(`${label} must be a whole number.`);
+    const number = Number(normalized);
+    if (!Number.isSafeInteger(number) || number < minimum || number > maximum) {
+      throw new Error(`${label} must be between ${minimum.toLocaleString()} and ${maximum.toLocaleString()}.`);
+    }
+    return String(number);
+  }
+
+  function tornPropertyActionFields(kind, phase, propertyId, values = {}) {
+    const id = String(propertyId || "").trim();
+    if (!/^\d+$/.test(id)) throw new Error("A valid Torn property ID is required.");
+    if (!['rent', 'sale', 'remove', 'extend', 'upkeep'].includes(kind)) throw new Error("Unknown property action.");
+    if (!['preview', 'final'].includes(phase)) throw new Error("Unknown property action stage.");
+
+    if (kind === "upkeep") {
+      if (phase === "preview") return { p: "options", ID: id, tab: "upkeep", step: "options" };
+      const pay = propertyActionInteger(values.pay, "Upkeep payment", 1, Number.MAX_SAFE_INTEGER);
+      return { step: "upkeepProperty", pay, ID: id };
+    }
+
+    if (kind === "remove") {
+      if (phase !== "final") throw new Error("Removing a listing does not have a preview request.");
+      return { step: "removeFromMarket", ID: id };
+    }
+
+    if (kind === "rent") {
+      const money = propertyActionInteger(values.total, "Total rent", 1, 9999999999);
+      const days = propertyActionInteger(values.days, "Lease days", 3, 100);
+      return phase === "preview"
+        ? { step: "optionsAction", action: "lease", to: "market", ID: id, money, days }
+        : { step: "leaseProperty", to: "market", money, days, ID: id };
+    }
+
+    if (kind === "sale") {
+      const money = propertyActionInteger(values.price, "Sale price", 1, 9999999999);
+      return phase === "preview"
+        ? { step: "optionsAction", action: "sell", to: "market", route: "properties", ID: id, money }
+        : { step: "sellProperty", to: "market", route: "properties", ID: id, money };
+    }
+
+    const offercost = propertyActionInteger(values.total, "Extension total", 1, 9999999999);
+    const days = propertyActionInteger(values.days, "Extension days", 1, 100);
+    return phase === "preview"
+      ? { step: "optionsAction", action: "offer", propertyID: id, offercost, days }
+      : { step: "offerExtention", propertyID: id, offercost, days };
+  }
+
+  function tornPropertyResponseMessage(text, json) {
+    const source = json && typeof json === "object"
+      ? clean(json.message || json.text || json.error, "").trim()
+      : String(text || "");
+    if (!source) return "";
+    try {
+      const parsed = new DOMParser().parseFromString(source, "text/html");
+      return clean(parsed.body && parsed.body.textContent, "").replace(/\s+/g, " ").trim().slice(0, 300);
+    } catch (_error) {
+      return source.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim().slice(0, 300);
+    }
+  }
+
+  async function tornPropertyPost(fields) {
+    const unavailable = tornPropertyActionEnvironmentReason();
+    if (unavailable) throw new Error(unavailable);
+    const token = tornCsrfToken();
+    if (!token) throw new Error("Torn's page token is unavailable. Reload the properties page and try again.");
+
+    const controller = typeof AbortController === "function" ? new AbortController() : null;
+    const timeout = controller ? setTimeout(() => controller.abort(), 20000) : null;
+    let response;
+    try {
+      response = await fetch(`/properties.php?rfcv=${encodeURIComponent(token)}`, {
+        method: "POST",
+        credentials: "same-origin",
+        cache: "no-store",
+        redirect: "follow",
+        headers: {
+          Accept: "application/json, text/html, */*; q=0.01",
+          "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
+          "X-Requested-With": "XMLHttpRequest",
+        },
+        body: new URLSearchParams(fields).toString(),
+        signal: controller ? controller.signal : undefined,
+      });
+    } catch (error) {
+      if (error && error.name === "AbortError") throw new Error("Torn did not answer within 20 seconds. Nothing was retried.");
+      throw new Error("Could not reach Torn. Nothing was retried.");
+    } finally {
+      if (timeout) clearTimeout(timeout);
+    }
+
+    const text = await response.text();
+    let json = null;
+    try {
+      json = text ? JSON.parse(text) : null;
+    } catch (_error) {
+      json = null;
+    }
+    const message = tornPropertyResponseMessage(text, json);
+    if (!response.ok) throw new Error(message || `Torn returned error ${response.status}.`);
+    if (json && json.success === false) throw new Error(message || "Torn declined the property action.");
+    if (/captcha|cloudflare|verify you are human|name=["']login["']/i.test(text)) {
+      throw new Error("Torn requested an interactive verification. Complete it on the page, then try again.");
+    }
+    if (!text.trim()) throw new Error("Torn returned an empty response, so the action was not confirmed.");
+    return { json, text, message };
+  }
+
+  function parseTornUpkeepOptions(text, expectedPropertyId) {
+    const parsed = new DOMParser().parseFromString(String(text || ""), "text/html");
+    const section = parsed.querySelector(".upkeep-opt") || parsed;
+    const payInput = section.querySelector("input[name='pay']");
+    const idInput = section.querySelector("input[name='ID']");
+    if (!payInput || !idInput) throw new Error("Torn's upkeep form was not present in the response. Nothing was paid.");
+
+    const returnedId = String(idInput.value || "").trim();
+    if (returnedId !== String(expectedPropertyId || "").trim()) {
+      throw new Error("Torn returned upkeep details for a different property. Nothing was paid.");
+    }
+    const due = propertyActionInteger(payInput.getAttribute("data-max") || payInput.getAttribute("data-money") || payInput.value, "Outstanding upkeep", 0, Number.MAX_SAFE_INTEGER);
+    const required = section.querySelector(".required-fees");
+    const requiredText = clean(required && required.textContent, "").replace(/\s+/g, " ").trim();
+    return { due, requiredText: requiredText || `Required fees: ${tfMoneyKnown(due)}` };
+  }
+
+  async function tornPropertyCashAvailable(propertyId) {
+    const unavailable = tornPropertyActionEnvironmentReason();
+    if (unavailable) throw new Error(unavailable);
+    const id = String(propertyId || "").trim();
+    if (!/^\d+$/.test(id)) throw new Error("A valid Torn property ID is required.");
+    const token = tornCsrfToken();
+    if (!token) throw new Error("Torn's page token is unavailable. Reload the properties page and try again.");
+
+    const controller = typeof AbortController === "function" ? new AbortController() : null;
+    const timeout = controller ? setTimeout(() => controller.abort(), 20000) : null;
+    let response;
+    try {
+      const query = new URLSearchParams({ step: "propertyFeesAction", ID: id, rfcv: token });
+      response = await fetch(`/inputMoneyAction.php?${query.toString()}`, {
+        method: "GET",
+        credentials: "same-origin",
+        cache: "no-store",
+        redirect: "follow",
+        headers: {
+          Accept: "text/plain, */*; q=0.01",
+          "X-Requested-With": "XMLHttpRequest",
+        },
+        signal: controller ? controller.signal : undefined,
+      });
+    } catch (error) {
+      if (error && error.name === "AbortError") throw new Error("Torn did not return your available cash within 20 seconds. Nothing was paid or retried.");
+      throw new Error("Could not check your available cash with Torn. Nothing was paid or retried.");
+    } finally {
+      if (timeout) clearTimeout(timeout);
+    }
+
+    const text = (await response.text()).trim();
+    if (!response.ok) throw new Error(`Torn returned error ${response.status} while checking available cash. Nothing was paid.`);
+    if (/captcha|cloudflare|verify you are human|name=["']login["']/i.test(text)) {
+      throw new Error("Torn requested an interactive verification. Complete it on the page, then check upkeep again.");
+    }
+    return propertyActionInteger(text, "Available cash", 0, Number.MAX_SAFE_INTEGER);
+  }
+
   function versionParts(value) {
     const match = clean(value, "").trim().match(/^(\d+)(?:\.(\d+))?(?:\.(\d+))?/);
     return match ? match.slice(1, 4).map((part) => Number(part || 0)) : [0, 0, 0];
@@ -1554,6 +1744,8 @@
     if (leases.length) state.leases = compactLeaseList([...(state.leases || []), ...leases]);
     state.archivedRentals = dedupeArchiveRows([...(state.archivedRentals || []), ...tenancyArchive]).filter(isCompletedArchiveRow);
     migrateContractLifecycle(state);
+    propertyAction = null;
+    propertyActionOverrides.clear();
     state.lastSyncAt = nowIso();
     completeSyncProgressFromBody(body);
     saveState("Tornfolio saved");
@@ -2913,6 +3105,23 @@
 
     for (const property of propertyMap.values()) {
       property.lifecycle = lifecycleByProperty.get(property.id) || null;
+      const override = propertyActionOverrides.get(property.id) || {};
+      const lifecycleRentalListed = tfListingStatusActive(property.lifecycle && property.lifecycle.rental_listing_status);
+      const lifecycleSaleListed = tfListingStatusActive(property.lifecycle && property.lifecycle.sale_listing_status);
+      property.rentalListed = Object.prototype.hasOwnProperty.call(override, "rentalListed")
+        ? Boolean(override.rentalListed)
+        : Boolean(property.rentalListed || lifecycleRentalListed);
+      property.saleListed = Object.prototype.hasOwnProperty.call(override, "saleListed")
+        ? Boolean(override.saleListed)
+        : Boolean(property.saleListed || lifecycleSaleListed);
+      property.listed = property.rentalListed || property.saleListed;
+      property.listingKind = property.rentalListed && property.saleListed ? "rent and sale" : property.rentalListed ? "rent" : property.saleListed ? "sale" : "";
+      property.extensionPending = Object.prototype.hasOwnProperty.call(override, "extensionPending")
+        ? Boolean(override.extensionPending)
+        : normalizeLookup((property.lifecycle && property.lifecycle.extension_status) || (property.activeContract && property.activeContract.extensionStatus)) === "pending";
+      property.upkeepBalance = Object.prototype.hasOwnProperty.call(override, "upkeepBalance")
+        ? Number(override.upkeepBalance)
+        : null;
       property.status = property.isCurrentHome
         ? "occupied"
         : property.activeContract && property.activeContract.direction === "out"
@@ -2965,7 +3174,9 @@
       marketValue,
       investment: manualInvestmentForRow(raw) || estimatedInvestmentCost(raw, propertyTypeForRow(raw) || {}),
       image,
-      listed: isForRent(raw),
+      rentalListed: isForRent(raw),
+      saleListed: isForSale(raw),
+      listed: isForRent(raw) || isForSale(raw),
       raw,
       activeContract: null,
       isCurrentHome: false,
@@ -2982,8 +3193,14 @@
       residents: incoming.residents.length ? incoming.residents : previous.residents,
       upgrades: incoming.upgrades.length ? incoming.upgrades : previous.upgrades,
       staff: incoming.staff.length ? incoming.staff : previous.staff,
+      rentalListed: Boolean(previous.rentalListed || incoming.rentalListed),
+      saleListed: Boolean(previous.saleListed || incoming.saleListed),
       listed: Boolean(previous.listed || incoming.listed),
     };
+  }
+
+  function tfListingStatusActive(value) {
+    return ["listed", "active", "for rent", "for sale", "for_rent", "for_sale"].includes(normalizeLookup(value));
   }
 
   function tfNormalizeContract(lease, propertyMap, context) {
@@ -3093,6 +3310,9 @@
       suggestedDaily: moneyNumber(row.suggested_rent_per_day || row.rent_per_day_suggested),
       suggestedDays: positiveNumber(row.suggested_duration_days),
       suggestedTotal: moneyNumber(row.suggested_total),
+      targetRoi: positiveNumber(row.target_roi) || targetAnnualRoi(),
+      suggestedRoi: positiveNumber(row.suggested_roi),
+      investmentBasis: moneyNumber(row.investment_basis || row.manual_investment || row.my_investment || row.estimated_investment),
       durationBasis: clean(row.duration_basis, "Saved default lease duration"),
       confidence: clean(row.comparable_confidence || row.confidence, derivedConfidence),
       basis,
@@ -3227,6 +3447,12 @@
     return value ? `${money(value)}${suffix}` : "Unavailable";
   }
 
+  function tfMoneyKnown(value, suffix = "") {
+    const number = Number(value);
+    if (!Number.isFinite(number) || number < 0) return "Unavailable";
+    return `${number === 0 ? "$0" : money(number)}${suffix}`;
+  }
+
   function tfNumber(value, fallback = "0") {
     const number = Number(value);
     return Number.isFinite(number) ? number.toLocaleString() : fallback;
@@ -3333,10 +3559,11 @@
           </div>
         </header>
         <nav class="tf-nav" role="tablist" aria-label="Tornfolio sections">${tabsHtml()}</nav>
-        <main class="tlt-tab-content tf-content">${activeTabHtml(model)}</main>
+        <main class="tlt-tab-content tf-content">${activeTabHtml(model, isPopup)}</main>
         ${state.manualModalOpen ? manualLeaseModalHtml() : ""}
         ${state.settingsOpen ? tfSettingsModalHtml() : ""}
-        ${state.detailView ? tfDetailModalHtml(model) : ""}
+        ${state.detailView ? tfDetailModalHtml(model, isPopup) : ""}
+        ${propertyAction && !isPopup ? tfPropertyActionModalHtml(model) : ""}
         <footer class="tf-footer"><div class="tf-footer-brand">${tfIcon("logo")}<strong>Tornfolio</strong><small>Portfolio &amp; Rental Management</small></div><div><span>Help &amp; Support</span><span>Privacy Policy</span><span>Terms of Service</span><span>v${escapeHtml(APP_VERSION)}</span></div></footer>
         ${tfSyncProgressHtml()}
         <div class="tlt-status tf-toast ${state.syncProgress ? "is-suppressed" : ""} ${state.syncState && state.syncState !== "idle" ? "is-visible" : ""} ${state.syncState === "error" ? "is-error" : ""}" aria-live="polite">${escapeHtml(state.syncMessage || "")}</div>
@@ -3409,7 +3636,7 @@
     return `<div class="tf-activity-list">${rows.map((row) => `<div class="tf-activity-row"><time>${escapeHtml(tfRelative(row.at))}</time><i></i><strong>${escapeHtml(row.type)}</strong><span>${escapeHtml(row.property)} · ${escapeHtml(row.detail)}</span></div>`).join("")}</div>`;
   }
 
-  function tfPropertiesHtml(model) {
+  function tfPropertiesHtml(model, isPopup = false) {
     const ui = tfUi();
     const scoped = model.properties.filter((property) => ui.propertyScope === "all" || property.ownership === ui.propertyScope);
     const filtered = scoped.filter((property) => {
@@ -3428,7 +3655,7 @@
         ${tfSegmentButton("propertyScope", "spouse", "heart", "Spouse Properties", ui.propertyScope)}
         ${tfSegmentButton("propertyScope", "all", "list", "All Properties", ui.propertyScope)}
       </div><input type="search" data-ui-field="propertySearch" placeholder="Search properties…" value="${escapeAttr(ui.propertySearch)}"><select data-ui-field="propertyStatus"><option value="all">All Statuses</option>${["occupied", "rented", "available", "listed"].map((value) => `<option value="${value}"${ui.propertyStatus === value ? " selected" : ""}>${escapeHtml(humanHeader(value))}</option>`).join("")}</select><select data-ui-field="propertyType"><option value="all">All Types</option>${types.map((value) => `<option value="${escapeAttr(value)}"${ui.propertyType === value ? " selected" : ""}>${escapeHtml(value)}</option>`).join("")}</select></div>
-      <div class="tf-main-sidebar"><div><div class="tf-summary-strip">${tfMetric("property", tfNumber(summary.total), "Total Properties")}${tfMetric("key", tfNumber(summary.rented), "Rented Out", "info")}${tfMetric("home", tfNumber(summary.available), "Available")}${tfMetric("tag", tfNumber(summary.listed), "Listed", "warning")}${tfMetric("money", tfMoney(summary.daily), "Total Daily Rent Income", "success")}</div><div class="tf-property-list">${filtered.length ? filtered.map(tfPropertyCard).join("") : tfEmpty("No matching properties", "Change the filters or sync to load your property portfolio.")}</div></div>
+      <div class="tf-main-sidebar"><div><div class="tf-summary-strip">${tfMetric("property", tfNumber(summary.total), "Total Properties")}${tfMetric("key", tfNumber(summary.rented), "Rented Out", "info")}${tfMetric("home", tfNumber(summary.available), "Available")}${tfMetric("tag", tfNumber(summary.listed), "Listed", "warning")}${tfMetric("money", tfMoney(summary.daily), "Total Daily Rent Income", "success")}</div><div class="tf-property-list">${filtered.length ? filtered.map((property) => tfPropertyCard(property, isPopup)).join("") : tfEmpty("No matching properties", "Change the filters or sync to load your property portfolio.")}</div></div>
         <aside class="tf-sidebar"><section class="tf-card"><div class="tf-card-head"><h2>${tfIcon("quick")} Quick Actions</h2></div><button class="tf-primary tf-wide" type="button" data-action="export-csv">Export CSV</button><button class="tf-wide" type="button" data-tab="archive">View Archive</button></section>${tfAttentionPanel(model)}<section class="tf-card"><div class="tf-card-head"><h2>${tfIcon("activity")} Recent Property Activity</h2></div>${tfActivityList(model.activities.slice(0, 5))}</section></aside>
       </div></section>`;
   }
@@ -3442,7 +3669,7 @@
     return `<button type="button" data-ui-field="${escapeAttr(field)}" data-ui-value="${escapeAttr(value)}" class="${selected === value ? "is-active" : ""}">${tfIcon(icon)}<span>${escapeHtml(label)}</span></button>`;
   }
 
-  function tfPropertyCard(property) {
+  function tfPropertyCard(property, isPopup = false) {
     const contract = property.activeContract;
     const detail = property.isCurrentHome
       ? `<div><span>Owner</span><strong>${escapeHtml(property.owner)}</strong></div><div><span>Residents</span><strong>${escapeHtml(property.residents.join(", ") || "Unavailable")}</strong></div><div><span>Status</span><strong class="is-success">Occupied</strong></div>`
@@ -3451,7 +3678,10 @@
         : property.listed
           ? `<div><span>Owner</span><strong>${escapeHtml(property.owner)}</strong></div><div><span>Status</span><strong class="is-warning">Available for rent</strong></div><div><span>Happiness</span><strong>${property.happy ? tfNumber(property.happy) : "Unavailable"}</strong></div>`
           : `<div><span>Owner</span><strong>${escapeHtml(property.owner)}</strong></div><div><span>Status</span><strong class="is-success">Available</strong></div><div><span>Type</span><strong>${escapeHtml(property.type)}</strong></div>`;
-    return `<article class="tf-property-card">${property.image ? `<img src="${escapeAttr(property.image)}" alt="${escapeAttr(property.type)}">` : `<div class="tf-image-placeholder">${tfIcon("home")}</div>`}<div class="tf-property-body"><div class="tf-property-head"><div><h2>${escapeHtml(property.name)}${property.id && !property.name.includes(property.id) ? ` <small>#${escapeHtml(property.id)}</small>` : ""}</h2><div class="tf-badges">${tfOwnershipBadge(property.ownership)}${tfStatusBadge(property.status)}</div></div></div><div class="tf-property-meta">${detail}</div></div><div class="tf-card-actions"><button type="button" data-action="open-property" data-property-key="${escapeAttr(property.key)}">View Property →</button>${contract ? `<button type="button" data-action="open-rental" data-contract-id="${escapeAttr(contract.contractId)}">View Rental →</button>` : ""}</div></article>`;
+    const quickList = !isPopup && !propertyActionUnavailableReason("rent", property)
+      ? `<button class="tf-primary" type="button" data-action="open-property-action" data-property-action="rent" data-property-key="${escapeAttr(property.key)}">List for rent</button>`
+      : "";
+    return `<article class="tf-property-card">${property.image ? `<img src="${escapeAttr(property.image)}" alt="${escapeAttr(property.type)}">` : `<div class="tf-image-placeholder">${tfIcon("home")}</div>`}<div class="tf-property-body"><div class="tf-property-head"><div><h2>${escapeHtml(property.name)}${property.id && !property.name.includes(property.id) ? ` <small>#${escapeHtml(property.id)}</small>` : ""}</h2><div class="tf-badges">${tfOwnershipBadge(property.ownership)}${tfStatusBadge(property.status)}</div></div></div><div class="tf-property-meta">${detail}</div></div><div class="tf-card-actions">${quickList}<button type="button" data-action="open-property" data-property-key="${escapeAttr(property.key)}">View Property →</button>${contract ? `<button type="button" data-action="open-rental" data-contract-id="${escapeAttr(contract.contractId)}">View Rental →</button>` : ""}</div></article>`;
   }
 
   function tfAttentionPanel(model) {
@@ -3663,30 +3893,582 @@
     </div></div></div>`;
   }
 
-  function tfDetailModalHtml(model) {
+  function tfSuggestionForProperty(model, property) {
+    return (model.suggestions || []).find((row) => row.propertyId && row.propertyId === property.id)
+      || (model.suggestions || []).find((row) => row.property && row.property.key === property.key)
+      || null;
+  }
+
+  function tfRentalListingSuggestion(property, model) {
+    const suggestion = tfSuggestionForProperty(model, property);
+    const propertyTypeIdValue = String(propertyTypeIdFromRow(property.raw) || "");
+    const summary = (model.marketSummary || []).find((row) => propertyTypeIdValue && String(row.property_type_id || row._property_type_id || "") === propertyTypeIdValue)
+      || (model.marketSummary || []).find((row) => normalizeLookup(row.property_type || row.property || row.name) === normalizeLookup(property.type))
+      || {};
+    const medianDaily = moneyNumber((suggestion && suggestion.medianDaily) || summary.median_daily);
+    const averageDaily = moneyNumber((suggestion && suggestion.averageDaily) || summary.avg_daily);
+    const minDaily = moneyNumber((suggestion && suggestion.minDaily) || summary.min_daily);
+    const maxDaily = moneyNumber((suggestion && suggestion.maxDaily) || summary.max_daily);
+    const listings = Number((suggestion && suggestion.listings) || summary.rental_listings || summary.listings || 0);
+    const investmentBasis = moneyNumber((suggestion && suggestion.investmentBasis) || property.investment || property.marketValue);
+    const targetRoi = positiveNumber(suggestion && suggestion.targetRoi) || targetAnnualRoi();
+    const targetDaily = moneyNumber((suggestion && suggestion.targetDaily) || (investmentBasis ? roundRent((investmentBasis * (targetRoi / 100)) / 365) : ""));
+    const suggestedDaily = moneyNumber(suggestion && suggestion.suggestedDaily)
+      || suggestedDailyRent(targetDaily, { median_daily: medianDaily, avg_daily: averageDaily, min_daily: minDaily, max_daily: maxDaily });
+    const days = Math.max(3, Math.min(100, Math.round(positiveNumber(suggestion && suggestion.suggestedDays) || defaultSuggestionLeaseDays())));
+    const total = suggestedDaily ? Math.round(suggestedDaily * days) : "";
+    const projectedRoi = suggestedDaily && investmentBasis ? roiPercent(suggestedDaily * 365, investmentBasis) : "";
+    const hasMarketData = Boolean(listings || medianDaily || averageDaily);
+    const basis = suggestion && suggestion.basis
+      ? suggestion.basis
+      : hasMarketData
+        ? "Latest comparable rental market and ROI target"
+        : investmentBasis
+          ? "ROI target fallback; refresh the rental market for comparable pricing"
+          : "No market or investment basis available";
+    return {
+      days,
+      total,
+      suggestedDaily,
+      medianDaily,
+      averageDaily,
+      minDaily,
+      maxDaily,
+      targetDaily,
+      targetRoi,
+      projectedRoi,
+      investmentBasis,
+      listings,
+      basis,
+      confidence: clean(suggestion && suggestion.confidence, hasMarketData ? "Fair" : "Weak"),
+      durationBasis: clean(suggestion && suggestion.durationBasis, hasMarketData ? "Latest comparable lease periods" : "Saved default lease duration"),
+      note: clean(suggestion && suggestion.note, ""),
+      hasMarketData,
+    };
+  }
+
+  function propertyPricingDaily(fields) {
+    const marketDaily = moneyNumber(fields && fields.marketDaily);
+    const roiDaily = moneyNumber(fields && fields.roiDaily);
+    const useMarket = Boolean(fields && fields.pricingUseMarket && marketDaily);
+    const useRoi = Boolean(fields && fields.pricingUseRoi && roiDaily);
+    if (useMarket && useRoi) {
+      return moneyNumber(fields && fields.combinedDaily)
+        || suggestedDailyRent(roiDaily, {
+          median_daily: moneyNumber(fields && fields.marketMedianDaily) || marketDaily,
+          avg_daily: marketDaily,
+          min_daily: moneyNumber(fields && fields.marketMinDaily),
+          max_daily: moneyNumber(fields && fields.marketMaxDaily),
+        });
+    }
+    if (useMarket) return marketDaily;
+    if (useRoi) return roiDaily;
+    return marketDaily || roiDaily || moneyNumber(fields && fields.combinedDaily);
+  }
+
+  function rentalListingCalculation(fields, recalculateFromSuggestion = false) {
+    const days = Number(fields && fields.days);
+    const minimumDays = Number(fields && fields.minimumDays) || 3;
+    const suggestedDaily = moneyNumber(fields && fields.suggestedDaily);
+    const investmentBasis = moneyNumber(fields && fields.investmentBasis);
+    if (!Number.isInteger(days) || days < minimumDays || days > 100) return { days: "", total: "", daily: "", projectedRoi: "" };
+    const total = recalculateFromSuggestion && suggestedDaily
+      ? Math.round(suggestedDaily * days)
+      : moneyNumber(fields && fields.total);
+    const daily = total ? total / days : "";
+    return {
+      days: String(days),
+      total: total ? String(Math.round(total)) : "",
+      daily: daily ? Math.round(daily) : "",
+      projectedRoi: daily && investmentBasis ? roiPercent(daily * 365, investmentBasis) : "",
+    };
+  }
+
+  function tfPropertyListingLabel(property) {
+    if (property.rentalListed && property.saleListed) return "Rent and sale listings";
+    if (property.rentalListed) return "Rental listing";
+    if (property.saleListed) return "Sale listing";
+    return "Not listed";
+  }
+
+  function propertyActionUnavailableReason(kind, property) {
+    if (!property) return "That property is no longer present in the latest Tornfolio data.";
+    if (!property.id || !/^\d+$/.test(property.id)) return "A Torn property ID is required before this property can be managed.";
+    if (property.ownership !== "mine") return "Only properties owned by your verified Torn account can be managed.";
+    if (kind === "upkeep") return "";
+    if (property.isCurrentHome) return "Your current home cannot be listed from Tornfolio.";
+
+    const rentedOut = property.activeContract && property.activeContract.direction === "out";
+    if (kind === "extend") {
+      if (!rentedOut) return "An active outgoing rental is required before an extension can be offered.";
+      if (property.extensionPending) return "An extension is already pending for this contract.";
+      return "";
+    }
+    if (kind === "remove") return property.listed ? "" : "This property is not shown as listed.";
+    if (kind === "rent" || kind === "sale") {
+      if (rentedOut || isLeasedToOther(property.raw)) return "A rented property cannot be listed again.";
+      if (property.listed) return "Remove the current listing before creating a different one.";
+      return "";
+    }
+    return "Unknown property action.";
+  }
+
+  function propertyActionDefaults(kind, property, model) {
+    const suggestion = tfSuggestionForProperty(model, property);
+    if (kind === "rent") {
+      const pricing = tfRentalListingSuggestion(property, model);
+      const marketDaily = moneyNumber(pricing.averageDaily || pricing.medianDaily);
+      const roiDaily = moneyNumber(pricing.targetDaily);
+      const pricingFields = {
+        marketDaily: String(marketDaily || ""),
+        marketMedianDaily: String(pricing.medianDaily || ""),
+        marketMinDaily: String(pricing.minDaily || ""),
+        marketMaxDaily: String(pricing.maxDaily || ""),
+        roiDaily: String(roiDaily || ""),
+        combinedDaily: String(pricing.suggestedDaily || ""),
+        pricingUseMarket: Boolean(marketDaily),
+        pricingUseRoi: Boolean(roiDaily),
+      };
+      const selectedDaily = propertyPricingDaily(pricingFields);
+      return {
+        days: String(pricing.days || ""),
+        total: selectedDaily ? String(Math.round(selectedDaily * pricing.days)) : "",
+        suggestedDaily: String(selectedDaily || ""),
+        targetDaily: String(pricing.targetDaily || ""),
+        targetRoi: String(pricing.targetRoi || ""),
+        projectedRoi: String(pricing.projectedRoi || ""),
+        investmentBasis: String(pricing.investmentBasis || ""),
+        marketListings: String(pricing.listings || 0),
+        marketBasis: pricing.basis,
+        marketConfidence: pricing.confidence,
+        durationBasis: pricing.durationBasis,
+        suggestionNote: pricing.note,
+        hasMarketData: pricing.hasMarketData,
+        ...pricingFields,
+      };
+    }
+    if (kind === "sale") {
+      const price = (suggestion && (suggestion.suggestedSale || suggestion.saleMedian)) || property.marketValue || "";
+      return { price: String(price || "") };
+    }
+    if (kind === "extend") {
+      const pricing = tfRentalListingSuggestion(property, model);
+      const contract = property.activeContract || {};
+      const days = Math.max(1, Math.min(100, Math.round(positiveNumber(contract.duration) || pricing.days || defaultSuggestionLeaseDays())));
+      const marketDaily = moneyNumber(pricing.averageDaily || pricing.medianDaily);
+      const roiDaily = moneyNumber(pricing.targetDaily);
+      const pricingFields = {
+        marketDaily: String(marketDaily || ""),
+        marketMedianDaily: String(pricing.medianDaily || ""),
+        marketMinDaily: String(pricing.minDaily || ""),
+        marketMaxDaily: String(pricing.maxDaily || ""),
+        roiDaily: String(roiDaily || ""),
+        combinedDaily: String(pricing.suggestedDaily || ""),
+        pricingUseMarket: Boolean(marketDaily),
+        pricingUseRoi: Boolean(roiDaily && !marketDaily),
+      };
+      const daily = propertyPricingDaily(pricingFields) || moneyNumber(contract.daily);
+      const projectedRoi = daily && pricing.investmentBasis ? roiPercent(daily * 365, pricing.investmentBasis) : "";
+      return {
+        days: String(days),
+        total: daily ? String(Math.round(daily * days)) : "",
+        suggestedDaily: String(daily || ""),
+        targetRoi: String(pricing.targetRoi || ""),
+        projectedRoi: String(projectedRoi || ""),
+        investmentBasis: String(pricing.investmentBasis || ""),
+        marketListings: String(pricing.listings || 0),
+        marketBasis: pricing.listings ? `Market average for ${property.name}` : "Current contract rate fallback; refresh the rental market for an average",
+        marketConfidence: pricing.confidence,
+        lastContractDays: String(contract.duration || ""),
+        currentContractDaily: String(contract.daily || ""),
+        minimumDays: "1",
+        hasMarketData: pricing.hasMarketData,
+        ...pricingFields,
+      };
+    }
+    return {};
+  }
+
+  async function loadUpkeepAction(action) {
+    action.stage = "loading";
+    action.busy = true;
+    action.error = "";
+    action.previewMessage = "";
+    render();
+    try {
+      const options = await tornPropertyPost(tornPropertyActionFields("upkeep", "preview", action.propertyId));
+      if (propertyAction !== action) return;
+      const upkeep = parseTornUpkeepOptions(options.text, action.propertyId);
+      const due = Number(upkeep.due);
+      const availableCash = due > 0 ? Number(await tornPropertyCashAvailable(action.propertyId)) : 0;
+      if (propertyAction !== action) return;
+      action.fields = {
+        due: upkeep.due,
+        availableCash: String(availableCash),
+        pay: due > 0 && availableCash > 0 ? String(Math.min(due, availableCash)) : "",
+        requiredText: upkeep.requiredText,
+      };
+      action.busy = false;
+      action.stage = due > 0 ? "form" : "clear";
+      action.message = due > 0 ? "" : "Torn reports that no upkeep is currently due.";
+      render();
+    } catch (error) {
+      if (propertyAction !== action) return;
+      action.busy = false;
+      action.stage = "error";
+      action.error = error.message || "Tornfolio could not check this property's upkeep.";
+      render();
+    }
+  }
+
+  async function openPropertyAction(kind, propertyKey, isPopup) {
+    if (isPopup) throw new Error("Property actions are disabled in the detached popup. Use Tornfolio on the active Torn properties page.");
+    const model = tfModel();
+    const property = model.properties.find((row) => row.key === propertyKey);
+    const unavailable = propertyActionUnavailableReason(kind, property);
+    if (unavailable) throw new Error(unavailable);
+    propertyAction = {
+      kind,
+      propertyKey,
+      propertyId: property.id,
+      propertyName: property.name,
+      fields: propertyActionDefaults(kind, property, model),
+      stage: kind === "remove" ? "confirm" : "form",
+      busy: false,
+      error: "",
+      previewMessage: "",
+      message: "",
+    };
+    render();
+    if (kind === "upkeep") await loadUpkeepAction(propertyAction);
+  }
+
+  function tfPropertyActionsHtml(property, model, isPopup) {
+    if (property.ownership !== "mine") return "";
+    let content = "";
+    if (isPopup) {
+      content = `<p>Management controls are disabled in the detached popup. Open Tornfolio on the active Torn properties page to make changes.</p>`;
+    } else if (!property.id) {
+      content = `<p>Sync Tornfolio to recover this property's Torn ID before managing it.</p>`;
+    } else if (property.isCurrentHome) {
+      content = `<p>This is your current home. It cannot be listed here, but you can check and pay its outstanding upkeep.</p><div class="tf-button-row"><button class="tf-primary" type="button" data-action="open-property-action" data-property-action="upkeep" data-property-key="${escapeAttr(property.key)}">Check upkeep</button></div>`;
+    } else if (property.listed) {
+      content = `<p><strong>${escapeHtml(tfPropertyListingLabel(property))}</strong> is active in the latest data.</p><div class="tf-button-row"><button class="tf-danger" type="button" data-action="open-property-action" data-property-action="remove" data-property-key="${escapeAttr(property.key)}">Remove listing</button><button type="button" data-action="open-property-action" data-property-action="upkeep" data-property-key="${escapeAttr(property.key)}">Check upkeep</button></div>`;
+    } else if (property.activeContract && property.activeContract.direction === "out") {
+      content = property.extensionPending
+        ? `<p>An extension offer is already pending for this rental.</p><div class="tf-button-row"><button type="button" data-action="open-property-action" data-property-action="upkeep" data-property-key="${escapeAttr(property.key)}">Check upkeep</button></div>`
+        : `<p>Offer the current tenant extra paid days or check the property's outstanding upkeep.</p><div class="tf-button-row"><button class="tf-primary" type="button" data-action="open-property-action" data-property-action="extend" data-property-key="${escapeAttr(property.key)}">Offer extension</button><button type="button" data-action="open-property-action" data-property-action="upkeep" data-property-key="${escapeAttr(property.key)}">Check upkeep</button></div>`;
+    } else if (isLeasedToOther(property.raw)) {
+      content = `<p>Torn reports this property as rented, but the active contract is not available yet. Sync before changing its rental details.</p><div class="tf-button-row"><button type="button" data-action="open-property-action" data-property-action="upkeep" data-property-key="${escapeAttr(property.key)}">Check upkeep</button></div>`;
+    } else {
+      const suggestion = tfSuggestionForProperty(model, property);
+      const hint = suggestion && suggestion.suggestedDaily
+        ? ` Latest rental suggestion: ${tfMoney(suggestion.suggestedDaily, " / day")}.`
+        : "";
+      content = `<p>This property is available.${escapeHtml(hint)} Tornfolio will ask for review before sending a final request.</p><div class="tf-button-row"><button class="tf-primary" type="button" data-action="open-property-action" data-property-action="rent" data-property-key="${escapeAttr(property.key)}">List for rent</button><button type="button" data-action="open-property-action" data-property-action="sale" data-property-key="${escapeAttr(property.key)}">List for sale</button><button type="button" data-action="open-property-action" data-property-action="upkeep" data-property-key="${escapeAttr(property.key)}">Check upkeep</button></div>`;
+    }
+    const upkeepStatus = Number.isFinite(property.upkeepBalance)
+      ? `<p class="tf-action-ok">Last Torn-confirmed outstanding upkeep this session: ${escapeHtml(tfMoneyKnown(property.upkeepBalance))}.</p>`
+      : "";
+    return `<section class="tf-property-actions"><h2>Manage Property</h2>${content}${upkeepStatus}<small>Manual actions only. Tornfolio never retries, schedules, or repeats a property change.</small></section>`;
+  }
+
+  function propertyActionTitle(kind) {
+    return { rent: "List for rent", sale: "List for sale", remove: "Remove listing", extend: "Offer rental extension", upkeep: "Pay property upkeep" }[kind] || "Manage property";
+  }
+
+  function tfPropertyActionSummary(action) {
+    if (action.kind === "rent") {
+      const calculation = rentalListingCalculation(action.fields);
+      const roi = calculation.projectedRoi || action.fields.projectedRoi;
+      return `<div class="tf-action-summary"><div><span>Lease length</span><strong>${tfNumber(action.fields.days)} days</strong></div><div><span>Total rent</span><strong>${escapeHtml(tfMoney(action.fields.total))}</strong></div><div><span>Rent / day</span><strong>${escapeHtml(tfMoney(calculation.daily))}</strong></div><div><span>Projected annual ROI</span><strong>${roi ? `${escapeHtml(String(roi))}%` : "Unavailable"}</strong></div></div>`;
+    }
+    if (action.kind === "sale") return `<div class="tf-action-summary"><div><span>Sale price</span><strong>${escapeHtml(tfMoney(action.fields.price))}</strong></div></div>`;
+    if (action.kind === "extend") {
+      const calculation = rentalListingCalculation(action.fields);
+      const roi = calculation.projectedRoi || action.fields.projectedRoi;
+      return `<div class="tf-action-summary"><div><span>Extra days</span><strong>${tfNumber(action.fields.days)} days</strong></div><div><span>Extension total</span><strong>${escapeHtml(tfMoney(action.fields.total))}</strong></div><div><span>Rent / day</span><strong>${escapeHtml(tfMoney(calculation.daily))}</strong></div><div><span>Projected annual ROI</span><strong>${roi ? `${escapeHtml(String(roi))}%` : "Unavailable"}</strong></div></div>`;
+    }
+    if (action.kind === "upkeep") {
+      const due = Number(action.fields.due || 0);
+      const payment = Number(action.fields.pay || 0);
+      const remaining = Object.prototype.hasOwnProperty.call(action.fields, "remaining")
+        ? Number(action.fields.remaining)
+        : Math.max(0, due - payment);
+      return `<div class="tf-action-summary"><div><span>Outstanding upkeep</span><strong>${escapeHtml(tfMoneyKnown(due))}</strong></div><div><span>Payment</span><strong>${escapeHtml(tfMoneyKnown(payment))}</strong></div><div><span>Remaining after payment</span><strong>${escapeHtml(tfMoneyKnown(remaining))}</strong></div></div>`;
+    }
+    return `<div class="tf-action-summary"><div><span>Current listing</span><strong>Remove from Torn's property market</strong></div></div>`;
+  }
+
+  function tfPropertyActionFormHtml(action) {
+    const error = action.error ? `<p class="tf-action-error" role="alert">${escapeHtml(action.error)}</p>` : "";
+    if (action.kind === "upkeep") {
+      const due = Number(action.fields.due || 0);
+      const availableCash = Number(action.fields.availableCash || 0);
+      const maximumPayment = Math.min(due, availableCash);
+      const shortfall = Math.max(0, due - availableCash);
+      const warning = shortfall > 0
+        ? `<p class="tf-action-note">You are ${escapeHtml(tfMoneyKnown(shortfall))} short of the full upkeep balance. Tornfolio will not sell stocks, withdraw investments, or move money automatically. You may make a partial payment now, or get cash manually and check again.</p>`
+        : `<p class="tf-action-ok">Your current cash can cover the full upkeep balance.</p>`;
+      const disabled = action.busy || maximumPayment < 1;
+      return `<form class="tf-action-form" data-form="property-action"><div class="tf-action-summary"><div><span>Outstanding upkeep</span><strong>${escapeHtml(tfMoneyKnown(due))}</strong></div><div><span>Cash on hand</span><strong>${escapeHtml(tfMoneyKnown(availableCash))}</strong></div><div><span>Maximum payment now</span><strong>${escapeHtml(tfMoneyKnown(maximumPayment))}</strong></div></div><label>Payment amount<input type="text" inputmode="numeric" name="pay" min="1" max="${escapeAttr(maximumPayment)}" value="${escapeAttr(action.fields.pay || "")}" placeholder="Amount to pay" required${disabled ? " disabled" : ""}></label>${warning}${error}<p class="tf-action-note">Reviewing this amount is local only. The separate final confirmation is the only step that pays Torn.</p><div class="tf-button-row"><button class="tf-primary" type="submit"${disabled ? " disabled" : ""}>Review payment</button><button type="button" data-action="retry-upkeep-check"${action.busy ? " disabled" : ""}>Check again</button><button type="button" data-action="close-property-action"${action.busy ? " disabled" : ""}>Cancel</button></div></form>`;
+    }
+    if (action.kind === "sale") {
+      return `<form class="tf-action-form" data-form="property-action"><label>Sale price<input type="text" inputmode="numeric" name="price" value="${escapeAttr(action.fields.price || "")}" placeholder="e.g. 3250000000" required></label>${error}<p class="tf-action-note">Reviewing sends one validation request to Torn. It does not create the listing.</p><div class="tf-button-row"><button class="tf-primary" type="submit"${action.busy ? " disabled" : ""}>${action.busy ? "Checking with Torn…" : "Review with Torn"}</button><button type="button" data-action="close-property-action"${action.busy ? " disabled" : ""}>Cancel</button></div></form>`;
+    }
+    if (action.kind === "rent" || action.kind === "extend") {
+      const isExtension = action.kind === "extend";
+      const calculation = rentalListingCalculation(action.fields);
+      const suggestedDaily = moneyNumber(action.fields.suggestedDaily);
+      const marketDaily = moneyNumber(action.fields.marketDaily);
+      const roiDaily = moneyNumber(action.fields.roiDaily);
+      const useMarket = Boolean(action.fields.pricingUseMarket && marketDaily);
+      const useRoi = Boolean(action.fields.pricingUseRoi && roiDaily);
+      const targetRoi = positiveNumber(action.fields.targetRoi) || targetAnnualRoi();
+      const projectedRoi = calculation.projectedRoi || action.fields.projectedRoi;
+      const marketListings = Number(action.fields.marketListings || 0);
+      const marketStatus = marketListings
+        ? `${tfNumber(marketListings)} comparable listing${marketListings === 1 ? "" : "s"}`
+        : action.fields.hasMarketData
+          ? "Market pricing available"
+          : "ROI fallback";
+      const sourceClass = action.fields.hasMarketData ? "tf-action-ok" : "tf-action-note";
+      const pricingMode = useMarket && useRoi ? "Market + ROI" : useMarket ? "Market" : useRoi ? "ROI" : "Fallback";
+      const sourceText = suggestedDaily
+        ? isExtension
+          ? `${pricingMode} pricing. ${action.fields.marketBasis || "Market average for this property"}. ${action.fields.lastContractDays ? `The current contract period is ${action.fields.lastContractDays} days. ` : ""}${action.fields.marketConfidence || "Unknown"} confidence.`
+          : `${pricingMode} pricing. ${action.fields.marketBasis || "Market and ROI suggestion"}. Target ROI ${targetRoi}%; ${action.fields.marketConfidence || "Unknown"} confidence.`
+        : `No defensible ${isExtension ? "market average" : "rental suggestion"} is available yet. Refresh the rental market and confirm the property's investment basis before continuing.`;
+      const automaticPrice = suggestedDaily ? tfMoney(suggestedDaily, " / day") : "the latest matched market rate";
+      const pricingControls = `<div class="tf-pricing-source" role="group" aria-label="Choose pricing sources"><button type="button" data-pricing-source="market" class="${useMarket ? "is-active" : ""}" aria-pressed="${useMarket ? "true" : "false"}"${marketDaily ? "" : " disabled"}>Market<span>${escapeHtml(tfMoney(marketDaily, " / day"))}</span></button><button type="button" data-pricing-source="roi" class="${useRoi ? "is-active" : ""}" aria-pressed="${useRoi ? "true" : "false"}"${roiDaily ? "" : " disabled"}>ROI<span>${escapeHtml(tfMoney(roiDaily, " / day"))}</span></button></div>`;
+      return `<form class="tf-action-form" data-form="property-action"><div class="tf-action-summary"><div><span>${isExtension ? "Selected rate / day" : "Suggested rent / day"}</span><strong data-rent-form-suggested>${escapeHtml(tfMoney(suggestedDaily))}</strong></div><div><span>${isExtension ? "Extension total" : "Contract total"}</span><strong data-rent-form-total>${escapeHtml(tfMoney(calculation.total))}</strong></div><div><span>Projected annual ROI</span><strong data-rent-form-roi>${projectedRoi ? `${escapeHtml(String(projectedRoi))}%` : "Unavailable"}</strong></div><div><span>Pricing evidence</span><strong data-rent-pricing-mode>${escapeHtml(pricingMode)} · ${escapeHtml(marketStatus)}</strong></div></div><div class="tf-action-fields"><label>${isExtension ? "Extension period (days)" : "Lease length (days)"}<input type="number" min="${isExtension ? "1" : "3"}" max="100" step="1" name="days" value="${escapeAttr(action.fields.days || "")}" required></label><div class="tf-price-field"><span>${isExtension ? "Extension cost" : "Total contract rent"}</span>${pricingControls}<input type="text" inputmode="numeric" name="total" value="${escapeAttr(action.fields.total || "")}" placeholder="Calculated from selected pricing" required></div></div>${error}<p class="${sourceClass}" data-rent-pricing-source-text>${escapeHtml(sourceText)}</p><p class="tf-action-note">Choose Market, ROI, or both above the amount. Changing the ${isExtension ? "extension" : "lease"} period automatically recalculates the total from ${escapeHtml(automaticPrice)}. You can still edit the total manually; changing the period or pricing source recalculates it.</p><div class="tf-button-row"><button class="tf-primary" type="submit"${action.busy ? " disabled" : ""}>${action.busy ? "Checking with Torn…" : "Review with Torn"}</button><button type="button" data-action="close-property-action"${action.busy ? " disabled" : ""}>Cancel</button></div></form>`;
+    }
+    const totalLabel = action.kind === "extend" ? "Extension total" : "Total contract rent";
+    const dayLabel = action.kind === "extend" ? "Extra days" : "Lease length (days)";
+    const minimumDays = action.kind === "rent" ? 3 : 1;
+    return `<form class="tf-action-form" data-form="property-action"><div class="tf-action-fields"><label>${dayLabel}<input type="number" min="${minimumDays}" max="100" step="1" name="days" value="${escapeAttr(action.fields.days || "")}" required></label><label>${totalLabel}<input type="text" inputmode="numeric" name="total" value="${escapeAttr(action.fields.total || "")}" placeholder="Total amount, not daily rent" required></label></div>${error}<p class="tf-action-note">The amount is the total for the whole period. Reviewing sends one validation request to Torn; it does not make the final change.</p><div class="tf-button-row"><button class="tf-primary" type="submit"${action.busy ? " disabled" : ""}>${action.busy ? "Checking with Torn…" : "Review with Torn"}</button><button type="button" data-action="close-property-action"${action.busy ? " disabled" : ""}>Cancel</button></div></form>`;
+  }
+
+  function updateRentalListingForm(form, recalculateFromSuggestion = false) {
+    const action = propertyAction;
+    if (!action || !["rent", "extend"].includes(action.kind) || action.stage !== "form" || !form) return;
+    const daysField = form.elements.days;
+    const totalField = form.elements.total;
+    if (!daysField || !totalField) return;
+    const calculation = rentalListingCalculation({
+      ...action.fields,
+      days: daysField.value,
+      total: totalField.value,
+    }, recalculateFromSuggestion);
+    if (recalculateFromSuggestion && calculation.total) totalField.value = calculation.total;
+    action.fields.days = String(daysField.value || "");
+    action.fields.total = String(totalField.value || "");
+    action.fields.projectedRoi = calculation.projectedRoi ? String(calculation.projectedRoi) : "";
+    const totalOutput = form.querySelector("[data-rent-form-total]");
+    const roiOutput = form.querySelector("[data-rent-form-roi]");
+    const suggestedOutput = form.querySelector("[data-rent-form-suggested]");
+    if (totalOutput) totalOutput.textContent = tfMoney(calculation.total);
+    if (roiOutput) roiOutput.textContent = calculation.projectedRoi ? `${calculation.projectedRoi}%` : "Unavailable";
+    if (suggestedOutput) suggestedOutput.textContent = tfMoney(action.fields.suggestedDaily);
+  }
+
+  function updateRentalPricingSource(form, source) {
+    const action = propertyAction;
+    if (!action || !["rent", "extend"].includes(action.kind) || !["market", "roi"].includes(source)) return;
+    const field = source === "market" ? "pricingUseMarket" : "pricingUseRoi";
+    const otherField = source === "market" ? "pricingUseRoi" : "pricingUseMarket";
+    const available = source === "market" ? moneyNumber(action.fields.marketDaily) : moneyNumber(action.fields.roiDaily);
+    if (!available) return;
+    const next = !action.fields[field];
+    if (!next && !action.fields[otherField]) return;
+    action.fields[field] = next;
+    action.fields.suggestedDaily = String(propertyPricingDaily(action.fields) || "");
+    updateRentalListingForm(form, true);
+
+    form.querySelectorAll("[data-pricing-source]").forEach((button) => {
+      const selected = button.dataset.pricingSource === "market" ? Boolean(action.fields.pricingUseMarket) : Boolean(action.fields.pricingUseRoi);
+      button.classList.toggle("is-active", selected);
+      button.setAttribute("aria-pressed", selected ? "true" : "false");
+    });
+    const mode = action.fields.pricingUseMarket && action.fields.pricingUseRoi
+      ? "Market + ROI"
+      : action.fields.pricingUseMarket
+        ? "Market"
+        : "ROI";
+    const listings = Number(action.fields.marketListings || 0);
+    const modeOutput = form.querySelector("[data-rent-pricing-mode]");
+    if (modeOutput) modeOutput.textContent = listings
+      ? `${mode} · ${listings.toLocaleString()} comparable listing${listings === 1 ? "" : "s"}`
+      : `${mode} pricing`;
+    const sourceOutput = form.querySelector("[data-rent-pricing-source-text]");
+    if (sourceOutput) sourceOutput.textContent = `${mode} pricing selected. Changing the period uses ${tfMoney(action.fields.suggestedDaily, " / day")}.`;
+  }
+
+  function tfPropertyActionModalHtml(model) {
+    const action = propertyAction;
+    if (!action) return "";
+    const property = model.properties.find((row) => row.key === action.propertyKey);
+    const title = propertyActionTitle(action.kind);
+    if (!property) return `<div class="tlt-modal-backdrop tf-modal-backdrop tf-action-backdrop" data-action="close-property-action"><div class="tlt-modal tf-modal tf-action-modal" data-modal-stop>${tfEmpty("Property unavailable", "Sync Tornfolio and try again.", `<button type="button" data-action="close-property-action">Close</button>`)}</div></div>`;
+    let body = "";
+    if (action.stage === "success") {
+      const detail = action.kind === "upkeep"
+        ? `Tornfolio recorded ${tfMoneyKnown(action.fields.remaining || 0)} outstanding for this session. Check upkeep again whenever you want a fresh balance from Torn.`
+        : "The local card has been updated for this session. Use Sync Now when you want Tornfolio to rebuild its authoritative property and history data.";
+      body = `<div class="tf-action-success"><strong>Confirmed by Torn</strong><p>${escapeHtml(action.message)}</p><p>${escapeHtml(detail)}</p><button class="tf-primary" type="button" data-action="close-property-action">Done</button></div>`;
+    } else if (action.stage === "loading") {
+      body = `<div class="tf-action-success"><strong>Checking Torn…</strong><p>Reading this property's current upkeep balance and your available cash. No payment is being made.</p></div>`;
+    } else if (action.stage === "clear") {
+      body = `<div class="tf-action-success"><strong>Nothing due</strong><p>${escapeHtml(action.message)}</p><button class="tf-primary" type="button" data-action="close-property-action">Done</button></div>`;
+    } else if (action.stage === "error") {
+      body = `<p class="tf-action-error" role="alert">${escapeHtml(action.error)}</p><p class="tf-action-note">Nothing was paid and Tornfolio did not retry automatically.</p><div class="tf-button-row"><button class="tf-primary" type="button" data-action="retry-upkeep-check">Check again</button><button type="button" data-action="close-property-action">Cancel</button></div>`;
+    } else if (action.stage === "form") {
+      body = tfPropertyActionFormHtml(action);
+    } else {
+      const error = action.error ? `<p class="tf-action-error" role="alert">${escapeHtml(action.error)}</p>` : "";
+      const preview = action.previewMessage ? `<p class="tf-action-ok">${escapeHtml(action.previewMessage)}</p>` : "";
+      const finalLabel = action.kind === "remove" ? "Remove listing" : action.kind === "extend" ? "Send extension offer" : action.kind === "sale" ? "Create sale listing" : action.kind === "upkeep" ? "Pay upkeep" : "Create rental listing";
+      body = `${preview}${tfPropertyActionSummary(action)}${error}<p class="tf-action-note">This final click sends one property-changing request to Torn. Tornfolio will not retry it automatically.</p><div class="tf-button-row"><button class="${action.kind === "remove" ? "tf-danger" : "tf-primary"}" type="button" data-action="confirm-property-action"${action.busy ? " disabled" : ""}>${action.busy ? "Waiting for Torn…" : finalLabel}</button>${action.kind === "remove" ? "" : `<button type="button" data-action="edit-property-action"${action.busy ? " disabled" : ""}>Back</button>`}<button type="button" data-action="close-property-action"${action.busy ? " disabled" : ""}>Cancel</button></div>`;
+    }
+    return `<div class="tlt-modal-backdrop tf-modal-backdrop tf-action-backdrop" data-action="close-property-action"><div class="tlt-modal tf-modal tf-action-modal" role="dialog" aria-modal="true" aria-label="${escapeAttr(title)}" data-modal-stop><div class="tlt-modal-head"><div><strong>${escapeHtml(title)}</strong><span>${escapeHtml(property.name)} · Property #${escapeHtml(property.id)}</span></div><button class="tf-icon-button" type="button" data-action="close-property-action" aria-label="Close property action"${action.busy ? " disabled" : ""}>${tfIcon("close")}</button></div><div class="tf-action-body">${body}</div></div></div>`;
+  }
+
+  async function previewPropertyAction(form, isPopup) {
+    if (isPopup) throw new Error("Property actions are disabled in the detached popup.");
+    const action = propertyAction;
+    if (!action || action.stage !== "form" || action.busy) return;
+    const model = tfModel();
+    const property = model.properties.find((row) => row.key === action.propertyKey);
+    const unavailable = propertyActionUnavailableReason(action.kind, property);
+    if (unavailable) throw new Error(unavailable);
+    const rawValues = Object.fromEntries(new FormData(form).entries());
+    if (action.kind === "upkeep") {
+      const finalFields = tornPropertyActionFields("upkeep", "final", property.id, rawValues);
+      const payment = Number(finalFields.pay);
+      const due = Number(action.fields.due || 0);
+      const availableCash = Number(action.fields.availableCash || 0);
+      if (payment > due) throw new Error(`The payment cannot exceed the ${tfMoneyKnown(due)} outstanding upkeep balance.`);
+      if (payment > availableCash) throw new Error(`The payment cannot exceed the ${tfMoneyKnown(availableCash)} cash Torn reported as available.`);
+      action.fields = { ...action.fields, pay: finalFields.pay, remaining: Math.max(0, due - payment) };
+      action.stage = "confirm";
+      action.error = "";
+      action.previewMessage = "The balance and available cash were checked directly with Torn. No payment has been sent yet.";
+      render();
+      return;
+    }
+    const fields = tornPropertyActionFields(action.kind, "preview", property.id, rawValues);
+    if (action.kind === "sale") {
+      action.fields = { price: fields.money };
+    } else if (action.kind === "rent") {
+      action.fields = { ...action.fields, days: fields.days, total: fields.money };
+      const calculation = rentalListingCalculation(action.fields);
+      action.fields.projectedRoi = calculation.projectedRoi ? String(calculation.projectedRoi) : "";
+    } else {
+      action.fields = { ...action.fields, days: fields.days, total: fields.offercost };
+      const calculation = rentalListingCalculation(action.fields);
+      action.fields.projectedRoi = calculation.projectedRoi ? String(calculation.projectedRoi) : "";
+    }
+    action.busy = true;
+    action.error = "";
+    render();
+    try {
+      await tornPropertyPost(fields);
+      if (propertyAction !== action) return;
+      action.busy = false;
+      action.stage = "confirm";
+      action.previewMessage = "Torn accepted these details for review. No final change has been sent yet.";
+      render();
+    } catch (error) {
+      if (propertyAction !== action) return;
+      action.busy = false;
+      action.error = error.message || "Torn could not validate these details.";
+      render();
+    }
+  }
+
+  function applyPropertyActionOverride(action) {
+    const previous = propertyActionOverrides.get(action.propertyId) || {};
+    if (action.kind === "rent") propertyActionOverrides.set(action.propertyId, { ...previous, rentalListed: true, saleListed: false });
+    if (action.kind === "sale") propertyActionOverrides.set(action.propertyId, { ...previous, rentalListed: false, saleListed: true });
+    if (action.kind === "remove") propertyActionOverrides.set(action.propertyId, { ...previous, rentalListed: false, saleListed: false });
+    if (action.kind === "extend") propertyActionOverrides.set(action.propertyId, { ...previous, extensionPending: true });
+    if (action.kind === "upkeep") propertyActionOverrides.set(action.propertyId, { ...previous, upkeepBalance: Number(action.fields.remaining || 0) });
+  }
+
+  async function confirmPropertyAction(isPopup) {
+    if (isPopup) throw new Error("Property actions are disabled in the detached popup.");
+    const action = propertyAction;
+    if (!action || action.stage !== "confirm" || action.busy) return;
+    const model = tfModel();
+    const property = model.properties.find((row) => row.key === action.propertyKey);
+    const unavailable = propertyActionUnavailableReason(action.kind, property);
+    if (unavailable) throw new Error(unavailable);
+    const fields = tornPropertyActionFields(action.kind, "final", property.id, action.fields);
+    action.busy = true;
+    action.error = "";
+    render();
+    try {
+      const response = await tornPropertyPost(fields);
+      if (propertyAction !== action) return;
+      if (!response.json || (response.json.success !== true && response.json.success !== 1)) {
+        throw new Error("Torn did not return an explicit success confirmation, so Tornfolio will not assume the change happened.");
+      }
+      if (action.kind === "upkeep") {
+        const remainingMatch = String(response.message || "").match(/Required fees:\s*\$?([\d,]+)/i);
+        action.fields.remaining = remainingMatch
+          ? Number(propertyActionInteger(remainingMatch[1], "Remaining upkeep", 0, Number.MAX_SAFE_INTEGER))
+          : Math.max(0, Number(action.fields.due || 0) - Number(action.fields.pay || 0));
+      }
+      applyPropertyActionOverride(action);
+      action.busy = false;
+      action.stage = "success";
+      action.message = response.message || `${propertyActionTitle(action.kind)} completed successfully.`;
+      render();
+      setStatus(action.message);
+    } catch (error) {
+      if (propertyAction !== action) return;
+      action.busy = false;
+      action.error = error.message || "Torn did not confirm the property action.";
+      render();
+      setStatus(action.error, true);
+    }
+  }
+
+  function tfDetailModalHtml(model, isPopup = false) {
     const detail = state.detailView || {};
     if (detail.kind === "property") {
       const property = model.properties.find((row) => row.key === detail.id);
       if (!property) return tfMissingDetailModal("Property unavailable", "That property is not present in the latest portfolio data.");
       const history = model.archive.filter((row) => row.propertyId && row.propertyId === property.id);
       const contracts = model.activeRentals.filter((row) => row.propertyKey === property.key);
-      return `<div class="tlt-modal-backdrop tf-modal-backdrop" data-action="close-detail"><div class="tlt-modal tf-modal tf-detail-modal" role="dialog" aria-modal="true" aria-label="Property details" data-modal-stop><div class="tlt-modal-head"><div><strong>${escapeHtml(property.name)}</strong><span>${property.id ? `Property #${escapeHtml(property.id)} · ` : ""}${escapeHtml(property.type)}</span></div><button class="tf-icon-button" type="button" data-action="close-detail" aria-label="Close property details">${tfIcon("close")}</button></div><div class="tf-detail-body">${property.image ? `<img class="tf-detail-image" src="${escapeAttr(property.image)}" alt="${escapeAttr(property.type)}">` : ""}<div class="tf-badges">${tfOwnershipBadge(property.ownership)}${tfStatusBadge(property.status)}</div><div class="tf-detail-grid"><div><span>Owner</span><strong>${escapeHtml(property.owner)}</strong></div><div><span>Happiness</span><strong>${property.happy ? tfNumber(property.happy) : "Unavailable"}</strong></div><div><span>Known Upgrades</span><strong>${property.upgrades.length ? property.upgrades.length : "Unavailable"}</strong></div><div><span>Residents</span><strong>${escapeHtml(property.residents.join(", ") || "Unavailable")}</strong></div><div><span>Daily Upkeep</span><strong>${escapeHtml(tfMoney(property.upkeep))}</strong></div><div><span>Market Value</span><strong>${escapeHtml(tfMoney(property.marketValue))}</strong></div><div><span>Investment Basis</span><strong>${escapeHtml(tfMoney(property.investment))}</strong></div></div><section><h2>Lifecycle Snapshot</h2>${tfLifecycleSnapshot(property.lifecycle)}</section>${property.upgrades.length ? `<section><h2>Upgrades / Modifications</h2><div class="tf-chip-list">${property.upgrades.map((value) => `<span>${escapeHtml(value)}</span>`).join("")}</div></section>` : ""}<section><h2>Current Rental</h2>${contracts.length ? contracts.map(tfRentalCard).join("") : tfEmpty("No active rental", "This property has no active rental contract in the latest data.")}</section><section><h2>Property Journey</h2>${tfPropertyJourney(property.id)}</section><section><h2>Rental History</h2>${history.length ? history.map(tfArchiveCard).join("") : tfEmpty("No rental history", "Archived contracts for this property will appear after history has been synced.")}</section></div></div></div>`;
+      return `<div class="tlt-modal-backdrop tf-modal-backdrop" data-action="close-detail"><div class="tlt-modal tf-modal tf-detail-modal" role="dialog" aria-modal="true" aria-label="Property details" data-modal-stop><div class="tlt-modal-head"><div><strong>${escapeHtml(property.name)}</strong><span>${property.id ? `Property #${escapeHtml(property.id)} · ` : ""}${escapeHtml(property.type)}</span></div><button class="tf-icon-button" type="button" data-action="close-detail" aria-label="Close property details">${tfIcon("close")}</button></div><div class="tf-detail-body">${property.image ? `<img class="tf-detail-image" src="${escapeAttr(property.image)}" alt="${escapeAttr(property.type)}">` : ""}<div class="tf-badges">${tfOwnershipBadge(property.ownership)}${tfStatusBadge(property.status)}</div><div class="tf-detail-grid"><div><span>Owner</span><strong>${escapeHtml(property.owner)}</strong></div><div><span>Happiness</span><strong>${property.happy ? tfNumber(property.happy) : "Unavailable"}</strong></div><div><span>Known Upgrades</span><strong>${property.upgrades.length ? property.upgrades.length : "Unavailable"}</strong></div><div><span>Residents</span><strong>${escapeHtml(property.residents.join(", ") || "Unavailable")}</strong></div><div><span>Daily Upkeep</span><strong>${escapeHtml(tfMoney(property.upkeep))}</strong></div><div><span>Market Value</span><strong>${escapeHtml(tfMoney(property.marketValue))}</strong></div><div><span>Investment Basis</span><strong>${escapeHtml(tfMoney(property.investment))}</strong></div><div><span>Market listing</span><strong>${escapeHtml(tfPropertyListingLabel(property))}</strong></div></div>${tfPropertyActionsHtml(property, model, isPopup)}<section><h2>Lifecycle Snapshot</h2>${tfLifecycleSnapshot(property.lifecycle)}</section>${property.upgrades.length ? `<section><h2>Upgrades / Modifications</h2><div class="tf-chip-list">${property.upgrades.map((value) => `<span>${escapeHtml(value)}</span>`).join("")}</div></section>` : ""}<section><h2>Current Rental</h2>${contracts.length ? contracts.map(tfRentalCard).join("") : tfEmpty("No active rental", "This property has no active rental contract in the latest data.")}</section><section><h2>Property Journey</h2>${tfPropertyJourney(property.id)}</section><section><h2>Rental History</h2>${history.length ? history.map(tfArchiveCard).join("") : tfEmpty("No rental history", "Archived contracts for this property will appear after history has been synced.")}</section></div></div></div>`;
     }
     if (detail.kind === "rental") {
       const contract = model.activeRentals.find((row) => row.contractId === detail.id);
       if (!contract) return tfMissingDetailModal("Rental unavailable", "That active contract is no longer present.");
-      return tfContractDetailModal(contract, "Active Rental");
+      return tfContractDetailModal(contract, "Active Rental", model, isPopup);
     }
     if (detail.kind === "archive") {
       const contract = model.archive.find((row) => row.contractId === detail.id);
       if (!contract) return tfMissingDetailModal("Archive record unavailable", "That archived record is no longer present.");
-      return tfContractDetailModal({ ...contract, propertyKey: contract.propertyId ? `property:${contract.propertyId}` : "", remaining: "", daily: contract.daily, total: contract.total, direction: contract.ownership === "third-party" ? "from" : "out" }, "Archived Rental");
+      return tfContractDetailModal({ ...contract, propertyKey: contract.propertyId ? `property:${contract.propertyId}` : "", remaining: "", daily: contract.daily, total: contract.total, direction: contract.ownership === "third-party" ? "from" : "out" }, "Archived Rental", model, isPopup);
     }
     return "";
   }
 
-  function tfContractDetailModal(contract, title) {
-    return `<div class="tlt-modal-backdrop tf-modal-backdrop" data-action="close-detail"><div class="tlt-modal tf-modal tf-detail-modal" role="dialog" aria-modal="true" aria-label="Rental details" data-modal-stop><div class="tlt-modal-head"><div><strong>${escapeHtml(title)}</strong><span>${escapeHtml(contract.property)}</span></div><button class="tf-icon-button" type="button" data-action="close-detail" aria-label="Close rental details">${tfIcon("close")}</button></div><div class="tf-detail-body">${contract.image ? `<img class="tf-detail-image" src="${escapeAttr(contract.image)}" alt="">` : ""}<div class="tf-badges">${tfOwnershipBadge(contract.ownership, contract.direction === "from")}${tfStatusBadge(title.startsWith("Archived") ? "expired" : "active")}${contract.extensionCount ? `<span class="tf-badge tf-badge-info">Extended ×${tfNumber(contract.extensionCount)}</span>` : ""}</div><div class="tf-detail-grid"><div><span>Property ID</span><strong>${escapeHtml(contract.propertyId || "Unavailable")}</strong></div><div><span>${contract.direction === "out" ? "Tenant" : "Owner"}</span><strong>${escapeHtml(contract.direction === "out" ? contract.tenant : contract.owner)}</strong></div><div><span>Rent / Day</span><strong>${escapeHtml(tfMoney(contract.daily))}</strong></div><div><span>Total Contract</span><strong>${escapeHtml(tfMoney(contract.total))}</strong></div><div><span>Start Date</span><strong>${escapeHtml(tfDate(contract.startDate))}</strong></div><div><span>End Date</span><strong>${escapeHtml(tfDate(contract.endDate))}</strong></div><div><span>Duration</span><strong>${contract.duration !== "" ? `${tfNumber(contract.duration)} days` : "Unavailable"}</strong></div><div><span>Remaining</span><strong>${contract.remaining !== "" ? `${tfNumber(contract.remaining)} days` : "Finished / unavailable"}</strong></div><div><span>Extension status</span><strong>${escapeHtml(contract.extensionStatus || "None recorded")}</strong></div><div><span>Extension days</span><strong>${contract.extensionDays ? `${tfNumber(contract.extensionDays)} days` : "None recorded"}</strong></div></div>${contract.completionReason ? `<section><h2>Completion</h2><p>${escapeHtml(contract.completionReason)}</p></section>` : ""}${contract.notes ? `<section><h2>Notes</h2><p>${escapeHtml(contract.notes)}</p></section>` : ""}<div class="tf-button-row">${contract.propertyKey ? `<button type="button" data-action="open-property" data-property-key="${escapeAttr(contract.propertyKey)}">View Property</button>` : ""}</div></div></div></div>`;
+  function tfContractDetailModal(contract, title, model, isPopup = false) {
+    const property = model && model.properties.find((row) => row.key === contract.propertyKey);
+    const extensionReason = title === "Active Rental" && contract.direction === "out" && property
+      ? propertyActionUnavailableReason("extend", property)
+      : "";
+    const extensionAction = title === "Active Rental" && contract.direction === "out" && property
+      ? isPopup
+        ? `<p class="tf-action-note">Open Tornfolio on the active Torn properties page to offer an extension.</p>`
+        : extensionReason
+          ? `<p class="tf-action-note">${escapeHtml(extensionReason)}</p>`
+          : `<button class="tf-primary" type="button" data-action="open-property-action" data-property-action="extend" data-property-key="${escapeAttr(property.key)}">Offer extension</button>`
+      : "";
+    return `<div class="tlt-modal-backdrop tf-modal-backdrop" data-action="close-detail"><div class="tlt-modal tf-modal tf-detail-modal" role="dialog" aria-modal="true" aria-label="Rental details" data-modal-stop><div class="tlt-modal-head"><div><strong>${escapeHtml(title)}</strong><span>${escapeHtml(contract.property)}</span></div><button class="tf-icon-button" type="button" data-action="close-detail" aria-label="Close rental details">${tfIcon("close")}</button></div><div class="tf-detail-body">${contract.image ? `<img class="tf-detail-image" src="${escapeAttr(contract.image)}" alt="">` : ""}<div class="tf-badges">${tfOwnershipBadge(contract.ownership, contract.direction === "from")}${tfStatusBadge(title.startsWith("Archived") ? "expired" : "active")}${contract.extensionCount ? `<span class="tf-badge tf-badge-info">Extended ×${tfNumber(contract.extensionCount)}</span>` : ""}</div><div class="tf-detail-grid"><div><span>Property ID</span><strong>${escapeHtml(contract.propertyId || "Unavailable")}</strong></div><div><span>${contract.direction === "out" ? "Tenant" : "Owner"}</span><strong>${escapeHtml(contract.direction === "out" ? contract.tenant : contract.owner)}</strong></div><div><span>Rent / Day</span><strong>${escapeHtml(tfMoney(contract.daily))}</strong></div><div><span>Total Contract</span><strong>${escapeHtml(tfMoney(contract.total))}</strong></div><div><span>Start Date</span><strong>${escapeHtml(tfDate(contract.startDate))}</strong></div><div><span>End Date</span><strong>${escapeHtml(tfDate(contract.endDate))}</strong></div><div><span>Duration</span><strong>${contract.duration !== "" ? `${tfNumber(contract.duration)} days` : "Unavailable"}</strong></div><div><span>Remaining</span><strong>${contract.remaining !== "" ? `${tfNumber(contract.remaining)} days` : "Finished / unavailable"}</strong></div><div><span>Extension status</span><strong>${escapeHtml(contract.extensionStatus || "None recorded")}</strong></div><div><span>Extension days</span><strong>${contract.extensionDays ? `${tfNumber(contract.extensionDays)} days` : "None recorded"}</strong></div></div>${contract.completionReason ? `<section><h2>Completion</h2><p>${escapeHtml(contract.completionReason)}</p></section>` : ""}${contract.notes ? `<section><h2>Notes</h2><p>${escapeHtml(contract.notes)}</p></section>` : ""}<div class="tf-button-row">${extensionAction}${contract.propertyKey ? `<button type="button" data-action="open-property" data-property-key="${escapeAttr(contract.propertyKey)}">View Property</button>` : ""}</div></div></div></div>`;
   }
 
   function tfMissingDetailModal(title, text) {
@@ -4071,6 +4853,32 @@
       #${APP_ID} .tf-detail-grid > div { min-height: 70px; padding: 10px; border: 1px solid var(--tf-border); border-radius: 8px; background: rgba(8,35,47,.72); }
       #${APP_ID} .tf-chip-list { display: flex; flex-wrap: wrap; gap: 7px; }
       #${APP_ID} .tf-chip-list span { padding: 5px 8px; border: 1px solid var(--tf-border-bright); border-radius: 99px; color: #bcd6e5; }
+      #${APP_ID} .tf-action-backdrop { z-index: 120; }
+      #${APP_ID} .tf-action-modal { width: min(650px, 94%); }
+      #${APP_ID} .tf-action-body { display: grid; gap: 13px; overflow: auto; padding: 16px; }
+      #${APP_ID} .tf-property-actions { border-color: rgba(20,228,186,.44) !important; background: linear-gradient(135deg, rgba(9,55,65,.88), rgba(7,34,47,.88)) !important; }
+      #${APP_ID} .tf-property-actions > small { display: block; margin-top: 10px; color: var(--tf-muted); line-height: 1.45; }
+      #${APP_ID} .tf-action-form { display: grid; gap: 12px; }
+      #${APP_ID} .tf-action-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+      #${APP_ID} .tf-action-form label { display: grid; gap: 6px; color: #d6e6ef; font-weight: 700; }
+      #${APP_ID} .tf-action-form input { width: 100%; min-height: 42px; padding: 9px 11px; box-sizing: border-box; }
+      #${APP_ID} .tf-price-field { display: grid; gap: 6px; color: #d6e6ef; font-weight: 700; }
+      #${APP_ID} .tf-pricing-source { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
+      #${APP_ID} .tf-pricing-source button { display: grid; gap: 2px; min-height: 48px; padding: 7px 9px; border-color: var(--tf-border-bright); text-align: left; }
+      #${APP_ID} .tf-pricing-source button span { color: var(--tf-muted); font-size: 10px; font-weight: 600; }
+      #${APP_ID} .tf-pricing-source button.is-active { border-color: var(--tf-teal); background: rgba(24,228,186,.16); color: var(--tf-teal); box-shadow: inset 0 0 0 1px rgba(24,228,186,.24); }
+      #${APP_ID} .tf-pricing-source button.is-active span { color: #c8fff2; }
+      #${APP_ID} .tf-action-summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 9px; }
+      #${APP_ID} .tf-action-summary > div { display: grid; gap: 5px; padding: 12px; border: 1px solid var(--tf-border); border-radius: 8px; background: rgba(8,35,47,.75); }
+      #${APP_ID} .tf-action-summary span { color: var(--tf-muted); font-size: 11px; }
+      #${APP_ID} .tf-action-summary strong { color: var(--tf-text); }
+      #${APP_ID} .tf-action-note, #${APP_ID} .tf-action-ok, #${APP_ID} .tf-action-error { margin: 0; padding: 10px 11px; border-radius: 8px; line-height: 1.45; }
+      #${APP_ID} .tf-action-note { border: 1px solid rgba(255,208,90,.38); background: rgba(91,69,15,.25); color: #ffe7a3; }
+      #${APP_ID} .tf-action-ok { border: 1px solid rgba(69,239,173,.38); background: rgba(19,86,69,.3); color: #bff8df; }
+      #${APP_ID} .tf-action-error { border: 1px solid rgba(255,117,123,.5); background: rgba(95,37,45,.45); color: #ffd2d4; }
+      #${APP_ID} .tf-action-success { display: grid; gap: 10px; padding: 13px; border: 1px solid rgba(69,239,173,.45); border-radius: 9px; background: rgba(19,86,69,.25); }
+      #${APP_ID} .tf-action-success > strong { color: var(--tf-green); font-size: 16px; }
+      #${APP_ID} button:disabled { opacity: .58; cursor: wait; transform: none; }
       @media (max-width: 1120px) {
         #${APP_ID} { min-width: 520px; }
         #${APP_ID} .tf-update-status { width: 42px; min-width: 42px; padding: 0; }
@@ -4115,6 +4923,7 @@
         #${APP_ID} .tf-card-actions { flex-direction: row; }
         #${APP_ID} .tf-footer > div:last-child span:not(:last-child) { display: none; }
         #${APP_ID} .tf-detail-grid { grid-template-columns: 1fr 1fr; }
+        #${APP_ID} .tf-action-fields { grid-template-columns: 1fr; }
         #${APP_ID} .tf-lifecycle-grid, #${APP_ID} .tf-mini-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
         #${APP_ID} .tf-journey-row { grid-template-columns: 72px 10px minmax(0, 1fr); }
         #${APP_ID} .tf-journey-row em { grid-column: 3; width: max-content; }
@@ -5150,10 +5959,10 @@
     }).join("");
   }
 
-  function activeTabHtml(model) {
+  function activeTabHtml(model, isPopup = false) {
     ensureRenderableActiveTab();
     if (state.activeTab === "dashboard") return tfDashboardHtml(model);
-    if (state.activeTab === "properties") return tfPropertiesHtml(model);
+    if (state.activeTab === "properties") return tfPropertiesHtml(model, isPopup);
     if (state.activeTab === "rentals") return tfRentalsHtml(model);
     if (state.activeTab === "market") return tfMarketHtml(model);
     if (state.activeTab === "archive") return tfArchiveHtml(model);
@@ -6317,6 +7126,11 @@
     return status === "for_rent" || status === "for rent" || status === "listed";
   }
 
+  function isForSale(property) {
+    const status = clean(property && property.status, "").toLowerCase();
+    return status === "for_sale" || status === "for sale" || status === "selling" || status === "sale";
+  }
+
   function propertyDisplayName(property) {
     return propertyName(property.property) || propertyName(property) || clean(property.id || property.property_id, "Property");
   }
@@ -7299,6 +8113,33 @@
       });
     }
 
+    const propertyActionForm = root.querySelector("[data-form='property-action']");
+    if (propertyActionForm) {
+      if (propertyAction && ["rent", "extend"].includes(propertyAction.kind)) {
+        const daysField = propertyActionForm.elements.days;
+        const totalField = propertyActionForm.elements.total;
+        if (daysField) daysField.addEventListener("input", () => updateRentalListingForm(propertyActionForm, true));
+        if (totalField) totalField.addEventListener("input", () => updateRentalListingForm(propertyActionForm, false));
+        propertyActionForm.querySelectorAll("[data-pricing-source]").forEach((button) => {
+          button.addEventListener("click", () => updateRentalPricingSource(propertyActionForm, button.dataset.pricingSource || ""));
+        });
+      }
+      propertyActionForm.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        try {
+          await previewPropertyAction(event.currentTarget, isPopup);
+        } catch (error) {
+          if (propertyAction) {
+            propertyAction.busy = false;
+            propertyAction.error = error.message || "Could not review this property action.";
+            render();
+          } else {
+            setStatus(error.message || "Could not review this property action.", true);
+          }
+        }
+      });
+    }
+
     root.querySelectorAll("[data-modal-stop]").forEach((node) => {
       node.addEventListener("click", (event) => event.stopPropagation());
     });
@@ -7307,6 +8148,10 @@
         const action = node.dataset.action;
         if (action === "close-settings") state.settingsOpen = false;
         else if (action === "close-detail") state.detailView = null;
+        else if (action === "close-property-action") {
+          if (propertyAction && propertyAction.busy) return;
+          propertyAction = null;
+        }
         else state.manualModalOpen = false;
         saveState();
         render();
@@ -7401,6 +8246,24 @@
             saveState();
             render();
           }
+          if (action === "open-property-action") {
+            await openPropertyAction(button.dataset.propertyAction || "", button.dataset.propertyKey || "", isPopup);
+          }
+          if (action === "close-property-action") {
+            if (!propertyAction || !propertyAction.busy) {
+              propertyAction = null;
+              render();
+            }
+          }
+          if (action === "edit-property-action" && propertyAction && !propertyAction.busy) {
+            propertyAction.stage = "form";
+            propertyAction.error = "";
+            render();
+          }
+          if (action === "retry-upkeep-check" && propertyAction && propertyAction.kind === "upkeep" && !propertyAction.busy) {
+            await loadUpkeepAction(propertyAction);
+          }
+          if (action === "confirm-property-action") await confirmPropertyAction(isPopup);
           if (action === "dismiss-sync-progress") {
             if (syncProgressDismissTimer) {
               clearTimeout(syncProgressDismissTimer);
@@ -7609,6 +8472,23 @@
 
   function escapeAttr(value) {
     return escapeHtml(value);
+  }
+
+  if (typeof globalThis !== "undefined" && globalThis.__TORNFOLIO_TEST__) {
+    globalThis.__TORNFOLIO_TEST_API__ = Object.freeze({
+      tornPropertyActionFields,
+      tornCsrfToken,
+      tornPropertyActionEnvironmentReason,
+      tornPropertyCashAvailable,
+      propertyActionUnavailableReason,
+      propertyActionDefaults,
+      propertyPricingDaily,
+      rentalListingCalculation,
+      tfPropertyActionFormHtml,
+      tfPropertyActionSummary,
+      tfPropertyCard,
+      tfContractDetailModal,
+    });
   }
 
   window.addEventListener("modulhub:theme-ready", syncPopupTheme);
