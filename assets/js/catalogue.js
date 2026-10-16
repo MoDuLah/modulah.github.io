@@ -143,7 +143,7 @@ export const scripts = [
     "tier": "supporter",
     "title": "Tornfolio",
     "desc": "A Torn property, rental, market pricing and ROI manager for owners and renters.",
-    "version": "v0.7.5",
+    "version": "v0.7.6",
     "versionPrefix": "VER",
     "category": "Property management",
     "group": "Property & Finance",
@@ -164,7 +164,7 @@ export const scripts = [
     ],
     "actions": [
       {
-        "label": "Install beta v0.7.5",
+        "label": "Install beta v0.7.6",
         "href": "https://greasyfork.org/en/scripts/591996-tornfolio-property-lease-roi-manager",
         "icon": "download",
         "primary": true,
@@ -763,6 +763,16 @@ export const scripts = [
 ];
 
 export const scriptReleases = [
+  {
+    scriptId: "tornfolio",
+    title: "Tornfolio",
+    version: "v0.7.6",
+    date: "2026-10-16",
+    type: "RELEASE",
+    summary:
+      "Captures visible spouse-property listing terms during sync and retains the last asking rent as a clearly labelled estimate when Torn hides the private contract amount; GreasyFork now remains in control of beta installation and updates.",
+    href: "https://greasyfork.org/en/scripts/591996-tornfolio-property-lease-roi-manager/versions",
+  },
   {
     scriptId: "tornfolio",
     title: "Tornfolio",

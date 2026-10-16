@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "checkedAt": "2026-10-16T06:27:30.388412Z",
+  "checkedAt": "2026-10-16T06:53:08.909060Z",
   "scripts": [
     {
       "id": "pythagoras",
@@ -77,13 +77,13 @@
     {
       "id": "tornfolio",
       "title": "Tornfolio",
-      "version": "0.7.5",
-      "displayVersion": "v0.7.5",
+      "version": "0.7.6",
+      "displayVersion": "v0.7.6",
       "date": "2026-10-16",
       "updated": "16 October 2026",
       "source": "userscript",
       "updateVersion": true,
-      "actionLabel": "Install beta v0.7.5"
+      "actionLabel": "Install beta v0.7.6"
     },
     {
       "id": "customRaceFilter",
@@ -586,6 +586,16 @@
     }
   ],
   "timeline": [
+    {
+      "scriptId": "tornfolio",
+      "title": "Tornfolio",
+      "version": "v0.7.6",
+      "date": "2026-10-16",
+      "type": "RELEASE",
+      "summary": "The Tornfolio property lifecycle, rental, market and update-checker userscript changed.",
+      "href": "https://greasyfork.org/en/scripts/591996-tornfolio-property-lease-roi-manager",
+      "eventId": "tornfolio:v0.7.6"
+    },
     {
       "scriptId": "tornfolio",
       "title": "Tornfolio",

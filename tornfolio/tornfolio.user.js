@@ -1,13 +1,11 @@
 // ==UserScript==
 // @name         Tornfolio — Property, Lease & ROI Manager
 // @namespace    https://github.com/local/torn-landlord-tenant-ledger
-// @version      0.7.5
+// @version      0.7.6
 // @description  Manage your Torn property portfolio, rentals, market pricing, archive, and ROI.
 // @author       MoDuL
 // @copyright    2026 MoDuL. All rights reserved.
 // @license      All Rights Reserved
-// @downloadURL  https://modulah.github.io/tornfolio/tornfolio.user.js
-// @updateURL    https://modulah.github.io/tornfolio/tornfolio.user.js
 // @match        https://www.torn.com/properties.php*
 // @connect      api.torn.com
 // @connect      pp-api.sokin.xyz
@@ -23,7 +21,7 @@
   "use strict";
 
   const APP_ID = "tlt-ledger";
-  const APP_VERSION = "0.7.5";
+  const APP_VERSION = "0.7.6";
   const STORE_KEY = "tornLandlordTenantLedger:v1";
   const API_BASE = "https://api.torn.com/v2";
   const HOSTED_API_BASE = "https://pp-api.sokin.xyz/tornfolio";
@@ -151,6 +149,7 @@
     propertyTypes: PROPERTY_TYPES,
     tableSort: {},
     propertyCosts: {},
+    spouseListingSnapshots: {},
     settings: DEFAULT_SETTINGS,
     archivedRentals: [],
     activity: [],
@@ -207,6 +206,7 @@
         propertyTypes: Array.isArray(parsed.propertyTypes) && parsed.propertyTypes.length ? parsed.propertyTypes.map(normalizeHostedPropertyType).filter(Boolean) : PROPERTY_TYPES,
         tableSort: { ...(parsed.tableSort || {}) },
         propertyCosts: { ...(parsed.propertyCosts || {}) },
+        spouseListingSnapshots: { ...(parsed.spouseListingSnapshots || {}) },
         settings: { ...DEFAULT_SETTINGS, ...(parsed.settings || {}) },
         archivedRentals: Array.isArray(parsed.archivedRentals) ? parsed.archivedRentals : [],
         activity: Array.isArray(parsed.activity) ? parsed.activity : [],
@@ -1665,6 +1665,12 @@
     ]);
     const serverLeases = firstArray(body, ["leases", "ledger", "contracts"]);
     const spouse = mergedProfile && mergedProfile.spouse ? mergedProfile.spouse : profile && profile.spouse ? profile.spouse : null;
+    const viewerId = String(keyInfoUserId(keyInfo || state.keyInfo) || (mergedProfile && mergedProfile.id) || (profile && profile.id) || "");
+    state.spouseListingSnapshots = spouseListingSnapshotsAfterFetch(
+      state.spouseListingSnapshots,
+      partnerProperties,
+      { viewerId, spouse },
+    );
     const leases = serverLeases.length
       ? serverLeases.map(normalizeHostedLease).filter(Boolean)
       : uniqueProperties([...allProperties, ...(currentProperty ? [currentProperty] : [])])
@@ -2107,6 +2113,11 @@
     }
 
     const body = spouseOwnedPropertiesBody({ properties: all }, spouse);
+    state.spouseListingSnapshots = spouseListingSnapshotsAfterFetch(
+      state.spouseListingSnapshots,
+      propertiesFromBody(body),
+      { viewerId: String(keyInfoUserId(state.keyInfo) || (profileInfo() && profileInfo().id) || ""), spouse },
+    );
     const leases = all.map((property) => leaseFromFetchedProperty(property, spouse)).filter(Boolean);
     mergeLeases(leases);
     const owned = propertiesFromBody(body).length;
@@ -2918,6 +2929,7 @@
       archivedRentals: state.archivedRentals || [],
       activity: state.activity || [],
       propertyCosts: state.propertyCosts || {},
+      spouseListingSnapshots: state.spouseListingSnapshots || {},
       settings: appSettings(),
       endpointData: state.endpointData || {},
       keyInfo: state.keyInfo || null,
@@ -3055,6 +3067,72 @@
     return state.ui;
   }
 
+  function spouseListingSnapshotKey(viewerId, spouseId, propertyId) {
+    const parts = [viewerId, spouseId, propertyId].map((value) => String(value || "").trim());
+    return parts.every(Boolean) ? parts.join(":") : "";
+  }
+
+  function spouseListingSnapshotsAfterFetch(previous, properties, context = {}, observedAt = nowIso()) {
+    const next = { ...(previous || {}) };
+    const spouseId = String(context.spouse && (context.spouse.id || context.spouse.userId) || "").trim();
+    const viewerId = String(context.viewerId || "").trim();
+    for (const row of properties || []) {
+      if (!row || typeof row !== "object" || !isForRent(row)) continue;
+      const propertyId = String(row.id || row.property_id || row.propertyId || "").trim();
+      const key = spouseListingSnapshotKey(viewerId, spouseId, propertyId);
+      if (!key) continue;
+      const durationDays = positiveNumber(row.rental_period || row.durationDays || row.days);
+      const totalAmount = moneyNumber(row.cost || row.total || row.amount);
+      const dailyAmount = moneyNumber(row.cost_per_day || row.dailyAmount || row.daily_amount)
+        || (totalAmount && durationDays ? Math.round(totalAmount / durationDays) : 0);
+      if (!dailyAmount) continue;
+      next[key] = {
+        viewerId,
+        spouseId,
+        propertyId,
+        property: propertyDisplayName(row) || `Property #${propertyId}`,
+        dailyAmount,
+        totalAmount: totalAmount || (durationDays ? dailyAmount * durationDays : 0),
+        durationDays,
+        observedAt,
+        source: "spouse-property-listing",
+      };
+    }
+    return Object.fromEntries(
+      Object.entries(next)
+        .sort((left, right) => String(right[1] && right[1].observedAt || "").localeCompare(String(left[1] && left[1].observedAt || "")))
+        .slice(0, 250),
+    );
+  }
+
+  function spouseRentalEvidenceForProperty(raw, context = {}, snapshots = {}) {
+    if (!raw || typeof raw !== "object") return null;
+    const propertyId = String(raw.id || raw.property_id || raw.propertyId || "").trim();
+    const spouseId = String(context.spouse && (context.spouse.id || context.spouse.userId) || "").trim();
+    const key = spouseListingSnapshotKey(context.myId || context.viewerId, spouseId, propertyId);
+    const snapshot = key && snapshots && snapshots[key];
+    const currentListing = isForRent(raw);
+    const rented = isLeasedToOther(raw);
+    if (!currentListing && !rented) return null;
+    const durationDays = positiveNumber(raw.rental_period || raw.durationDays || raw.days || (snapshot && snapshot.durationDays));
+    const totalAmount = moneyNumber(raw.cost || raw.total || raw.amount || (snapshot && snapshot.totalAmount));
+    const directDaily = moneyNumber(raw.cost_per_day || raw.dailyAmount || raw.daily_amount);
+    const dailyAmount = directDaily
+      || moneyNumber(snapshot && snapshot.dailyAmount)
+      || (totalAmount && durationDays ? Math.round(totalAmount / durationDays) : 0);
+    if (!dailyAmount) return null;
+    return {
+      propertyId,
+      dailyAmount,
+      totalAmount: totalAmount || (durationDays ? dailyAmount * durationDays : 0),
+      durationDays,
+      observedAt: clean(snapshot && snapshot.observedAt, currentListing ? nowIso() : ""),
+      currentListing,
+      estimatedContract: rented && !directDaily,
+      source: currentListing ? "current spouse listing" : directDaily ? "current spouse contract" : "last observed spouse listing",
+    };
+  }
+
   function tfModel() {
     const server = endpointBody("server-sync") || {};
     const profile = profileInfo() || server.profile || {};
@@ -3071,7 +3149,7 @@
 
     const addProperty = (raw, ownershipHint = "") => {
       if (!raw || typeof raw !== "object") return;
-      const property = tfNormalizeProperty(raw, ownershipHint, { myId, spouse });
+      const property = tfNormalizeProperty(raw, ownershipHint, { myId, spouse, spouseListingSnapshots: state.spouseListingSnapshots || {} });
       const key = property.key;
       const previous = propertyMap.get(key);
       propertyMap.set(key, previous ? tfMergeProperty(previous, property) : property);
@@ -3119,7 +3197,8 @@
         : null;
       property.status = property.isCurrentHome
         ? "occupied"
-        : property.activeContract && property.activeContract.direction === "out"
+        : (property.activeContract && property.activeContract.direction === "out"
+          || property.ownership === "spouse" && property.rentalIncomeEvidence && property.rentalIncomeEvidence.estimatedContract && isLeasedToOther(property.raw))
           ? "rented"
           : property.listed
             ? "listed"
@@ -3153,6 +3232,9 @@
     const image = propertyImageUrlFromRow(raw) || propertyImageUrl(propertyTypeIdFromRow(raw) || type);
     const marketValue = moneyNumber(raw.market_price || raw.marketValue || nestedValue(raw, "property.market_price"));
     const key = id ? `property:${id}` : `property:${normalizeLookup(name)}:${normalizeLookup(owner)}`;
+    const rentalIncomeEvidence = ownership === "spouse"
+      ? spouseRentalEvidenceForProperty(raw, context, context.spouseListingSnapshots || {})
+      : null;
     return {
       key,
       id,
@@ -3172,6 +3254,7 @@
       rentalListed: isForRent(raw),
       saleListed: isForSale(raw),
       listed: isForRent(raw) || isForSale(raw),
+      rentalIncomeEvidence,
       raw,
       activeContract: null,
       isCurrentHome: false,
@@ -3235,6 +3318,13 @@
     const status = normalizeLeaseStatus(lease.status, lease.roleHint || lease.source, lease.tenant);
     const direction = role === "tenant" || ["leased", "rent_from"].includes(status) ? "from" : "out";
     const ownership = property ? property.ownership : role === "spouse" ? "spouse" : direction === "from" ? "third-party" : "mine";
+    const directDaily = moneyNumber(lease.dailyAmount || lease.per_day);
+    const directTotal = moneyNumber(lease.amount || lease.total);
+    const directDuration = positiveNumber(lease.durationDays || lease.days);
+    const rentalIncomeEvidence = property && property.rentalIncomeEvidence;
+    const evidenceFallback = ownership === "spouse" && direction === "out" && rentalIncomeEvidence && rentalIncomeEvidence.estimatedContract
+      ? rentalIncomeEvidence
+      : null;
     const remaining = lease.remainingDays !== "" && lease.remainingDays !== undefined ? Number(lease.remainingDays) : remainingDaysFromEnd(lease.endDate);
     return {
       contractId: contractIdentity(lease),
@@ -3248,9 +3338,12 @@
       tenant: clean(lease.tenant, "Unknown renter"),
       direction,
       status,
-      daily: moneyNumber(lease.dailyAmount || lease.per_day),
-      total: moneyNumber(lease.amount || lease.total),
-      duration: positiveNumber(lease.durationDays || lease.days),
+      daily: directDaily || moneyNumber(evidenceFallback && evidenceFallback.dailyAmount),
+      dailyEstimated: Boolean(!directDaily && evidenceFallback && evidenceFallback.dailyAmount),
+      total: directTotal || moneyNumber(evidenceFallback && evidenceFallback.totalAmount),
+      totalEstimated: Boolean(!directTotal && evidenceFallback && evidenceFallback.totalAmount),
+      duration: directDuration || positiveNumber(evidenceFallback && evidenceFallback.durationDays),
+      incomeEvidence: evidenceFallback,
       startDate: lease.startDate || lease.start_date || "",
       endDate: lease.endDate || lease.end_date || "",
       remaining: Number.isFinite(remaining) ? remaining : "",
@@ -3466,6 +3559,11 @@
     return value ? `${money(value)}${suffix}` : "Unavailable";
   }
 
+  function tfRentAmount(value, estimated = false, suffix = "") {
+    const formatted = tfMoney(value, suffix);
+    return estimated && value ? `~${formatted}` : formatted;
+  }
+
   function tfMoneyKnown(value, suffix = "") {
     const number = Number(value);
     if (!Number.isFinite(number) || number < 0) return "Unavailable";
@@ -3515,13 +3613,26 @@
     return `<div class="tf-page-title"><div class="tf-page-heading">${tfIcon(icon)}<div><h1>${escapeHtml(title)}</h1><p>${escapeHtml(subtitle)}</p></div></div>${controls}</div>`;
   }
 
+  function tfPropertyDailyIncome(property) {
+    const contract = property && property.activeContract;
+    const contractDaily = Number(contract && contract.daily || 0);
+    if (contractDaily) return { daily: contractDaily, estimated: Boolean(contract.dailyEstimated) };
+    const evidence = property && property.rentalIncomeEvidence;
+    if (property && property.status === "rented" && evidence && evidence.estimatedContract) {
+      return { daily: Number(evidence.dailyAmount) || 0, estimated: true };
+    }
+    return { daily: 0, estimated: false };
+  }
+
   function tfPortfolioStats(model, scope) {
     const rows = model.properties.filter((property) => property.ownership === scope);
-    const rented = rows.filter((property) => property.activeContract && property.activeContract.direction === "out");
+    const rented = rows.filter((property) => property.status === "rented" || property.activeContract && property.activeContract.direction === "out");
     const available = rows.filter((property) => property.status === "available");
     const listed = rows.filter((property) => property.status === "listed");
-    const daily = rented.reduce((sum, property) => sum + Number(property.activeContract && property.activeContract.daily || 0), 0);
-    return { total: rows.length, rented: rented.length, available: available.length, listed: listed.length, daily };
+    const income = rented.map(tfPropertyDailyIncome);
+    const daily = income.reduce((sum, row) => sum + row.daily, 0);
+    const estimatedIncomeCount = income.filter((row) => row.estimated && row.daily).length;
+    return { total: rows.length, rented: rented.length, available: available.length, listed: listed.length, daily, estimatedIncomeCount };
   }
 
   function tfAttention(model) {
@@ -3632,18 +3743,19 @@
   }
 
   function tfPortfolioPanel(title, scope, summary) {
+    const estimated = scope === "spouse" && summary.estimatedIncomeCount > 0;
     return `<section class="tf-card tf-portfolio tf-${escapeAttr(scope)}"><div class="tf-card-head"><h2>${tfIcon(scope === "spouse" ? "heart" : "property")} ${escapeHtml(title)}</h2><button type="button" data-tab="properties" data-scope="${escapeAttr(scope)}">›</button></div><div class="tf-metrics">
       ${tfMetric("property", tfNumber(summary.total), "Total Properties")}
       ${tfMetric("key", tfNumber(summary.rented), "Rented Out", "info")}
       ${tfMetric("home", tfNumber(summary.available), "Available")}
       ${tfMetric("tag", tfNumber(summary.listed), "Listed", "warning")}
-      ${tfMetric("money", tfMoney(summary.daily), "Active Rent Income / day", "success")}
+      ${tfMetric("money", tfRentAmount(summary.daily, estimated), estimated ? "Estimated active rent income / day" : "Active Rent Income / day", "success")}
     </div></section>`;
   }
 
   function tfRentalTable(rows) {
     if (!rows.length) return tfEmpty("No active rentals", "Current rental contracts will appear here after a sync.");
-    return `<div class="tf-table-wrap"><table class="tf-table"><thead><tr><th>Property</th><th>Direction</th><th>Other party</th><th>Rent / Day</th><th>End Date</th><th>Remaining</th><th></th></tr></thead><tbody>${rows.map((row) => `<tr><td><div class="tf-table-property">${row.image ? `<img src="${escapeAttr(row.image)}" alt="">` : ""}<div><strong>${escapeHtml(row.property)}</strong><small>${row.propertyId ? `#${escapeHtml(row.propertyId)}` : escapeHtml(row.type)}</small></div></div></td><td>${row.direction === "out" ? "Renting Out" : "Renting From"}</td><td>${escapeHtml(row.direction === "out" ? row.tenant : row.owner)}</td><td>${escapeHtml(tfMoney(row.daily))}</td><td>${escapeHtml(tfDate(row.endDate))}</td><td class="${Number(row.remaining) <= 7 ? "is-urgent" : "is-success"}">${row.remaining === "" ? "Unknown" : `${tfNumber(row.remaining)} days`}</td><td><button class="tf-more" type="button" data-action="open-rental" data-contract-id="${escapeAttr(row.contractId)}" aria-label="View rental details">${tfIcon("more")}</button></td></tr>`).join("")}</tbody></table></div>`;
+    return `<div class="tf-table-wrap"><table class="tf-table"><thead><tr><th>Property</th><th>Direction</th><th>Other party</th><th>Rent / Day</th><th>End Date</th><th>Remaining</th><th></th></tr></thead><tbody>${rows.map((row) => `<tr><td><div class="tf-table-property">${row.image ? `<img src="${escapeAttr(row.image)}" alt="">` : ""}<div><strong>${escapeHtml(row.property)}</strong><small>${row.propertyId ? `#${escapeHtml(row.propertyId)}` : escapeHtml(row.type)}</small></div></div></td><td>${row.direction === "out" ? "Renting Out" : "Renting From"}</td><td>${escapeHtml(row.direction === "out" ? row.tenant : row.owner)}</td><td>${escapeHtml(tfRentAmount(row.daily, row.dailyEstimated))}</td><td>${escapeHtml(tfDate(row.endDate))}</td><td class="${Number(row.remaining) <= 7 ? "is-urgent" : "is-success"}">${row.remaining === "" ? "Unknown" : `${tfNumber(row.remaining)} days`}</td><td><button class="tf-more" type="button" data-action="open-rental" data-contract-id="${escapeAttr(row.contractId)}" aria-label="View rental details">${tfIcon("more")}</button></td></tr>`).join("")}</tbody></table></div>`;
   }
 
   function tfAttentionRow(item) {
@@ -3674,14 +3786,22 @@
         ${tfSegmentButton("propertyScope", "spouse", "heart", "Spouse Properties", ui.propertyScope)}
         ${tfSegmentButton("propertyScope", "all", "list", "All Properties", ui.propertyScope)}
       </div><input type="search" data-ui-field="propertySearch" placeholder="Search properties…" value="${escapeAttr(ui.propertySearch)}"><select data-ui-field="propertyStatus"><option value="all">All Statuses</option>${["occupied", "rented", "available", "listed"].map((value) => `<option value="${value}"${ui.propertyStatus === value ? " selected" : ""}>${escapeHtml(humanHeader(value))}</option>`).join("")}</select><select data-ui-field="propertyType"><option value="all">All Types</option>${types.map((value) => `<option value="${escapeAttr(value)}"${ui.propertyType === value ? " selected" : ""}>${escapeHtml(value)}</option>`).join("")}</select></div>
-      <div class="tf-main-sidebar"><div><div class="tf-summary-strip">${tfMetric("property", tfNumber(summary.total), "Total Properties")}${tfMetric("key", tfNumber(summary.rented), "Rented Out", "info")}${tfMetric("home", tfNumber(summary.available), "Available")}${tfMetric("tag", tfNumber(summary.listed), "Listed", "warning")}${tfMetric("money", tfMoney(summary.daily), "Total Daily Rent Income", "success")}</div><div class="tf-property-list">${filtered.length ? filtered.map((property) => tfPropertyCard(property, isPopup)).join("") : tfEmpty("No matching properties", "Change the filters or sync to load your property portfolio.")}</div></div>
+      <div class="tf-main-sidebar"><div><div class="tf-summary-strip">${tfMetric("property", tfNumber(summary.total), "Total Properties")}${tfMetric("key", tfNumber(summary.rented), "Rented Out", "info")}${tfMetric("home", tfNumber(summary.available), "Available")}${tfMetric("tag", tfNumber(summary.listed), "Listed", "warning")}${tfMetric("money", tfRentAmount(summary.daily, summary.estimatedIncomeCount > 0), summary.estimatedIncomeCount > 0 ? "Estimated Total Daily Rent Income" : "Total Daily Rent Income", "success")}</div><div class="tf-property-list">${filtered.length ? filtered.map((property) => tfPropertyCard(property, isPopup)).join("") : tfEmpty("No matching properties", "Change the filters or sync to load your property portfolio.")}</div></div>
         <aside class="tf-sidebar"><section class="tf-card"><div class="tf-card-head"><h2>${tfIcon("quick")} Quick Actions</h2></div><button class="tf-primary tf-wide" type="button" data-action="export-csv">Export CSV</button><button class="tf-wide" type="button" data-tab="archive">View Archive</button></section>${tfAttentionPanel(model)}<section class="tf-card"><div class="tf-card-head"><h2>${tfIcon("activity")} Recent Property Activity</h2></div>${tfActivityList(model.activities.slice(0, 5))}</section></aside>
       </div></section>`;
   }
 
   function tfStatsForProperties(rows) {
-    const rented = rows.filter((row) => row.activeContract && row.activeContract.direction === "out");
-    return { total: rows.length, rented: rented.length, available: rows.filter((row) => row.status === "available").length, listed: rows.filter((row) => row.status === "listed").length, daily: rented.reduce((sum, row) => sum + Number(row.activeContract && row.activeContract.daily || 0), 0) };
+    const rented = rows.filter((row) => row.status === "rented" || row.activeContract && row.activeContract.direction === "out");
+    const income = rented.map(tfPropertyDailyIncome);
+    return {
+      total: rows.length,
+      rented: rented.length,
+      available: rows.filter((row) => row.status === "available").length,
+      listed: rows.filter((row) => row.status === "listed").length,
+      daily: income.reduce((sum, row) => sum + row.daily, 0),
+      estimatedIncomeCount: income.filter((row) => row.estimated && row.daily).length,
+    };
   }
 
   function tfSegmentButton(field, value, icon, label, selected) {
@@ -3690,12 +3810,15 @@
 
   function tfPropertyCard(property, isPopup = false) {
     const contract = property.activeContract;
+    const evidence = property.rentalIncomeEvidence;
     const detail = property.isCurrentHome
       ? `<div><span>Owner</span><strong>${escapeHtml(property.owner)}</strong></div><div><span>Residents</span><strong>${escapeHtml(property.residents.join(", ") || "Unavailable")}</strong></div><div><span>Status</span><strong class="is-success">Occupied</strong></div>`
       : contract
-        ? `<div><span>Tenant</span><strong>${escapeHtml(contract.tenant)}</strong></div><div><span>Rent / Day</span><strong>${escapeHtml(tfMoney(contract.daily))}</strong></div><div><span>End Date</span><strong>${escapeHtml(tfDate(contract.endDate))}</strong></div><div><span>Remaining</span><strong class="${Number(contract.remaining) <= 7 ? "is-urgent" : "is-success"}">${contract.remaining === "" ? "Unknown" : `${tfNumber(contract.remaining)} days`}</strong></div>`
+        ? `<div><span>Tenant</span><strong>${escapeHtml(contract.tenant)}</strong></div><div><span>${contract.dailyEstimated ? "Estimated rent / day" : "Rent / Day"}</span><strong>${escapeHtml(tfRentAmount(contract.daily, contract.dailyEstimated))}</strong></div><div><span>End Date</span><strong>${escapeHtml(tfDate(contract.endDate))}</strong></div><div><span>Remaining</span><strong class="${Number(contract.remaining) <= 7 ? "is-urgent" : "is-success"}">${contract.remaining === "" ? "Unknown" : `${tfNumber(contract.remaining)} days`}</strong></div>`
+        : property.status === "rented" && evidence && evidence.estimatedContract
+          ? `<div><span>Tenant</span><strong>Private contract details unavailable</strong></div><div><span>Estimated rent / day</span><strong>${escapeHtml(tfRentAmount(evidence.dailyAmount, true))}</strong></div><div><span>Basis</span><strong>Last observed asking rent</strong></div><div><span>Observed</span><strong>${escapeHtml(evidence.observedAt ? tfRelative(evidence.observedAt) : "Unavailable")}</strong></div>`
         : property.listed
-          ? `<div><span>Owner</span><strong>${escapeHtml(property.owner)}</strong></div><div><span>Status</span><strong class="is-warning">Available for rent</strong></div><div><span>Happiness</span><strong>${property.happy ? tfNumber(property.happy) : "Unavailable"}</strong></div>`
+          ? `<div><span>Owner</span><strong>${escapeHtml(property.owner)}</strong></div><div><span>Status</span><strong class="is-warning">Available for rent</strong></div>${evidence && evidence.currentListing ? `<div><span>Listed Rent / Day</span><strong>${escapeHtml(tfRentAmount(evidence.dailyAmount))}</strong></div><div><span>Listing Period</span><strong>${evidence.durationDays ? `${tfNumber(evidence.durationDays)} days` : "Unavailable"}</strong></div>` : `<div><span>Happiness</span><strong>${property.happy ? tfNumber(property.happy) : "Unavailable"}</strong></div>`}`
           : `<div><span>Owner</span><strong>${escapeHtml(property.owner)}</strong></div><div><span>Status</span><strong class="is-success">Available</strong></div><div><span>Type</span><strong>${escapeHtml(property.type)}</strong></div>`;
     const quickList = !isPopup && !propertyActionUnavailableReason("rent", property)
       ? `<button class="tf-primary" type="button" data-action="open-property-action" data-property-action="rent" data-property-key="${escapeAttr(property.key)}">List for rent</button>`
@@ -3722,14 +3845,16 @@
     const soon = rows.filter((row) => Number(row.remaining) >= 0 && Number(row.remaining) <= 7);
     const daily = rows.reduce((sum, row) => sum + Number(row.daily || 0), 0);
     const total = rows.reduce((sum, row) => sum + Number(row.total || 0), 0);
+    const estimatedDaily = rows.some((row) => row.dailyEstimated && Number(row.daily || 0));
+    const estimatedTotal = rows.some((row) => row.totalEstimated && Number(row.total || 0));
     return `<section class="tf-page">${tfPageTitle("rentals", "Rentals", "Manage your active rental contracts.")}
       <div class="tf-filter-row"><div class="tf-segmented">${tfSegmentButton("rentalScope", "out", "key", "Renting Out", ui.rentalScope)}${tfSegmentButton("rentalScope", "from", "exchange", "Renting From", ui.rentalScope)}${tfSegmentButton("rentalScope", "all", "list", "All Rentals", ui.rentalScope)}</div><input type="search" data-ui-field="rentalSearch" placeholder="Search rentals…" value="${escapeAttr(ui.rentalSearch)}"><select data-ui-field="rentalOwner"><option value="all">All Owners</option><option value="mine"${ui.rentalOwner === "mine" ? " selected" : ""}>My Properties</option><option value="spouse"${ui.rentalOwner === "spouse" ? " selected" : ""}>Spouse Properties</option><option value="third-party"${ui.rentalOwner === "third-party" ? " selected" : ""}>Third Party</option></select><select data-ui-field="rentalType"><option value="all">All Types</option>${types.map((type) => `<option value="${escapeAttr(type)}"${ui.rentalType === type ? " selected" : ""}>${escapeHtml(type)}</option>`).join("")}</select></div>
-      <div class="tf-main-sidebar"><div><div class="tf-summary-strip">${tfMetric("home", tfNumber(rows.length), "Active Rentals")}${tfMetric("alert", tfNumber(soon.length), "Ending Soon", soon.length ? "danger" : "")}${tfMetric("money", tfMoney(daily), "Total Daily Rent", "success")}${tfMetric("rentals", tfMoney(total), "Total Contract Value", "info")}</div><div class="tf-rental-list">${rows.length ? rows.map(tfRentalCard).join("") : tfEmpty("No matching active rentals", "Finished contracts live in Archive. Sync or change the current filters.")}</div></div><aside class="tf-sidebar"><section class="tf-card"><div class="tf-card-head"><h2>${tfIcon("quick")} Quick Actions</h2></div><button class="tf-primary tf-wide" type="button" data-action="open-manual-modal">${tfIcon("add")} Add Manual Rental</button><button class="tf-wide" type="button" data-action="export-csv">Export CSV</button><button class="tf-wide" type="button" data-tab="archive">View Archive</button></section>${tfAttentionPanel(model)}${tfRentalJourneyPanel(model)}<section class="tf-card"><div class="tf-card-head"><h2>${tfIcon("calendar")} Upcoming End Dates</h2></div>${tfUpcomingRentals(model.activeRentals)}</section></aside></div>
+      <div class="tf-main-sidebar"><div><div class="tf-summary-strip">${tfMetric("home", tfNumber(rows.length), "Active Rentals")}${tfMetric("alert", tfNumber(soon.length), "Ending Soon", soon.length ? "danger" : "")}${tfMetric("money", tfRentAmount(daily, estimatedDaily), estimatedDaily ? "Estimated Total Daily Rent" : "Total Daily Rent", "success")}${tfMetric("rentals", tfRentAmount(total, estimatedTotal), estimatedTotal ? "Estimated Total Contract Value" : "Total Contract Value", "info")}</div><div class="tf-rental-list">${rows.length ? rows.map(tfRentalCard).join("") : tfEmpty("No matching active rentals", "Finished contracts live in Archive. Sync or change the current filters.")}</div></div><aside class="tf-sidebar"><section class="tf-card"><div class="tf-card-head"><h2>${tfIcon("quick")} Quick Actions</h2></div><button class="tf-primary tf-wide" type="button" data-action="open-manual-modal">${tfIcon("add")} Add Manual Rental</button><button class="tf-wide" type="button" data-action="export-csv">Export CSV</button><button class="tf-wide" type="button" data-tab="archive">View Archive</button></section>${tfAttentionPanel(model)}${tfRentalJourneyPanel(model)}<section class="tf-card"><div class="tf-card-head"><h2>${tfIcon("calendar")} Upcoming End Dates</h2></div>${tfUpcomingRentals(model.activeRentals)}</section></aside></div>
     </section>`;
   }
 
   function tfRentalCard(contract) {
-    return `<article class="tf-rental-card">${contract.image ? `<img src="${escapeAttr(contract.image)}" alt="">` : `<div class="tf-image-placeholder">${tfIcon("home")}</div>`}<div class="tf-rental-body"><div class="tf-property-head"><div><h2>${escapeHtml(contract.property)}${contract.propertyId && !contract.property.includes(contract.propertyId) ? ` <small>#${escapeHtml(contract.propertyId)}</small>` : ""}</h2><div class="tf-badges">${tfOwnershipBadge(contract.ownership, contract.direction === "from")}${tfStatusBadge("active")}${contract.extensionCount ? `<span class="tf-badge tf-badge-info">Extended ×${tfNumber(contract.extensionCount)}</span>` : normalizeLookup(contract.extensionStatus) === "pending" ? `<span class="tf-badge tf-badge-warning">Extension pending</span>` : ""}</div></div></div><div class="tf-contract-grid"><div><span>${contract.direction === "out" ? "Tenant" : "Owner"}</span><strong>${escapeHtml(contract.direction === "out" ? contract.tenant : contract.owner)}</strong></div><div><span>Rent / Day</span><strong>${escapeHtml(tfMoney(contract.daily))}</strong></div><div><span>Total Contract</span><strong>${escapeHtml(tfMoney(contract.total))}</strong></div><div><span>Started</span><strong>${escapeHtml(tfDate(contract.startDate))}</strong></div><div><span>Ends</span><strong>${escapeHtml(tfDate(contract.endDate))}</strong></div><div><span>Remaining</span><strong class="${Number(contract.remaining) <= 7 ? "is-urgent" : "is-success"}">${contract.remaining === "" ? "Unknown" : `${tfNumber(contract.remaining)} days`}</strong></div></div></div><div class="tf-card-actions"><button type="button" data-action="open-property" data-property-key="${escapeAttr(contract.propertyKey)}">View Property →</button><button type="button" data-action="open-rental" data-contract-id="${escapeAttr(contract.contractId)}">View Rental →</button></div></article>`;
+    return `<article class="tf-rental-card">${contract.image ? `<img src="${escapeAttr(contract.image)}" alt="">` : `<div class="tf-image-placeholder">${tfIcon("home")}</div>`}<div class="tf-rental-body"><div class="tf-property-head"><div><h2>${escapeHtml(contract.property)}${contract.propertyId && !contract.property.includes(contract.propertyId) ? ` <small>#${escapeHtml(contract.propertyId)}</small>` : ""}</h2><div class="tf-badges">${tfOwnershipBadge(contract.ownership, contract.direction === "from")}${tfStatusBadge("active")}${contract.dailyEstimated ? `<span class="tf-badge tf-badge-warning">Last listing estimate</span>` : contract.extensionCount ? `<span class="tf-badge tf-badge-info">Extended ×${tfNumber(contract.extensionCount)}</span>` : normalizeLookup(contract.extensionStatus) === "pending" ? `<span class="tf-badge tf-badge-warning">Extension pending</span>` : ""}</div></div></div><div class="tf-contract-grid"><div><span>${contract.direction === "out" ? "Tenant" : "Owner"}</span><strong>${escapeHtml(contract.direction === "out" ? contract.tenant : contract.owner)}</strong></div><div><span>${contract.dailyEstimated ? "Estimated rent / day" : "Rent / Day"}</span><strong>${escapeHtml(tfRentAmount(contract.daily, contract.dailyEstimated))}</strong></div><div><span>${contract.totalEstimated ? "Estimated total" : "Total Contract"}</span><strong>${escapeHtml(tfRentAmount(contract.total, contract.totalEstimated))}</strong></div><div><span>Started</span><strong>${escapeHtml(tfDate(contract.startDate))}</strong></div><div><span>Ends</span><strong>${escapeHtml(tfDate(contract.endDate))}</strong></div><div><span>Remaining</span><strong class="${Number(contract.remaining) <= 7 ? "is-urgent" : "is-success"}">${contract.remaining === "" ? "Unknown" : `${tfNumber(contract.remaining)} days`}</strong></div></div></div><div class="tf-card-actions"><button type="button" data-action="open-property" data-property-key="${escapeAttr(contract.propertyKey)}">View Property →</button><button type="button" data-action="open-rental" data-contract-id="${escapeAttr(contract.contractId)}">View Rental →</button></div></article>`;
   }
 
   function tfUpcomingRentals(rows) {
@@ -4453,6 +4578,17 @@
     }
   }
 
+  function tfRentalIncomeEvidenceDetail(property) {
+    const evidence = property && property.rentalIncomeEvidence;
+    if (!evidence) return "";
+    const rentLabel = evidence.currentListing ? "Current listing rent / day" : "Last listed rent / day";
+    const observed = evidence.observedAt ? tfRelative(evidence.observedAt) : "Unavailable";
+    const estimateNote = evidence.estimatedContract
+      ? `<p class="tf-action-note">Torn did not expose the spouse's private contract amount. This is the last observed asking rent, not a confirmed contract rate.</p>`
+      : "";
+    return `<section><h2>Spouse Rental Income Evidence</h2><div class="tf-detail-grid"><div><span>${escapeHtml(rentLabel)}</span><strong>${escapeHtml(tfRentAmount(evidence.dailyAmount, evidence.estimatedContract))}</strong></div><div><span>Listing period</span><strong>${evidence.durationDays ? `${tfNumber(evidence.durationDays)} days` : "Unavailable"}</strong></div><div><span>Observed</span><strong>${escapeHtml(observed)}</strong></div><div><span>Evidence</span><strong>${escapeHtml(evidence.source)}</strong></div></div>${estimateNote}</section>`;
+  }
+
   function tfDetailModalHtml(model, isPopup = false) {
     const detail = state.detailView || {};
     if (detail.kind === "property") {
@@ -4460,7 +4596,7 @@
       if (!property) return tfMissingDetailModal("Property unavailable", "That property is not present in the latest portfolio data.");
       const history = model.archive.filter((row) => row.propertyId && row.propertyId === property.id);
       const contracts = model.activeRentals.filter((row) => row.propertyKey === property.key);
-      return `<div class="tlt-modal-backdrop tf-modal-backdrop" data-action="close-detail"><div class="tlt-modal tf-modal tf-detail-modal" role="dialog" aria-modal="true" aria-label="Property details" data-modal-stop><div class="tlt-modal-head"><div><strong>${escapeHtml(property.name)}</strong><span>${property.id ? `Property #${escapeHtml(property.id)} · ` : ""}${escapeHtml(property.type)}</span></div><button class="tf-icon-button" type="button" data-action="close-detail" aria-label="Close property details">${tfIcon("close")}</button></div><div class="tf-detail-body">${property.image ? `<img class="tf-detail-image" src="${escapeAttr(property.image)}" alt="${escapeAttr(property.type)}">` : ""}<div class="tf-badges">${tfOwnershipBadge(property.ownership)}${tfStatusBadge(property.status)}</div><div class="tf-detail-grid"><div><span>Owner</span><strong>${escapeHtml(property.owner)}</strong></div><div><span>Happiness</span><strong>${property.happy ? tfNumber(property.happy) : "Unavailable"}</strong></div><div><span>Known Upgrades</span><strong>${property.upgrades.length ? property.upgrades.length : "Unavailable"}</strong></div><div><span>Residents</span><strong>${escapeHtml(property.residents.join(", ") || "Unavailable")}</strong></div><div><span>Daily Upkeep</span><strong>${escapeHtml(tfMoney(property.upkeep))}</strong></div><div><span>Market Value</span><strong>${escapeHtml(tfMoney(property.marketValue))}</strong></div><div><span>Investment Basis</span><strong>${escapeHtml(tfMoney(property.investment))}</strong></div><div><span>Market listing</span><strong>${escapeHtml(tfPropertyListingLabel(property))}</strong></div></div>${tfPropertyActionsHtml(property, model, isPopup)}<section><h2>Lifecycle Snapshot</h2>${tfLifecycleSnapshot(property.lifecycle)}</section>${property.upgrades.length ? `<section><h2>Upgrades / Modifications</h2><div class="tf-chip-list">${property.upgrades.map((value) => `<span>${escapeHtml(value)}</span>`).join("")}</div></section>` : ""}<section><h2>Current Rental</h2>${contracts.length ? contracts.map(tfRentalCard).join("") : tfEmpty("No active rental", "This property has no active rental contract in the latest data.")}</section><section><h2>Property Journey</h2>${tfPropertyJourney(property.id)}</section><section><h2>Rental History</h2>${history.length ? history.map(tfArchiveCard).join("") : tfEmpty("No rental history", "Archived contracts for this property will appear after history has been synced.")}</section></div></div></div>`;
+      return `<div class="tlt-modal-backdrop tf-modal-backdrop" data-action="close-detail"><div class="tlt-modal tf-modal tf-detail-modal" role="dialog" aria-modal="true" aria-label="Property details" data-modal-stop><div class="tlt-modal-head"><div><strong>${escapeHtml(property.name)}</strong><span>${property.id ? `Property #${escapeHtml(property.id)} · ` : ""}${escapeHtml(property.type)}</span></div><button class="tf-icon-button" type="button" data-action="close-detail" aria-label="Close property details">${tfIcon("close")}</button></div><div class="tf-detail-body">${property.image ? `<img class="tf-detail-image" src="${escapeAttr(property.image)}" alt="${escapeAttr(property.type)}">` : ""}<div class="tf-badges">${tfOwnershipBadge(property.ownership)}${tfStatusBadge(property.status)}</div><div class="tf-detail-grid"><div><span>Owner</span><strong>${escapeHtml(property.owner)}</strong></div><div><span>Happiness</span><strong>${property.happy ? tfNumber(property.happy) : "Unavailable"}</strong></div><div><span>Known Upgrades</span><strong>${property.upgrades.length ? property.upgrades.length : "Unavailable"}</strong></div><div><span>Residents</span><strong>${escapeHtml(property.residents.join(", ") || "Unavailable")}</strong></div><div><span>Daily Upkeep</span><strong>${escapeHtml(tfMoney(property.upkeep))}</strong></div><div><span>Market Value</span><strong>${escapeHtml(tfMoney(property.marketValue))}</strong></div><div><span>Investment Basis</span><strong>${escapeHtml(tfMoney(property.investment))}</strong></div><div><span>Market listing</span><strong>${escapeHtml(tfPropertyListingLabel(property))}</strong></div></div>${tfRentalIncomeEvidenceDetail(property)}${tfPropertyActionsHtml(property, model, isPopup)}<section><h2>Lifecycle Snapshot</h2>${tfLifecycleSnapshot(property.lifecycle)}</section>${property.upgrades.length ? `<section><h2>Upgrades / Modifications</h2><div class="tf-chip-list">${property.upgrades.map((value) => `<span>${escapeHtml(value)}</span>`).join("")}</div></section>` : ""}<section><h2>Current Rental</h2>${contracts.length ? contracts.map(tfRentalCard).join("") : tfEmpty("No active rental", "This property has no active rental contract in the latest data.")}</section><section><h2>Property Journey</h2>${tfPropertyJourney(property.id)}</section><section><h2>Rental History</h2>${history.length ? history.map(tfArchiveCard).join("") : tfEmpty("No rental history", "Archived contracts for this property will appear after history has been synced.")}</section></div></div></div>`;
     }
     if (detail.kind === "rental") {
       const contract = model.activeRentals.find((row) => row.contractId === detail.id);
@@ -4487,7 +4623,10 @@
           ? `<p class="tf-action-note">${escapeHtml(extensionReason)}</p>`
           : `<button class="tf-primary" type="button" data-action="open-property-action" data-property-action="extend" data-property-key="${escapeAttr(property.key)}">Offer extension</button>`
       : "";
-    return `<div class="tlt-modal-backdrop tf-modal-backdrop" data-action="close-detail"><div class="tlt-modal tf-modal tf-detail-modal" role="dialog" aria-modal="true" aria-label="Rental details" data-modal-stop><div class="tlt-modal-head"><div><strong>${escapeHtml(title)}</strong><span>${escapeHtml(contract.property)}</span></div><button class="tf-icon-button" type="button" data-action="close-detail" aria-label="Close rental details">${tfIcon("close")}</button></div><div class="tf-detail-body">${contract.image ? `<img class="tf-detail-image" src="${escapeAttr(contract.image)}" alt="">` : ""}<div class="tf-badges">${tfOwnershipBadge(contract.ownership, contract.direction === "from")}${tfStatusBadge(title.startsWith("Archived") ? "expired" : "active")}${contract.extensionCount ? `<span class="tf-badge tf-badge-info">Extended ×${tfNumber(contract.extensionCount)}</span>` : ""}</div><div class="tf-detail-grid"><div><span>Property ID</span><strong>${escapeHtml(contract.propertyId || "Unavailable")}</strong></div><div><span>${contract.direction === "out" ? "Tenant" : "Owner"}</span><strong>${escapeHtml(contract.direction === "out" ? contract.tenant : contract.owner)}</strong></div><div><span>Rent / Day</span><strong>${escapeHtml(tfMoney(contract.daily))}</strong></div><div><span>Total Contract</span><strong>${escapeHtml(tfMoney(contract.total))}</strong></div><div><span>Start Date</span><strong>${escapeHtml(tfDate(contract.startDate))}</strong></div><div><span>End Date</span><strong>${escapeHtml(tfDate(contract.endDate))}</strong></div><div><span>Duration</span><strong>${contract.duration !== "" ? `${tfNumber(contract.duration)} days` : "Unavailable"}</strong></div><div><span>Remaining</span><strong>${contract.remaining !== "" ? `${tfNumber(contract.remaining)} days` : "Finished / unavailable"}</strong></div><div><span>Extension status</span><strong>${escapeHtml(contract.extensionStatus || "None recorded")}</strong></div><div><span>Extension days</span><strong>${contract.extensionDays ? `${tfNumber(contract.extensionDays)} days` : "None recorded"}</strong></div></div>${contract.completionReason ? `<section><h2>Completion</h2><p>${escapeHtml(contract.completionReason)}</p></section>` : ""}${contract.notes ? `<section><h2>Notes</h2><p>${escapeHtml(contract.notes)}</p></section>` : ""}<div class="tf-button-row">${extensionAction}${contract.propertyKey ? `<button type="button" data-action="open-property" data-property-key="${escapeAttr(contract.propertyKey)}">View Property</button>` : ""}</div></div></div></div>`;
+    const estimatedNote = contract.dailyEstimated
+      ? `<section><h2>Spouse income estimate</h2><p class="tf-action-note">Torn did not expose the spouse's private contract amount. This uses the last observed asking rent, not a confirmed contract rate.</p></section>`
+      : "";
+    return `<div class="tlt-modal-backdrop tf-modal-backdrop" data-action="close-detail"><div class="tlt-modal tf-modal tf-detail-modal" role="dialog" aria-modal="true" aria-label="Rental details" data-modal-stop><div class="tlt-modal-head"><div><strong>${escapeHtml(title)}</strong><span>${escapeHtml(contract.property)}</span></div><button class="tf-icon-button" type="button" data-action="close-detail" aria-label="Close rental details">${tfIcon("close")}</button></div><div class="tf-detail-body">${contract.image ? `<img class="tf-detail-image" src="${escapeAttr(contract.image)}" alt="">` : ""}<div class="tf-badges">${tfOwnershipBadge(contract.ownership, contract.direction === "from")}${tfStatusBadge(title.startsWith("Archived") ? "expired" : "active")}${contract.dailyEstimated ? `<span class="tf-badge tf-badge-warning">Last listing estimate</span>` : contract.extensionCount ? `<span class="tf-badge tf-badge-info">Extended ×${tfNumber(contract.extensionCount)}</span>` : ""}</div><div class="tf-detail-grid"><div><span>Property ID</span><strong>${escapeHtml(contract.propertyId || "Unavailable")}</strong></div><div><span>${contract.direction === "out" ? "Tenant" : "Owner"}</span><strong>${escapeHtml(contract.direction === "out" ? contract.tenant : contract.owner)}</strong></div><div><span>${contract.dailyEstimated ? "Estimated rent / day" : "Rent / Day"}</span><strong>${escapeHtml(tfRentAmount(contract.daily, contract.dailyEstimated))}</strong></div><div><span>${contract.totalEstimated ? "Last listed total" : "Total Contract"}</span><strong>${escapeHtml(tfRentAmount(contract.total, contract.totalEstimated))}</strong></div><div><span>Start Date</span><strong>${escapeHtml(tfDate(contract.startDate))}</strong></div><div><span>End Date</span><strong>${escapeHtml(tfDate(contract.endDate))}</strong></div><div><span>Duration</span><strong>${contract.duration !== "" ? `${tfNumber(contract.duration)} days` : "Unavailable"}</strong></div><div><span>Remaining</span><strong>${contract.remaining !== "" ? `${tfNumber(contract.remaining)} days` : "Finished / unavailable"}</strong></div><div><span>Extension status</span><strong>${escapeHtml(contract.extensionStatus || "None recorded")}</strong></div><div><span>Extension days</span><strong>${contract.extensionDays ? `${tfNumber(contract.extensionDays)} days` : "None recorded"}</strong></div></div>${estimatedNote}${contract.completionReason ? `<section><h2>Completion</h2><p>${escapeHtml(contract.completionReason)}</p></section>` : ""}${contract.notes ? `<section><h2>Notes</h2><p>${escapeHtml(contract.notes)}</p></section>` : ""}<div class="tf-button-row">${extensionAction}${contract.propertyKey ? `<button type="button" data-action="open-property" data-property-key="${escapeAttr(contract.propertyKey)}">View Property</button>` : ""}</div></div></div></div>`;
   }
 
   function tfMissingDetailModal(title, text) {
@@ -8504,6 +8643,9 @@
       propertyPricingDaily,
       rentalListingCalculation,
       tfResolvePropertyListingState,
+      spouseListingSnapshotsAfterFetch,
+      spouseRentalEvidenceForProperty,
+      tfPropertyDailyIncome,
       tfPropertyActionFormHtml,
       tfPropertyActionSummary,
       tfPropertyCard,
