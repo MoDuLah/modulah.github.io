@@ -466,6 +466,66 @@ html,
             background: rgba(0, 0, 0, 0.7);
             backdrop-filter: blur(4px);
         }
+        #legal-dialog,
+        #privacy-dialog,
+        #usage-dialog {
+            width: min(54rem, calc(100% - 2rem));
+            max-width: min(54rem, calc(100% - 2rem));
+            max-height: calc(100vh - 2rem);
+            overflow-y: auto;
+        }
+        .policy-table {
+            width: 100%;
+            min-width: 42rem;
+            border-collapse: collapse;
+            text-align: left;
+        }
+        .policy-table caption {
+            padding-bottom: 0.5rem;
+            color: #98f05f;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            text-align: left;
+            text-transform: uppercase;
+        }
+        .policy-table th,
+        .policy-table td {
+            padding: 0.65rem 0.75rem;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            vertical-align: top;
+        }
+        .policy-table th {
+            color: #e2e2e5;
+            background: rgba(255, 255, 255, 0.04);
+        }
+        .usage-table {
+            min-width: 32rem;
+        }
+        .usage-table td {
+            font-variant-numeric: tabular-nums;
+        }
+        .usage-stat {
+            padding: 0.8rem;
+            border: 1px solid rgba(152, 240, 95, 0.25);
+            border-radius: 0.35rem;
+            background: rgba(152, 240, 95, 0.04);
+        }
+        .usage-stat span,
+        .usage-stat strong {
+            display: block;
+        }
+        .usage-stat span {
+            color: #999ca3;
+            font-size: 0.65rem;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+        }
+        .usage-stat strong {
+            margin-top: 0.25rem;
+            color: #e2e2e5;
+            font-size: 1.35rem;
+            font-variant-numeric: tabular-nums;
+        }
         #screenshot-dialog {
             width: min(72rem, calc(100% - 2rem));
             max-width: min(72rem, calc(100% - 2rem));

@@ -102,7 +102,7 @@
             }
         };
     </script>
-<link rel="stylesheet" href="assets/css/command-centre.css?v=20260825.11">
+<link rel="stylesheet" href="assets/css/command-centre.css?v=20261016.1">
 <noscript><style>[data-boot-stage],[data-boot-section="activity"]{visibility:visible!important;opacity:1!important;transform:none!important;pointer-events:auto!important}</style></noscript>
 <link href="https://fonts.googleapis.com/css2?family=VT323&amp;display=swap" rel="stylesheet" class="">
 </head>
@@ -324,10 +324,11 @@
 <!-- Footer Container (Shared Component implementation) -->
 <footer data-boot-stage="footer" class="w-full py-4 border-t border-white/5 bg-background relative z-10 flex flex-col md:flex-row justify-between items-center px-margin-md gap-4 fade-slide-up shrink-0" style="animation-delay: 0.8s;">
 <div class="font-label-caps text-label-caps text-on-surface animate-pulse-slow">
-            BUILD: v2.5.0-CYBER
+            BUILD: v2.5.1-CYBER
         </div>
 <ul class="flex items-center gap-6">
 <li><a class="font-code-sm text-code-sm text-outline hover:text-[#98f05f] transition-colors" href="https://www.torn.com/profiles.php?XID=4022159" rel="noopener noreferrer" target="_blank">Torn Profile</a></li>
+<li><button class="font-code-sm text-code-sm text-outline hover:text-[#98f05f] transition-colors" data-dialog="usage-dialog" type="button">Usage</button></li>
 <li><button class="font-code-sm text-code-sm text-outline hover:text-[#98f05f] transition-colors" data-dialog="legal-dialog" type="button">Legal</button></li>
 <li><button class="font-code-sm text-code-sm text-outline hover:text-[#98f05f] transition-colors" data-dialog="privacy-dialog" type="button">Privacy</button></li>
 </ul>
@@ -335,13 +336,33 @@
 <dialog id="legal-dialog">
 <div class="p-6">
 <div class="flex items-start justify-between gap-6 mb-4"><h2 class="font-label-caps text-label-caps text-[#98f05f] uppercase tracking-wider">Legal Notice</h2><button aria-label="Close legal notice" class="material-symbols-outlined text-on-surface-variant hover:text-[#98f05f]" data-close-dialog type="button">close</button></div>
-<p class="text-on-surface-variant text-code-sm leading-relaxed">© MoDuL. All rights reserved. Individual projects may publish their own licence, terms or availability information in their module details or external release pages.</p>
+<div class="space-y-4 text-on-surface-variant text-code-sm leading-relaxed">
+<p><strong class="text-on-surface">Independent project.</strong> MoDuL Hub and its listed tools are community projects and are not endorsed by, affiliated with, or operated by Torn City. Torn, Torn City, and related names and artwork belong to their respective owners. Individual projects may publish separate licences and terms.</p>
+<p><strong class="text-on-surface">Safe access.</strong> Never provide a Torn password to this Hub or any listed tool. A tool using Torn's API should request only the minimum key access it needs, explain exactly how the key and returned data are used, and keep them confidential. API access is read-only, but the returned information can still be sensitive.</p>
+<div class="overflow-x-auto"><table class="policy-table"><caption>Hub API disclosure</caption><thead><tr><th>Data storage</th><th>Data sharing</th><th>Purpose</th><th>Key storage</th><th>Key access</th></tr></thead><tbody><tr><td>No Torn API data. Limited website request logs are retained for up to 90 days.</td><td>Service operator and hosting providers; only aggregate counts are published.</td><td>Operation, security, diagnostics, and anonymous usage totals.</td><td>The Hub does not request or store Torn API keys.</td><td>None.</td></tr></tbody></table></div>
+<p>Linked web tools show their own data and API-key disclosure where access is requested. Use is at your own risk and remains subject to Torn's rules and each project's terms. See the <a class="text-[#98f05f] hover:underline" href="https://www.torn.com/api.html" rel="noopener noreferrer" target="_blank">official Torn API guidance</a>.</p>
+<p>© MoDuL. All rights reserved except where an individual project states otherwise. Software and information are provided without warranty.</p>
+</div>
 </div>
 </dialog>
 <dialog id="privacy-dialog">
 <div class="p-6">
 <div class="flex items-start justify-between gap-6 mb-4"><h2 class="font-label-caps text-label-caps text-[#98f05f] uppercase tracking-wider">Privacy Notice</h2><button aria-label="Close privacy notice" class="material-symbols-outlined text-on-surface-variant hover:text-[#98f05f]" data-close-dialog type="button">close</button></div>
-<p class="text-on-surface-variant text-code-sm leading-relaxed">This static catalogue does not collect login details or submit form data. Links may open third-party services, which operate under their own terms and privacy policies.</p>
+<div class="space-y-4 text-on-surface-variant text-code-sm leading-relaxed">
+<p><strong class="text-on-surface">What the Hub collects.</strong> The catalogue does not create accounts, accept form submissions, use advertising trackers, or store Torn API keys. A cookie-free activity request records the time, IP address, browser user-agent, and Hub activity path in server logs. These records are used only for security, diagnostics, and approximate 7/30-day visitor counts, and are deleted after no more than 90 days.</p>
+<p><strong class="text-on-surface">What is published.</strong> Only aggregate counts are shown in Usage. No IP address, browser string, Torn ID, Tanoth account, API key, session token, or individual activity record is published. Approximate visitors are counted from distinct IP-and-browser pairs and may undercount shared networks or overcount changing devices.</p>
+<p><strong class="text-on-surface">Web tools.</strong> Linked tools can have accounts and may process Torn or Tanoth data needed for their features. Their own disclosure applies when you sign in, supply a key, or submit data. Torn profiles are deduplicated only for the aggregate totals; Tanoth accounts are counted separately. Data is not sold for advertising.</p>
+<p><strong class="text-on-surface">Hosting and external links.</strong> The Hub is served through GitHub Pages and MoDuL's service host and loads Google Fonts. Those providers receive ordinary web-request metadata under their own policies. Following an external link moves you to that service's terms and privacy notice.</p>
+<p>To ask about stored service data or request deletion where supported, contact MoDuL through the Torn profile or Discord link on this page. You can stop future Torn API access at any time by deleting or rotating the relevant key in Torn.</p>
+</div>
+</div>
+</dialog>
+<dialog id="usage-dialog">
+<div class="p-6">
+<div class="flex items-start justify-between gap-6 mb-4"><div><h2 class="font-label-caps text-label-caps text-[#98f05f] uppercase tracking-wider">Usage Snapshot</h2><p class="mt-1 font-code-sm text-[10px] text-outline-variant" id="usage-generated-at">Loading aggregate usage…</p></div><button aria-label="Close usage snapshot" class="material-symbols-outlined text-on-surface-variant hover:text-[#98f05f]" data-close-dialog type="button">close</button></div>
+<div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-5"><div class="usage-stat"><span>Website active · 30d</span><strong id="usage-website-active">—</strong></div><div class="usage-stat"><span>Registered profiles</span><strong id="usage-registered-total">—</strong></div><div class="usage-stat"><span>Active profiles · 30d</span><strong id="usage-active-total">—</strong></div></div>
+<div class="overflow-x-auto"><table class="policy-table usage-table"><caption>Hosted tools</caption><thead><tr><th>Tool</th><th>Registered</th><th>Active · 30d</th></tr></thead><tbody id="usage-tool-rows"><tr><th scope="row">Loading…</th><td>—</td><td>—</td></tr></tbody></table></div>
+<p class="mt-4 text-on-surface-variant text-code-sm leading-relaxed">Registered profiles are deduplicated by Torn ID across Torn services; active means seen within 30 days. Tanoth Atlas accounts are counted separately. Race//Stats and the Hub have no registration, so their active figures are cookie-free visit estimates rather than account totals.</p>
 </div>
 </dialog>
 <dialog aria-labelledby="screenshot-dialog-title" id="screenshot-dialog">
@@ -358,7 +379,7 @@
 <button class="cyber-button-secondary font-label-caps text-label-caps uppercase px-4 py-2 rounded-DEFAULT flex items-center gap-2" id="screenshot-next" type="button">Next <span aria-hidden="true" class="material-symbols-outlined text-[18px]">arrow_forward</span></button>
 </div>
 </dialog>
-<script type="module" src="assets/js/command-centre.js?v=20261014.4"></script>
+<script type="module" src="assets/js/command-centre.js?v=20261016.1"></script>
 
 
 

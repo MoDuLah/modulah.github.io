@@ -25,6 +25,13 @@ LEGACY_PAGE_HREFS = {
     "pit-guru/", "pythagoras-project-cis/", "race-theme-changer/", "race-tracker/",
     "restore-og-names/", "smuggler/", "stock-x/", "tornfolio/",
 }
+REMOVED_TIMELINE_IDS = {"modulHubWebsite"}
+
+
+def fetch_json(url):
+    request = urllib.request.Request(url, headers={"User-Agent": "MoDuL-Hub-Build/1.0"})
+    with urllib.request.urlopen(request, timeout=20) as response:
+        return json.load(response)
 
 
 def build(root, output):
@@ -32,17 +39,26 @@ def build(root, output):
         raise ValueError("Use a new output directory for each build")
     # Carry the VM's accumulated history into the published offline fallback.
     try:
-        request = urllib.request.Request("https://pp-api.sokin.xyz/assets/data/script-updates.json", headers={"User-Agent": "MoDuL-Hub-Build/1.0"})
-        with urllib.request.urlopen(request, timeout=20) as response:
-            snapshot = json.load(response)
+        snapshot = fetch_json("https://pp-api.sokin.xyz/assets/data/script-updates.json")
         if snapshot.get("schemaVersion") != 1 or not isinstance(snapshot.get("scripts"), list) or not isinstance(snapshot.get("timeline"), list):
             raise ValueError("Invalid release snapshot")
+        snapshot["scripts"] = [entry for entry in snapshot["scripts"] if entry.get("id") not in REMOVED_TIMELINE_IDS]
+        snapshot["timeline"] = [entry for entry in snapshot["timeline"] if entry.get("scriptId") not in REMOVED_TIMELINE_IDS]
+        if isinstance(snapshot.get("errors"), list):
+            snapshot["errors"] = [entry for entry in snapshot["errors"] if entry.get("id") not in REMOVED_TIMELINE_IDS]
         for event in snapshot["timeline"]:
             if isinstance(event, dict) and event.get("href") in LEGACY_PAGE_HREFS:
                 event["href"] = "https://modulah.github.io/"
         (root / "assets/data/script-updates.json").write_text(json.dumps(snapshot, indent=2) + "\n", encoding="utf-8")
     except (OSError, ValueError) as error:
         print(f"Live feed unavailable; retaining the saved release snapshot ({type(error).__name__})")
+    try:
+        usage = fetch_json("https://pp-api.sokin.xyz/assets/data/usage-stats.json")
+        if usage.get("schemaVersion") != 1 or not isinstance(usage.get("website"), dict) or not isinstance(usage.get("webTools"), dict):
+            raise ValueError("Invalid usage snapshot")
+        (root / "assets/data/usage-stats.json").write_text(json.dumps(usage, indent=2) + "\n", encoding="utf-8")
+    except (OSError, ValueError) as error:
+        print(f"Live usage unavailable; retaining the saved aggregate snapshot ({type(error).__name__})")
     tracked = subprocess.check_output(["git", "ls-files", "-z"], cwd=root).decode().split("\0")
     files = {
         name for name in tracked if name and (
@@ -52,7 +68,7 @@ def build(root, output):
             )
         )
     }
-    files.update({"assets/data/module-screenshots.json", "assets/data/script-updates.json"})
+    files.update({"assets/data/module-screenshots.json", "assets/data/script-updates.json", "assets/data/usage-stats.json"})
     output.mkdir(parents=True)
     manifest = []
     for name in sorted(files):

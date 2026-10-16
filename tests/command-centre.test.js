@@ -105,7 +105,7 @@ describe("command centre catalogue", () => {
     expect(app).toContain("script.marketplace?.totalInstalls");
   });
   test("shows current distributed script versions", () => {
-    expect(code).toContain("BUILD: v2.5.0-CYBER");
+    expect(code).toContain("BUILD: v2.5.1-CYBER");
     expect(catalogue).toContain('"version": "v3.1.2"');
     expect(catalogue).toContain('"label": "Install v3.1.2"');
     expect(catalogue).toContain('"version": "v2.4.8"');
@@ -140,6 +140,27 @@ describe("command centre catalogue", () => {
     expect(code).not.toContain('src="assets/js/repository-activity.js"');
     expect(code).not.toContain("Full Git Log");
     expect(workflow).not.toContain("generate-activity-timeline");
+    expect(updaterConfig.excludedTimelineIds).toEqual(["modulHubWebsite"]);
+    expect(JSON.stringify(updaterConfig)).not.toContain('"id":"modulHubWebsite"');
+    expect(siteBuilder).toContain('REMOVED_TIMELINE_IDS = {"modulHubWebsite"}');
+  });
+
+  test("publishes privacy-safe aggregate usage and Torn API disclosures", () => {
+    expect(code).toContain('data-dialog="usage-dialog"');
+    expect(code).toContain('id="usage-website-active"');
+    expect(code).toContain('id="usage-registered-total"');
+    expect(code).toContain('id="usage-active-total"');
+    expect(code).toContain("Hub API disclosure");
+    expect(code).toContain("Data storage");
+    expect(code).toContain("Data sharing");
+    expect(code).toContain("Key storage");
+    expect(code).toContain("Key access");
+    expect(code).toContain("https://www.torn.com/api.html");
+    expect(code).toContain("deleted after no more than 90 days");
+    expect(app).toContain("const hubActivityUrl = 'https://pp-api.sokin.xyz/api/hub-activity'");
+    expect(app).toContain("function sanitiseUsageStats(payload)");
+    expect(app).toContain("credentials: 'omit'");
+    expect(siteBuilder).toContain('"assets/data/usage-stats.json"');
   });
 
   test("uses the Dev-style motion treatment on every module card", () => {
@@ -397,7 +418,6 @@ describe("command centre catalogue", () => {
         .sort()
     ).toEqual([
       "jobCentrePlusService",
-      "modulHubWebsite",
       "pitGuruWeb",
       "pythagorasDashboard",
       "raceStats",

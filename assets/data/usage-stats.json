@@ -1,0 +1,68 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-10-16T20:46:11Z",
+  "activeWindowDays": 30,
+  "retentionDays": 90,
+  "website": {
+    "registered": null,
+    "active7d": 0,
+    "active30d": 0,
+    "activitySource": "cookie-free visit estimate"
+  },
+  "webTools": {
+    "registeredProfiles": 448,
+    "activeProfiles7d": 68,
+    "activeProfiles30d": 177,
+    "tools": [
+      {
+        "id": "pythagorasDashboard",
+        "name": "Pythagoras Dashboard",
+        "registered": 99,
+        "active7d": 24,
+        "active30d": 67,
+        "activitySource": "account"
+      },
+      {
+        "id": "jobCentrePlus",
+        "name": "JobCentre+",
+        "registered": 281,
+        "active7d": 30,
+        "active30d": 81,
+        "activitySource": "account"
+      },
+      {
+        "id": "pitGuruWeb",
+        "name": "Pit Guru Web Tool",
+        "registered": 94,
+        "active7d": 14,
+        "active30d": 29,
+        "activitySource": "account"
+      },
+      {
+        "id": "tornfolio",
+        "name": "Tornfolio",
+        "registered": 4,
+        "active7d": 4,
+        "active30d": 4,
+        "activitySource": "account"
+      },
+      {
+        "id": "tanothAtlas",
+        "name": "Tanoth Atlas",
+        "registered": 9,
+        "active7d": 3,
+        "active30d": 9,
+        "activitySource": "account"
+      },
+      {
+        "id": "raceStats",
+        "name": "Race//Stats",
+        "registered": null,
+        "active7d": 0,
+        "active30d": 0,
+        "activitySource": "cookie-free visit estimate"
+      }
+    ],
+    "deduplication": "Torn IDs are deduplicated across Torn tools; Tanoth accounts are counted separately."
+  }
+}

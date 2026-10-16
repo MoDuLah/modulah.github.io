@@ -6,6 +6,8 @@ import {
 } from './catalogue.js?v=20261014.2';
 
 const scriptUpdateManifestUrl = 'https://pp-api.sokin.xyz/assets/data/script-updates.json';
+const usageStatsManifestUrl = 'https://pp-api.sokin.xyz/assets/data/usage-stats.json';
+const hubActivityUrl = 'https://pp-api.sokin.xyz/api/hub-activity';
 const screenshotManifestUrl = 'assets/data/module-screenshots.json';
 let automaticScriptReleases = [];
 let discoveredModuleScreenshots = {};
@@ -219,6 +221,129 @@ async function loadScriptUpdates() {
     return false;
   } finally {
     clearTimeout(timeout);
+  }
+}
+
+function sanitiseUsageCount(value, allowNull = false) {
+  if (allowNull && value === null) return null;
+  return Number.isSafeInteger(value) && value >= 0 ? value : undefined;
+}
+
+function sanitiseUsageStats(payload) {
+  if (payload?.schemaVersion !== 1 || !payload.website || !payload.webTools) return null;
+  const generatedAt =
+    typeof payload.generatedAt === 'string' && !Number.isNaN(Date.parse(payload.generatedAt))
+      ? payload.generatedAt
+      : '';
+  const websiteActive30d = sanitiseUsageCount(payload.website.active30d);
+  const registeredProfiles = sanitiseUsageCount(payload.webTools.registeredProfiles);
+  const activeProfiles30d = sanitiseUsageCount(payload.webTools.activeProfiles30d);
+  if (
+    websiteActive30d === undefined ||
+    registeredProfiles === undefined ||
+    activeProfiles30d === undefined ||
+    !Array.isArray(payload.webTools.tools) ||
+    payload.webTools.tools.length > 20
+  )
+    return null;
+
+  const tools = payload.webTools.tools
+    .map((tool) => {
+      if (
+        !tool ||
+        typeof tool.id !== 'string' ||
+        !/^[A-Za-z0-9_-]{1,60}$/.test(tool.id) ||
+        typeof tool.name !== 'string' ||
+        !tool.name.length ||
+        tool.name.length > 80
+      )
+        return null;
+      const registered = sanitiseUsageCount(tool.registered, true);
+      const active30d = sanitiseUsageCount(tool.active30d);
+      if (registered === undefined || active30d === undefined) return null;
+      return { id: tool.id, name: tool.name, registered, active30d };
+    })
+    .filter(Boolean);
+  if (tools.length !== payload.webTools.tools.length) return null;
+  return { generatedAt, websiteActive30d, registeredProfiles, activeProfiles30d, tools };
+}
+
+function renderUsageStats(stats) {
+  document.getElementById('usage-website-active').textContent =
+    stats.websiteActive30d.toLocaleString();
+  document.getElementById('usage-registered-total').textContent =
+    stats.registeredProfiles.toLocaleString();
+  document.getElementById('usage-active-total').textContent =
+    stats.activeProfiles30d.toLocaleString();
+
+  const rows = document.getElementById('usage-tool-rows');
+  rows.replaceChildren();
+  stats.tools.forEach((tool) => {
+    const row = document.createElement('tr');
+    const name = document.createElement('th');
+    const registered = document.createElement('td');
+    const active = document.createElement('td');
+    name.scope = 'row';
+    name.textContent = tool.name;
+    registered.textContent =
+      tool.registered === null ? 'No account system' : tool.registered.toLocaleString();
+    active.textContent = tool.active30d.toLocaleString();
+    row.append(name, registered, active);
+    rows.append(row);
+  });
+
+  const status = document.getElementById('usage-generated-at');
+  if (!stats.generatedAt) {
+    status.textContent = 'Aggregate snapshot loaded.';
+    return;
+  }
+  const generated = new Date(stats.generatedAt);
+  status.textContent = `Aggregate snapshot generated ${new Intl.DateTimeFormat([], {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  }).format(generated)}.`;
+}
+
+async function loadUsageStats() {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 8000);
+  try {
+    const requestUrl = new URL(usageStatsManifestUrl, window.location.href);
+    requestUrl.searchParams.set('fresh', Date.now().toString());
+    let response = await fetch(requestUrl, {
+      cache: 'no-store',
+      credentials: 'omit',
+      signal: controller.signal,
+    }).catch(() => null);
+    if (!response?.ok) {
+      response = await fetch('assets/data/usage-stats.json', {
+        cache: 'no-store',
+        signal: controller.signal,
+      });
+    }
+    if (!response.ok) throw new Error('Usage snapshot unavailable');
+    const stats = sanitiseUsageStats(await response.json());
+    if (!stats) throw new Error('Invalid usage snapshot');
+    renderUsageStats(stats);
+  } catch {
+    document.getElementById('usage-generated-at').textContent =
+      'Usage snapshot is temporarily unavailable.';
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+async function reportHubActivity() {
+  try {
+    await fetch(hubActivityUrl, {
+      method: 'POST',
+      cache: 'no-store',
+      credentials: 'omit',
+      keepalive: true,
+      referrerPolicy: 'no-referrer',
+    });
+  } catch {
+    // Activity reporting is deliberately non-blocking and never affects the Hub.
   }
 }
 
@@ -1636,7 +1761,8 @@ function resetView() {
 
 document.addEventListener('DOMContentLoaded', async () => {
   initializeBootStages();
-  await Promise.all([loadScriptUpdates(), loadScreenshotManifest()]);
+  void reportHubActivity();
+  await Promise.all([loadScriptUpdates(), loadScreenshotManifest(), loadUsageStats()]);
   renderScriptUpdateTimeline();
   document.querySelectorAll('[data-tier]').forEach((control) => {
     control.addEventListener('click', () => filterByTier(control.dataset.tier));

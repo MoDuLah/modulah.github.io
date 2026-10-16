@@ -43,6 +43,15 @@ live-data outside release directories, and its CORS policy allows GitHub Pages.
 GitHub's build also keeps a snapshot for use if the live feed is unavailable.
 The deployment workflow runs twice daily to refresh that fallback snapshot.
 
+Both frontends also request the aggregate-only assets/data/usage-stats.json
+snapshot. moduls-hub-usage-stats.timer refreshes it every fifteen minutes from
+the existing service account stores and bounded request logs. It publishes only
+counts: no Torn IDs, Tanoth account names, IP addresses, user agents, keys, or
+sessions appear in the JSON. Hub and Race//Stats visit estimates are based on
+distinct IP-and-browser pairs, exclude obvious bots, and retain their source log
+rows for at most ninety days. Install this component with
+install-hub-usage-stats.sh before enabling the public usage route.
+
 Pit Guru installation and version tracking use GreasyFork script 578342.
 The repository carries the same public bundle for the GitHub sync source and
 legacy GitHub update URLs. VM download URLs redirect to GreasyFork.
@@ -66,6 +75,8 @@ Public traffic currently reaches Express directly, so also stage and run
 install-hub-public-routes.py with the path to hub-public-routes.mjs, then restart
 pythagoras-license-api after syntax checks. The installer backs up server.js.
 Its narrow public-feed route runs before API CORS; it does not broaden API CORS.
+The Hub activity endpoint accepts only the two published Hub origins and records
+no request body, cookies, Torn ID, or API key.
 Once GitHub Pages serves site-files.json, run:
   systemctl start moduls-hub-site-sync.service
   systemctl enable --now moduls-hub-site-sync.timer

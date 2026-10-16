@@ -573,16 +573,6 @@
       "updated": "12 October 2026",
       "source": "service",
       "updateVersion": false
-    },
-    {
-      "id": "modulHubWebsite",
-      "title": "MoDuL Hub Website",
-      "version": "svc-256fe1ed2a292fd2",
-      "displayVersion": "svc-256fe1ed2a292fd2",
-      "date": "2026-10-14",
-      "updated": "14 October 2026",
-      "source": "service",
-      "updateVersion": false
     }
   ],
   "timeline": [
@@ -615,17 +605,6 @@
       "summary": "The Tornfolio property lifecycle, rental, market and update-checker userscript changed.",
       "href": "tornfolio/tornfolio.user.js",
       "eventId": "tornfolio:v0.7.4"
-    },
-    {
-      "scriptId": "modulHubWebsite",
-      "title": "MoDuL Hub Website",
-      "version": "LIVE",
-      "date": "2026-10-14",
-      "type": "SERVICE",
-      "summary": "The published MoDuL Hub website build was updated.",
-      "href": "https://modulah.github.io/",
-      "eventId": "modulHubWebsite:svc-256fe1ed2a292fd2",
-      "timestamp": "2026-10-14T20:45:01Z"
     },
     {
       "scriptId": "tornfolioService",
@@ -1502,10 +1481,6 @@
     {
       "id": "tanothAtlas",
       "error": "Service path is unavailable: /opt/tanoth-companion/tanoth_companion_api.py"
-    },
-    {
-      "id": "modulHubWebsite",
-      "error": "Service path is unavailable: /var/www/moduls-hub/current/site-files.json"
     }
   ]
 }

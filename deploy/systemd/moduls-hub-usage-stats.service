@@ -1,0 +1,29 @@
+[Unit]
+Description=Publish privacy-safe MoDuL Hub usage aggregates
+After=postgresql.service
+
+[Service]
+Type=oneshot
+StateDirectory=moduls-hub-usage
+StateDirectoryMode=0750
+ExecStartPre=/usr/bin/install -m 0640 /var/lib/tanoth-atlas/accounts.db /var/lib/moduls-hub-usage/tanoth-atlas.db
+ExecStart=/usr/bin/python3 /opt/moduls-hub-updater/hub-usage-stats.py --atlas-db /var/lib/moduls-hub-usage/tanoth-atlas.db
+ExecStartPost=/usr/bin/install -m 0644 /var/lib/moduls-hub-usage/usage-stats.json /var/www/moduls-hub/live-data/.usage-stats.json.new
+ExecStartPost=/usr/bin/mv -f /var/www/moduls-hub/live-data/.usage-stats.json.new /var/www/moduls-hub/live-data/usage-stats.json
+TimeoutStartSec=2min
+UMask=0027
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectHome=yes
+ProtectSystem=strict
+ReadOnlyPaths=/var/lib/tanoth-atlas/accounts.db
+ReadWritePaths=/var/lib/moduls-hub-usage /var/www/moduls-hub/live-data
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+RestrictAddressFamilies=AF_UNIX
+
+[Install]
+WantedBy=multi-user.target

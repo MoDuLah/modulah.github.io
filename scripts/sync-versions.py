@@ -1100,6 +1100,13 @@ def main() -> int:
     entries = config.get("scripts")
     if not isinstance(entries, list) or not entries:
         raise UpdateCheckError("Config scripts must be a non-empty array")
+    excluded_timeline_ids = config.get("excludedTimelineIds", [])
+    if (
+        not isinstance(excluded_timeline_ids, list)
+        or any(not isinstance(entry_id, str) or not re.fullmatch(r"[A-Za-z0-9_-]{1,80}", entry_id) for entry_id in excluded_timeline_ids)
+    ):
+        raise UpdateCheckError("Config excludedTimelineIds must contain safe script IDs")
+    excluded_timeline_ids = {entry_id.casefold() for entry_id in excluded_timeline_ids}
 
     if args.write_service_snapshot:
         snapshot = build_service_snapshot(entries, args.site_root.resolve())
@@ -1109,7 +1116,11 @@ def main() -> int:
 
     output = args.output.resolve()
     previous = load_previous(output)
-    previous_timeline = load_previous_timeline(output)
+    previous_timeline = [
+        event
+        for event in load_previous_timeline(output)
+        if event["scriptId"].casefold() not in excluded_timeline_ids
+    ]
     service_snapshot = load_service_snapshot(
         args.service_snapshot.resolve() if args.service_snapshot else None
     )

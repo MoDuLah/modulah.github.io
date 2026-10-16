@@ -1,5 +1,6 @@
 {
   "schemaVersion": 1,
+  "excludedTimelineIds": ["modulHubWebsite"],
   "scripts": [
     {
       "id": "pythagoras",
@@ -267,18 +268,6 @@
           "/opt/tanoth-suffix-api/atlas_auth.py",
           "/opt/tanoth-suffix-api/suffix_site"
         ]
-      }
-    },
-    {
-      "id": "modulHubWebsite",
-      "title": "MoDuL Hub Website",
-      "required": false,
-      "updateVersion": false,
-      "timelineSummary": "The published MoDuL Hub website build was updated.",
-      "timelineHref": "https://modulah.github.io/",
-      "source": {
-        "type": "service",
-        "paths": ["/var/www/moduls-hub/current/site-files.json"]
       }
     }
   ]
