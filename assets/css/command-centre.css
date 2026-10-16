@@ -22,7 +22,6 @@ html,
         .glass-panel {
             background: rgba(13, 17, 23, 0.7);
             backdrop-filter: blur(20px);
-            -webkit-backdrop-filter: blur(20px);
             border: 1px solid rgba(255, 255, 255, 0.1);
             transition: all 0.3s ease;
         }
@@ -55,7 +54,7 @@ html,
         .status-chip.live,
         .status-chip.free { --chip-color: 42, 229, 0; border-color: #2ae500; color: #2ae500; }
         .status-chip.web-tool { --chip-color: 89, 212, 255; border-color: #59d4ff; color: #59d4ff; }
-        .status-chip.supporter { --chip-color: 255, 0, 255; border-color: #ff00ff; color: #ff00ff; }
+        .status-chip.supporter { --chip-color: 255, 0, 255; border-color: #f0f; color: #f0f; }
         .status-chip.dev { --chip-color: 255, 186, 56; border-color: #ffba38; color: #ffba38; }
         .status-chip.archive { --chip-color: 147, 0, 10; border-color: #93000a; color: #ffb4ab; }
         
@@ -396,17 +395,17 @@ html,
         .fade-slide-up {
             opacity: 0;
             transform: translateY(20px);
-            animation: fadeSlideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+            animation: fade-slide-up 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
         }
         .fade-slide-down {
             opacity: 1;
             transform: translateY(0);
-            animation: fadeSlideDown 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+            animation: fade-slide-down 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
         }
-        @keyframes fadeSlideUp {
+        @keyframes fade-slide-up {
             to { opacity: 1; transform: translateY(0); }
         }
-        @keyframes fadeSlideDown {
+        @keyframes fade-slide-down {
             to { opacity: 0; transform: translateY(20px); }
         }
 
@@ -414,15 +413,15 @@ html,
         .feed-item {
             opacity: 0;
             transform: translateX(-10px);
-            animation: feedFadeIn 0.5s ease forwards;
+            animation: feed-fade-in 0.5s ease forwards;
         }
-        @keyframes feedFadeIn {
+        @keyframes feed-fade-in {
             to { opacity: 1; transform: translateX(0); }
         }
         
         .script-details {
             display: none;
-            animation: fadeSlideUp 0.4s ease forwards;
+            animation: fade-slide-up 0.4s ease forwards;
         }
         .script-details.active {
             display: block;
