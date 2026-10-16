@@ -102,7 +102,7 @@
             }
         };
     </script>
-<link rel="stylesheet" href="assets/css/command-centre.css?v=20261016.2">
+<link rel="stylesheet" href="assets/css/command-centre.css?v=20261016.4">
 <noscript><style>[data-boot-stage],[data-boot-section="activity"]{visibility:visible!important;opacity:1!important;transform:none!important;pointer-events:auto!important}</style></noscript>
 <link href="https://fonts.googleapis.com/css2?family=VT323&amp;display=swap" rel="stylesheet" class="">
 </head>
@@ -189,6 +189,7 @@
                         Archive
                     </button>
 <a class="glass-panel text-on-surface-variant hover:text-[#98f05f] font-label-caps text-label-caps uppercase px-6 py-3 rounded-DEFAULT transition-colors" href="https://discord.gg/JP8FQBATMV" rel="noopener noreferrer" target="_blank">Join Discord</a>
+<a class="glass-panel text-[#98f05f] hover:bg-[#98f05f]/5 font-label-caps text-label-caps uppercase px-6 py-3 rounded-DEFAULT transition-colors flex items-center gap-2" href="#module-container"><span aria-hidden="true" class="material-symbols-outlined text-[18px]">south</span> Jump to Modules</a>
 </div>
 </div>
 <!-- Diagnostics Sidebar -->
@@ -225,7 +226,7 @@
 <!-- Main Grid Layout -->
 <div class="grid grid-cols-1 xl:grid-cols-12 gap-gutter md:gap-margin-sm flex-1 min-h-0">
 <!-- Activity Feed (Left Column) -->
-<aside aria-labelledby="script-updates-title" data-boot-section="activity" class="xl:col-span-3 flex flex-col gap-4 fade-slide-up h-full min-h-0 overflow-visible xl:overflow-hidden" id="script-updates-feed" style="animation-delay: 0.5s;">
+<aside aria-labelledby="script-updates-title" data-boot-section="activity" class="order-2 xl:order-none xl:col-span-3 flex flex-col gap-4 fade-slide-up h-full min-h-0 overflow-visible xl:overflow-hidden" id="script-updates-feed" style="animation-delay: 0.5s;">
 <div class="glass-panel rounded-lg flex h-[34rem] min-h-0 flex-col">
 <div class="border-b border-white/10 p-4 bg-surface-container-lowest/50 rounded-t-lg shrink-0">
 <div class="flex items-center justify-between gap-3">
@@ -243,7 +244,7 @@
 </div>
 </aside>
 <!-- Project Modules (Right Area) -->
-<div data-boot-stage="registry" class="xl:col-span-9 fade-slide-up flex flex-col h-full overflow-visible xl:overflow-hidden min-h-0" id="module-container" style="animation-delay: 0.6s;">
+<div data-boot-stage="registry" class="order-1 xl:order-none xl:col-span-9 fade-slide-up flex flex-col h-full overflow-visible xl:overflow-hidden min-h-0 scroll-mt-20" id="module-container" style="animation-delay: 0.6s;">
 <div class="border-b border-white/10 pb-2 mb-4 flex flex-col gap-2 sm:flex-row sm:justify-between sm:items-end shrink-0">
 <h2 class="font-label-caps text-label-caps text-outline-variant uppercase tracking-wider" id="module-header-title">Module Interface Array</h2>
 <div class="flex flex-wrap items-center justify-end gap-2 font-code-sm text-code-sm" id="module-sort-group">
@@ -259,7 +260,7 @@
 <!-- Module cards are rendered from the scripts registry. -->
 </div>
 <!-- Script Details Container -->
-<div class="script-details glass-panel p-6 rounded-lg w-full" id="script-details-container" tabindex="-1">
+<div class="script-details glass-panel p-4 sm:p-6 rounded-lg w-full overflow-hidden" id="script-details-container" tabindex="-1">
 <div class="flex items-center mb-6 border-b border-white/5 pb-4">
 <button class="group flex items-center gap-2 px-3 py-1.5 rounded border border-outline-variant hover:border-[#98f05f] hover:bg-[#98f05f]/5 transition-all duration-200 active:scale-95" id="return-to-registry" type="button">
 <span aria-hidden="true" class="material-symbols-outlined text-[18px] text-outline-variant group-hover:text-[#98f05f] transition-colors">arrow_back</span>
@@ -268,7 +269,7 @@
 </div>
 <div class="flex flex-col gap-8 font-headline-lg">
 <div class="flex flex-col xl:flex-row justify-between items-start gap-6 border-b border-white/10 pb-6">
-<div class="flex-1">
+<div class="flex-1 min-w-0 w-full">
 <div class="flex flex-wrap items-center gap-4 mb-2">
 <h2 class="text-headline-xl text-[#98f05f] uppercase tracking-tighter" id="detail-title"></h2>
 <span class="status-chip font-label-caps text-label-caps px-3 py-1" id="detail-badge"></span>
@@ -276,7 +277,7 @@
 </div>
 <p class="text-on-surface-variant max-w-3xl leading-relaxed" id="detail-desc"></p>
 </div>
-<div class="flex flex-wrap gap-3 shrink-0 xl:max-w-[48%] xl:justify-end" id="detail-actions"></div>
+<div class="flex flex-wrap gap-3 shrink-0 w-full xl:w-auto xl:max-w-[48%] xl:justify-end" id="detail-actions"></div>
 </div>
 <div class="grid grid-cols-1 lg:grid-cols-2 gap-gutter">
 <section class="glass-panel p-5 rounded-lg">
@@ -322,9 +323,9 @@
 </div>
 </main>
 <!-- Footer Container (Shared Component implementation) -->
-<footer data-boot-stage="footer" class="w-full py-4 border-t border-white/5 bg-background relative z-10 flex flex-col md:flex-row justify-between items-center px-margin-md gap-4 fade-slide-up shrink-0" style="animation-delay: 0.8s;">
+<footer data-boot-stage="footer" class="w-full py-4 border-t border-white/5 flex flex-col md:flex-row justify-between items-center px-margin-md gap-4 fade-slide-up shrink-0" id="site-footer" style="animation-delay: 0.8s;">
 <div class="font-label-caps text-label-caps text-on-surface animate-pulse-slow">
-            BUILD: v2.5.1-CYBER
+            BUILD: v2.5.2-CYBER
         </div>
 <ul class="flex items-center gap-6">
 <li><a class="font-code-sm text-code-sm text-outline hover:text-[#98f05f] transition-colors" href="https://www.torn.com/profiles.php?XID=4022159" rel="noopener noreferrer" target="_blank">Torn Profile</a></li>
@@ -379,7 +380,7 @@
 <button class="cyber-button-secondary font-label-caps text-label-caps uppercase px-4 py-2 rounded-DEFAULT flex items-center gap-2" id="screenshot-next" type="button">Next <span aria-hidden="true" class="material-symbols-outlined text-[18px]">arrow_forward</span></button>
 </div>
 </dialog>
-<script type="module" src="assets/js/command-centre.js?v=20261016.1"></script>
+<script type="module" src="assets/js/command-centre.js?v=20261016.2"></script>
 
 
 

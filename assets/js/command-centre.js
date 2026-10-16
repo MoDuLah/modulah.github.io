@@ -536,16 +536,18 @@ function setModuleSort(sort) {
   if (!Object.hasOwn(sortLabels, sort)) return;
 
   currentSort = sort;
-  closeSortMenu();
+  closeSortMenu({ restoreFocus: true });
   updateRegistrySummary();
   renderModules(`SORTING REGISTRY [${sortLabels[sort]}]...`);
 }
 
-function closeSortMenu() {
+function closeSortMenu({ restoreFocus = false } = {}) {
   const button = document.getElementById('module-sort-button');
   const menu = document.getElementById('module-sort-menu');
+  const wasOpen = !menu.classList.contains('hidden');
   menu.classList.add('hidden');
   button.setAttribute('aria-expanded', 'false');
+  if (restoreFocus && wasOpen) button.focus({ preventScroll: true });
 }
 
 function toggleSortMenu() {
@@ -557,11 +559,13 @@ function toggleSortMenu() {
   button.setAttribute('aria-expanded', String(willOpen));
 }
 
-function closeCategoryMenu() {
+function closeCategoryMenu({ restoreFocus = false } = {}) {
   const button = document.getElementById('module-category-button');
   const menu = document.getElementById('module-category-menu');
+  const wasOpen = !menu.classList.contains('hidden');
   menu.classList.add('hidden');
   button.setAttribute('aria-expanded', 'false');
+  if (restoreFocus && wasOpen) button.focus({ preventScroll: true });
 }
 
 function toggleCategoryMenu() {
@@ -578,9 +582,17 @@ function setModuleCategory(category) {
   if (!categoryLabels.has(category)) return;
 
   currentCategory = category;
-  closeCategoryMenu();
+  closeCategoryMenu({ restoreFocus: true });
   updateRegistrySummary();
   renderModules(`APPLYING CATEGORY FILTER [${category}]...`);
+}
+
+function scrollRegistryIntoView() {
+  const registry = document.getElementById('module-container');
+  const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  requestAnimationFrame(() => {
+    registry.scrollIntoView({ behavior: reducedMotion ? 'auto' : 'smooth', block: 'start' });
+  });
 }
 
 function closeMobileMenu() {
@@ -614,6 +626,7 @@ function filterByTier(tier) {
   currentView = 'registry';
   activeModuleId = null;
   currentFilter = tier;
+  if (tier === 'ALL') currentCategory = 'ALL';
 
   document.getElementById('module-grid').classList.remove('hidden');
   document.getElementById('script-details-container').classList.remove('active');
@@ -621,6 +634,7 @@ function filterByTier(tier) {
   closeMobileMenu();
   updateRegistrySummary();
   renderModules(`APPLYING REGISTRY FILTER [${tier}]...`);
+  scrollRegistryIntoView();
 }
 
 // Keep this for backwards compatibility with any remaining static links
@@ -755,132 +769,37 @@ function playTerminalLine(
   });
 }
 
-async function announceAndRenderModules(
-  terminal,
-  grid,
-  filteredScripts,
-  renderToken,
-  sequenceToken
-) {
-  for (const [index, script] of filteredScripts.entries()) {
-    const completed = await playTerminalLine(
-      terminal,
-      `INITIALIZING MODULE: ${script.title.toUpperCase()}...`,
-      'opacity-100 typing-line text-outline-variant',
-      180
-    );
-    if (!completed || sequenceToken !== terminalSequenceToken) return false;
-    if (renderToken !== moduleRenderToken || currentView !== 'registry') return false;
-
-    const { card } = createModuleCard(script, index);
-    card.style.animationDelay = '0ms';
-    grid.append(card);
-  }
-
-  const loaded = await playTerminalLine(
-    terminal,
-    `MODULES LOADED (${filteredScripts.length})...`,
-    'opacity-100 typing-line',
-    240
-  );
-  return Boolean(
-    loaded &&
-    sequenceToken === terminalSequenceToken &&
-    renderToken === moduleRenderToken &&
-    currentView === 'registry'
-  );
-}
-
 async function runRegistryTerminalSequence(
   terminal,
-  grid,
   filteredScripts,
-  renderToken,
-  introMessage = 'REFRESHING MODULE REGISTRY...',
-  resetOutput = true
+  introMessage = 'REFRESHING MODULE REGISTRY...'
 ) {
   cancelTerminalSequence();
   const sequenceToken = terminalSequenceToken;
-  if (resetOutput) resetTerminal(terminal);
-
-  const introduced = await playTerminalLine(
-    terminal,
-    introMessage,
-    'opacity-100 typing-line text-outline-variant',
-    240
-  );
-  if (!introduced || sequenceToken !== terminalSequenceToken) return false;
-  if (renderToken !== moduleRenderToken || currentView !== 'registry') return false;
-
-  return announceAndRenderModules(terminal, grid, filteredScripts, renderToken, sequenceToken);
-}
-
-async function runPageBootSequence() {
-  cancelScheduledModuleRender();
-  const renderToken = moduleRenderToken;
-  const terminal = document.getElementById('cli-output');
-  const grid = document.getElementById('module-grid');
-  const filteredScripts = getVisibleModules();
-
-  currentView = 'registry';
-  activeModuleId = null;
-  pageBootComplete = false;
-  grid.replaceChildren();
   resetTerminal(terminal);
-  document.getElementById('registry-summary').textContent = 'SYSTEM BOOTING';
-
-  cancelTerminalSequence();
-  const sequenceToken = terminalSequenceToken;
-  const startupSteps = [
-    ['INITIALISING MODUL SYSTEMS...', null, 300],
-    ['MOUNTING VISUAL KERNEL / SHADER LAYER...', null, 260],
-    ['LOADING COMMAND INTERFACE...', 'interface', 260],
-    ['STARTING REGISTRY DIAGNOSTICS...', 'diagnostics', 240],
-    ['CONNECTING SCRIPT + SERVICE TIMELINE...', 'activity', 240],
-    ['CONNECTING TO MODULE REGISTRY...', 'registry', 260],
+  const steps = [
+    [introMessage, 'opacity-100 typing-line text-outline-variant', 90],
+    [`MODULES AVAILABLE (${filteredScripts.length})...`, 'opacity-100 typing-line', 110],
+    ['REGISTRY READY...', 'opacity-100 typing-line text-secondary-fixed', 90],
   ];
 
-  for (const [message, stage, duration] of startupSteps) {
-    const completed = await playTerminalLine(
-      terminal,
-      message,
-      'opacity-100 typing-line text-outline-variant',
-      duration
-    );
-    if (!completed || sequenceToken !== terminalSequenceToken) return false;
-    if (renderToken !== moduleRenderToken || currentView !== 'registry') return false;
-    if (stage) revealBootStage(stage);
+  for (const [message, className, duration] of steps) {
+    const completed = await playTerminalLine(terminal, message, className, duration);
+    if (!completed || sequenceToken !== terminalSequenceToken || currentView !== 'registry') {
+      return false;
+    }
   }
+  return true;
+}
 
-  const registryReady = await announceAndRenderModules(
-    terminal,
-    grid,
-    filteredScripts,
-    renderToken,
-    sequenceToken
-  );
-  if (!registryReady) return false;
-
-  const footerReady = await playTerminalLine(
-    terminal,
-    'MOUNTING SYSTEM FOOTER...',
-    'opacity-100 typing-line text-outline-variant',
-    220
-  );
-  if (!footerReady || sequenceToken !== terminalSequenceToken) return false;
-  revealBootStage('footer');
-
-  const ready = await playTerminalLine(
-    terminal,
-    'COMMAND CENTRE READY...',
-    'opacity-100 typing-line text-secondary-fixed',
-    260
-  );
-  if (!ready || sequenceToken !== terminalSequenceToken) return false;
-
+function runPageBootSequence() {
+  cancelScheduledModuleRender();
+  currentView = 'registry';
+  activeModuleId = null;
   pageBootComplete = true;
-  document.body.removeAttribute('aria-busy');
+  revealAllBootStages();
   updateRegistrySummary();
+  renderModules('COMMAND CENTRE READY...');
   return true;
 }
 
@@ -1208,40 +1127,22 @@ function renderModules(introMessage = 'REFRESHING MODULE REGISTRY...') {
   if (!pageBootComplete) return;
 
   cancelScheduledModuleRender();
-  const renderToken = moduleRenderToken;
   const grid = document.getElementById('module-grid');
   const terminal = document.getElementById('cli-output');
-  const oldCards = grid.querySelectorAll('.module-card');
+  const filteredScripts = getVisibleModules();
+  const fragment = document.createDocumentFragment();
 
-  oldCards.forEach((card) => {
-    card.classList.remove('fade-slide-up');
-    card.classList.add('fade-slide-down');
+  filteredScripts.forEach((script, index) => {
+    const { card } = createModuleCard(script, index);
+    card.style.animationDelay = `${Math.min(index * 8, 96)}ms`;
+    fragment.append(card);
   });
 
-  const commitRender = () => {
-    moduleRenderTimer = null;
-    if (renderToken !== moduleRenderToken || currentView !== 'registry') return;
-
-    const filteredScripts = getVisibleModules();
-    grid.replaceChildren();
-    document.getElementById('registry-summary').textContent = 'REGISTRY RECONFIGURING';
-    void runRegistryTerminalSequence(
-      terminal,
-      grid,
-      filteredScripts,
-      renderToken,
-      introMessage,
-      true
-    ).then((completed) => {
-      if (completed) updateRegistrySummary();
-    });
-  };
-
-  if (oldCards.length > 0) {
-    moduleRenderTimer = setTimeout(commitRender, 300);
-  } else {
-    commitRender();
-  }
+  grid.replaceChildren(fragment);
+  updateRegistrySummary();
+  void runRegistryTerminalSequence(terminal, filteredScripts, introMessage).catch((error) => {
+    console.warn('Registry terminal decoration failed.', error);
+  });
 }
 
 function createDetailAction(action) {
@@ -1759,11 +1660,29 @@ function resetView() {
   renderModules('RESTORING REGISTRY OVERVIEW...');
 }
 
-document.addEventListener('DOMContentLoaded', async () => {
+document.addEventListener('DOMContentLoaded', () => {
   initializeBootStages();
-  void reportHubActivity();
-  await Promise.all([loadScriptUpdates(), loadScreenshotManifest(), loadUsageStats()]);
+  try {
+    runPageBootSequence();
+  } catch (error) {
+    handleBootFailure(error);
+  }
   renderScriptUpdateTimeline();
+  void reportHubActivity();
+  void loadScriptUpdates().then((updated) => {
+    renderScriptUpdateTimeline();
+    const grid = document.getElementById('module-grid');
+    if (
+      updated &&
+      pageBootComplete &&
+      currentView === 'registry' &&
+      !grid.contains(document.activeElement)
+    ) {
+      renderModules('REGISTRY METADATA SYNCED...');
+    }
+  });
+  void loadScreenshotManifest();
+  void loadUsageStats();
   document.querySelectorAll('[data-tier]').forEach((control) => {
     control.addEventListener('click', () => filterByTier(control.dataset.tier));
   });
@@ -1822,7 +1741,12 @@ document.addEventListener('DOMContentLoaded', async () => {
       return;
     }
     if (event.key !== 'Escape') return;
-    closeSortMenu();
+    const sortMenuOpen = !document.getElementById('module-sort-menu').classList.contains('hidden');
+    const categoryMenuOpen = !document
+      .getElementById('module-category-menu')
+      .classList.contains('hidden');
+    closeSortMenu({ restoreFocus: sortMenuOpen });
+    closeCategoryMenu({ restoreFocus: categoryMenuOpen });
     closeMobileMenu();
     document.getElementById('clock-panel').classList.add('hidden');
     document.getElementById('clock-toggle').setAttribute('aria-expanded', 'false');
@@ -1841,8 +1765,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   };
   updateClock();
   setInterval(updateClock, 1000);
-  updateRegistrySummary();
-  void runPageBootSequence().catch(handleBootFailure);
 
   const terminal = document.getElementById('cli-output');
   if (!terminal || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;

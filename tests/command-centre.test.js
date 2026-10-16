@@ -104,8 +104,47 @@ describe("command centre catalogue", () => {
     expect(app).toContain("function moduleMatchesCategory(script, category)");
     expect(app).toContain("script.marketplace?.totalInstalls");
   });
+
+  test("keeps menu focus visible and makes Overview restore the full registry", () => {
+    expect(app).toContain("closeSortMenu({ restoreFocus: true });");
+    expect(app).toContain("closeCategoryMenu({ restoreFocus: true });");
+    expect(app).toContain("button.focus({ preventScroll: true })");
+    expect(app).toContain("closeSortMenu({ restoreFocus: sortMenuOpen });");
+    expect(app).toContain("closeCategoryMenu({ restoreFocus: categoryMenuOpen });");
+    expect(app).toContain("if (tier === 'ALL') currentCategory = 'ALL';");
+  });
+
+  test("renders the usable catalogue before optional remote data and keeps local filters immediate", () => {
+    const startup = app.slice(app.indexOf("document.addEventListener('DOMContentLoaded'"));
+    expect(startup.indexOf("runPageBootSequence();")).toBeLessThan(
+      startup.indexOf("loadScriptUpdates()")
+    );
+    expect(app).toContain("document.createDocumentFragment()");
+    expect(app).not.toContain("function announceAndRenderModules(");
+    expect(app).not.toContain("setTimeout(commitRender, 300)");
+    expect(app).not.toContain(
+      "await Promise.all([loadScriptUpdates(), loadScreenshotManifest(), loadUsageStats()])"
+    );
+  });
+
+  test("prioritises modules on mobile and protects long 320px detail titles", () => {
+    expect(code).toContain("Jump to Modules");
+    expect(code).toContain('class="order-2 xl:order-none xl:col-span-3');
+    expect(code).toContain('class="order-1 xl:order-none xl:col-span-9');
+    expect(code).toContain('class="flex-1 min-w-0 w-full"');
+    expect(styles).toContain("#detail-title");
+    expect(styles).toContain("overflow-wrap: anywhere");
+    expect(styles).toContain("#detail-actions > a");
+  });
+
+  test("keeps the footer pinned to the bottom of the viewport", () => {
+    expect(code).toContain('id="site-footer"');
+    expect(styles).toMatch(/#site-footer\s*\{[\s\S]*?position:\s*sticky;/);
+    expect(styles).toMatch(/#site-footer\s*\{[\s\S]*?bottom:\s*0;/);
+  });
+
   test("shows current distributed script versions", () => {
-    expect(code).toContain("BUILD: v2.5.1-CYBER");
+    expect(code).toContain("BUILD: v2.5.2-CYBER");
     expect(catalogue).toContain('"version": "v3.1.2"');
     expect(catalogue).toContain('"label": "Install v3.1.2"');
     expect(catalogue).toContain('"version": "v2.4.8"');
