@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Tornfolio — Property, Lease & ROI Manager
 // @namespace    https://github.com/local/torn-landlord-tenant-ledger
-// @version      0.7.4
+// @version      0.7.5
 // @description  Manage your Torn property portfolio, rentals, market pricing, archive, and ROI.
 // @author       MoDuL
 // @copyright    2026 MoDuL. All rights reserved.
@@ -23,7 +23,7 @@
   "use strict";
 
   const APP_ID = "tlt-ledger";
-  const APP_VERSION = "0.7.4";
+  const APP_VERSION = "0.7.5";
   const STORE_KEY = "tornLandlordTenantLedger:v1";
   const API_BASE = "https://api.torn.com/v2";
   const HOSTED_API_BASE = "https://pp-api.sokin.xyz/tornfolio";
@@ -3106,14 +3106,9 @@
     for (const property of propertyMap.values()) {
       property.lifecycle = lifecycleByProperty.get(property.id) || null;
       const override = propertyActionOverrides.get(property.id) || {};
-      const lifecycleRentalListed = tfListingStatusActive(property.lifecycle && property.lifecycle.rental_listing_status);
-      const lifecycleSaleListed = tfListingStatusActive(property.lifecycle && property.lifecycle.sale_listing_status);
-      property.rentalListed = Object.prototype.hasOwnProperty.call(override, "rentalListed")
-        ? Boolean(override.rentalListed)
-        : Boolean(property.rentalListed || lifecycleRentalListed);
-      property.saleListed = Object.prototype.hasOwnProperty.call(override, "saleListed")
-        ? Boolean(override.saleListed)
-        : Boolean(property.saleListed || lifecycleSaleListed);
+      const listingState = tfResolvePropertyListingState(property, property.lifecycle, override);
+      property.rentalListed = listingState.rentalListed;
+      property.saleListed = listingState.saleListed;
       property.listed = property.rentalListed || property.saleListed;
       property.listingKind = property.rentalListed && property.saleListed ? "rent and sale" : property.rentalListed ? "rent" : property.saleListed ? "sale" : "";
       property.extensionPending = Object.prototype.hasOwnProperty.call(override, "extensionPending")
@@ -3201,6 +3196,30 @@
 
   function tfListingStatusActive(value) {
     return ["listed", "active", "for rent", "for sale", "for_rent", "for_sale"].includes(normalizeLookup(value));
+  }
+
+  function tfResolvePropertyListingState(property, lifecycle, override = {}) {
+    const raw = property && property.raw;
+    const hasLiveStatus = Boolean(
+      raw
+      && typeof raw === "object"
+      && Object.prototype.hasOwnProperty.call(raw, "status")
+      && !isBlankValue(raw.status)
+    );
+    const lifecycleRentalListed = tfListingStatusActive(lifecycle && lifecycle.rental_listing_status);
+    const lifecycleSaleListed = tfListingStatusActive(lifecycle && lifecycle.sale_listing_status);
+    return {
+      rentalListed: Object.prototype.hasOwnProperty.call(override, "rentalListed")
+        ? Boolean(override.rentalListed)
+        : hasLiveStatus
+          ? isForRent(raw)
+          : Boolean(property && property.rentalListed || lifecycleRentalListed),
+      saleListed: Object.prototype.hasOwnProperty.call(override, "saleListed")
+        ? Boolean(override.saleListed)
+        : hasLiveStatus
+          ? isForSale(raw)
+          : Boolean(property && property.saleListed || lifecycleSaleListed),
+    };
   }
 
   function tfNormalizeContract(lease, propertyMap, context) {
@@ -8484,6 +8503,7 @@
       propertyActionDefaults,
       propertyPricingDaily,
       rentalListingCalculation,
+      tfResolvePropertyListingState,
       tfPropertyActionFormHtml,
       tfPropertyActionSummary,
       tfPropertyCard,

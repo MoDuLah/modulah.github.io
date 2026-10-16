@@ -143,13 +143,13 @@ export const scripts = [
     "tier": "supporter",
     "title": "Tornfolio",
     "desc": "A Torn property, rental, market pricing and ROI manager for owners and renters.",
-    "version": "v0.7.4",
+    "version": "v0.7.5",
     "versionPrefix": "VER",
     "category": "Property management",
     "group": "Property & Finance",
     "projectType": "Supporter property tool",
-    "releaseState": "Current supporter build",
-    "updated": "15 October 2026",
+    "releaseState": "Beta tester build",
+    "updated": "16 October 2026",
     "badge": "supporter",
     "badgeText": "SUPPORTER",
     "logo": "assets/images/tornfolio/tornfolio-logo.svg",
@@ -164,8 +164,8 @@ export const scripts = [
     ],
     "actions": [
       {
-        "label": "Install v0.7.4",
-        "href": "https://modulah.github.io/tornfolio/tornfolio.user.js",
+        "label": "Install beta v0.7.5",
+        "href": "https://greasyfork.org/en/scripts/591996-tornfolio-property-lease-roi-manager",
         "icon": "download",
         "primary": true,
       },
@@ -763,6 +763,16 @@ export const scripts = [
 ];
 
 export const scriptReleases = [
+  {
+    scriptId: "tornfolio",
+    title: "Tornfolio",
+    version: "v0.7.5",
+    date: "2026-10-16",
+    type: "FIX",
+    summary:
+      "Made Torn's live property status authoritative over older listing history, preventing an available spouse-owned home from incorrectly showing Remove listing.",
+    href: "https://greasyfork.org/en/scripts/591996-tornfolio-property-lease-roi-manager/versions",
+  },
   {
     scriptId: "tornfolio",
     title: "Tornfolio",

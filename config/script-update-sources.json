@@ -25,11 +25,11 @@
       "id": "tornfolio",
       "title": "Tornfolio",
       "displayPrefix": "v",
-      "actionLabelTemplate": "Install {version}",
+      "actionLabelTemplate": "Install beta {version}",
       "timelineEnabled": true,
       "timelineType": "RELEASE",
       "timelineSummary": "The Tornfolio property lifecycle, rental, market and update-checker userscript changed.",
-      "timelineHref": "tornfolio/tornfolio.user.js",
+      "timelineHref": "https://greasyfork.org/en/scripts/591996-tornfolio-property-lease-roi-manager",
       "source": {
         "type": "userscript",
         "path": "tornfolio/tornfolio.user.js"
