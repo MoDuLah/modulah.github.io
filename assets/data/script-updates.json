@@ -77,13 +77,13 @@
     {
       "id": "tornfolio",
       "title": "Tornfolio",
-      "version": "0.8.2",
-      "displayVersion": "v0.8.2",
+      "version": "0.8.3",
+      "displayVersion": "v0.8.3",
       "date": "2026-10-18",
       "updated": "18 October 2026",
       "source": "userscript",
       "updateVersion": true,
-      "actionLabel": "Install beta v0.8.2"
+      "actionLabel": "Install beta v0.8.3"
     },
     {
       "id": "customRaceFilter",
@@ -576,6 +576,16 @@
     }
   ],
   "timeline": [
+    {
+      "scriptId": "tornfolio",
+      "title": "Tornfolio",
+      "version": "v0.8.3",
+      "date": "2026-10-18",
+      "type": "FIX",
+      "summary": "Completes the Tornfolio rename by replacing every active legacy UI prefix with tf-, while migrating existing settings and history to the Tornfolio storage key.",
+      "href": "https://greasyfork.org/en/scripts/591996-tornfolio-property-lease-roi-manager",
+      "eventId": "tornfolio:v0.8.3"
+    },
     {
       "scriptId": "tornfolio",
       "title": "Tornfolio",

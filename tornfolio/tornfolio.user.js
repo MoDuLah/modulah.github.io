@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Tornfolio — Property, Lease & ROI Manager
 // @namespace    MoDuL.torn.tornfolio
-// @version      0.8.2
+// @version      0.8.3
 // @description  Manage your Torn property portfolio, rentals, market pricing, archive, and ROI.
 // @author       MoDuL
 // @copyright    2026 MoDuL. All rights reserved.
@@ -21,7 +21,7 @@
   "use strict";
 
   const APP_ID = "tf-ledger";
-  const APP_VERSION = "0.8.2";
+  const APP_VERSION = "0.8.3";
   const UPKEEP_REMINDER_INTERVAL_MS = 24 * 60 * 60 * 1000;
   const STORE_KEY = "tornfolio:v1";
   const LEGACY_STORE_KEYS = ["tornLandlordTenantLedger:v1"];
@@ -6932,7 +6932,7 @@
       changelog: {
         title: `Tornfolio ${APP_VERSION}`,
         subtitle: "Release notes",
-        body: `<section><h2>Version ${escapeHtml(APP_VERSION)}</h2><ul class="tf-info-list"><li>Repairs Archive and rental-history card sizing and duplicate end-date text.</li><li>Makes the full interface respond to Tornfolio's own panel width, with bounded images and icon-only compact controls.</li><li>Keeps spouse-owned listings informational instead of actionable.</li><li>Adds owner property facility and staff upgrades using Torn's review and final-confirmation flow.</li><li>Adds discoverable rent and sale actions for eligible unlisted properties.</li><li>Turns the footer's help, privacy, terms, and version labels into useful dialogs.</li></ul></section><section><h2>Updates</h2><p>Tornfolio checks GreasyFork for a newer release when it opens. The header status tells you whether this version is current.</p><a class="tf-link-button" href="${escapeAttr(GREASYFORK_PAGE_URL)}" target="_blank" rel="noopener noreferrer">View Tornfolio on GreasyFork</a></section>`,
+        body: `<section><h2>Version ${escapeHtml(APP_VERSION)}</h2><ul class="tf-info-list"><li>Completes the Tornfolio rename by replacing every active legacy UI prefix with <code>tf-</code> while safely migrating existing saved data.</li><li>Repairs Archive and rental-history card sizing and duplicate end-date text.</li><li>Makes the full interface respond to Tornfolio's own panel width, with bounded images and icon-only compact controls.</li><li>Keeps spouse-owned listings informational instead of actionable.</li><li>Adds owner property facility and staff upgrades using Torn's review and final-confirmation flow.</li><li>Adds discoverable rent and sale actions for eligible unlisted properties.</li><li>Turns the footer's help, privacy, terms, and version labels into useful dialogs.</li></ul></section><section><h2>Updates</h2><p>Tornfolio checks GreasyFork for a newer release when it opens. The header status tells you whether this version is current.</p><a class="tf-link-button" href="${escapeAttr(GREASYFORK_PAGE_URL)}" target="_blank" rel="noopener noreferrer">View Tornfolio on GreasyFork</a></section>`,
       },
     };
     const selected = views[view] || views.help;
