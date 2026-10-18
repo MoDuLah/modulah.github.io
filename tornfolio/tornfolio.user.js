@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Tornfolio — Property, Lease & ROI Manager
-// @namespace    https://github.com/local/torn-landlord-tenant-ledger
-// @version      0.8.0
+// @namespace    MoDuL.torn.tornfolio
+// @version      0.8.1
 // @description  Manage your Torn property portfolio, rentals, market pricing, archive, and ROI.
 // @author       MoDuL
 // @copyright    2026 MoDuL. All rights reserved.
@@ -21,7 +21,7 @@
   "use strict";
 
   const APP_ID = "tlt-ledger";
-  const APP_VERSION = "0.8.0";
+  const APP_VERSION = "0.8.1";
   const UPKEEP_REMINDER_INTERVAL_MS = 24 * 60 * 60 * 1000;
   const STORE_KEY = "tornLandlordTenantLedger:v1";
   const API_BASE = "https://api.torn.com/v2";
@@ -5637,7 +5637,7 @@
 
   function tfArchiveCard(row) {
     const endedAgo = row.endDate ? tfRelative(row.endDate) : "End date unavailable";
-    return `<article class="tf-archive-card">${row.image ? `<img src="${escapeAttr(row.image)}" alt="">` : `<div class="tf-image-placeholder">${tfIcon("archive")}</div>`}<div class="tf-archive-property"><h2>${escapeHtml(row.property)}${row.propertyId && !row.property.includes(row.propertyId) ? ` <small>#${escapeHtml(row.propertyId)}</small>` : ""}</h2><div class="tf-badges">${tfStatusBadge(/sold/i.test(row.status) ? "sold" : "expired")}${tfOwnershipBadge(row.ownership)}${row.extensionCount ? `<span class="tf-badge tf-badge-info">${tfNumber(row.extensionCount)} extension${Number(row.extensionCount) === 1 ? "" : "s"}</span>` : ""}</div><small>${escapeHtml(row.completionReason || row.property)}</small></div><div class="tf-archive-facts"><span><b>${row.tenant ? "Tenant" : "Owner"}</b><strong>${escapeHtml(row.tenant || row.owner || "Unavailable")}</strong></span><span><b>Rent / Day</b><strong>${escapeHtml(tfMoney(row.daily))}</strong></span><span><b>Total Contract</b><strong>${escapeHtml(tfMoney(row.total))}</strong></span><span><b>Started</span><strong>${escapeHtml(tfDate(row.startDate))}</strong></span></div><div class="tf-archive-ended"><span>Ended</span><strong>${escapeHtml(tfDate(row.endDate))}</strong><b>${escapeHtml(endedAgo)}</b><small>${escapeHtml(row.status)}</small></div><div class="tf-card-actions"><button class="tf-responsive-icon" type="button" data-action="open-property" data-property-key="${escapeAttr(row.propertyId ? `property:${row.propertyId}` : "")}" aria-label="View property" data-tf-tooltip="View property">${tfIcon("properties")}<span class="tf-button-label">View Property</span></button><button class="tf-primary tf-responsive-icon" type="button" data-action="open-archive" data-contract-id="${escapeAttr(row.contractId)}" aria-label="View archive details" data-tf-tooltip="View archive details">${tfIcon("archive")}<span class="tf-button-label">View Details →</span></button></div></article>`;
+    return `<article class="tf-archive-card">${row.image ? `<img src="${escapeAttr(row.image)}" alt="">` : `<div class="tf-image-placeholder">${tfIcon("archive")}</div>`}<div class="tf-archive-property"><h2>${escapeHtml(row.property)}${row.propertyId && !row.property.includes(row.propertyId) ? ` <small>#${escapeHtml(row.propertyId)}</small>` : ""}</h2><div class="tf-badges">${tfStatusBadge(/sold/i.test(row.status) ? "sold" : "expired")}${tfOwnershipBadge(row.ownership)}${row.extensionCount ? `<span class="tf-badge tf-badge-info">${tfNumber(row.extensionCount)} extension${Number(row.extensionCount) === 1 ? "" : "s"}</span>` : ""}</div><small>${escapeHtml(row.completionReason || row.property)}</small></div><div class="tf-archive-facts"><span><b>${row.tenant ? "Tenant" : "Owner"}</b><strong>${escapeHtml(row.tenant || row.owner || "Unavailable")}</strong></span><span><b>Rent / Day</b><strong>${escapeHtml(tfMoney(row.daily))}</strong></span><span><b>Total Contract</b><strong>${escapeHtml(tfMoney(row.total))}</strong></span><span><b>Started</b><strong>${escapeHtml(tfDate(row.startDate))}</strong></span></div><div class="tf-archive-ended"><span>Ended</span><strong>${escapeHtml(tfDate(row.endDate))}</strong><b>${escapeHtml(endedAgo)}</b><small>${escapeHtml(row.status)}</small></div><div class="tf-card-actions"><button class="tf-responsive-icon" type="button" data-action="open-property" data-property-key="${escapeAttr(row.propertyId ? `property:${row.propertyId}` : "")}" aria-label="View property" data-tf-tooltip="View property">${tfIcon("properties")}<span class="tf-button-label">View Property</span></button><button class="tf-primary tf-responsive-icon" type="button" data-action="open-archive" data-contract-id="${escapeAttr(row.contractId)}" aria-label="View archive details" data-tf-tooltip="View archive details">${tfIcon("archive")}<span class="tf-button-label">View Details →</span></button></div></article>`;
   }
 
   function tfInsightsHtml(model) {
@@ -6861,8 +6861,9 @@
       #${APP_ID} .tf-opportunity { display: flex; justify-content: space-between; width: 100%; min-height: 48px; padding: 7px; border: 0; border-bottom: 1px solid rgba(74,122,143,.18); border-radius: 0; background: transparent; text-align: left; }
       #${APP_ID} .tf-opportunity span { display: grid; }
       #${APP_ID} .tf-opportunity small { color: var(--tf-muted); }
-      #${APP_ID} .tf-archive-card { display: grid; grid-template-columns: 145px minmax(180px, .9fr) minmax(270px, 1.25fr) minmax(150px, .7fr) 135px; min-height: 112px; overflow: hidden; }
-      #${APP_ID} .tf-archive-card > img, #${APP_ID} .tf-archive-card > .tf-image-placeholder { width: 145px; min-height: 112px; height: 100%; object-fit: cover; }
+      #${APP_ID} .tf-archive-card { display: grid; grid-template-columns: 145px minmax(150px, .9fr) minmax(210px, 1.25fr) minmax(120px, .7fr) minmax(125px, 135px); min-width: 0; min-height: 112px; overflow: hidden; }
+      #${APP_ID} .tf-archive-card > * { min-width: 0; }
+      #${APP_ID} .tf-archive-card > img, #${APP_ID} .tf-archive-card > .tf-image-placeholder { align-self: stretch; width: 145px; min-height: 112px; height: 112px; object-fit: cover; }
       #${APP_ID} .tf-archive-property, #${APP_ID} .tf-archive-facts, #${APP_ID} .tf-archive-ended { padding: 10px; }
       #${APP_ID} .tf-archive-property h2 { margin: 0 0 7px; font-size: 15px; }
       #${APP_ID} .tf-archive-property > small { display: block; margin-top: 8px; color: var(--tf-muted); }
@@ -6939,7 +6940,12 @@
       #${APP_ID} .tf-sync-progress-toast > footer strong { color: #bfd1dc; font-size: 9px; }
       #${APP_ID} .tf-modal-backdrop { position: absolute; inset: 0; z-index: 100; background: rgba(0,8,13,.82); backdrop-filter: blur(4px); }
       #${APP_ID} .tf-modal { width: min(940px, 94%); max-height: 90%; border-color: var(--tf-border-bright); background: #061c27; }
+      #${APP_ID} .tf-modal > .tlt-modal-head { border-bottom: 1px solid var(--tf-border-bright); background: linear-gradient(135deg, rgba(8,58,72,.98), rgba(4,29,41,.98)); box-shadow: inset 0 -1px 0 rgba(20,228,186,.08); }
+      #${APP_ID} .tf-modal > .tlt-modal-head strong { color: var(--tf-text); }
+      #${APP_ID} .tf-modal > .tlt-modal-head span { margin-top: 2px; color: var(--tf-muted); }
       #${APP_ID} .tf-settings-body, #${APP_ID} .tf-detail-body { display: grid; gap: 12px; overflow: auto; padding: 15px; }
+      #${APP_ID} .tf-detail-body { min-width: 0; overflow-x: hidden; }
+      #${APP_ID} .tf-detail-body > * { min-width: 0; }
       #${APP_ID} .tf-settings-body { grid-template-columns: 1fr 1fr; }
       #${APP_ID} .tf-settings-body section, #${APP_ID} .tf-settings-body details, #${APP_ID} .tf-detail-body section { padding: 13px; border: 1px solid var(--tf-border); border-radius: 9px; background: rgba(8,35,47,.7); }
       #${APP_ID} .tf-settings-body h2, #${APP_ID} .tf-detail-body h2 { margin: 0 0 7px; font-size: 14px; }
