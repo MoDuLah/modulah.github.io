@@ -20,10 +20,11 @@
 (function () {
   "use strict";
 
-  const APP_ID = "tlt-ledger";
+  const APP_ID = "tf-ledger";
   const APP_VERSION = "0.8.2";
   const UPKEEP_REMINDER_INTERVAL_MS = 24 * 60 * 60 * 1000;
-  const STORE_KEY = "tornLandlordTenantLedger:v1";
+  const STORE_KEY = "tornfolio:v1";
+  const LEGACY_STORE_KEYS = ["tornLandlordTenantLedger:v1"];
   const API_BASE = "https://api.torn.com/v2";
   const HOSTED_API_BASE = "https://pp-api.sokin.xyz/tornfolio";
   const HOSTED_PRODUCT = "tornfolio";
@@ -283,7 +284,17 @@
   let tornUpkeepScanQueued = false;
 
   function loadState() {
-    const raw = safeGet(STORE_KEY);
+    let sourceKey = STORE_KEY;
+    let raw = safeGet(STORE_KEY);
+    if (!raw) {
+      for (const legacyKey of LEGACY_STORE_KEYS) {
+        const legacyRaw = safeGet(legacyKey);
+        if (!legacyRaw) continue;
+        sourceKey = legacyKey;
+        raw = legacyRaw;
+        break;
+      }
+    }
     if (!raw) return { ...emptyState };
     try {
       const parsed = JSON.parse(raw);
@@ -321,6 +332,7 @@
       }
       migrateContractLifecycle(next);
       normalizeSavedNavigation(next, parsed.activeTab);
+      if (sourceKey !== STORE_KEY) safeSet(STORE_KEY, JSON.stringify(next));
       return next;
     } catch (_error) {
       return { ...emptyState };
@@ -762,7 +774,7 @@
 
   function updateSaveIndicators(message = "Saved") {
     const text = saveStatusText(message);
-    const selectors = [`#${APP_ID} .tlt-save-status`];
+    const selectors = [`#${APP_ID} .tf-save-status`];
     for (const selector of selectors) {
       document.querySelectorAll(selector).forEach((node) => {
         node.textContent = text;
@@ -4232,9 +4244,9 @@
   }
 
   function setStatus(message, isError = false) {
-    const nodes = Array.from(document.querySelectorAll(`#${APP_ID} .tlt-status`));
+    const nodes = Array.from(document.querySelectorAll(`#${APP_ID} .tf-status`));
     if (popupWindow && !popupWindow.closed) {
-      nodes.push(...Array.from(popupWindow.document.querySelectorAll(`#${APP_ID} .tlt-status`)));
+      nodes.push(...Array.from(popupWindow.document.querySelectorAll(`#${APP_ID} .tf-status`)));
     }
     for (const node of nodes) {
       node.textContent = message;
@@ -5383,9 +5395,9 @@
     const syncLabel = state.syncState === "syncing" ? "Syncing Tornfolio" : "Sync Now";
     return `
       ${iconSpriteDefsHtml()}
-      <button class="tlt-tab tf-launcher${upkeepAlertCount ? " has-alert" : ""}" type="button">${state.panelOpen ? "Hide Tornfolio" : "Open Tornfolio"}${upkeepAlertCount ? `<span class="tf-launcher-alert" aria-label="${escapeAttr(`${upkeepAlertCount} upkeep alert${upkeepAlertCount === 1 ? "" : "s"}`)}">${tfNumber(upkeepAlertCount)}</span>` : ""}</button>
-      <div class="tlt-panel tf-shell" role="region" aria-label="Tornfolio portfolio and rental management">
-        <header class="tlt-header tf-header">
+      <button class="tf-tab tf-launcher${upkeepAlertCount ? " has-alert" : ""}" type="button">${state.panelOpen ? "Hide Tornfolio" : "Open Tornfolio"}${upkeepAlertCount ? `<span class="tf-launcher-alert" aria-label="${escapeAttr(`${upkeepAlertCount} upkeep alert${upkeepAlertCount === 1 ? "" : "s"}`)}">${tfNumber(upkeepAlertCount)}</span>` : ""}</button>
+      <div class="tf-panel tf-shell" role="region" aria-label="Tornfolio portfolio and rental management">
+        <header class="tf-header">
           <div class="tf-brand"><span class="tf-logo">${tfIcon("logo")}</span><div><strong>Torn<span>folio</span></strong><small>Portfolio &amp; Rental Management</small></div></div>
           <div class="tf-header-actions">
             <div class="tf-sync-meta" role="status" aria-label="${escapeAttr(`Last synced ${state.lastSyncAt ? new Date(state.lastSyncAt).toLocaleString() : "not yet"}`)}" data-tf-tooltip="${escapeAttr(`Last synced ${state.lastSyncAt ? new Date(state.lastSyncAt).toLocaleString() : "not yet"}`)}"><i class="tf-sync-dot is-${escapeAttr(state.syncState || "idle")}"></i><span>Last synced<strong>${state.lastSyncAt ? escapeHtml(new Date(state.lastSyncAt).toLocaleString()) : "Not yet"}</strong></span></div>
@@ -5396,7 +5408,7 @@
           </div>
         </header>
         <nav class="tf-nav" role="tablist" aria-label="Tornfolio sections">${tabsHtml()}</nav>
-        <main class="tlt-tab-content tf-content">${activeTabHtml(model, isPopup)}</main>
+        <main class="tf-tab-content tf-content">${activeTabHtml(model, isPopup)}</main>
         ${state.manualModalOpen ? manualLeaseModalHtml() : ""}
         ${state.settingsOpen ? tfSettingsModalHtml() : ""}
         ${state.detailView ? tfDetailModalHtml(model, isPopup) : ""}
@@ -5404,7 +5416,7 @@
         <footer class="tf-footer"><div class="tf-footer-brand">${tfIcon("logo")}<strong>Tornfolio</strong><small>Portfolio &amp; Rental Management</small></div><nav aria-label="Tornfolio information"><button type="button" data-action="open-info" data-info-view="help">Help &amp; Support</button><button type="button" data-action="open-info" data-info-view="privacy">Privacy Policy</button><button type="button" data-action="open-info" data-info-view="terms">Terms of Service</button><button type="button" data-action="open-info" data-info-view="changelog" aria-label="View Tornfolio ${escapeAttr(APP_VERSION)} changelog">v${escapeHtml(APP_VERSION)}</button></nav></footer>
         ${tfSyncProgressHtml()}
         <div id="${APP_ID}-tooltip" class="tf-themed-tooltip" role="tooltip" aria-hidden="true"></div>
-        <div class="tlt-status tf-toast ${state.syncProgress ? "is-suppressed" : ""} ${state.syncState && state.syncState !== "idle" ? "is-visible" : ""} ${state.syncState === "error" ? "is-error" : ""}" aria-live="polite">${escapeHtml(state.syncMessage || "")}</div>
+        <div class="tf-status tf-toast ${state.syncProgress ? "is-suppressed" : ""} ${state.syncState && state.syncState !== "idle" ? "is-visible" : ""} ${state.syncState === "error" ? "is-error" : ""}" aria-live="polite">${escapeHtml(state.syncMessage || "")}</div>
       </div>
     `;
   }
@@ -5952,7 +5964,7 @@
   function tfSettingsModalHtml() {
     const settings = appSettings();
     const keyMask = maskedApiKey();
-    return `<div class="tlt-modal-backdrop tf-modal-backdrop" data-action="close-settings"><div class="tlt-modal tf-modal tf-settings-modal" role="dialog" aria-modal="true" aria-label="Tornfolio settings" data-modal-stop><div class="tlt-modal-head"><div><strong>Settings</strong><span>Account, market, data and advanced controls.</span></div><button class="tf-icon-button" type="button" data-action="close-settings" aria-label="Close settings">${tfIcon("close")}</button></div><div class="tf-settings-body">
+    return `<div class="tf-modal-backdrop" data-action="close-settings"><div class="tf-modal tf-settings-modal" role="dialog" aria-modal="true" aria-label="Tornfolio settings" data-modal-stop><div class="tf-modal-head"><div><strong>Settings</strong><span>Account, market, data and advanced controls.</span></div><button class="tf-icon-button" type="button" data-action="close-settings" aria-label="Close settings">${tfIcon("close")}</button></div><div class="tf-settings-body">
       <section><h2>Account / Torn API</h2><p>Your public Torn key is used to verify your account and fetch portfolio data.</p><label>Torn public key<input type="text" data-api-key-input placeholder="${keyMask ? "Paste a new key to replace the saved key" : "Paste key here"}" autocomplete="off" spellcheck="false"></label>${keyMask ? `<small>Saved key: ${escapeHtml(keyMask)}</small>` : `<small>No key saved.</small>`}${subscriptionStatusHtml()}<div class="tf-button-row"><button class="tf-primary" type="button" data-action="save-api-key">Save Key</button><button type="button" data-action="check-key">Test Key</button><button type="button" data-action="verify-hosted-access">Check Subscription</button><button class="tf-danger" type="button" data-action="clear-key">Clear Key</button></div></section>
       <section><h2>Market &amp; ROI</h2><label>Target annual ROI %<input type="number" min="0.1" max="500" step="0.1" data-setting-field="targetAnnualRoi" value="${escapeAttr(targetAnnualRoi())}"></label><label>Suggested lease duration (days)<input type="number" min="1" max="100" step="1" data-setting-field="defaultSuggestionLeaseDays" value="${escapeAttr(defaultSuggestionLeaseDays())}"></label></section>
       <section><h2>Data / Sync</h2><label>Torn call speed<select data-setting-field="tornRateLimitPerMinute">${tornRateLimitOptionsHtml()}</select></label><label>Property history depth<select data-setting-field="propertyHistoryPages">${propertyHistoryPagesOptionsHtml()}</select></label><label class="tf-check"><input type="checkbox" data-setting-field="allowDirectTornFallback"${settings.allowDirectTornFallback ? " checked" : ""}><span>Use direct Torn fallback if the hosted sync is unavailable</span></label></section>
@@ -6601,7 +6613,7 @@
     const property = model.properties.find((row) => row.key === action.propertyKey);
     const title = propertyActionTitle(action.kind);
     if (!property)
-      return `<div class="tlt-modal-backdrop tf-modal-backdrop tf-action-backdrop" data-action="close-property-action"><div class="tlt-modal tf-modal tf-action-modal" data-modal-stop>${tfEmpty("Property unavailable", "Sync Tornfolio and try again.", `<button type="button" data-action="close-property-action">Close</button>`)}</div></div>`;
+      return `<div class="tf-modal-backdrop tf-action-backdrop" data-action="close-property-action"><div class="tf-modal tf-action-modal" data-modal-stop>${tfEmpty("Property unavailable", "Sync Tornfolio and try again.", `<button type="button" data-action="close-property-action">Close</button>`)}</div></div>`;
     let body = "";
     if (action.stage === "success") {
       const detail =
@@ -6642,7 +6654,7 @@
                 : "Create rental listing";
       body = `${preview}${tfPropertyActionSummary(action)}${error}<p class="tf-action-note">This final click sends one property-changing request to Torn. Tornfolio will not retry it automatically.</p><div class="tf-button-row"><button class="${action.kind === "remove" ? "tf-danger" : "tf-primary"}" type="button" data-action="confirm-property-action"${action.busy ? " disabled" : ""}>${action.busy ? "Waiting for Torn…" : finalLabel}</button>${action.kind === "remove" ? "" : `<button type="button" data-action="edit-property-action"${action.busy ? " disabled" : ""}>Back</button>`}<button type="button" data-action="close-property-action"${action.busy ? " disabled" : ""}>Cancel</button></div>`;
     }
-    return `<div class="tlt-modal-backdrop tf-modal-backdrop tf-action-backdrop" data-action="close-property-action"><div class="tlt-modal tf-modal tf-action-modal" role="dialog" aria-modal="true" aria-label="${escapeAttr(title)}" data-modal-stop><div class="tlt-modal-head"><div><strong>${escapeHtml(title)}</strong><span>${escapeHtml(property.name)} · Property #${escapeHtml(property.id)}</span></div><button class="tf-icon-button" type="button" data-action="close-property-action" aria-label="Close property action"${action.busy ? " disabled" : ""}>${tfIcon("close")}</button></div><div class="tf-action-body">${body}</div></div></div>`;
+    return `<div class="tf-modal-backdrop tf-action-backdrop" data-action="close-property-action"><div class="tf-modal tf-action-modal" role="dialog" aria-modal="true" aria-label="${escapeAttr(title)}" data-modal-stop><div class="tf-modal-head"><div><strong>${escapeHtml(title)}</strong><span>${escapeHtml(property.name)} · Property #${escapeHtml(property.id)}</span></div><button class="tf-icon-button" type="button" data-action="close-property-action" aria-label="Close property action"${action.busy ? " disabled" : ""}>${tfIcon("close")}</button></div><div class="tf-action-body">${body}</div></div></div>`;
   }
 
   async function previewPropertyAction(form, isPopup) {
@@ -6865,7 +6877,7 @@
       );
       const contracts = model.activeRentals.filter((row) => row.propertyKey === property.key);
       const installedFeatures = tfInstalledPropertyFeatures(property);
-      return `<div class="tlt-modal-backdrop tf-modal-backdrop" data-action="close-detail"><div class="tlt-modal tf-modal tf-detail-modal" role="dialog" aria-modal="true" aria-label="Property details" data-modal-stop><div class="tlt-modal-head"><div><strong>${escapeHtml(property.name)}</strong><span>${property.id ? `Property #${escapeHtml(property.id)} · ` : ""}${escapeHtml(property.type)}</span></div><button class="tf-icon-button" type="button" data-action="close-detail" aria-label="Close property details">${tfIcon("close")}</button></div><div class="tf-detail-body">${property.image ? `<img class="tf-detail-image" src="${escapeAttr(property.image)}" alt="${escapeAttr(property.type)}">` : ""}<div class="tf-badges">${tfOwnershipBadge(property.ownership)}${tfStatusBadge(property.status)}${tfUpkeepBadge(property)}</div><div class="tf-detail-grid"><div><span>Owner</span><strong>${escapeHtml(property.owner)}</strong></div><div><span>Happiness</span><strong>${property.happy ? tfNumber(property.happy) : "Unavailable"}</strong></div><div><span>Facilities / Staff</span><strong>${installedFeatures.length ? installedFeatures.length : "Unavailable"}</strong></div><div><span>Residents</span><strong>${escapeHtml(property.residents.join(", ") || "Unavailable")}</strong></div><div><span>Daily Upkeep</span><strong>${escapeHtml(tfMoney(property.upkeep))}</strong></div><div><span>Market Value</span><strong>${escapeHtml(tfMoney(property.marketValue))}</strong></div><div><span>Investment Basis</span><strong>${escapeHtml(tfMoney(property.investment))}</strong></div><div><span>Market listing</span><strong>${escapeHtml(tfPropertyListingLabel(property))}</strong></div></div>${tfRentalIncomeEvidenceDetail(property)}${tfPropertyActionsHtml(property, model, isPopup)}${tfPropertyUpgradePanel(property, isPopup)}<section><h2>Lifecycle Snapshot</h2>${tfLifecycleSnapshot(property.lifecycle)}</section>${installedFeatures.length ? `<section><h2>Installed Upgrades & Staff</h2><div class="tf-chip-list">${installedFeatures.map((value) => `<span>${escapeHtml(value)}</span>`).join("")}</div></section>` : ""}<section><h2>Current Rental</h2>${contracts.length ? contracts.map(tfRentalCard).join("") : tfEmpty("No active rental", "This property has no active rental contract in the latest data.")}</section><section><h2>Property Journey</h2>${tfPropertyJourney(property.id)}</section><section><h2>Rental History</h2>${history.length ? history.map(tfArchiveCard).join("") : tfEmpty("No rental history", "Archived contracts for this property will appear after history has been synced.")}</section></div></div></div>`;
+      return `<div class="tf-modal-backdrop" data-action="close-detail"><div class="tf-modal tf-detail-modal" role="dialog" aria-modal="true" aria-label="Property details" data-modal-stop><div class="tf-modal-head"><div><strong>${escapeHtml(property.name)}</strong><span>${property.id ? `Property #${escapeHtml(property.id)} · ` : ""}${escapeHtml(property.type)}</span></div><button class="tf-icon-button" type="button" data-action="close-detail" aria-label="Close property details">${tfIcon("close")}</button></div><div class="tf-detail-body">${property.image ? `<img class="tf-detail-image" src="${escapeAttr(property.image)}" alt="${escapeAttr(property.type)}">` : ""}<div class="tf-badges">${tfOwnershipBadge(property.ownership)}${tfStatusBadge(property.status)}${tfUpkeepBadge(property)}</div><div class="tf-detail-grid"><div><span>Owner</span><strong>${escapeHtml(property.owner)}</strong></div><div><span>Happiness</span><strong>${property.happy ? tfNumber(property.happy) : "Unavailable"}</strong></div><div><span>Facilities / Staff</span><strong>${installedFeatures.length ? installedFeatures.length : "Unavailable"}</strong></div><div><span>Residents</span><strong>${escapeHtml(property.residents.join(", ") || "Unavailable")}</strong></div><div><span>Daily Upkeep</span><strong>${escapeHtml(tfMoney(property.upkeep))}</strong></div><div><span>Market Value</span><strong>${escapeHtml(tfMoney(property.marketValue))}</strong></div><div><span>Investment Basis</span><strong>${escapeHtml(tfMoney(property.investment))}</strong></div><div><span>Market listing</span><strong>${escapeHtml(tfPropertyListingLabel(property))}</strong></div></div>${tfRentalIncomeEvidenceDetail(property)}${tfPropertyActionsHtml(property, model, isPopup)}${tfPropertyUpgradePanel(property, isPopup)}<section><h2>Lifecycle Snapshot</h2>${tfLifecycleSnapshot(property.lifecycle)}</section>${installedFeatures.length ? `<section><h2>Installed Upgrades & Staff</h2><div class="tf-chip-list">${installedFeatures.map((value) => `<span>${escapeHtml(value)}</span>`).join("")}</div></section>` : ""}<section><h2>Current Rental</h2>${contracts.length ? contracts.map(tfRentalCard).join("") : tfEmpty("No active rental", "This property has no active rental contract in the latest data.")}</section><section><h2>Property Journey</h2>${tfPropertyJourney(property.id)}</section><section><h2>Rental History</h2>${history.length ? history.map(tfArchiveCard).join("") : tfEmpty("No rental history", "Archived contracts for this property will appear after history has been synced.")}</section></div></div></div>`;
     }
     if (detail.kind === "rental") {
       const contract = model.activeRentals.find((row) => row.contractId === detail.id);
@@ -6924,7 +6936,7 @@
       },
     };
     const selected = views[view] || views.help;
-    return `<div class="tlt-modal-backdrop tf-modal-backdrop" data-action="close-detail"><div class="tlt-modal tf-modal tf-info-modal" role="dialog" aria-modal="true" aria-label="${escapeAttr(selected.title)}" data-modal-stop><div class="tlt-modal-head"><div><strong>${escapeHtml(selected.title)}</strong><span>${escapeHtml(selected.subtitle)}</span></div><button class="tf-icon-button" type="button" data-action="close-detail" aria-label="Close ${escapeAttr(selected.title)}">${tfIcon("close")}</button></div><div class="tf-detail-body">${selected.body}</div></div></div>`;
+    return `<div class="tf-modal-backdrop" data-action="close-detail"><div class="tf-modal tf-info-modal" role="dialog" aria-modal="true" aria-label="${escapeAttr(selected.title)}" data-modal-stop><div class="tf-modal-head"><div><strong>${escapeHtml(selected.title)}</strong><span>${escapeHtml(selected.subtitle)}</span></div><button class="tf-icon-button" type="button" data-action="close-detail" aria-label="Close ${escapeAttr(selected.title)}">${tfIcon("close")}</button></div><div class="tf-detail-body">${selected.body}</div></div></div>`;
   }
 
   function tfContractDetailModal(contract, title, model, isPopup = false) {
@@ -6944,11 +6956,11 @@
     const estimatedNote = contract.dailyEstimated
       ? `<section><h2>Spouse income estimate</h2><p class="tf-action-note">Torn did not expose the spouse's private contract amount. This uses the last observed asking rent, not a confirmed contract rate.</p></section>`
       : "";
-    return `<div class="tlt-modal-backdrop tf-modal-backdrop" data-action="close-detail"><div class="tlt-modal tf-modal tf-detail-modal" role="dialog" aria-modal="true" aria-label="Rental details" data-modal-stop><div class="tlt-modal-head"><div><strong>${escapeHtml(title)}</strong><span>${escapeHtml(contract.property)}</span></div><button class="tf-icon-button" type="button" data-action="close-detail" aria-label="Close rental details">${tfIcon("close")}</button></div><div class="tf-detail-body">${contract.image ? `<img class="tf-detail-image" src="${escapeAttr(contract.image)}" alt="">` : ""}<div class="tf-badges">${tfOwnershipBadge(contract.ownership, contract.direction === "from")}${tfStatusBadge(title.startsWith("Archived") ? "expired" : "active")}${contract.dailyEstimated ? `<span class="tf-badge tf-badge-warning">Last listing estimate</span>` : contract.extensionCount ? `<span class="tf-badge tf-badge-info">Extended ×${tfNumber(contract.extensionCount)}</span>` : ""}</div><div class="tf-detail-grid"><div><span>Property ID</span><strong>${escapeHtml(contract.propertyId || "Unavailable")}</strong></div><div><span>${contract.direction === "out" ? "Tenant" : "Owner"}</span><strong>${escapeHtml(contract.direction === "out" ? contract.tenant : contract.owner)}</strong></div><div><span>${contract.dailyEstimated ? "Estimated rent / day" : "Rent / Day"}</span><strong>${escapeHtml(tfRentAmount(contract.daily, contract.dailyEstimated))}</strong></div><div><span>${contract.totalEstimated ? "Last listed total" : "Total Contract"}</span><strong>${escapeHtml(tfRentAmount(contract.total, contract.totalEstimated))}</strong></div><div><span>Start Date</span><strong>${escapeHtml(tfDate(contract.startDate))}</strong></div><div><span>End Date</span><strong>${escapeHtml(tfDate(contract.endDate))}</strong></div><div><span>Duration</span><strong>${contract.duration !== "" ? `${tfNumber(contract.duration)} days` : "Unavailable"}</strong></div><div><span>Remaining</span><strong>${contract.remaining !== "" ? `${tfNumber(contract.remaining)} days` : "Finished / unavailable"}</strong></div><div><span>Extension status</span><strong>${escapeHtml(contract.extensionStatus || "None recorded")}</strong></div><div><span>Extension days</span><strong>${contract.extensionDays ? `${tfNumber(contract.extensionDays)} days` : "None recorded"}</strong></div></div>${estimatedNote}${contract.completionReason ? `<section><h2>Completion</h2><p>${escapeHtml(contract.completionReason)}</p></section>` : ""}${contract.notes ? `<section><h2>Notes</h2><p>${escapeHtml(contract.notes)}</p></section>` : ""}<div class="tf-button-row">${extensionAction}${contract.propertyKey ? `<button type="button" data-action="open-property" data-property-key="${escapeAttr(contract.propertyKey)}">View Property</button>` : ""}</div></div></div></div>`;
+    return `<div class="tf-modal-backdrop" data-action="close-detail"><div class="tf-modal tf-detail-modal" role="dialog" aria-modal="true" aria-label="Rental details" data-modal-stop><div class="tf-modal-head"><div><strong>${escapeHtml(title)}</strong><span>${escapeHtml(contract.property)}</span></div><button class="tf-icon-button" type="button" data-action="close-detail" aria-label="Close rental details">${tfIcon("close")}</button></div><div class="tf-detail-body">${contract.image ? `<img class="tf-detail-image" src="${escapeAttr(contract.image)}" alt="">` : ""}<div class="tf-badges">${tfOwnershipBadge(contract.ownership, contract.direction === "from")}${tfStatusBadge(title.startsWith("Archived") ? "expired" : "active")}${contract.dailyEstimated ? `<span class="tf-badge tf-badge-warning">Last listing estimate</span>` : contract.extensionCount ? `<span class="tf-badge tf-badge-info">Extended ×${tfNumber(contract.extensionCount)}</span>` : ""}</div><div class="tf-detail-grid"><div><span>Property ID</span><strong>${escapeHtml(contract.propertyId || "Unavailable")}</strong></div><div><span>${contract.direction === "out" ? "Tenant" : "Owner"}</span><strong>${escapeHtml(contract.direction === "out" ? contract.tenant : contract.owner)}</strong></div><div><span>${contract.dailyEstimated ? "Estimated rent / day" : "Rent / Day"}</span><strong>${escapeHtml(tfRentAmount(contract.daily, contract.dailyEstimated))}</strong></div><div><span>${contract.totalEstimated ? "Last listed total" : "Total Contract"}</span><strong>${escapeHtml(tfRentAmount(contract.total, contract.totalEstimated))}</strong></div><div><span>Start Date</span><strong>${escapeHtml(tfDate(contract.startDate))}</strong></div><div><span>End Date</span><strong>${escapeHtml(tfDate(contract.endDate))}</strong></div><div><span>Duration</span><strong>${contract.duration !== "" ? `${tfNumber(contract.duration)} days` : "Unavailable"}</strong></div><div><span>Remaining</span><strong>${contract.remaining !== "" ? `${tfNumber(contract.remaining)} days` : "Finished / unavailable"}</strong></div><div><span>Extension status</span><strong>${escapeHtml(contract.extensionStatus || "None recorded")}</strong></div><div><span>Extension days</span><strong>${contract.extensionDays ? `${tfNumber(contract.extensionDays)} days` : "None recorded"}</strong></div></div>${estimatedNote}${contract.completionReason ? `<section><h2>Completion</h2><p>${escapeHtml(contract.completionReason)}</p></section>` : ""}${contract.notes ? `<section><h2>Notes</h2><p>${escapeHtml(contract.notes)}</p></section>` : ""}<div class="tf-button-row">${extensionAction}${contract.propertyKey ? `<button type="button" data-action="open-property" data-property-key="${escapeAttr(contract.propertyKey)}">View Property</button>` : ""}</div></div></div></div>`;
   }
 
   function tfMissingDetailModal(title, text) {
-    return `<div class="tlt-modal-backdrop tf-modal-backdrop" data-action="close-detail"><div class="tlt-modal tf-modal" role="dialog" aria-modal="true" data-modal-stop><div class="tlt-modal-head"><strong>${escapeHtml(title)}</strong><button class="tf-icon-button" type="button" data-action="close-detail" aria-label="Close details">${tfIcon("close")}</button></div>${tfEmpty(title, text)}</div></div>`;
+    return `<div class="tf-modal-backdrop" data-action="close-detail"><div class="tf-modal" role="dialog" aria-modal="true" data-modal-stop><div class="tf-modal-head"><strong>${escapeHtml(title)}</strong><button class="tf-icon-button" type="button" data-action="close-detail" aria-label="Close details">${tfIcon("close")}</button></div>${tfEmpty(title, text)}</div></div>`;
   }
 
   function injectVisionStyles(targetDocument = document) {
@@ -6986,7 +6998,7 @@
         font-size: 13px;
       }
       #${APP_ID}.is-popup { width: 100%; height: 100%; min-width: 0; min-height: 0; }
-      #${APP_ID}.is-open .tlt-tab { display: none; }
+      #${APP_ID}.is-open .tf-tab { display: none; }
       #${APP_ID}.is-open .tf-shell { height: 100%; }
       #${APP_ID} .tf-shell {
         height: calc(100% - 38px);
@@ -7324,9 +7336,9 @@
       #${APP_ID} .tf-sync-progress-toast > footer strong { color: #bfd1dc; font-size: 9px; }
       #${APP_ID} .tf-modal-backdrop { position: absolute; inset: 0; z-index: 100; background: rgba(0,8,13,.82); backdrop-filter: blur(4px); }
       #${APP_ID} .tf-modal { width: min(940px, 94%); max-height: 90%; border-color: var(--tf-border-bright); background: #061c27; }
-      #${APP_ID} .tf-modal > .tlt-modal-head { border-bottom: 1px solid var(--tf-border-bright); background: linear-gradient(135deg, rgba(8,58,72,.98), rgba(4,29,41,.98)); box-shadow: inset 0 -1px 0 rgba(20,228,186,.08); }
-      #${APP_ID} .tf-modal > .tlt-modal-head strong { color: var(--tf-text); }
-      #${APP_ID} .tf-modal > .tlt-modal-head span { margin-top: 2px; color: var(--tf-muted); }
+      #${APP_ID} .tf-modal > .tf-modal-head { border-bottom: 1px solid var(--tf-border-bright); background: linear-gradient(135deg, rgba(8,58,72,.98), rgba(4,29,41,.98)); box-shadow: inset 0 -1px 0 rgba(20,228,186,.08); }
+      #${APP_ID} .tf-modal > .tf-modal-head strong { color: var(--tf-text); }
+      #${APP_ID} .tf-modal > .tf-modal-head span { margin-top: 2px; color: var(--tf-muted); }
       #${APP_ID} .tf-settings-body, #${APP_ID} .tf-detail-body { display: grid; gap: 12px; overflow: auto; padding: 15px; }
       #${APP_ID} .tf-detail-body { min-width: 0; overflow-x: hidden; }
       #${APP_ID} .tf-detail-body > * { min-width: 0; }
@@ -7530,44 +7542,44 @@
     style.id = `${APP_ID}-styles`;
     style.textContent = `
       #${APP_ID} {
-        --tlt-bg: var(--mh-bg-main, #071107);
-        --tlt-bg-soft: var(--mh-bg-soft, #0b1508);
-        --tlt-panel: var(--mh-bg-panel, #101807);
-        --tlt-panel-2: var(--mh-bg-panel-2, var(--mh-panel-2, #16230d));
-        --tlt-table-bg: var(--mh-table-bg, #0b140b);
-        --tlt-table-head: var(--mh-table-head, #13200d);
-        --tlt-control: var(--mh-control, #17250f);
-        --tlt-control-hover: var(--mh-control-hover, #203414);
-        --tlt-control-active: var(--mh-control-active, var(--mh-script-accent, var(--mh-accent, #9fd42f)));
-        --tlt-control-active-text: var(--mh-control-active-text, var(--mh-bg-main, #071107));
-        --tlt-control-active-border: var(--mh-control-active-border, var(--mh-accent-2, #44f582));
-        --tlt-control-active-ring: var(--mh-control-active-ring, color-mix(in srgb, var(--mh-accent-2, #44f582) 30%, transparent));
-        --tlt-border: var(--mh-border, #8fbf26);
-        --tlt-border-soft: var(--mh-border-soft, rgba(159, 212, 47, 0.32));
-        --tlt-border-strong: var(--mh-border-strong, #9fd42f);
-        --tlt-text: var(--mh-text, #eaffd6);
-        --tlt-text-soft: var(--mh-text-soft, #cfe8a8);
-        --tlt-muted: var(--mh-text-muted, var(--mh-muted, #8fa36d));
-        --tlt-accent: var(--mh-script-accent, var(--mh-accent, var(--mh-primary, #9fd42f)));
-        --tlt-accent-2: var(--mh-accent-2, var(--mh-secondary, #44f582));
-        --tlt-success: var(--mh-success, #44f582);
-        --tlt-warning: var(--mh-warning, #e5bd54);
-        --tlt-danger: var(--mh-danger, #ff5c5c);
-        --tlt-info: var(--mh-info, #72d9ff);
-        --tlt-overlay: var(--mh-overlay, rgba(0, 0, 0, 0.72));
-        --tlt-shadow: var(--mh-shadow, var(--mh-panel-shadow, 0 18px 45px rgba(0, 0, 0, 0.55)));
-        --tlt-radius-sm: var(--mh-radius-sm, 6px);
-        --tlt-radius: var(--mh-radius-md, var(--mh-radius, 8px));
-        --tlt-space-xs: var(--mh-space-xs, 4px);
-        --tlt-space-sm: var(--mh-space-sm, 8px);
-        --tlt-space-md: var(--mh-space-md, 12px);
-        --tlt-space-lg: var(--mh-space-lg, 16px);
-        --tlt-font: var(--mh-font-body, var(--mh-font, Arial, Helvetica, sans-serif));
-        --tlt-font-mono: var(--mh-font-mono, Consolas, "Courier New", monospace);
-        --tlt-font-size: var(--mh-font-size, 12px);
-        --tlt-font-size-sm: var(--mh-font-size-sm, 11px);
-        --tlt-font-size-lg: var(--mh-font-size-lg, 14px);
-        --tlt-line-height: var(--mh-line-height, 1.35);
+        --tf-bg: var(--mh-bg-main, #071107);
+        --tf-bg-soft: var(--mh-bg-soft, #0b1508);
+        --tf-panel: var(--mh-bg-panel, #101807);
+        --tf-panel-2: var(--mh-bg-panel-2, var(--mh-panel-2, #16230d));
+        --tf-table-bg: var(--mh-table-bg, #0b140b);
+        --tf-table-head: var(--mh-table-head, #13200d);
+        --tf-control: var(--mh-control, #17250f);
+        --tf-control-hover: var(--mh-control-hover, #203414);
+        --tf-control-active: var(--mh-control-active, var(--mh-script-accent, var(--mh-accent, #9fd42f)));
+        --tf-control-active-text: var(--mh-control-active-text, var(--mh-bg-main, #071107));
+        --tf-control-active-border: var(--mh-control-active-border, var(--mh-accent-2, #44f582));
+        --tf-control-active-ring: var(--mh-control-active-ring, color-mix(in srgb, var(--mh-accent-2, #44f582) 30%, transparent));
+        --tf-border: var(--mh-border, #8fbf26);
+        --tf-border-soft: var(--mh-border-soft, rgba(159, 212, 47, 0.32));
+        --tf-border-strong: var(--mh-border-strong, #9fd42f);
+        --tf-text: var(--mh-text, #eaffd6);
+        --tf-text-soft: var(--mh-text-soft, #cfe8a8);
+        --tf-muted: var(--mh-text-muted, var(--mh-muted, #8fa36d));
+        --tf-accent: var(--mh-script-accent, var(--mh-accent, var(--mh-primary, #9fd42f)));
+        --tf-accent-2: var(--mh-accent-2, var(--mh-secondary, #44f582));
+        --tf-success: var(--mh-success, #44f582);
+        --tf-warning: var(--mh-warning, #e5bd54);
+        --tf-danger: var(--mh-danger, #ff5c5c);
+        --tf-info: var(--mh-info, #72d9ff);
+        --tf-overlay: var(--mh-overlay, rgba(0, 0, 0, 0.72));
+        --tf-shadow: var(--mh-shadow, var(--mh-panel-shadow, 0 18px 45px rgba(0, 0, 0, 0.55)));
+        --tf-radius-sm: var(--mh-radius-sm, 6px);
+        --tf-radius: var(--mh-radius-md, var(--mh-radius, 8px));
+        --tf-space-xs: var(--mh-space-xs, 4px);
+        --tf-space-sm: var(--mh-space-sm, 8px);
+        --tf-space-md: var(--mh-space-md, 12px);
+        --tf-space-lg: var(--mh-space-lg, 16px);
+        --tf-font: var(--mh-font-body, var(--mh-font, Arial, Helvetica, sans-serif));
+        --tf-font-mono: var(--mh-font-mono, Consolas, "Courier New", monospace);
+        --tf-font-size: var(--mh-font-size, 12px);
+        --tf-font-size-sm: var(--mh-font-size-sm, 11px);
+        --tf-font-size-lg: var(--mh-font-size-lg, 14px);
+        --tf-line-height: var(--mh-line-height, 1.35);
         position: fixed;
         left: 18px;
         bottom: 84px;
@@ -7580,17 +7592,17 @@
         max-height: calc(100vh - 16px);
         overflow: hidden;
         resize: both;
-        color: var(--tlt-text);
-        font-family: var(--tlt-font);
-        font-size: var(--tlt-font-size);
-        line-height: var(--tlt-line-height);
+        color: var(--tf-text);
+        font-family: var(--tf-font);
+        font-size: var(--tf-font-size);
+        line-height: var(--tf-line-height);
         letter-spacing: var(--mh-letter-spacing, 0);
         color-scheme: dark;
         scrollbar-color: var(--tf-teal) var(--tf-bg-deep);
         scrollbar-width: thin;
       }
-      html.tlt-popup-document,
-      html.tlt-popup-document body {
+      html.tf-popup-document,
+      html.tf-popup-document body {
         width: 100%;
         height: 100%;
         margin: 0;
@@ -7657,19 +7669,19 @@
         overflow: visible;
         resize: none;
       }
-      #${APP_ID}.is-collapsed .tlt-panel { display: none; }
-      #${APP_ID}.is-popup .tlt-tab { display: none; }
-      #${APP_ID} .tlt-tab {
-        border: 1px solid var(--tlt-border-soft);
-        background: var(--tlt-control);
-        color: var(--tlt-text);
+      #${APP_ID}.is-collapsed .tf-panel { display: none; }
+      #${APP_ID}.is-popup .tf-tab { display: none; }
+      #${APP_ID} .tf-tab {
+        border: 1px solid var(--tf-border-soft);
+        background: var(--tf-control);
+        color: var(--tf-text);
         border-radius: 6px;
         padding: 9px 12px;
         font-weight: 700;
         cursor: pointer;
-        box-shadow: 0 10px 28px color-mix(in srgb, var(--tlt-bg) 70%, transparent);
+        box-shadow: 0 10px 28px color-mix(in srgb, var(--tf-bg) 70%, transparent);
       }
-      #${APP_ID} .tlt-panel {
+      #${APP_ID} .tf-panel {
         position: relative;
         clear: both;
         display: flex;
@@ -7677,35 +7689,35 @@
         height: calc(100% - 38px);
         min-height: 290px;
         overflow: hidden;
-        border: 1px solid var(--tlt-border-soft);
+        border: 1px solid var(--tf-border-soft);
         border-radius: 8px;
-        background: var(--tlt-panel);
-        box-shadow: 0 18px 56px color-mix(in srgb, var(--tlt-bg) 72%, transparent);
+        background: var(--tf-panel);
+        box-shadow: 0 18px 56px color-mix(in srgb, var(--tf-bg) 72%, transparent);
       }
-      #${APP_ID}.is-popup .tlt-panel {
+      #${APP_ID}.is-popup .tf-panel {
         height: 100%;
         border: 0;
         border-radius: 0;
         box-shadow: none;
       }
-      #${APP_ID}.is-popup .tlt-header {
+      #${APP_ID}.is-popup .tf-header {
         cursor: default;
       }
-      #${APP_ID} .tlt-header,
-      #${APP_ID} .tlt-toolbar,
-      #${APP_ID} .tlt-tabs,
-      #${APP_ID} .tlt-tab-content,
-      #${APP_ID} .tlt-form,
-      #${APP_ID} .tlt-summary,
-      #${APP_ID} .tlt-foot {
+      #${APP_ID} .tf-header,
+      #${APP_ID} .tf-toolbar,
+      #${APP_ID} .tf-tabs,
+      #${APP_ID} .tf-tab-content,
+      #${APP_ID} .tf-form,
+      #${APP_ID} .tf-summary,
+      #${APP_ID} .tf-foot {
         padding: 12px;
-        border-bottom: 1px solid var(--tlt-border-soft);
+        border-bottom: 1px solid var(--tf-border-soft);
       }
-      #${APP_ID} .tlt-header {
+      #${APP_ID} .tf-header {
         display: flex;
         align-items: center;
         gap: 12px;
-        background: var(--tlt-bg-soft);
+        background: var(--tf-bg-soft);
         cursor: move;
         user-select: none;
       }
@@ -7714,575 +7726,575 @@
         font-size: 16px;
         line-height: 1.2;
       }
-      #${APP_ID} .tlt-muted { color: var(--tlt-muted); }
-      #${APP_ID} .tlt-header .tlt-muted { margin-top: 3px; }
-      #${APP_ID} .tlt-grow { flex: 1; }
+      #${APP_ID} .tf-muted { color: var(--tf-muted); }
+      #${APP_ID} .tf-header .tf-muted { margin-top: 3px; }
+      #${APP_ID} .tf-grow { flex: 1; }
       #${APP_ID} button,
       #${APP_ID} input,
       #${APP_ID} select,
       #${APP_ID} textarea {
-        border: 1px solid var(--tlt-border);
+        border: 1px solid var(--tf-border);
         border-radius: 6px;
-        background: var(--tlt-control);
-        color: var(--tlt-text);
+        background: var(--tf-control);
+        color: var(--tf-text);
         min-height: 34px;
         padding: 7px 9px;
         font: inherit;
       }
       #${APP_ID} button {
-        background: var(--tlt-control);
+        background: var(--tf-control);
         cursor: pointer;
         font-weight: 700;
       }
-      #${APP_ID} button:hover { background: var(--tlt-control-hover); }
-      #${APP_ID} button.tlt-primary {
-        border-color: var(--tlt-accent-2);
-        background: var(--tlt-accent);
-        color: var(--tlt-bg);
+      #${APP_ID} button:hover { background: var(--tf-control-hover); }
+      #${APP_ID} button.tf-primary {
+        border-color: var(--tf-accent-2);
+        background: var(--tf-accent);
+        color: var(--tf-bg);
       }
-      #${APP_ID} button.tlt-danger {
-        border-color: var(--tlt-danger);
-        background: var(--tlt-danger);
-        color: var(--tlt-bg);
+      #${APP_ID} button.tf-danger {
+        border-color: var(--tf-danger);
+        background: var(--tf-danger);
+        color: var(--tf-bg);
       }
-      #${APP_ID} button.tlt-ghost { background: transparent; }
-      #${APP_ID} .tlt-toolbar {
+      #${APP_ID} button.tf-ghost { background: transparent; }
+      #${APP_ID} .tf-toolbar {
         display: grid;
         grid-template-columns: minmax(150px, 1fr) minmax(145px, 190px) minmax(130px, 180px) auto auto auto;
         gap: 8px;
         align-items: center;
       }
-      #${APP_ID} .tlt-tabs {
+      #${APP_ID} .tf-tabs {
         display: flex;
         flex-wrap: wrap;
         gap: 8px;
         align-items: center;
-        background: var(--tlt-bg-soft);
+        background: var(--tf-bg-soft);
       }
-      #${APP_ID} .tlt-tabs button {
+      #${APP_ID} .tf-tabs button {
         position: relative;
         min-height: 30px;
         padding: 6px 9px;
-        border-color: var(--tlt-border-soft);
-        background: color-mix(in srgb, var(--tlt-table-head) 82%, var(--tlt-bg) 18%);
-        color: var(--tlt-text-soft);
+        border-color: var(--tf-border-soft);
+        background: color-mix(in srgb, var(--tf-table-head) 82%, var(--tf-bg) 18%);
+        color: var(--tf-text-soft);
         transition: background 0.16s ease, border-color 0.16s ease, box-shadow 0.16s ease, color 0.16s ease;
       }
-      #${APP_ID} .tlt-tabs button:hover {
-        border-color: var(--tlt-border-strong);
-        background: var(--tlt-control-hover);
-        color: var(--tlt-text);
+      #${APP_ID} .tf-tabs button:hover {
+        border-color: var(--tf-border-strong);
+        background: var(--tf-control-hover);
+        color: var(--tf-text);
       }
-      #${APP_ID} .tlt-tabs button.is-active,
-      #${APP_ID} .tlt-tabs button[aria-selected="true"] {
-        border-color: var(--tlt-control-active-border);
-        background: var(--tlt-control-active);
-        color: var(--tlt-control-active-text);
+      #${APP_ID} .tf-tabs button.is-active,
+      #${APP_ID} .tf-tabs button[aria-selected="true"] {
+        border-color: var(--tf-control-active-border);
+        background: var(--tf-control-active);
+        color: var(--tf-control-active-text);
         box-shadow:
-          inset 0 -3px 0 color-mix(in srgb, var(--tlt-control-active-text) 36%, transparent),
-          0 0 0 2px var(--tlt-control-active-ring);
+          inset 0 -3px 0 color-mix(in srgb, var(--tf-control-active-text) 36%, transparent),
+          0 0 0 2px var(--tf-control-active-ring);
       }
-      #${APP_ID} .tlt-tabs button.is-active:hover,
-      #${APP_ID} .tlt-tabs button[aria-selected="true"]:hover {
-        background: var(--tlt-control-active);
-        color: var(--tlt-control-active-text);
+      #${APP_ID} .tf-tabs button.is-active:hover,
+      #${APP_ID} .tf-tabs button[aria-selected="true"]:hover {
+        background: var(--tf-control-active);
+        color: var(--tf-control-active-text);
       }
-      #${APP_ID} .tlt-ledger-controls {
+      #${APP_ID} .tf-ledger-controls {
         display: flex;
         flex: 1 1 520px;
         align-items: center;
         justify-content: flex-end;
-        gap: var(--tlt-space-sm);
+        gap: var(--tf-space-sm);
         min-width: min(100%, 520px);
         margin-left: auto;
       }
-      #${APP_ID} .tlt-ledger-controls input[type="search"] {
+      #${APP_ID} .tf-ledger-controls input[type="search"] {
         flex: 1 1 180px;
         min-width: 140px;
       }
-      #${APP_ID} .tlt-ledger-controls select {
+      #${APP_ID} .tf-ledger-controls select {
         flex: 0 1 170px;
       }
-      #${APP_ID} .tlt-ledger-controls button {
+      #${APP_ID} .tf-ledger-controls button {
         flex: 0 0 auto;
       }
-      #${APP_ID} .tlt-tab-content {
+      #${APP_ID} .tf-tab-content {
         flex: 1 1 auto;
         min-height: 0;
         overflow: auto;
         max-height: none;
       }
-      #${APP_ID} .tlt-panel-grid {
+      #${APP_ID} .tf-panel-grid {
         display: grid;
         grid-template-columns: minmax(220px, 320px) minmax(0, 1fr);
         gap: 12px;
       }
-      #${APP_ID} .tlt-endpoint {
-        border: 1px solid var(--tlt-border-soft);
+      #${APP_ID} .tf-endpoint {
+        border: 1px solid var(--tf-border-soft);
         border-radius: 7px;
         padding: 9px;
-        background: var(--tlt-panel-2);
+        background: var(--tf-panel-2);
         min-width: 0;
       }
-      #${APP_ID} .tlt-endpoint strong,
-      #${APP_ID} .tlt-endpoint code,
-      #${APP_ID} .tlt-endpoint span {
+      #${APP_ID} .tf-endpoint strong,
+      #${APP_ID} .tf-endpoint code,
+      #${APP_ID} .tf-endpoint span {
         display: block;
       }
-      #${APP_ID} .tlt-endpoint strong {
+      #${APP_ID} .tf-endpoint strong {
         margin-bottom: 5px;
-        color: var(--tlt-text);
+        color: var(--tf-text);
       }
-      #${APP_ID} .tlt-endpoint code {
+      #${APP_ID} .tf-endpoint code {
         margin-bottom: 7px;
-        color: var(--tlt-info);
+        color: var(--tf-info);
         font-size: 11px;
         overflow-wrap: anywhere;
       }
-      #${APP_ID} .tlt-endpoint .tlt-muted {
+      #${APP_ID} .tf-endpoint .tf-muted {
         min-height: 32px;
       }
-      #${APP_ID} .tlt-badge {
+      #${APP_ID} .tf-badge {
         width: max-content;
         margin-top: 8px;
-        border: 1px solid var(--tlt-border);
+        border: 1px solid var(--tf-border);
         border-radius: 999px;
         padding: 4px 8px;
-        color: var(--tlt-text-soft);
+        color: var(--tf-text-soft);
         font-size: 11px;
         font-weight: 700;
         text-transform: uppercase;
       }
-      #${APP_ID} .tlt-guide {
-        border: 1px solid var(--tlt-border);
+      #${APP_ID} .tf-guide {
+        border: 1px solid var(--tf-border);
         border-radius: 7px;
         padding: 12px;
         margin-bottom: 12px;
-        background: var(--tlt-panel-2);
+        background: var(--tf-panel-2);
       }
-      #${APP_ID} .tlt-guide strong,
-      #${APP_ID} .tlt-guide span {
+      #${APP_ID} .tf-guide strong,
+      #${APP_ID} .tf-guide span {
         display: block;
       }
-      #${APP_ID} .tlt-guide strong {
-        color: var(--tlt-text);
+      #${APP_ID} .tf-guide strong {
+        color: var(--tf-text);
         margin-bottom: 8px;
       }
-      #${APP_ID} .tlt-steps {
+      #${APP_ID} .tf-steps {
         display: grid;
         grid-template-columns: repeat(3, minmax(150px, 1fr));
         gap: 8px;
       }
-      #${APP_ID} .tlt-step {
-        border: 1px solid var(--tlt-border-soft);
+      #${APP_ID} .tf-step {
+        border: 1px solid var(--tf-border-soft);
         border-radius: 7px;
         padding: 9px;
-        background: var(--tlt-panel);
+        background: var(--tf-panel);
       }
-      #${APP_ID} .tlt-step b {
+      #${APP_ID} .tf-step b {
         display: block;
         margin-bottom: 4px;
       }
-      #${APP_ID} .tlt-step span {
-        color: var(--tlt-muted);
+      #${APP_ID} .tf-step span {
+        color: var(--tf-muted);
         font-size: 11px;
         line-height: 1.35;
       }
-      #${APP_ID} .tlt-step button {
+      #${APP_ID} .tf-step button {
         width: 100%;
         min-height: 30px;
         margin-top: 8px;
       }
-      #${APP_ID} .tlt-endpoint button {
+      #${APP_ID} .tf-endpoint button {
         width: 100%;
         margin-top: 8px;
       }
-      #${APP_ID} .tlt-endpoint input,
-      #${APP_ID} .tlt-endpoint select {
+      #${APP_ID} .tf-endpoint input,
+      #${APP_ID} .tf-endpoint select {
         width: 100%;
         min-height: 30px;
         margin-top: 8px;
       }
-      #${APP_ID} .tlt-property-meta {
+      #${APP_ID} .tf-property-meta {
         margin-top: 8px;
-        color: var(--tlt-text-soft);
+        color: var(--tf-text-soft);
         font-size: 11px;
         line-height: 1.45;
       }
-      #${APP_ID} .tlt-property-preview {
+      #${APP_ID} .tf-property-preview {
         display: grid;
         grid-template-columns: 86px minmax(0, 1fr);
         gap: 8px;
         align-items: center;
         margin-top: 8px;
       }
-      #${APP_ID} .tlt-property-image {
+      #${APP_ID} .tf-property-image {
         width: 86px;
         height: 56px;
-        border: 1px solid var(--tlt-border);
+        border: 1px solid var(--tf-border);
         border-radius: 6px;
         object-fit: cover;
-        background: var(--tlt-control);
+        background: var(--tf-control);
       }
-      #${APP_ID} .tlt-property-picture-grid {
+      #${APP_ID} .tf-property-picture-grid {
         display: grid;
         grid-template-columns: repeat(auto-fill, minmax(128px, 1fr));
-        gap: var(--tlt-space-sm);
+        gap: var(--tf-space-sm);
         align-items: stretch;
       }
-      #${APP_ID} .tlt-property-picture-card {
+      #${APP_ID} .tf-property-picture-card {
         display: grid;
         grid-template-rows: 74px auto;
-        gap: var(--tlt-space-xs);
+        gap: var(--tf-space-xs);
         min-width: 0;
-        border: 1px solid var(--tlt-border-soft);
-        border-radius: var(--tlt-radius-sm);
-        padding: var(--tlt-space-xs);
-        background: var(--tlt-panel-2);
+        border: 1px solid var(--tf-border-soft);
+        border-radius: var(--tf-radius-sm);
+        padding: var(--tf-space-xs);
+        background: var(--tf-panel-2);
       }
-      #${APP_ID} .tlt-property-picture-card .tlt-property-image {
+      #${APP_ID} .tf-property-picture-card .tf-property-image {
         width: 100%;
         height: 74px;
       }
-      #${APP_ID} .tlt-property-picture-card div {
+      #${APP_ID} .tf-property-picture-card div {
         min-width: 0;
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
       }
-      #${APP_ID} .tlt-user-summary {
+      #${APP_ID} .tf-user-summary {
         display: grid;
         grid-template-columns: repeat(3, minmax(130px, 1fr));
         gap: 8px;
       }
-      #${APP_ID} .tlt-profile-card {
-        border: 1px solid var(--tlt-border-soft);
+      #${APP_ID} .tf-profile-card {
+        border: 1px solid var(--tf-border-soft);
         border-radius: 7px;
         padding: 12px;
-        background: var(--tlt-panel-2);
-        color: var(--tlt-text);
+        background: var(--tf-panel-2);
+        color: var(--tf-text);
       }
-      #${APP_ID} .tlt-profile-head {
+      #${APP_ID} .tf-profile-head {
         display: grid;
         grid-template-columns: 72px minmax(0, 1fr);
         gap: 12px;
         align-items: center;
       }
-      #${APP_ID} .tlt-profile-image {
+      #${APP_ID} .tf-profile-image {
         width: 72px;
         height: 72px;
-        border: 1px solid var(--tlt-border);
+        border: 1px solid var(--tf-border);
         border-radius: 7px;
         object-fit: cover;
-        background: var(--tlt-control);
+        background: var(--tf-control);
       }
-      #${APP_ID} .tlt-info-property {
+      #${APP_ID} .tf-info-property {
         display: grid;
         grid-template-columns: 64px minmax(0, 1fr);
         gap: 8px;
         align-items: center;
       }
-      #${APP_ID} .tlt-info-property img {
+      #${APP_ID} .tf-info-property img {
         width: 64px;
         height: 42px;
-        border: 1px solid var(--tlt-border);
+        border: 1px solid var(--tf-border);
         border-radius: 5px;
         object-fit: cover;
       }
-      #${APP_ID} .tlt-profile-name {
+      #${APP_ID} .tf-profile-name {
         margin: 0;
         font-size: 18px;
         line-height: 1.2;
       }
-      #${APP_ID} .tlt-profile-grid {
+      #${APP_ID} .tf-profile-grid {
         display: grid;
         grid-template-columns: repeat(3, minmax(130px, 1fr));
         gap: 8px;
         margin-top: 12px;
       }
-      #${APP_ID} .tlt-info-card {
-        border: 1px solid var(--tlt-border-soft);
+      #${APP_ID} .tf-info-card {
+        border: 1px solid var(--tf-border-soft);
         border-radius: 7px;
         padding: 9px;
-        background: var(--tlt-panel-2);
-        color: var(--tlt-text);
+        background: var(--tf-panel-2);
+        color: var(--tf-text);
       }
-      #${APP_ID} .tlt-info-card span,
-      #${APP_ID} .tlt-info-card b {
+      #${APP_ID} .tf-info-card span,
+      #${APP_ID} .tf-info-card b {
         display: block;
       }
-      #${APP_ID} .tlt-info-card span {
-        color: var(--tlt-muted);
+      #${APP_ID} .tf-info-card span {
+        color: var(--tf-muted);
         font-size: 11px;
       }
-      #${APP_ID} .tlt-info-card b {
+      #${APP_ID} .tf-info-card b {
         margin-top: 4px;
         font-size: 14px;
         overflow-wrap: anywhere;
       }
-      #${APP_ID} .tlt-settings-grid {
+      #${APP_ID} .tf-settings-grid {
         display: grid;
         grid-template-columns: repeat(2, minmax(220px, 1fr));
         gap: 12px;
       }
-      #${APP_ID} .tlt-settings-card {
-        border: 1px solid var(--tlt-border-soft);
+      #${APP_ID} .tf-settings-card {
+        border: 1px solid var(--tf-border-soft);
         border-radius: 7px;
         padding: 12px;
-        background: var(--tlt-panel-2);
+        background: var(--tf-panel-2);
       }
-      #${APP_ID} .tlt-settings-card label,
-      #${APP_ID} .tlt-settings-card span,
-      #${APP_ID} .tlt-settings-card strong {
+      #${APP_ID} .tf-settings-card label,
+      #${APP_ID} .tf-settings-card span,
+      #${APP_ID} .tf-settings-card strong {
         display: block;
       }
-      #${APP_ID} .tlt-settings-card label {
+      #${APP_ID} .tf-settings-card label {
         margin-top: 10px;
-        color: var(--tlt-text-soft);
+        color: var(--tf-text-soft);
         font-size: 12px;
       }
-      #${APP_ID} .tlt-settings-card input,
-      #${APP_ID} .tlt-settings-card select {
+      #${APP_ID} .tf-settings-card input,
+      #${APP_ID} .tf-settings-card select {
         width: 100%;
         margin-top: 5px;
       }
-      #${APP_ID} .tlt-settings-card button {
+      #${APP_ID} .tf-settings-card button {
         margin-top: 10px;
       }
-      #${APP_ID} .tlt-setting-row {
+      #${APP_ID} .tf-setting-row {
         display: flex;
         align-items: center;
         gap: 8px;
         margin-top: 10px;
-        color: var(--tlt-text-soft);
+        color: var(--tf-text-soft);
       }
-      #${APP_ID} .tlt-setting-row input {
+      #${APP_ID} .tf-setting-row input {
         width: auto;
         min-height: 0;
         margin: 0;
       }
-      #${APP_ID} .tlt-result {
+      #${APP_ID} .tf-result {
         margin-top: 8px;
-        color: var(--tlt-text-soft);
+        color: var(--tf-text-soft);
         font-size: 11px;
       }
-      #${APP_ID} .tlt-subscription {
+      #${APP_ID} .tf-subscription {
         margin-top: 10px;
-        border: 1px solid var(--tlt-border);
-        border-left: 4px solid var(--tlt-muted);
+        border: 1px solid var(--tf-border);
+        border-left: 4px solid var(--tf-muted);
         border-radius: 7px;
         padding: 10px;
-        background: var(--tlt-panel);
+        background: var(--tf-panel);
       }
-      #${APP_ID} .tlt-subscription.is-active { border-left-color: var(--tlt-success); }
-      #${APP_ID} .tlt-subscription.is-blocked { border-left-color: var(--tlt-danger); }
-      #${APP_ID} .tlt-subscription.is-warning { border-left-color: var(--tlt-warning); }
-      #${APP_ID} .tlt-subscription span,
-      #${APP_ID} .tlt-subscription strong,
-      #${APP_ID} .tlt-subscription small {
+      #${APP_ID} .tf-subscription.is-active { border-left-color: var(--tf-success); }
+      #${APP_ID} .tf-subscription.is-blocked { border-left-color: var(--tf-danger); }
+      #${APP_ID} .tf-subscription.is-warning { border-left-color: var(--tf-warning); }
+      #${APP_ID} .tf-subscription span,
+      #${APP_ID} .tf-subscription strong,
+      #${APP_ID} .tf-subscription small {
         display: block;
       }
-      #${APP_ID} .tlt-subscription span,
-      #${APP_ID} .tlt-subscription small {
-        color: var(--tlt-muted);
+      #${APP_ID} .tf-subscription span,
+      #${APP_ID} .tf-subscription small {
+        color: var(--tf-muted);
         font-size: 11px;
       }
-      #${APP_ID} .tlt-subscription strong {
+      #${APP_ID} .tf-subscription strong {
         margin-top: 3px;
-        color: var(--tlt-text);
+        color: var(--tf-text);
         font-size: 15px;
       }
-      #${APP_ID} .tlt-subscription p {
+      #${APP_ID} .tf-subscription p {
         margin: 8px 0 0;
-        color: var(--tlt-text-soft);
+        color: var(--tf-text-soft);
         line-height: 1.35;
       }
-      #${APP_ID} .tlt-data-table {
+      #${APP_ID} .tf-data-table {
         width: 100%;
         min-width: 520px;
         margin-top: 10px;
-        color: var(--tlt-text);
-        background: var(--tlt-control);
+        color: var(--tf-text);
+        background: var(--tf-control);
       }
-      #${APP_ID} .tlt-data-table th,
-      #${APP_ID} .tlt-data-table td {
-        color: var(--tlt-text);
-        background: var(--tlt-control);
+      #${APP_ID} .tf-data-table th,
+      #${APP_ID} .tf-data-table td {
+        color: var(--tf-text);
+        background: var(--tf-control);
         line-height: 1.35;
       }
-      #${APP_ID} .tlt-data-table th {
-        background: var(--tlt-table-head);
+      #${APP_ID} .tf-data-table th {
+        background: var(--tf-table-head);
         white-space: nowrap;
         text-transform: capitalize;
       }
-      #${APP_ID} .tlt-data-table tbody tr:nth-child(even) td {
-        background: var(--tlt-panel);
+      #${APP_ID} .tf-data-table tbody tr:nth-child(even) td {
+        background: var(--tf-panel);
       }
-      #${APP_ID} .tlt-data-table td.tlt-number {
+      #${APP_ID} .tf-data-table td.tf-number {
         text-align: right;
         font-variant-numeric: tabular-nums;
         white-space: nowrap;
       }
-      #${APP_ID} .tlt-data-table td.tlt-object {
+      #${APP_ID} .tf-data-table td.tf-object {
         min-width: 130px;
       }
-      #${APP_ID} .tlt-data-table td.tlt-image-cell {
+      #${APP_ID} .tf-data-table td.tf-image-cell {
         width: 98px;
         min-width: 98px;
       }
-      #${APP_ID} .tlt-table-thumb {
+      #${APP_ID} .tf-table-thumb {
         display: block;
         width: 82px;
         height: 54px;
-        border: 1px solid var(--tlt-border);
+        border: 1px solid var(--tf-border);
         border-radius: 5px;
         object-fit: cover;
-        background: var(--tlt-bg);
+        background: var(--tf-bg);
       }
-      #${APP_ID} .tlt-home-cell {
+      #${APP_ID} .tf-home-cell {
         display: flex;
         align-items: center;
-        gap: var(--tlt-space-sm);
+        gap: var(--tf-space-sm);
       }
-      #${APP_ID} .tlt-thumb-hover {
+      #${APP_ID} .tf-thumb-hover {
         position: relative;
         display: inline-flex;
         flex: 0 0 auto;
       }
-      #${APP_ID} .tlt-lease-table .tlt-table-thumb {
+      #${APP_ID} .tf-lease-table .tf-table-thumb {
         width: 58px;
         height: 38px;
       }
-      #${APP_ID} .tlt-thumb-preview {
+      #${APP_ID} .tf-thumb-preview {
         position: absolute;
         left: 0;
-        top: calc(100% + var(--tlt-space-sm));
+        top: calc(100% + var(--tf-space-sm));
         z-index: 30;
         display: none;
         width: 350px;
         max-width: min(350px, calc(100vw - 40px));
-        padding: var(--tlt-space-sm);
-        border: 1px solid var(--tlt-border-soft);
-        border-radius: var(--tlt-radius);
-        background: var(--tlt-panel);
-        box-shadow: var(--tlt-shadow);
+        padding: var(--tf-space-sm);
+        border: 1px solid var(--tf-border-soft);
+        border-radius: var(--tf-radius);
+        background: var(--tf-panel);
+        box-shadow: var(--tf-shadow);
       }
-      #${APP_ID} .tlt-thumb-preview img {
+      #${APP_ID} .tf-thumb-preview img {
         display: block;
         width: 100%;
         height: auto;
-        border-radius: var(--tlt-radius-sm);
+        border-radius: var(--tf-radius-sm);
       }
-      #${APP_ID} .tlt-thumb-hover:hover .tlt-thumb-preview,
-      #${APP_ID} .tlt-thumb-hover:focus-within .tlt-thumb-preview {
+      #${APP_ID} .tf-thumb-hover:hover .tf-thumb-preview,
+      #${APP_ID} .tf-thumb-hover:focus-within .tf-thumb-preview {
         display: block;
       }
-      #${APP_ID} .tlt-choice-list {
+      #${APP_ID} .tf-choice-list {
         display: grid;
         gap: 4px;
         min-width: 180px;
         max-width: 340px;
         max-height: 150px;
         overflow: auto;
-        border: 1px solid var(--tlt-border);
+        border: 1px solid var(--tf-border);
         border-radius: 6px;
-        background: var(--tlt-panel-2);
-        color: var(--tlt-text);
+        background: var(--tf-panel-2);
+        color: var(--tf-text);
         padding: 6px;
       }
-      #${APP_ID} .tlt-choice-option {
+      #${APP_ID} .tf-choice-option {
         display: flex;
         align-items: flex-start;
         gap: 6px;
-        color: var(--tlt-text);
+        color: var(--tf-text);
         font-size: 12px;
         line-height: 1.25;
       }
-      #${APP_ID} .tlt-choice-option input {
+      #${APP_ID} .tf-choice-option input {
         width: auto;
         min-height: 0;
         margin: 1px 0 0;
-        accent-color: var(--tlt-accent);
+        accent-color: var(--tf-accent);
       }
-      #${APP_ID} .tlt-empty-value {
+      #${APP_ID} .tf-empty-value {
         display: inline-block;
-        color: var(--tlt-muted);
+        color: var(--tf-muted);
         font-style: italic;
       }
-      #${APP_ID} .tlt-check-cell,
-      #${APP_ID} .tlt-miss-cell,
-      #${APP_ID} .tlt-volume-cell {
+      #${APP_ID} .tf-check-cell,
+      #${APP_ID} .tf-miss-cell,
+      #${APP_ID} .tf-volume-cell {
         display: inline-flex;
         align-items: center;
         justify-content: center;
         width: 100%;
         font-weight: 700;
       }
-      #${APP_ID} .tlt-check-cell { color: var(--tlt-success); }
-      #${APP_ID} .tlt-miss-cell { color: var(--tlt-muted); }
-      #${APP_ID} .tlt-volume-cell { color: var(--tlt-text); }
-      #${APP_ID} .tlt-data-json {
+      #${APP_ID} .tf-check-cell { color: var(--tf-success); }
+      #${APP_ID} .tf-miss-cell { color: var(--tf-muted); }
+      #${APP_ID} .tf-volume-cell { color: var(--tf-text); }
+      #${APP_ID} .tf-data-json {
         margin-top: 10px;
-        color: var(--tlt-text);
+        color: var(--tf-text);
       }
-      #${APP_ID} .tlt-data-json summary {
-        color: var(--tlt-text);
+      #${APP_ID} .tf-data-json summary {
+        color: var(--tf-text);
         cursor: pointer;
       }
-      #${APP_ID} .tlt-data-json pre {
+      #${APP_ID} .tf-data-json pre {
         overflow: auto;
         max-height: 280px;
         margin: 8px 0 0;
-        border: 1px solid var(--tlt-border-soft);
+        border: 1px solid var(--tf-border-soft);
         border-radius: 7px;
         padding: 10px;
-        background: var(--tlt-bg);
-        color: var(--tlt-text);
+        background: var(--tf-bg);
+        color: var(--tf-text);
         font-size: 11px;
         white-space: pre-wrap;
       }
-      #${APP_ID} .tlt-section-title {
+      #${APP_ID} .tf-section-title {
         padding: 12px 12px 0;
-        color: var(--tlt-text);
+        color: var(--tf-text);
         font-weight: 700;
       }
-      #${APP_ID} .tlt-section-note {
+      #${APP_ID} .tf-section-note {
         padding: 4px 12px 0;
-        color: var(--tlt-muted);
+        color: var(--tf-muted);
         font-size: 11px;
       }
-      #${APP_ID} .tlt-summary {
+      #${APP_ID} .tf-summary {
         display: grid;
         grid-template-columns: repeat(4, minmax(120px, 1fr));
         gap: 8px;
       }
-      #${APP_ID} .tlt-stat {
-        border: 1px solid var(--tlt-border-soft);
+      #${APP_ID} .tf-stat {
+        border: 1px solid var(--tf-border-soft);
         border-radius: 7px;
         padding: 9px;
-        background: var(--tlt-panel-2);
+        background: var(--tf-panel-2);
       }
-      #${APP_ID} .tlt-stat b {
+      #${APP_ID} .tf-stat b {
         display: block;
         margin-top: 3px;
         font-size: 18px;
       }
-      #${APP_ID} .tlt-table-wrap {
+      #${APP_ID} .tf-table-wrap {
         overflow: auto;
         max-height: 310px;
       }
-      #${APP_ID} .tlt-ledger-view {
+      #${APP_ID} .tf-ledger-view {
         display: flex;
         flex-direction: column;
-        gap: var(--tlt-space-md);
+        gap: var(--tf-space-md);
         height: 100%;
         min-height: 0;
       }
-      #${APP_ID} .tlt-ledger-view .tlt-guide,
-      #${APP_ID} .tlt-ledger-view .tlt-summary {
+      #${APP_ID} .tf-ledger-view .tf-guide,
+      #${APP_ID} .tf-ledger-view .tf-summary {
         flex: 0 0 auto;
       }
-      #${APP_ID} .tlt-ledger-view .tlt-table-wrap {
+      #${APP_ID} .tf-ledger-view .tf-table-wrap {
         flex: 1 1 auto;
         min-height: 0;
         max-height: none;
@@ -8294,7 +8306,7 @@
       }
       #${APP_ID} th,
       #${APP_ID} td {
-        border-bottom: 1px solid var(--tlt-border-soft);
+        border-bottom: 1px solid var(--tf-border-soft);
         padding: 9px 8px;
         text-align: left;
         vertical-align: top;
@@ -8302,24 +8314,24 @@
       #${APP_ID} th {
         position: sticky;
         top: 0;
-        background: var(--tlt-table-head);
-        color: var(--tlt-text);
+        background: var(--tf-table-head);
+        color: var(--tf-text);
         z-index: 1;
       }
-      #${APP_ID} th button.tlt-sort {
+      #${APP_ID} th button.tf-sort {
         width: 100%;
         min-height: 0;
         border: 0;
         border-radius: 0;
         padding: 0;
         background: transparent;
-        color: var(--tlt-text);
+        color: var(--tf-text);
         text-align: left;
         font-weight: 700;
         cursor: pointer;
       }
-      #${APP_ID} th button.tlt-sort:hover {
-        color: var(--tlt-bg);
+      #${APP_ID} th button.tf-sort:hover {
+        color: var(--tf-bg);
         background: transparent;
       }
       #${APP_ID} td input,
@@ -8327,135 +8339,135 @@
         width: 100%;
         min-width: 80px;
       }
-      #${APP_ID} .tlt-lease-table {
+      #${APP_ID} .tf-lease-table {
         width: max-content;
         min-width: 100%;
       }
-      #${APP_ID} .tlt-lease-table th,
-      #${APP_ID} .tlt-lease-table td {
+      #${APP_ID} .tf-lease-table th,
+      #${APP_ID} .tf-lease-table td {
         white-space: nowrap;
       }
-      #${APP_ID} .tlt-lease-table td input,
-      #${APP_ID} .tlt-lease-table td select,
-      #${APP_ID} .tlt-form input {
+      #${APP_ID} .tf-lease-table td input,
+      #${APP_ID} .tf-lease-table td select,
+      #${APP_ID} .tf-form input {
         width: auto;
         min-width: 8ch;
         max-width: 36ch;
         field-sizing: content;
       }
-      #${APP_ID} .tlt-lease-table td input.tlt-lease-text {
+      #${APP_ID} .tf-lease-table td input.tf-lease-text {
         min-width: 12ch;
       }
-      #${APP_ID} .tlt-money-input {
+      #${APP_ID} .tf-money-input {
         min-width: 10ch;
         text-align: right;
         font-variant-numeric: tabular-nums;
       }
-      #${APP_ID} .tlt-readonly-value {
+      #${APP_ID} .tf-readonly-value {
         display: inline-flex;
         align-items: center;
         min-height: 34px;
         min-width: 8ch;
         max-width: 36ch;
-        border: 1px solid var(--tlt-border-soft);
+        border: 1px solid var(--tf-border-soft);
         border-radius: 6px;
         padding: 7px 9px;
-        background: var(--tlt-panel);
-        color: var(--tlt-text);
+        background: var(--tf-panel);
+        color: var(--tf-text);
         overflow: hidden;
         text-overflow: ellipsis;
       }
-      #${APP_ID} .tlt-readonly-value.is-number {
+      #${APP_ID} .tf-readonly-value.is-number {
         justify-content: flex-end;
         font-variant-numeric: tabular-nums;
       }
-      #${APP_ID} .tlt-date-input {
+      #${APP_ID} .tf-date-input {
         min-width: 11ch;
       }
-      #${APP_ID} .tlt-actions {
+      #${APP_ID} .tf-actions {
         display: flex;
         gap: 6px;
       }
-      #${APP_ID} .tlt-form {
+      #${APP_ID} .tf-form {
         display: grid;
         grid-template-columns: repeat(6, minmax(100px, 1fr));
         gap: 8px;
       }
-      #${APP_ID} .tlt-advanced-picker {
+      #${APP_ID} .tf-advanced-picker {
         display: grid;
         grid-template-columns: minmax(200px, 320px) minmax(0, 1fr);
         gap: 8px;
         align-items: center;
         margin-bottom: 12px;
       }
-      #${APP_ID} .tlt-advanced-picker select {
+      #${APP_ID} .tf-advanced-picker select {
         width: 100%;
       }
-      #${APP_ID} .tlt-form-field {
+      #${APP_ID} .tf-form-field {
         display: grid;
         gap: 4px;
         min-width: 0;
-        color: var(--tlt-text-soft);
+        color: var(--tf-text-soft);
         font-size: 11px;
         font-weight: 700;
       }
-      #${APP_ID} .tlt-form-field span {
-        color: var(--tlt-muted);
+      #${APP_ID} .tf-form-field span {
+        color: var(--tf-muted);
       }
-      #${APP_ID} .tlt-form-field input,
-      #${APP_ID} .tlt-form-field select,
-      #${APP_ID} .tlt-form-field textarea {
+      #${APP_ID} .tf-form-field input,
+      #${APP_ID} .tf-form-field select,
+      #${APP_ID} .tf-form-field textarea {
         width: 100%;
       }
-      #${APP_ID} .tlt-form-field.is-wide { grid-column: span 2; }
-      #${APP_ID} .tlt-form textarea { resize: vertical; }
-      #${APP_ID} .tlt-form button { grid-column: span 1; }
-      #${APP_ID} .tlt-modal-backdrop {
+      #${APP_ID} .tf-form-field.is-wide { grid-column: span 2; }
+      #${APP_ID} .tf-form textarea { resize: vertical; }
+      #${APP_ID} .tf-form button { grid-column: span 1; }
+      #${APP_ID} .tf-modal-backdrop {
         position: absolute;
         inset: 0;
         z-index: 10;
         display: grid;
         place-items: center;
-        padding: var(--tlt-space-lg);
-        background: color-mix(in srgb, var(--tlt-overlay) 82%, transparent);
+        padding: var(--tf-space-lg);
+        background: color-mix(in srgb, var(--tf-overlay) 82%, transparent);
       }
-      #${APP_ID} .tlt-modal {
+      #${APP_ID} .tf-modal {
         width: min(760px, 100%);
         max-height: min(620px, 100%);
         display: flex;
         flex-direction: column;
         overflow: hidden;
-        border: 1px solid var(--tlt-border-soft);
-        border-radius: var(--tlt-radius);
-        background: var(--tlt-panel);
-        box-shadow: var(--tlt-shadow);
+        border: 1px solid var(--tf-border-soft);
+        border-radius: var(--tf-radius);
+        background: var(--tf-panel);
+        box-shadow: var(--tf-shadow);
       }
-      #${APP_ID} .tlt-modal-head {
+      #${APP_ID} .tf-modal-head {
         display: flex;
         align-items: flex-start;
         justify-content: space-between;
-        gap: var(--tlt-space-md);
-        padding: var(--tlt-space-md);
-        border-bottom: 1px solid var(--tlt-border-soft);
-        background: var(--tlt-bg-soft);
+        gap: var(--tf-space-md);
+        padding: var(--tf-space-md);
+        border-bottom: 1px solid var(--tf-border-soft);
+        background: var(--tf-bg-soft);
       }
-      #${APP_ID} .tlt-modal-head strong,
-      #${APP_ID} .tlt-modal-head span {
+      #${APP_ID} .tf-modal-head strong,
+      #${APP_ID} .tf-modal-head span {
         display: block;
       }
-      #${APP_ID} .tlt-modal .tlt-form {
+      #${APP_ID} .tf-modal .tf-form {
         overflow: auto;
-        padding: var(--tlt-space-md);
+        padding: var(--tf-space-md);
         border-bottom: 0;
       }
-      #${APP_ID} .tlt-foot {
+      #${APP_ID} .tf-foot {
         display: flex;
         align-items: center;
         justify-content: space-between;
         gap: 12px;
         border-bottom: 0;
       }
-      #${APP_ID} .tlt-status.is-error { color: var(--tlt-danger); }
+      #${APP_ID} .tf-status.is-error { color: var(--tf-danger); }
       @media (max-width: 860px) {
         #${APP_ID} {
           left: 8px;
@@ -8465,35 +8477,35 @@
           min-width: 0;
           min-height: 320px;
         }
-        #${APP_ID} .tlt-toolbar,
-        #${APP_ID} .tlt-panel-grid,
-        #${APP_ID} .tlt-settings-grid,
-        #${APP_ID} .tlt-user-summary,
-        #${APP_ID} .tlt-profile-grid,
-        #${APP_ID} .tlt-summary,
-        #${APP_ID} .tlt-steps,
-        #${APP_ID} .tlt-advanced-picker,
-        #${APP_ID} .tlt-form {
+        #${APP_ID} .tf-toolbar,
+        #${APP_ID} .tf-panel-grid,
+        #${APP_ID} .tf-settings-grid,
+        #${APP_ID} .tf-user-summary,
+        #${APP_ID} .tf-profile-grid,
+        #${APP_ID} .tf-summary,
+        #${APP_ID} .tf-steps,
+        #${APP_ID} .tf-advanced-picker,
+        #${APP_ID} .tf-form {
           grid-template-columns: 1fr 1fr;
         }
-        #${APP_ID} .tlt-ledger-controls {
+        #${APP_ID} .tf-ledger-controls {
           flex-basis: 100%;
           justify-content: flex-start;
           margin-left: 0;
         }
-        #${APP_ID} .tlt-ledger-controls input[type="search"],
-        #${APP_ID} .tlt-ledger-controls select,
-        #${APP_ID} .tlt-ledger-controls button {
+        #${APP_ID} .tf-ledger-controls input[type="search"],
+        #${APP_ID} .tf-ledger-controls select,
+        #${APP_ID} .tf-ledger-controls button {
           flex: 1 1 150px;
         }
-        #${APP_ID} .tlt-panel-grid {
+        #${APP_ID} .tf-panel-grid {
           grid-template-columns: 1fr;
         }
-        #${APP_ID} .tlt-form textarea,
-        #${APP_ID} .tlt-form button {
+        #${APP_ID} .tf-form textarea,
+        #${APP_ID} .tf-form button {
           grid-column: span 2;
         }
-        #${APP_ID} .tlt-foot {
+        #${APP_ID} .tf-foot {
           align-items: flex-start;
           flex-direction: column;
         }
@@ -8517,7 +8529,7 @@
     if (isPopup) syncGlobalThemeToDocument(targetDocument);
     injectStyles(targetDocument);
     injectVisionStyles(targetDocument);
-    targetDocument.documentElement.classList.toggle("tlt-popup-document", Boolean(isPopup));
+    targetDocument.documentElement.classList.toggle("tf-popup-document", Boolean(isPopup));
     ensureRenderableActiveTab();
     let root = targetDocument.getElementById(APP_ID);
     if (!root) {
@@ -8572,18 +8584,18 @@
     const userId = keyInfoUserId(state.keyInfo);
     const keyMask = maskedApiKey();
     return `
-      <div class="tlt-panel-grid">
-        <div class="tlt-endpoint">
+      <div class="tf-panel-grid">
+        <div class="tf-endpoint">
           <strong>Bring in my Torn homes</strong>
-          <span class="tlt-muted">Save your key first. Then fetch once and let the tool fill the list.</span>
-          ${keyMask ? `<div class="tlt-badge">Key saved ${escapeHtml(keyMask)}</div>` : `<div class="tlt-badge">No key saved</div>`}
-          ${serverAccessHtml() ? `<div class="tlt-result">${serverAccessHtml()}</div>` : ""}
+          <span class="tf-muted">Save your key first. Then fetch once and let the tool fill the list.</span>
+          ${keyMask ? `<div class="tf-badge">Key saved ${escapeHtml(keyMask)}</div>` : `<div class="tf-badge">No key saved</div>`}
+          ${serverAccessHtml() ? `<div class="tf-result">${serverAccessHtml()}</div>` : ""}
           <button type="button" data-tab="settings">Go to Settings</button>
-          <button class="tlt-primary" type="button" data-action="refresh-user-details">Fetch everything</button>
+          <button class="tf-primary" type="button" data-action="refresh-user-details">Fetch everything</button>
           <button type="button" data-action="import-owned">Fetch homes I rent out</button>
           <button type="button" data-action="import-current">Fetch the home I use</button>
           <button type="button" data-action="fetch-spouse-properties">Fetch partner homes</button>
-          ${userId ? `<div class="tlt-result">User ID ${escapeHtml(userId)}. Access: ${escapeHtml((access && access.type) || "unknown")}.</div>` : ""}
+          ${userId ? `<div class="tf-result">User ID ${escapeHtml(userId)}. Access: ${escapeHtml((access && access.type) || "unknown")}.</div>` : ""}
         </div>
         <div>
           ${userDetailsHtml()}
@@ -8596,24 +8608,24 @@
     const settings = appSettings();
     const keyMask = maskedApiKey();
     return `
-      <div class="tlt-settings-grid">
-        <div class="tlt-settings-card">
+      <div class="tf-settings-grid">
+        <div class="tf-settings-card">
           <strong>1. Save your Torn key</strong>
-          <span class="tlt-muted">Paste your public Torn key. It checks access and fetches your homes.</span>
+          <span class="tf-muted">Paste your public Torn key. It checks access and fetches your homes.</span>
           <label>
             Torn public key
             <input type="text" data-api-key-input placeholder="${keyMask ? "Paste a new key only if you want to replace it" : "Paste key here"}" autocomplete="off" autocapitalize="off" spellcheck="false">
           </label>
-          ${keyMask ? `<div class="tlt-result">Saved key: ${escapeHtml(keyMask)}</div>` : `<div class="tlt-result">No key saved yet.</div>`}
+          ${keyMask ? `<div class="tf-result">Saved key: ${escapeHtml(keyMask)}</div>` : `<div class="tf-result">No key saved yet.</div>`}
           ${subscriptionStatusHtml()}
-          <div class="tlt-actions">
-            <button class="tlt-primary" type="button" data-action="save-api-key">Save key</button>
+          <div class="tf-actions">
+            <button class="tf-primary" type="button" data-action="save-api-key">Save key</button>
             <button type="button" data-action="check-key">Test key</button>
             <button type="button" data-action="verify-hosted-access">Check subscription</button>
-            <button class="tlt-danger" type="button" data-action="clear-key">Clear key</button>
+            <button class="tf-danger" type="button" data-action="clear-key">Clear key</button>
           </div>
         </div>
-        <div class="tlt-settings-card">
+        <div class="tf-settings-card">
           <strong>2. Choose easy defaults</strong>
           <label>
             Rows to show in big tables
@@ -8631,18 +8643,18 @@
               ${propertyHistoryPagesOptionsHtml()}
             </select>
           </label>
-          <label class="tlt-setting-row">
+          <label class="tf-setting-row">
             <input type="checkbox" data-setting-field="showRawJson"${settings.showRawJson ? " checked" : ""}>
             <span>Show extra Torn text below tables</span>
           </label>
-          <label class="tlt-setting-row">
+          <label class="tf-setting-row">
             <input type="checkbox" data-setting-field="showAdvancedTools"${settings.showAdvancedTools ? " checked" : ""}>
             <span>Show Advanced tab</span>
           </label>
         </div>
-        <div class="tlt-settings-card">
+        <div class="tf-settings-card">
           <strong>3. Rent suggestion targets</strong>
-          <span class="tlt-muted">Used when the tool suggests a rent price.</span>
+          <span class="tf-muted">Used when the tool suggests a rent price.</span>
           <label>
             Target yearly ROI %
             <input type="number" min="0.1" max="500" step="0.1" data-setting-field="targetAnnualRoi" value="${escapeAttr(targetAnnualRoi())}">
@@ -8652,9 +8664,9 @@
             <input type="number" min="1" max="100" step="1" data-setting-field="defaultSuggestionLeaseDays" value="${escapeAttr(defaultSuggestionLeaseDays())}">
           </label>
         </div>
-        <div class="tlt-settings-card">
+        <div class="tf-settings-card">
           <strong>Window</strong>
-          <span class="tlt-muted">Drag the top bar to move this box. Drag the lower-right corner to resize it.</span>
+          <span class="tf-muted">Drag the top bar to move this box. Drag the lower-right corner to resize it.</span>
           <button type="button" data-action="reset-position">Put window back</button>
         </div>
       </div>
@@ -8663,14 +8675,14 @@
 
   function endpointPanelHtml(endpoint) {
     return `
-      <div class="tlt-panel-grid">
-        <div class="tlt-endpoint">
+      <div class="tf-panel-grid">
+        <div class="tf-endpoint">
           <strong>${escapeHtml(endpoint.label)}</strong>
           <code>GET ${escapeHtml(displayEndpointPath(endpoint))}</code>
-          <span class="tlt-muted">${escapeHtml(endpoint.detail)}</span>
+          <span class="tf-muted">${escapeHtml(endpoint.detail)}</span>
           ${endpoint.path.includes("{id}") && !endpoint.spouseOnly ? userLookupInputHtml() : ""}
           ${endpoint.needsPropertyType ? propertyTypeSelectHtml() : ""}
-          <button class="tlt-primary" type="button" data-action="${escapeAttr(endpoint.action)}">${escapeHtml(endpoint.actionLabel)}</button>
+          <button class="tf-primary" type="button" data-action="${escapeAttr(endpoint.action)}">${escapeHtml(endpoint.actionLabel)}</button>
           ${endpointResultHtml(endpoint.id)}
         </div>
         <div>
@@ -8687,21 +8699,21 @@
     const updated =
       metadata.scanned_at || metadata.updatedAt || metadata.updated_at || metadata.fetchedAt || "";
     return `
-      <div class="tlt-panel-grid">
-        <div class="tlt-endpoint">
+      <div class="tf-panel-grid">
+        <div class="tf-endpoint">
           <strong>Rent suggestions</strong>
-          <span class="tlt-muted">Fetch your homes. The tool checks matching listings and shows the useful answer.</span>
-          <button class="tlt-primary" type="button" data-action="refresh-user-details">Fetch everything</button>
+          <span class="tf-muted">Fetch your homes. The tool checks matching listings and shows the useful answer.</span>
+          <button class="tf-primary" type="button" data-action="refresh-user-details">Fetch everything</button>
           <button type="button" data-action="scan-owned-property-market">Scan ROI/Listings</button>
           <button type="button" data-action="export-rent-suggestions-csv">Export suggestions CSV</button>
           ${endpointResultHtml("server-sync")}
-          ${updated ? `<div class="tlt-result">Market data checked ${escapeHtml(new Date(updated).toLocaleString())}.</div>` : ""}
+          ${updated ? `<div class="tf-result">Market data checked ${escapeHtml(new Date(updated).toLocaleString())}.</div>` : ""}
         </div>
         <div>
-          ${suggestions.length ? dataTableHtml({ suggestions }, "rent-suggestions") : `<div class="tlt-muted">No suggestions yet. Press Fetch everything.</div>`}
+          ${suggestions.length ? dataTableHtml({ suggestions }, "rent-suggestions") : `<div class="tf-muted">No suggestions yet. Press Fetch everything.</div>`}
         </div>
       </div>
-      ${roiSummary.length ? `<div class="tlt-section-title">Market summary</div>${dataTableHtml({ roiSummary }, "roi-summary")}` : ""}
+      ${roiSummary.length ? `<div class="tf-section-title">Market summary</div>${dataTableHtml({ roiSummary }, "roi-summary")}` : ""}
     `;
   }
 
@@ -8910,22 +8922,22 @@
 
   function historyStatusHtml(metadata = {}) {
     const error = clean(metadata.historyError || metadata.history_error, "");
-    if (error) return `<div class="tlt-result">${escapeHtml(error)}</div>`;
+    if (error) return `<div class="tf-result">${escapeHtml(error)}</div>`;
     const count = Number(metadata.historyEventCount || metadata.history_event_count || 0);
     const fetched = Number(metadata.historyFetchedCount || metadata.history_fetched_count || 0);
     if (count)
-      return `<div class="tlt-result">Property history has ${count.toLocaleString()} saved events${fetched ? `, ${fetched.toLocaleString()} refreshed now` : ""}.</div>`;
+      return `<div class="tf-result">Property history has ${count.toLocaleString()} saved events${fetched ? `, ${fetched.toLocaleString()} refreshed now` : ""}.</div>`;
     return "";
   }
 
   function advancedHtml() {
     const endpoint = selectedAdvancedEndpoint();
     return `
-      <div class="tlt-guide">
+      <div class="tf-guide">
         <strong>Advanced tools</strong>
-        <span class="tlt-muted">Most people can ignore this page. It is here when you want to inspect one Torn property answer.</span>
+        <span class="tf-muted">Most people can ignore this page. It is here when you want to inspect one Torn property answer.</span>
       </div>
-      <div class="tlt-advanced-picker">
+      <div class="tf-advanced-picker">
         <select data-advanced-endpoint>
           ${advancedEndpoints()
             .map(
@@ -8934,10 +8946,10 @@
             )
             .join("")}
         </select>
-        <span class="tlt-muted">Choose one tool at a time so the page stays readable.</span>
+        <span class="tf-muted">Choose one tool at a time so the page stays readable.</span>
       </div>
       ${endpointPanelHtml(endpoint)}
-      <div class="tlt-section-title">Known property pictures</div>
+      <div class="tf-section-title">Known property pictures</div>
       ${propertyImageLegendHtml()}
     `;
   }
@@ -8996,11 +9008,11 @@
 
   function roiScannerHtml() {
     return `
-      <div class="tlt-endpoint">
+      <div class="tf-endpoint">
         <strong>Market check</strong>
-        <span class="tlt-muted">Market checks happen quietly and return suggestions.</span>
-        <div class="tlt-actions">
-          <button class="tlt-primary" type="button" data-action="scan-owned-property-market">Scan ROI/Listings</button>
+        <span class="tf-muted">Market checks happen quietly and return suggestions.</span>
+        <div class="tf-actions">
+          <button class="tf-primary" type="button" data-action="scan-owned-property-market">Scan ROI/Listings</button>
         </div>
       </div>
     `;
@@ -9017,15 +9029,15 @@
   function rentSuggestionsHtml() {
     const rows = serverRentSuggestionRows();
     return `
-      <div class="tlt-endpoint">
+      <div class="tf-endpoint">
         <strong>Rent suggestions</strong>
-        <span class="tlt-muted">Suggestions are calculated quietly.</span>
-        <div class="tlt-actions">
-          <button class="tlt-primary" type="button" data-action="scan-owned-property-market">Scan ROI/Listings</button>
+        <span class="tf-muted">Suggestions are calculated quietly.</span>
+        <div class="tf-actions">
+          <button class="tf-primary" type="button" data-action="scan-owned-property-market">Scan ROI/Listings</button>
           <button type="button" data-action="export-rent-suggestions-csv">Export suggestions CSV</button>
         </div>
       </div>
-      ${rows.length ? dataTableHtml({ suggestions: rows }, "rent-suggestions") : `<div class="tlt-muted">No suggestions yet. Press Fetch everything.</div>`}
+      ${rows.length ? dataTableHtml({ suggestions: rows }, "rent-suggestions") : `<div class="tf-muted">No suggestions yet. Press Fetch everything.</div>`}
     `;
   }
 
@@ -9192,8 +9204,8 @@
   function rentSuggestionTableHtml(rows) {
     const keys = rentSuggestionColumns();
     return `
-      <div class="tlt-table-wrap">
-        <table class="tlt-data-table mh-table" data-mh-component="table">
+      <div class="tf-table-wrap">
+        <table class="tf-data-table mh-table" data-mh-component="table">
           <thead><tr>${keys.map((key) => `<th>${escapeHtml(humanHeader(key))}</th>`).join("")}</tr></thead>
           <tbody>
             ${rows.map((row) => `<tr>${keys.map((key) => `<td class="${cellClass(cellValue(row, key), key)}">${rentSuggestionCellHtml(row, key)}</td>`).join("")}</tr>`).join("")}
@@ -9206,7 +9218,7 @@
   function rentSuggestionCellHtml(row, key) {
     if (key === "my_investment") {
       const value = manualInvestmentForRow(row);
-      return `<input class="tlt-money-input" data-property-cost="${escapeAttr(row._property_cost_key || propertyCostKey(row))}" type="text" inputmode="numeric" placeholder="${escapeAttr(currencyInputValue(row.estimated_investment || row.market_price))}" value="${escapeAttr(currencyInputValue(value))}">`;
+      return `<input class="tf-money-input" data-property-cost="${escapeAttr(row._property_cost_key || propertyCostKey(row))}" type="text" inputmode="numeric" placeholder="${escapeAttr(currencyInputValue(row.estimated_investment || row.market_price))}" value="${escapeAttr(currencyInputValue(value))}">`;
     }
     return cellHtml(cellValue(row, key), key, row);
   }
@@ -9335,20 +9347,20 @@
     const hasLeases = Boolean(summary.total || state.leases.length);
     if (hasKey && hasLeases) return "";
     return `
-      <div class="tlt-guide">
+      <div class="tf-guide">
         <strong>Start here</strong>
-        <div class="tlt-steps">
-          <div class="tlt-step">
+        <div class="tf-steps">
+          <div class="tf-step">
             <b>1. Save key</b>
             <span>${hasKey ? "Done. Your key is saved." : "Needed for the fetch buttons."}</span>
             <button type="button" data-tab="settings">${hasKey ? "Settings" : "Save key"}</button>
           </div>
-          <div class="tlt-step">
+          <div class="tf-step">
             <b>2. Fetch homes</b>
             <span>Let the tool fill in owned and current homes.</span>
             <button type="button" data-tab="user-panel">Fetch</button>
           </div>
-          <div class="tlt-step">
+          <div class="tf-step">
             <b>3. Check list</b>
             <span>Add missing details by hand below.</span>
             <button type="button" data-tab="ledger">Leases</button>
@@ -9414,7 +9426,7 @@
 
   function ledgerControlsHtml() {
     return `
-      <div class="tlt-ledger-controls" role="group" aria-label="Lease filters and actions">
+      <div class="tf-ledger-controls" role="group" aria-label="Lease filters and actions">
         <input type="search" data-field="search" placeholder="Find a lease" value="${escapeAttr(state.search)}">
         <select data-field="role" aria-label="Which homes to show">
           <option value="landlord"${state.role === "landlord" ? " selected" : ""}>Homes I rent out</option>
@@ -9427,10 +9439,10 @@
         <select data-field="statusFilter" aria-label="Lease status">
           ${statusFilterOptionsHtml()}
         </select>
-        <button class="tlt-primary" type="button" data-action="scan-owned-property-market">Scan ROI/Listings</button>
+        <button class="tf-primary" type="button" data-action="scan-owned-property-market">Scan ROI/Listings</button>
         <button type="button" data-action="import-owned-direct">Reload Torn details</button>
         <button type="button" data-action="export-csv">Export CSV</button>
-        <button class="tlt-primary" type="button" data-action="open-manual-modal">+ Add</button>
+        <button class="tf-primary" type="button" data-action="open-manual-modal">+ Add</button>
       </div>
     `;
   }
@@ -9438,16 +9450,16 @@
   function ledgerHtml(leases, summary) {
     const sortedLeases = sortRows(leases, "ledger");
     return `
-      <div class="tlt-ledger-view">
+      <div class="tf-ledger-view">
         ${gettingStartedHtml(summary)}
-        <div class="tlt-summary">
-          <div class="tlt-stat"><span class="tlt-muted">Rows shown</span><b>${summary.total}</b></div>
-          <div class="tlt-stat"><span class="tlt-muted">Rented now</span><b>${summary.leased}</b></div>
-          <div class="tlt-stat"><span class="tlt-muted">Rent total</span><b>${money(summary.income)}</b></div>
-          <div class="tlt-stat"><span class="tlt-muted">Ends soon</span><b>${summary.soon}</b></div>
+        <div class="tf-summary">
+          <div class="tf-stat"><span class="tf-muted">Rows shown</span><b>${summary.total}</b></div>
+          <div class="tf-stat"><span class="tf-muted">Rented now</span><b>${summary.leased}</b></div>
+          <div class="tf-stat"><span class="tf-muted">Rent total</span><b>${money(summary.income)}</b></div>
+          <div class="tf-stat"><span class="tf-muted">Ends soon</span><b>${summary.soon}</b></div>
         </div>
-        <div class="tlt-table-wrap">
-          <table class="tlt-lease-table mh-table" data-mh-component="table">
+        <div class="tf-table-wrap">
+          <table class="tf-lease-table mh-table" data-mh-component="table">
             <thead>
               <tr>
                 <th>${sortHeaderHtml("ledger", "property", "Home")}</th>
@@ -9477,16 +9489,16 @@
     const rows = serverArchiveRows();
     const metadata = serverHistoryMetadata();
     return `
-      <div class="tlt-panel-grid">
-        <div class="tlt-endpoint">
+      <div class="tf-panel-grid">
+        <div class="tf-endpoint">
           <strong>Archive</strong>
-          <span class="tlt-muted">Past rents go here when Torn history is available.</span>
-          <button class="tlt-primary" type="button" data-action="refresh-user-details">Fetch everything</button>
+          <span class="tf-muted">Past rents go here when Torn history is available.</span>
+          <button class="tf-primary" type="button" data-action="refresh-user-details">Fetch everything</button>
           ${endpointResultHtml("lease-archive")}
           ${historyStatusHtml(metadata)}
         </div>
         <div>
-          ${rows.length ? dataTableHtml({ archive: rows }, "lease-archive") : `<div class="tlt-muted">No archive rows yet. Fetch with a key that can read property history.</div>`}
+          ${rows.length ? dataTableHtml({ archive: rows }, "lease-archive") : `<div class="tf-muted">No archive rows yet. Fetch with a key that can read property history.</div>`}
         </div>
       </div>
     `;
@@ -9497,32 +9509,32 @@
     const events = serverPropertyHistoryEventRows();
     const metadata = serverHistoryMetadata();
     return `
-      <div class="tlt-panel-grid">
-        <div class="tlt-endpoint">
+      <div class="tf-panel-grid">
+        <div class="tf-endpoint">
           <strong>Property history</strong>
-          <span class="tlt-muted">Bought, upgraded, rented, sold, and moved homes are grouped here.</span>
-          <button class="tlt-primary" type="button" data-action="refresh-user-details">Fetch everything</button>
+          <span class="tf-muted">Bought, upgraded, rented, sold, and moved homes are grouped here.</span>
+          <button class="tf-primary" type="button" data-action="refresh-user-details">Fetch everything</button>
           ${endpointResultHtml("property-history")}
           ${historyStatusHtml(metadata)}
         </div>
         <div>
-          ${rows.length ? dataTableHtml({ history: rows }, "property-history") : `<div class="tlt-muted">No property history yet. Fetch with a key that can read property history.</div>`}
+          ${rows.length ? dataTableHtml({ history: rows }, "property-history") : `<div class="tf-muted">No property history yet. Fetch with a key that can read property history.</div>`}
         </div>
       </div>
-      ${events.length ? `<div class="tlt-section-title">Timeline</div>${dataTableHtml({ events }, "property-history-events")}` : ""}
+      ${events.length ? `<div class="tf-section-title">Timeline</div>${dataTableHtml({ events }, "property-history-events")}` : ""}
     `;
   }
 
   function manualLeaseModalHtml() {
     return `
-      <div class="tlt-modal-backdrop" data-action="close-manual-modal">
-        <div class="tlt-modal" role="dialog" aria-modal="true" aria-label="Add lease by hand" data-modal-stop>
-          <div class="tlt-modal-head">
+      <div class="tf-modal-backdrop" data-action="close-manual-modal">
+        <div class="tf-modal" role="dialog" aria-modal="true" aria-label="Add lease by hand" data-modal-stop>
+          <div class="tf-modal-head">
             <div>
               <strong>Add one by hand</strong>
-              <span class="tlt-muted">Fill what you know. The dates and rent fields help each other.</span>
+              <span class="tf-muted">Fill what you know. The dates and rent fields help each other.</span>
             </div>
-            <button class="tlt-ghost" type="button" data-action="close-manual-modal">Close</button>
+            <button class="tf-ghost" type="button" data-action="close-manual-modal">Close</button>
           </div>
           ${manualLeaseFormHtml()}
         </div>
@@ -9532,22 +9544,22 @@
 
   function manualLeaseFormHtml() {
     return `
-      <form class="tlt-form" data-form="manual">
-        <label class="tlt-form-field"><span>Home type</span><select name="property">${manualPropertyOptionsHtml()}</select></label>
-        <label class="tlt-form-field"><span>Torn property ID</span><input name="propertyId" data-manual-property-id placeholder="Optional"></label>
-        <label class="tlt-form-field"><span>Owner</span><input name="landlord" placeholder="Auto-filled if found"></label>
-        <label class="tlt-form-field"><span>Renter username</span><input name="tenantName" list="tlt-tenant-options" placeholder="If known"><datalist id="tlt-tenant-options">${manualTenantOptionsHtml()}</datalist></label>
-        <label class="tlt-form-field"><span>Renter User ID</span><input name="tenantId" inputmode="numeric" placeholder="If known"></label>
-        <label class="tlt-form-field"><span>Days</span><input name="durationDays" type="number" min="0" step="1" placeholder="0"></label>
-        <label class="tlt-form-field"><span>Total rent</span><input class="tlt-money-input" name="amount" type="text" inputmode="numeric" placeholder="$0"></label>
-        <label class="tlt-form-field"><span>Rent each day</span><input class="tlt-money-input" name="dailyAmount" type="text" inputmode="numeric" placeholder="$0"></label>
-        <label class="tlt-form-field"><span>Starts</span><input class="tlt-date-input" name="startDate" type="date"></label>
-        <label class="tlt-form-field"><span>Ends</span><input class="tlt-date-input" name="endDate" type="date"></label>
-        <label class="tlt-form-field"><span>Days left</span><span class="tlt-readonly-value is-number" data-manual-days-left>Auto</span></label>
-        <label class="tlt-form-field"><span>Status</span><select name="status">
+      <form class="tf-form" data-form="manual">
+        <label class="tf-form-field"><span>Home type</span><select name="property">${manualPropertyOptionsHtml()}</select></label>
+        <label class="tf-form-field"><span>Torn property ID</span><input name="propertyId" data-manual-property-id placeholder="Optional"></label>
+        <label class="tf-form-field"><span>Owner</span><input name="landlord" placeholder="Auto-filled if found"></label>
+        <label class="tf-form-field"><span>Renter username</span><input name="tenantName" list="tf-tenant-options" placeholder="If known"><datalist id="tf-tenant-options">${manualTenantOptionsHtml()}</datalist></label>
+        <label class="tf-form-field"><span>Renter User ID</span><input name="tenantId" inputmode="numeric" placeholder="If known"></label>
+        <label class="tf-form-field"><span>Days</span><input name="durationDays" type="number" min="0" step="1" placeholder="0"></label>
+        <label class="tf-form-field"><span>Total rent</span><input class="tf-money-input" name="amount" type="text" inputmode="numeric" placeholder="$0"></label>
+        <label class="tf-form-field"><span>Rent each day</span><input class="tf-money-input" name="dailyAmount" type="text" inputmode="numeric" placeholder="$0"></label>
+        <label class="tf-form-field"><span>Starts</span><input class="tf-date-input" name="startDate" type="date"></label>
+        <label class="tf-form-field"><span>Ends</span><input class="tf-date-input" name="endDate" type="date"></label>
+        <label class="tf-form-field"><span>Days left</span><span class="tf-readonly-value is-number" data-manual-days-left>Auto</span></label>
+        <label class="tf-form-field"><span>Status</span><select name="status">
           ${statusOptionsHtml("manual")}
         </select></label>
-        <label class="tlt-form-field"><span>Show under</span><select name="roleHint">
+        <label class="tf-form-field"><span>Show under</span><select name="roleHint">
           <option value="landlord"${state.role === "landlord" ? " selected" : ""}>Leased Out</option>
           <option value="spouse"${state.role === "spouse" ? " selected" : ""}>Spouse Properties</option>
           <option value="tenant"${state.role === "tenant" || state.role === "all" ? " selected" : ""}>On Lease</option>
@@ -9555,8 +9567,8 @@
           <option value="rented-from-others">Rented From Others</option>
           <option value="contracts">Lease Offers / Contracts</option>
         </select></label>
-        <label class="tlt-form-field is-wide"><span>Notes</span><textarea name="notes" rows="1" placeholder="Notes"></textarea></label>
-        <button class="tlt-primary" type="submit">Add lease</button>
+        <label class="tf-form-field is-wide"><span>Notes</span><textarea name="notes" rows="1" placeholder="Notes"></textarea></label>
+        <button class="tf-primary" type="submit">Add lease</button>
       </form>
     `;
   }
@@ -9564,17 +9576,17 @@
   function dataViewHtml(id) {
     const stored = state.endpointData && state.endpointData[id];
     if (!stored || !stored.body) {
-      return `<div class="tlt-muted">Nothing fetched yet.</div>`;
+      return `<div class="tf-muted">Nothing fetched yet.</div>`;
     }
     const body = endpointDisplayBody(id, stored.body);
     const message = endpointDisplayMessage(id, stored.message, body);
 
     return `
-      <div class="tlt-result">${escapeHtml(message)}${stored.fetchedAt ? ` Fetched ${escapeHtml(new Date(stored.fetchedAt).toLocaleString())}.` : ""}</div>
+      <div class="tf-result">${escapeHtml(message)}${stored.fetchedAt ? ` Fetched ${escapeHtml(new Date(stored.fetchedAt).toLocaleString())}.` : ""}</div>
       ${dataTableHtml(body, id)}
       ${
         appSettings().showRawJson
-          ? `<details class="tlt-data-json">
+          ? `<details class="tf-data-json">
         <summary>Extra details</summary>
         <pre>${escapeHtml(JSON.stringify(body, null, 2))}</pre>
       </details>`
@@ -9606,15 +9618,15 @@
       user.company_id || user.companyId || (profile && (profile.company_id || profile.companyId));
     const accessLabel = access.type || access.level || (apiKeyValue() ? "Public" : "N/A");
     return `
-      <div class="tlt-profile-card">
-        <div class="tlt-profile-head">
-          ${profile && profile.image ? `<img class="tlt-profile-image" src="${escapeAttr(profile.image)}" alt="${escapeAttr(profile.name || "User profile")}">` : `<div class="tlt-profile-image"></div>`}
+      <div class="tf-profile-card">
+        <div class="tf-profile-head">
+          ${profile && profile.image ? `<img class="tf-profile-image" src="${escapeAttr(profile.image)}" alt="${escapeAttr(profile.name || "User profile")}">` : `<div class="tf-profile-image"></div>`}
           <div>
-            <h3 class="tlt-profile-name">${escapeHtml(profileName(profile, keyInfo))}</h3>
-            <div class="tlt-muted">Access: ${escapeHtml(accessLabel)} · Faction ID: ${escapeHtml(factionId || "N/A")} · Company ID: ${escapeHtml(companyId || "N/A")}</div>
+            <h3 class="tf-profile-name">${escapeHtml(profileName(profile, keyInfo))}</h3>
+            <div class="tf-muted">Access: ${escapeHtml(accessLabel)} · Faction ID: ${escapeHtml(factionId || "N/A")} · Company ID: ${escapeHtml(companyId || "N/A")}</div>
           </div>
         </div>
-        <div class="tlt-profile-grid">
+        <div class="tf-profile-grid">
           ${infoCardHtml("Level", profileValue(profile, "level"))}
           ${infoCardHtml("Rank", profileValue(profile, "rank"))}
           ${infoCardHtml("Title", profileValue(profile, "title"))}
@@ -9627,7 +9639,7 @@
           ${infoCardHtml("For rent", propertyStats.forRent)}
         </div>
       </div>
-      <div class="tlt-result">Use Fetch to refresh this card and add leases to the list.</div>
+      <div class="tf-result">Use Fetch to refresh this card and add leases to the list.</div>
     `;
   }
 
@@ -9658,7 +9670,7 @@
   }
 
   function infoCardHtml(label, value) {
-    return `<div class="tlt-info-card"><span>${escapeHtml(label)}</span><b>${escapeHtml(value)}</b></div>`;
+    return `<div class="tf-info-card"><span>${escapeHtml(label)}</span><b>${escapeHtml(value)}</b></div>`;
   }
 
   function propertyInfoCardHtml(property) {
@@ -9669,7 +9681,7 @@
     const image = propertyImageUrl(propertyTypeIdFromPropertyValue(property) || typeName);
     if (!image) return infoCardHtml("Property", value);
     return `
-      <div class="tlt-info-card tlt-info-property">
+      <div class="tf-info-card tf-info-property">
         <img src="${escapeAttr(image)}" alt="${escapeAttr(value)}">
         <div><span>Property</span><b>${escapeHtml(value)}</b></div>
       </div>
@@ -9953,12 +9965,12 @@
   function dataTableHtml(body, id = "") {
     const rows = sortRows(responseRows(body, id), id);
     if (!rows.length)
-      return `<div class="tlt-muted">The response did not include table-like records.</div>`;
+      return `<div class="tf-muted">The response did not include table-like records.</div>`;
     const keys = tableKeys(rows, id);
     const limit = tableLimit();
     return `
-      <div class="tlt-table-wrap">
-        <table class="tlt-data-table mh-table" data-mh-component="table">
+      <div class="tf-table-wrap">
+        <table class="tf-data-table mh-table" data-mh-component="table">
           <thead>
             <tr>${keys.map((key) => `<th>${sortHeaderHtml(id, key)}</th>`).join("")}</tr>
           </thead>
@@ -9973,7 +9985,7 @@
           </tbody>
         </table>
       </div>
-      ${rows.length > limit ? `<div class="tlt-muted">Showing ${limit.toLocaleString()} of ${rows.length.toLocaleString()} records.</div>` : ""}
+      ${rows.length > limit ? `<div class="tf-muted">Showing ${limit.toLocaleString()} of ${rows.length.toLocaleString()} records.</div>` : ""}
     `;
   }
 
@@ -10317,7 +10329,7 @@
     const current = state.tableSort && state.tableSort[tableId];
     const active = current && current.key === key;
     const indicator = active ? (current.direction === "asc" ? " ▲" : " ▼") : "";
-    return `<button class="tlt-sort" type="button" data-table-sort="${escapeAttr(tableId)}" data-sort-key="${escapeAttr(key)}">${escapeHtml(label || humanHeader(key))}${indicator}</button>`;
+    return `<button class="tf-sort" type="button" data-table-sort="${escapeAttr(tableId)}" data-sort-key="${escapeAttr(key)}">${escapeHtml(label || humanHeader(key))}${indicator}</button>`;
   }
 
   function humanHeader(key) {
@@ -10453,11 +10465,11 @@
   }
 
   function cellClass(value, key = "") {
-    if (key === "property_image") return "tlt-image-cell";
-    if (isModificationColumn(key)) return "tlt-mod-cell";
-    if (isStaffColumn(key)) return "tlt-number";
-    if (isNumericValue(value) && !isIdColumn(key)) return "tlt-number";
-    if (value && typeof value === "object" && !Array.isArray(value)) return "tlt-object";
+    if (key === "property_image") return "tf-image-cell";
+    if (isModificationColumn(key)) return "tf-mod-cell";
+    if (isStaffColumn(key)) return "tf-number";
+    if (isNumericValue(value) && !isIdColumn(key)) return "tf-number";
+    if (value && typeof value === "object" && !Array.isArray(value)) return "tf-object";
     return "";
   }
 
@@ -10468,7 +10480,7 @@
     const array = arrayValue(value);
     if (array) return choiceListHtml(array, key);
     if (value === null || value === undefined || value === "")
-      return `<span class="tlt-empty-value">N/A</span>`;
+      return `<span class="tf-empty-value">N/A</span>`;
     if (isPercentColumn(key)) return escapeHtml(percentage(value));
     if (isMoneyColumn(key)) return escapeHtml(money(value));
     if (isIdColumn(key)) return escapeHtml(String(value));
@@ -10506,8 +10518,8 @@
 
   function modificationCellHtml(row, key) {
     return hasModification(row, key.slice(5))
-      ? `<span class="tlt-check-cell">✓</span>`
-      : `<span class="tlt-miss-cell">-</span>`;
+      ? `<span class="tf-check-cell">✓</span>`
+      : `<span class="tf-miss-cell">-</span>`;
   }
 
   function hasModification(row, name) {
@@ -10519,8 +10531,8 @@
   function staffCellHtml(row, key) {
     const amount = staffAmount(row, key.slice(7));
     return amount
-      ? `<span class="tlt-volume-cell">${escapeHtml(amount)}</span>`
-      : `<span class="tlt-miss-cell">-</span>`;
+      ? `<span class="tf-volume-cell">${escapeHtml(amount)}</span>`
+      : `<span class="tf-miss-cell">-</span>`;
   }
 
   function staffAmount(row, type) {
@@ -10607,10 +10619,10 @@
   }
 
   function choiceListHtml(values, key) {
-    if (!values.length) return `<span class="tlt-empty-value">None</span>`;
+    if (!values.length) return `<span class="tf-empty-value">None</span>`;
     return `
-      <div class="tlt-choice-list" role="group" aria-label="${escapeAttr(key)}">
-        ${values.map((value) => `<label class="tlt-choice-option"><input type="checkbox" checked disabled><span>${escapeHtml(formatCell(value))}</span></label>`).join("")}
+      <div class="tf-choice-list" role="group" aria-label="${escapeAttr(key)}">
+        ${values.map((value) => `<label class="tf-choice-option"><input type="checkbox" checked disabled><span>${escapeHtml(formatCell(value))}</span></label>`).join("")}
       </div>
     `;
   }
@@ -10738,18 +10750,18 @@
   function userLookupInputHtml() {
     return `
       <input data-endpoint-field="lookupUser" placeholder="User ID or username" value="${escapeAttr((state.endpointInputs || {}).lookupUser || "")}">
-      <div class="tlt-property-meta">Used only for /user/{id} tabs. Leave blank to use the checked key user.</div>
+      <div class="tf-property-meta">Used only for /user/{id} tabs. Leave blank to use the checked key user.</div>
     `;
   }
 
   function propertyTypeMetaHtml() {
     const type = selectedPropertyType();
     if (!type)
-      return `<div class="tlt-property-meta">Pick a home type to fetch price listings.</div>`;
+      return `<div class="tf-property-meta">Pick a home type to fetch price listings.</div>`;
     const image = propertyImageUrl(type.id);
     return `
-      <div class="tlt-property-meta">
-        ${image ? `<div class="tlt-property-preview"><img class="tlt-property-image" src="${escapeAttr(image)}" alt="${escapeAttr(type.name)}"><div>` : ""}
+      <div class="tf-property-meta">
+        ${image ? `<div class="tf-property-preview"><img class="tf-property-image" src="${escapeAttr(image)}" alt="${escapeAttr(type.name)}"><div>` : ""}
         Cost ${money(type.cost)}. Happy ${Number(type.happy).toLocaleString()}. Upkeep ${money(type.upkeep)}.<br>
         Mods: ${escapeHtml(type.modifications.length ? type.modifications.join(", ") : "none")}.<br>
         Staff: ${escapeHtml(type.staff.length ? type.staff.join(", ") : "none")}.
@@ -10820,20 +10832,20 @@
 
   function propertyImageCellHtml(row) {
     const image = propertyImageUrlFromRow(row);
-    if (!image) return `<span class="tlt-empty-value">N/A</span>`;
+    if (!image) return `<span class="tf-empty-value">N/A</span>`;
     const label = propertyDisplayName(row);
-    return `<img class="tlt-table-thumb" src="${escapeAttr(image)}" alt="${escapeAttr(label)}">`;
+    return `<img class="tf-table-thumb" src="${escapeAttr(image)}" alt="${escapeAttr(label)}">`;
   }
 
   function propertyImageLegendHtml() {
     return `
-      <div class="tlt-property-meta tlt-property-picture-grid">
+      <div class="tf-property-meta tf-property-picture-grid">
         ${propertyTypes()
           .filter((type) => propertyImageUrl(type.id))
           .map(
             (type) => `
-          <div class="tlt-property-picture-card" title="${escapeAttr(`${type.name} [${type.id}]`)}">
-            <img class="tlt-property-image" src="${escapeAttr(propertyImageUrl(type.id))}" alt="${escapeAttr(type.name)}">
+          <div class="tf-property-picture-card" title="${escapeAttr(`${type.name} [${type.id}]`)}">
+            <img class="tf-property-image" src="${escapeAttr(propertyImageUrl(type.id))}" alt="${escapeAttr(type.name)}">
             <div>${escapeHtml(type.name)} [${escapeHtml(type.id)}]</div>
           </div>
         `
@@ -10878,7 +10890,7 @@
 
   function leaseReadonlyCell(lease, prop, extraClass = "") {
     const value = leaseReadonlyValue(lease, prop);
-    return `<span class="tlt-readonly-value ${extraClass}" data-lease-readonly="${escapeAttr(prop)}" title="${escapeAttr(value)}">${escapeHtml(value)}</span>`;
+    return `<span class="tf-readonly-value ${extraClass}" data-lease-readonly="${escapeAttr(prop)}" title="${escapeAttr(value)}">${escapeHtml(value)}</span>`;
   }
 
   function rowHtml(lease) {
@@ -10886,11 +10898,11 @@
     return `
       <tr data-id="${escapeAttr(lease.id)}">
         <td>
-          <div class="tlt-home-cell">
-            ${image ? `<span class="tlt-thumb-hover"><img class="tlt-table-thumb" src="${escapeAttr(image)}" alt="${escapeAttr(lease.property)}"><span class="tlt-thumb-preview"><img src="${escapeAttr(image)}" alt="${escapeAttr(lease.property)}"></span></span>` : ""}
+          <div class="tf-home-cell">
+            ${image ? `<span class="tf-thumb-hover"><img class="tf-table-thumb" src="${escapeAttr(image)}" alt="${escapeAttr(lease.property)}"><span class="tf-thumb-preview"><img src="${escapeAttr(image)}" alt="${escapeAttr(lease.property)}"></span></span>` : ""}
             <div>
-              <input class="tlt-lease-input tlt-lease-text" data-prop="property" style="${inputWidthStyle(lease.property, 12)}" value="${escapeAttr(lease.property)}">
-              <div class="tlt-muted">${escapeHtml(lease.propertyId ? `ID ${lease.propertyId}` : lease.source || "")}</div>
+              <input class="tf-lease-input tf-lease-text" data-prop="property" style="${inputWidthStyle(lease.property, 12)}" value="${escapeAttr(lease.property)}">
+              <div class="tf-muted">${escapeHtml(lease.propertyId ? `ID ${lease.propertyId}` : lease.source || "")}</div>
             </div>
           </div>
         </td>
@@ -10903,14 +10915,14 @@
         <td>${leaseReadonlyCell(lease, "startDate")}</td>
         <td>${leaseReadonlyCell(lease, "endDate")}</td>
         <td>${leaseReadonlyCell(lease, "remainingDays", "is-number")}</td>
-        <td><input class="tlt-lease-input tlt-lease-text" data-prop="notes" style="${inputWidthStyle(lease.notes, 10, 42)}" value="${escapeAttr(lease.notes)}"></td>
-        <td><button class="tlt-danger" type="button" data-action="delete" data-id="${escapeAttr(lease.id)}">Remove</button></td>
+        <td><input class="tf-lease-input tf-lease-text" data-prop="notes" style="${inputWidthStyle(lease.notes, 10, 42)}" value="${escapeAttr(lease.notes)}"></td>
+        <td><button class="tf-danger" type="button" data-action="delete" data-id="${escapeAttr(lease.id)}">Remove</button></td>
       </tr>
     `;
   }
 
   function emptyRowsHtml() {
-    return `<tr><td colspan="12" class="tlt-muted">No leases yet. Use Fetch to fetch homes, or add one by hand below.</td></tr>`;
+    return `<tr><td colspan="12" class="tf-muted">No leases yet. Use Fetch to fetch homes, or add one by hand below.</td></tr>`;
   }
 
   function displayEndpointPath(endpoint) {
@@ -10924,7 +10936,7 @@
 
   function endpointResultHtml(id) {
     const result = state.endpointResults && state.endpointResults[id];
-    return result ? `<div class="tlt-result">${escapeHtml(result)}</div>` : "";
+    return result ? `<div class="tf-result">${escapeHtml(result)}</div>` : "";
   }
 
   function keyInfoHtml() {
@@ -10949,7 +10961,7 @@
       .filter(Boolean)
       .join(" | ");
     return `
-      <div class="tlt-subscription ${escapeAttr(info.className)}">
+      <div class="tf-subscription ${escapeAttr(info.className)}">
         <span>Subscription check</span>
         <strong>${escapeHtml(info.label)}</strong>
         <p>${escapeHtml(info.message)}</p>
@@ -11142,9 +11154,9 @@
   }
 
   function autoSizeInput(field) {
-    if (!field || !field.matches("input.tlt-lease-input")) return;
+    if (!field || !field.matches("input.tf-lease-input")) return;
     if (field.type === "date") return;
-    const min = field.classList.contains("tlt-money-input") ? 9 : 7;
+    const min = field.classList.contains("tf-money-input") ? 9 : 7;
     field.style.width = `${clamp(String(field.value || field.placeholder || "").length + 2, min, 42)}ch`;
   }
 
@@ -11204,12 +11216,12 @@
   function bind(root, isPopup = false) {
     bindThemedTooltips(root);
     if (!isPopup) {
-      bindDrag(root, root.querySelector(".tlt-header"));
-      bindDrag(root, root.querySelector(".tlt-tab"));
+      bindDrag(root, root.querySelector(".tf-header"));
+      bindDrag(root, root.querySelector(".tf-tab"));
       bindResize(root);
     }
 
-    const tabButton = root.querySelector(".tlt-tab");
+    const tabButton = root.querySelector(".tf-tab");
     if (tabButton) {
       tabButton.addEventListener("click", (event) => {
         if (event.currentTarget.dataset.dragged === "true") {
@@ -11465,7 +11477,7 @@
     root.querySelectorAll("[data-modal-stop]").forEach((node) => {
       node.addEventListener("click", (event) => event.stopPropagation());
     });
-    root.querySelectorAll(".tlt-modal-backdrop").forEach((node) => {
+    root.querySelectorAll(".tf-modal-backdrop").forEach((node) => {
       node.addEventListener("click", () => {
         const action = node.dataset.action;
         if (action === "close-settings") state.settingsOpen = false;
@@ -11680,6 +11692,7 @@
               state.leases = [];
               state.lastSyncAt = null;
               safeDelete(STORE_KEY);
+              LEGACY_STORE_KEYS.forEach((legacyKey) => safeDelete(legacyKey));
               state = {
                 ...emptyState,
                 apiKey: "",
