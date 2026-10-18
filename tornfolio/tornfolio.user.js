@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Tornfolio — Property, Lease & ROI Manager
 // @namespace    MoDuL.torn.tornfolio
-// @version      0.8.1
+// @version      0.8.2
 // @description  Manage your Torn property portfolio, rentals, market pricing, archive, and ROI.
 // @author       MoDuL
 // @copyright    2026 MoDuL. All rights reserved.
@@ -21,7 +21,7 @@
   "use strict";
 
   const APP_ID = "tlt-ledger";
-  const APP_VERSION = "0.8.1";
+  const APP_VERSION = "0.8.2";
   const UPKEEP_REMINDER_INTERVAL_MS = 24 * 60 * 60 * 1000;
   const STORE_KEY = "tornLandlordTenantLedger:v1";
   const API_BASE = "https://api.torn.com/v2";
@@ -1579,6 +1579,13 @@
   }
 
   function tornPropertyActionEnvironmentReason() {
+    if (
+      typeof globalThis !== "undefined" &&
+      globalThis.__TORNFOLIO_TEST__ &&
+      globalThis.__TORNFOLIO_ALLOW_LOCAL_ACTION_FIXTURE__ &&
+      ["127.0.0.1", "localhost"].includes(String((window.location || location).hostname || ""))
+    )
+      return "";
     const pageLocation = window.location || location;
     if (
       String(pageLocation.hostname || "").toLowerCase() !== "www.torn.com" ||
@@ -1626,12 +1633,68 @@
     return String(number);
   }
 
+  function tornPropertyUpgradeOptionsFields(propertyId) {
+    const id = String(propertyId || "").trim();
+    if (!/^\d+$/.test(id)) throw new Error("A valid Torn property ID is required.");
+    return { p: "options", ID: id, tab: "customize", step: "options" };
+  }
+
+  function isSafePropertyUpgradeFieldName(name) {
+    const normalized = clean(name, "").trim();
+    return (
+      /^[a-z][a-z0-9_]{0,31}$/i.test(normalized) &&
+      !["step", "action", "type", "id", "__proto__", "prototype", "constructor"].includes(
+        normalized.toLowerCase()
+      )
+    );
+  }
+
+  function tornPropertyUpgradeFields(phase, propertyId, type, selections = {}) {
+    const id = String(propertyId || "").trim();
+    if (!/^\d+$/.test(id)) throw new Error("A valid Torn property ID is required.");
+    if (!["mods", "staff"].includes(type)) throw new Error("Choose facilities or staff first.");
+    if (!["preview", "final"].includes(phase)) throw new Error("Unknown property action stage.");
+
+    const normalized = Object.create(null);
+    for (const [name, value] of Object.entries(selections || {})) {
+      if (!isSafePropertyUpgradeFieldName(name))
+        throw new Error("Torn returned an unsafe upgrade field. Nothing was changed.");
+      normalized[name] = propertyActionInteger(value, humanHeader(name), 0, 9999);
+    }
+    if (!Object.keys(normalized).length)
+      throw new Error("Torn did not return any upgrade choices. Nothing was changed.");
+
+    return phase === "preview"
+      ? {
+          step: "optionsAction",
+          action: "customize",
+          type,
+          ID: id,
+          ...normalized,
+        }
+      : {
+          step: "customizeProperty",
+          type,
+          ID: id,
+          ...normalized,
+        };
+  }
+
   function tornPropertyActionFields(kind, phase, propertyId, values = {}) {
     const id = String(propertyId || "").trim();
     if (!/^\d+$/.test(id)) throw new Error("A valid Torn property ID is required.");
-    if (!["rent", "sale", "remove", "extend", "upkeep"].includes(kind))
+    if (!["rent", "sale", "remove", "extend", "upkeep", "upgrade"].includes(kind))
       throw new Error("Unknown property action.");
     if (!["preview", "final"].includes(phase)) throw new Error("Unknown property action stage.");
+
+    if (kind === "upgrade") {
+      return tornPropertyUpgradeFields(
+        phase,
+        id,
+        clean(values.type || values.upgradeType, ""),
+        values.selections || {}
+      );
+    }
 
     if (kind === "upkeep") {
       if (phase === "preview") return { p: "options", ID: id, tab: "upkeep", step: "options" };
@@ -1794,6 +1857,116 @@
       due,
       requiredText: requiredText || `Required fees: ${tfMoneyKnown(due)}`,
     };
+  }
+
+  function propertyUpgradeFieldLabel(name) {
+    const key = clean(name, "").toLowerCase();
+    return (
+      {
+        interior: "Interior",
+        range: "Shooting range",
+        hottub: "Hot tub",
+        safe: "Vault",
+        sauna: "Sauna",
+        medical: "Medical facility",
+        pool: "Swimming pool",
+        airstrip: "Airstrip & plane",
+        bar: "Open bar",
+        yacht: "Private yacht",
+        maid: "Maid service",
+        butler: "Butler service",
+        guard: "Security guards",
+        doctor: "Doctor",
+        pilot: "Pilot",
+      }[key] || humanHeader(name)
+    );
+  }
+
+  function parseTornUpgradeOptions(text, expectedPropertyId) {
+    const parsed = new DOMParser().parseFromString(String(text || ""), "text/html");
+    const expectedId = String(expectedPropertyId || "").trim();
+    const groups = {};
+    for (const form of Array.from(parsed.querySelectorAll("form"))) {
+      const submit = form.querySelector("input[data-type='mods'], input[data-type='staff']");
+      const type = clean(submit && submit.getAttribute("data-type"), "").toLowerCase();
+      if (!["mods", "staff"].includes(type)) continue;
+      const returnedId = clean(form.getAttribute("data-id"), "").trim();
+      if (returnedId && returnedId !== expectedId) {
+        throw new Error("Torn returned upgrade choices for a different property. Nothing was changed.");
+      }
+      const controls = Array.from(form.querySelectorAll("select[name]"))
+        .map((select) => {
+          const name = clean(select.getAttribute("name"), "").trim();
+          if (!isSafePropertyUpgradeFieldName(name)) return null;
+          const options = Array.from(select.querySelectorAll("option")).map((option) => ({
+            value: clean(option.getAttribute("value"), "").trim(),
+            label: clean(option.textContent, "").replace(/\s+/g, " ").trim(),
+          }));
+          if (!options.length) return null;
+          const selectedOption = select.querySelector("option:checked, option[selected]");
+          const selected = clean(
+            (selectedOption && selectedOption.getAttribute("value")) || select.value || options[0].value,
+            options[0].value
+          ).trim();
+          return {
+            name,
+            label: propertyUpgradeFieldLabel(name),
+            currentValue: selected,
+            options,
+          };
+        })
+        .filter(Boolean);
+      if (controls.length) {
+        groups[type] = {
+          type,
+          title: type === "mods" ? "Facilities & modifications" : "Property staff",
+          controls,
+        };
+      }
+    }
+    if (!groups.mods && !groups.staff) {
+      throw new Error(
+        "Torn did not return customization choices for this property. You may need to own it, live in it, and use a property other than a Shack."
+      );
+    }
+    return groups;
+  }
+
+  function normalizePropertyUpgradeSelections(action, values) {
+    const type = clean(action && action.upgradeType, "");
+    const group = action && action.upgradeGroups && action.upgradeGroups[type];
+    if (!group) throw new Error("Choose facilities or staff first.");
+    const selections = Object.create(null);
+    for (const control of group.controls) {
+      const selected = clean(values && values[control.name], "").trim();
+      if (!control.options.some((option) => option.value === selected)) {
+        throw new Error(`${control.label} must use one of Torn's current choices.`);
+      }
+      selections[control.name] = selected;
+    }
+    return selections;
+  }
+
+  function parseTornUpgradeReview(text, expectedType) {
+    const parsed = new DOMParser().parseFromString(String(text || ""), "text/html");
+    const confirmation = parsed.querySelector("input[type='submit'][data-type]");
+    const returnedType = clean(confirmation && confirmation.getAttribute("data-type"), "").toLowerCase();
+    if (returnedType !== expectedType || !/^(?:yes|confirm)$/i.test(clean(confirmation && confirmation.value, ""))) {
+      const message = tornPropertyResponseMessage(text, null);
+      throw new Error(message || "Torn did not return an upgrade confirmation. Nothing was changed.");
+    }
+    const items = Array.from(parsed.querySelectorAll(".sum-inf"))
+      .map((node) => clean(node.textContent, "").replace(/\s+/g, " ").trim())
+      .filter(Boolean);
+    const totalNode = Array.from(parsed.querySelectorAll("p")).find((node) =>
+      /total cost\s*:/i.test(clean(node.textContent, ""))
+    );
+    const total = clean(totalNode && totalNode.textContent, "")
+      .replace(/\s+/g, " ")
+      .trim();
+    if (!items.length)
+      throw new Error("Torn did not list any upgrade changes for confirmation. Nothing was changed.");
+    return { type: returnedType, items, total };
   }
 
   function tornUpkeepMarkerSnapshot(root = document) {
@@ -5010,6 +5183,12 @@
     return tfDate(value);
   }
 
+  function tfArchiveElapsedLabel(value) {
+    const exact = tfDate(value);
+    const relative = tfRelative(value);
+    return relative === exact ? "" : relative;
+  }
+
   function tfIcon(name) {
     const iconName = ICON_NAMES.includes(name) ? name : "property";
     const content = ensureIconCacheLoaded()
@@ -5067,29 +5246,38 @@
     };
   }
 
-  function tfAttention(model) {
-    const unpaidUpkeep = model.properties.filter(
+  function tfAttention(model, scope = "all") {
+    const scopedProperties = model.properties.filter(
+      (property) => scope === "all" || property.ownership === scope
+    );
+    const controlledProperties = scopedProperties.filter(
+      (property) => property.ownership === "mine"
+    );
+    const unpaidUpkeep = scopedProperties.filter(
       (property) =>
         property.isCurrentHome && property.hasUnpaidUpkeep && property.upkeepActionAvailable
     );
-    const upkeepReminders = model.properties.filter(
+    const upkeepReminders = scopedProperties.filter(
       (property) =>
         property.isCurrentHome &&
         property.upkeepReminderDue &&
         !property.hasUnpaidUpkeep &&
         property.upkeepActionAvailable
     );
-    const soon = model.activeRentals.filter(
+    const controlledRentals = model.activeRentals.filter(
+      (contract) => contract.ownership === "mine" && scope !== "spouse"
+    );
+    const soon = controlledRentals.filter(
       (contract) =>
         Number.isFinite(Number(contract.remaining)) &&
         Number(contract.remaining) >= 0 &&
         Number(contract.remaining) <= 7
     );
-    const vacant = model.properties.filter(
-      (property) => property.status === "available" && property.ownership !== "third-party"
+    const vacant = controlledProperties.filter(
+      (property) => property.status === "available"
     );
-    const listed = model.properties.filter((property) => property.status === "listed");
-    const missing = model.activeRentals.filter(
+    const listed = controlledProperties.filter((property) => property.status === "listed");
+    const missing = controlledRentals.filter(
       (contract) =>
         !contract.endDate ||
         (contract.direction === "out" && (!contract.tenant || contract.tenant === "Unknown renter"))
@@ -5128,7 +5316,7 @@
         ? {
             tone: "warning",
             title: "Vacant properties",
-            detail: `${vacant.length} owned propert${vacant.length === 1 ? "y is" : "ies are"} available`,
+            detail: `${vacant.length} propert${vacant.length === 1 ? "y you own is" : "ies you own are"} available`,
             count: vacant.length,
             tab: "properties",
           }
@@ -5137,7 +5325,7 @@
         ? {
             tone: "info",
             title: "Listed properties",
-            detail: `${listed.length} propert${listed.length === 1 ? "y is" : "ies are"} listed for rent`,
+            detail: `${listed.length} propert${listed.length === 1 ? "y you own is" : "ies you own are"} listed for rent`,
             count: listed.length,
             tab: "properties",
           }
@@ -5200,7 +5388,7 @@
         <header class="tlt-header tf-header">
           <div class="tf-brand"><span class="tf-logo">${tfIcon("logo")}</span><div><strong>Torn<span>folio</span></strong><small>Portfolio &amp; Rental Management</small></div></div>
           <div class="tf-header-actions">
-            <div class="tf-sync-meta"><i class="tf-sync-dot is-${escapeAttr(state.syncState || "idle")}"></i><span>Last synced<strong>${state.lastSyncAt ? escapeHtml(new Date(state.lastSyncAt).toLocaleString()) : "Not yet"}</strong></span></div>
+            <div class="tf-sync-meta" role="status" aria-label="${escapeAttr(`Last synced ${state.lastSyncAt ? new Date(state.lastSyncAt).toLocaleString() : "not yet"}`)}" data-tf-tooltip="${escapeAttr(`Last synced ${state.lastSyncAt ? new Date(state.lastSyncAt).toLocaleString() : "not yet"}`)}"><i class="tf-sync-dot is-${escapeAttr(state.syncState || "idle")}"></i><span>Last synced<strong>${state.lastSyncAt ? escapeHtml(new Date(state.lastSyncAt).toLocaleString()) : "Not yet"}</strong></span></div>
             <button class="tf-sync-button tf-responsive-icon" type="button" data-action="refresh-user-details" aria-label="${escapeAttr(syncLabel)}" data-tf-tooltip="${escapeAttr(syncLabel)}"${state.syncState === "syncing" ? " disabled" : ""}>${tfIcon("sync")}<span class="tf-button-label">${state.syncState === "syncing" ? "Syncing…" : "Sync Now"}</span></button>
             ${tfUpdateButtonHtml()}
             <button class="tf-icon-button" type="button" data-action="open-settings" aria-label="Open settings" data-tf-tooltip="Open settings">${tfIcon("settings")}</button>
@@ -5213,7 +5401,7 @@
         ${state.settingsOpen ? tfSettingsModalHtml() : ""}
         ${state.detailView ? tfDetailModalHtml(model, isPopup) : ""}
         ${propertyAction && !isPopup ? tfPropertyActionModalHtml(model) : ""}
-        <footer class="tf-footer"><div class="tf-footer-brand">${tfIcon("logo")}<strong>Tornfolio</strong><small>Portfolio &amp; Rental Management</small></div><div><span>Help &amp; Support</span><span>Privacy Policy</span><span>Terms of Service</span><span>v${escapeHtml(APP_VERSION)}</span></div></footer>
+        <footer class="tf-footer"><div class="tf-footer-brand">${tfIcon("logo")}<strong>Tornfolio</strong><small>Portfolio &amp; Rental Management</small></div><nav aria-label="Tornfolio information"><button type="button" data-action="open-info" data-info-view="help">Help &amp; Support</button><button type="button" data-action="open-info" data-info-view="privacy">Privacy Policy</button><button type="button" data-action="open-info" data-info-view="terms">Terms of Service</button><button type="button" data-action="open-info" data-info-view="changelog" aria-label="View Tornfolio ${escapeAttr(APP_VERSION)} changelog">v${escapeHtml(APP_VERSION)}</button></nav></footer>
         ${tfSyncProgressHtml()}
         <div id="${APP_ID}-tooltip" class="tf-themed-tooltip" role="tooltip" aria-hidden="true"></div>
         <div class="tlt-status tf-toast ${state.syncProgress ? "is-suppressed" : ""} ${state.syncState && state.syncState !== "idle" ? "is-visible" : ""} ${state.syncState === "error" ? "is-error" : ""}" aria-live="polite">${escapeHtml(state.syncMessage || "")}</div>
@@ -5328,7 +5516,7 @@
         ${tfSegmentButton("propertyScope", "all", "list", "All Properties", ui.propertyScope)}
       </div><input type="search" data-ui-field="propertySearch" placeholder="Search properties…" value="${escapeAttr(ui.propertySearch)}"><select data-ui-field="propertyStatus"><option value="all">All Statuses</option>${["occupied", "rented", "available", "listed"].map((value) => `<option value="${value}"${ui.propertyStatus === value ? " selected" : ""}>${escapeHtml(humanHeader(value))}</option>`).join("")}</select><select data-ui-field="propertyType"><option value="all">All Types</option>${types.map((value) => `<option value="${escapeAttr(value)}"${ui.propertyType === value ? " selected" : ""}>${escapeHtml(value)}</option>`).join("")}</select></div>
       <div class="tf-main-sidebar"><div><div class="tf-summary-strip">${tfMetric("property", tfNumber(summary.total), "Total Properties")}${tfMetric("key", tfNumber(summary.rented), "Rented Out", "info")}${tfMetric("home", tfNumber(summary.available), "Available")}${tfMetric("tag", tfNumber(summary.listed), "Listed", "warning")}${tfMetric("money", tfRentAmount(summary.daily, summary.estimatedIncomeCount > 0), summary.estimatedIncomeCount > 0 ? "Estimated Total Daily Rent Income" : "Total Daily Rent Income", "success")}</div><div class="tf-property-list">${filtered.length ? filtered.map((property) => tfPropertyCard(property, isPopup)).join("") : tfEmpty("No matching properties", "Change the filters or sync to load your property portfolio.")}</div></div>
-        <aside class="tf-sidebar"><section class="tf-card"><div class="tf-card-head"><h2>${tfIcon("quick")} Quick Actions</h2></div><button class="tf-primary tf-wide tf-responsive-icon" type="button" data-action="export-csv" aria-label="Export properties CSV" data-tf-tooltip="Export properties CSV">${tfIcon("external")}<span class="tf-button-label">Export CSV</span></button><button class="tf-wide tf-responsive-icon" type="button" data-tab="archive" aria-label="View archive" data-tf-tooltip="View archive">${tfIcon("archive")}<span class="tf-button-label">View Archive</span></button></section>${tfAttentionPanel(model)}<section class="tf-card"><div class="tf-card-head"><h2>${tfIcon("activity")} Recent Property Activity</h2></div>${tfActivityList(model.activities.slice(0, 5))}</section></aside>
+        <aside class="tf-sidebar"><section class="tf-card"><div class="tf-card-head"><h2>${tfIcon("quick")} Quick Actions</h2></div><button class="tf-primary tf-wide tf-responsive-icon" type="button" data-action="export-csv" aria-label="Export properties CSV" data-tf-tooltip="Export properties CSV">${tfIcon("external")}<span class="tf-button-label">Export CSV</span></button><button class="tf-wide tf-responsive-icon" type="button" data-tab="archive" aria-label="View archive" data-tf-tooltip="View archive">${tfIcon("archive")}<span class="tf-button-label">View Archive</span></button></section>${tfAttentionPanel(model, ui.propertyScope)}<section class="tf-card"><div class="tf-card-head"><h2>${tfIcon("activity")} Recent Property Activity</h2></div>${tfActivityList(model.activities.slice(0, 5))}</section></aside>
       </div></section>`;
   }
 
@@ -5362,18 +5550,26 @@
         : property.status === "rented" && evidence && evidence.estimatedContract
           ? `<div><span>Tenant</span><strong>Private contract details unavailable</strong></div><div><span>Estimated rent / day</span><strong>${escapeHtml(tfRentAmount(evidence.dailyAmount, true))}</strong></div><div><span>Basis</span><strong>Last observed asking rent</strong></div><div><span>Observed</span><strong>${escapeHtml(evidence.observedAt ? tfRelative(evidence.observedAt) : "Unavailable")}</strong></div>`
           : property.listed
-            ? `<div><span>Owner</span><strong>${escapeHtml(property.owner)}</strong></div><div><span>Status</span><strong class="is-warning">Available for rent</strong></div>${evidence && evidence.currentListing ? `<div><span>Listed Rent / Day</span><strong>${escapeHtml(tfRentAmount(evidence.dailyAmount))}</strong></div><div><span>Listing Period</span><strong>${evidence.durationDays ? `${tfNumber(evidence.durationDays)} days` : "Unavailable"}</strong></div>` : `<div><span>Happiness</span><strong>${property.happy ? tfNumber(property.happy) : "Unavailable"}</strong></div>`}`
+            ? `<div><span>Owner</span><strong>${escapeHtml(property.owner)}</strong></div><div><span>Status</span><strong class="is-warning">${escapeHtml(tfPropertyListingLabel(property))}</strong></div>${property.rentalListed && evidence && evidence.currentListing ? `<div><span>Listed Rent / Day</span><strong>${escapeHtml(tfRentAmount(evidence.dailyAmount))}</strong></div><div><span>Listing Period</span><strong>${evidence.durationDays ? `${tfNumber(evidence.durationDays)} days` : "Unavailable"}</strong></div>` : `<div><span>Happiness</span><strong>${property.happy ? tfNumber(property.happy) : "Unavailable"}</strong></div>`}`
             : `<div><span>Owner</span><strong>${escapeHtml(property.owner)}</strong></div><div><span>Status</span><strong class="is-success">Available</strong></div><div><span>Type</span><strong>${escapeHtml(property.type)}</strong></div>`;
-    const quickList =
+    const quickRent =
       !isPopup && !propertyActionUnavailableReason("rent", property)
         ? `<button class="tf-primary tf-responsive-icon" type="button" data-action="open-property-action" data-property-action="rent" data-property-key="${escapeAttr(property.key)}" aria-label="List for rent" data-tf-tooltip="List for rent">${tfIcon("key")}<span class="tf-button-label">List for rent</span></button>`
         : "";
-    return `<article class="tf-property-card">${property.image ? `<img src="${escapeAttr(property.image)}" alt="${escapeAttr(property.type)}">` : `<div class="tf-image-placeholder">${tfIcon("home")}</div>`}<div class="tf-property-body"><div class="tf-property-head"><div><h2>${escapeHtml(property.name)}${property.id && !property.name.includes(property.id) ? ` <small>#${escapeHtml(property.id)}</small>` : ""}</h2><div class="tf-badges">${tfOwnershipBadge(property.ownership)}${tfStatusBadge(property.status)}${tfUpkeepBadge(property)}</div></div></div><div class="tf-property-meta">${detail}</div></div><div class="tf-card-actions">${quickList}<button class="tf-responsive-icon" type="button" data-action="open-property" data-property-key="${escapeAttr(property.key)}" aria-label="View property" data-tf-tooltip="View property">${tfIcon("properties")}<span class="tf-button-label">View Property →</span></button>${contract ? `<button class="tf-responsive-icon" type="button" data-action="open-rental" data-contract-id="${escapeAttr(contract.contractId)}" aria-label="View rental" data-tf-tooltip="View rental">${tfIcon("rentals")}<span class="tf-button-label">View Rental →</span></button>` : ""}</div></article>`;
+    const quickSale =
+      !isPopup && !propertyActionUnavailableReason("sale", property)
+        ? `<button class="tf-responsive-icon" type="button" data-action="open-property-action" data-property-action="sale" data-property-key="${escapeAttr(property.key)}" aria-label="List for sale" data-tf-tooltip="List for sale">${tfIcon("money")}<span class="tf-button-label">List for sale</span></button>`
+        : "";
+    return `<article class="tf-property-card">${property.image ? `<img src="${escapeAttr(property.image)}" alt="${escapeAttr(property.type)}">` : `<div class="tf-image-placeholder">${tfIcon("home")}</div>`}<div class="tf-property-body"><div class="tf-property-head"><div><h2>${escapeHtml(property.name)}${property.id && !property.name.includes(property.id) ? ` <small>#${escapeHtml(property.id)}</small>` : ""}</h2><div class="tf-badges">${tfOwnershipBadge(property.ownership)}${tfStatusBadge(property.status)}${tfUpkeepBadge(property)}</div></div></div><div class="tf-property-meta">${detail}</div></div><div class="tf-card-actions">${quickRent}${quickSale}<button class="tf-responsive-icon" type="button" data-action="open-property" data-property-key="${escapeAttr(property.key)}" aria-label="View property" data-tf-tooltip="View property">${tfIcon("properties")}<span class="tf-button-label">View Property →</span></button>${contract ? `<button class="tf-responsive-icon" type="button" data-action="open-rental" data-contract-id="${escapeAttr(contract.contractId)}" aria-label="View rental" data-tf-tooltip="View rental">${tfIcon("rentals")}<span class="tf-button-label">View Rental →</span></button>` : ""}</div></article>`;
   }
 
-  function tfAttentionPanel(model) {
-    const rows = tfAttention(model);
-    return `<section class="tf-card tf-attention"><div class="tf-card-head"><h2>${tfIcon("alert")} Needs Attention ${rows.length ? `<span class="tf-count">${rows.reduce((sum, row) => sum + row.count, 0)}</span>` : ""}</h2></div>${rows.length ? rows.map(tfAttentionRow).join("") : tfEmpty("Nothing urgent", "Your current portfolio data has no urgent items.")}</section>`;
+  function tfAttentionPanel(model, scope = "all") {
+    const rows = tfAttention(model, scope);
+    const emptyDetail =
+      scope === "spouse"
+        ? "Spouse listings and vacancies are informational. Only upkeep you can actually pay is flagged here."
+        : "Your current portfolio data has no urgent items you can act on.";
+    return `<section class="tf-card tf-attention"><div class="tf-card-head"><h2>${tfIcon("alert")} Needs Attention ${rows.length ? `<span class="tf-count">${rows.reduce((sum, row) => sum + row.count, 0)}</span>` : ""}</h2></div>${rows.length ? rows.map(tfAttentionRow).join("") : tfEmpty("Nothing urgent", emptyDetail)}</section>`;
   }
 
   function tfRentalsHtml(model) {
@@ -5636,8 +5832,8 @@
   }
 
   function tfArchiveCard(row) {
-    const endedAgo = row.endDate ? tfRelative(row.endDate) : "End date unavailable";
-    return `<article class="tf-archive-card">${row.image ? `<img src="${escapeAttr(row.image)}" alt="">` : `<div class="tf-image-placeholder">${tfIcon("archive")}</div>`}<div class="tf-archive-property"><h2>${escapeHtml(row.property)}${row.propertyId && !row.property.includes(row.propertyId) ? ` <small>#${escapeHtml(row.propertyId)}</small>` : ""}</h2><div class="tf-badges">${tfStatusBadge(/sold/i.test(row.status) ? "sold" : "expired")}${tfOwnershipBadge(row.ownership)}${row.extensionCount ? `<span class="tf-badge tf-badge-info">${tfNumber(row.extensionCount)} extension${Number(row.extensionCount) === 1 ? "" : "s"}</span>` : ""}</div><small>${escapeHtml(row.completionReason || row.property)}</small></div><div class="tf-archive-facts"><span><b>${row.tenant ? "Tenant" : "Owner"}</b><strong>${escapeHtml(row.tenant || row.owner || "Unavailable")}</strong></span><span><b>Rent / Day</b><strong>${escapeHtml(tfMoney(row.daily))}</strong></span><span><b>Total Contract</b><strong>${escapeHtml(tfMoney(row.total))}</strong></span><span><b>Started</b><strong>${escapeHtml(tfDate(row.startDate))}</strong></span></div><div class="tf-archive-ended"><span>Ended</span><strong>${escapeHtml(tfDate(row.endDate))}</strong><b>${escapeHtml(endedAgo)}</b><small>${escapeHtml(row.status)}</small></div><div class="tf-card-actions"><button class="tf-responsive-icon" type="button" data-action="open-property" data-property-key="${escapeAttr(row.propertyId ? `property:${row.propertyId}` : "")}" aria-label="View property" data-tf-tooltip="View property">${tfIcon("properties")}<span class="tf-button-label">View Property</span></button><button class="tf-primary tf-responsive-icon" type="button" data-action="open-archive" data-contract-id="${escapeAttr(row.contractId)}" aria-label="View archive details" data-tf-tooltip="View archive details">${tfIcon("archive")}<span class="tf-button-label">View Details →</span></button></div></article>`;
+    const endedAgo = row.endDate ? tfArchiveElapsedLabel(row.endDate) : "";
+    return `<article class="tf-archive-card">${row.image ? `<img src="${escapeAttr(row.image)}" alt="">` : `<div class="tf-image-placeholder">${tfIcon("archive")}</div>`}<div class="tf-archive-property"><h2>${escapeHtml(row.property)}${row.propertyId && !row.property.includes(row.propertyId) ? ` <small>#${escapeHtml(row.propertyId)}</small>` : ""}</h2><div class="tf-badges">${tfStatusBadge(/sold/i.test(row.status) ? "sold" : "expired")}${tfOwnershipBadge(row.ownership)}${row.extensionCount ? `<span class="tf-badge tf-badge-info">${tfNumber(row.extensionCount)} extension${Number(row.extensionCount) === 1 ? "" : "s"}</span>` : ""}</div><small>${escapeHtml(row.completionReason || row.property)}</small></div><div class="tf-archive-facts"><span><b>${row.tenant ? "Tenant" : "Owner"}</b><strong>${escapeHtml(row.tenant || row.owner || "Unavailable")}</strong></span><span><b>Rent / Day</b><strong>${escapeHtml(tfMoney(row.daily))}</strong></span><span><b>Total Contract</b><strong>${escapeHtml(tfMoney(row.total))}</strong></span><span><b>Started</b><strong>${escapeHtml(tfDate(row.startDate))}</strong></span></div><div class="tf-archive-ended"><span>Ended</span><strong>${escapeHtml(tfDate(row.endDate))}</strong>${endedAgo ? `<b>${escapeHtml(endedAgo)}</b>` : ""}<small>${escapeHtml(row.status)}</small></div><div class="tf-card-actions"><button class="tf-responsive-icon" type="button" data-action="open-property" data-property-key="${escapeAttr(row.propertyId ? `property:${row.propertyId}` : "")}" aria-label="View property" data-tf-tooltip="View property">${tfIcon("properties")}<span class="tf-button-label">View Property</span></button><button class="tf-primary tf-responsive-icon" type="button" data-action="open-archive" data-contract-id="${escapeAttr(row.contractId)}" aria-label="View archive details" data-tf-tooltip="View archive details">${tfIcon("archive")}<span class="tf-button-label">View Details →</span></button></div></article>`;
   }
 
   function tfInsightsHtml(model) {
@@ -5914,6 +6110,15 @@
         ? ""
         : "Torn's current properties page does not show an upkeep action for this property.";
     }
+    if (kind === "upgrade") {
+      if (property.ownership !== "mine")
+        return "Only properties owned by your verified Torn account can be upgraded.";
+      if (/\bshack\b/i.test(`${property.type || ""} ${property.name || ""}`))
+        return "Torn does not allow Shacks to be upgraded.";
+      if (property.listed)
+        return "Remove the active rental or sale listing before customizing this property.";
+      return "";
+    }
     if (property.ownership !== "mine")
       return "Only properties owned by your verified Torn account can be managed.";
     if (property.isCurrentHome) return "Your current home cannot be listed from Tornfolio.";
@@ -6066,6 +6271,38 @@
     }
   }
 
+  async function loadUpgradeAction(action) {
+    action.stage = "loading";
+    action.busy = true;
+    action.error = "";
+    action.previewMessage = "";
+    action.review = null;
+    render();
+    try {
+      const options = await tornPropertyPost(tornPropertyUpgradeOptionsFields(action.propertyId));
+      if (propertyAction !== action) return;
+      const groups = parseTornUpgradeOptions(options.text, action.propertyId);
+      const type = groups.mods ? "mods" : "staff";
+      action.upgradeGroups = groups;
+      action.upgradeType = type;
+      action.fields = Object.fromEntries(
+        Object.entries(groups).map(([groupType, group]) => [
+          groupType,
+          Object.fromEntries(group.controls.map((control) => [control.name, control.currentValue])),
+        ])
+      );
+      action.busy = false;
+      action.stage = "form";
+      render();
+    } catch (error) {
+      if (propertyAction !== action) return;
+      action.busy = false;
+      action.stage = "error";
+      action.error = error.message || "Tornfolio could not load this property's upgrade choices.";
+      render();
+    }
+  }
+
   async function openPropertyAction(kind, propertyKey, isPopup) {
     if (isPopup)
       throw new Error(
@@ -6081,7 +6318,7 @@
       propertyId: property.id,
       propertyName: property.name,
       fields: propertyActionDefaults(kind, property, model),
-      stage: kind === "remove" ? "confirm" : "form",
+      stage: kind === "remove" ? "confirm" : kind === "upgrade" ? "loading" : "form",
       busy: false,
       error: "",
       previewMessage: "",
@@ -6089,6 +6326,7 @@
     };
     render();
     if (kind === "upkeep") await loadUpkeepAction(propertyAction);
+    if (kind === "upgrade") await loadUpgradeAction(propertyAction);
   }
 
   function tfPropertyActionsHtml(property, model, isPopup) {
@@ -6124,6 +6362,34 @@
     return `<section class="tf-property-actions"><h2>Manage Property</h2>${content}${upkeepStatus}<small>Manual actions only. Tornfolio never retries, schedules, or repeats a property change.</small></section>`;
   }
 
+  function tfInstalledPropertyFeatures(property) {
+    const upgrades = Array.isArray(property && property.upgrades) ? property.upgrades : [];
+    const staff = Array.isArray(property && property.staff)
+      ? property.staff.map((entry) => {
+          const amount = Number(entry && entry.amount) || 1;
+          const name = propertyUpgradeFieldLabel(clean(entry && entry.type, "Staff"));
+          return `${amount > 1 ? `${amount}x ` : ""}${name}`;
+        })
+      : [];
+    return [...upgrades, ...staff];
+  }
+
+  function tfPropertyUpgradePanel(property, isPopup) {
+    if (property.ownership !== "mine") return "";
+    const unavailable = propertyActionUnavailableReason("upgrade", property);
+    const installedCount = tfInstalledPropertyFeatures(property).length;
+    const installed = installedCount
+      ? `${installedCount} installed facilit${installedCount === 1 ? "y or staff entry" : "ies or staff entries"} currently recorded.`
+      : "Installed facility and staff details will appear after Torn returns them during sync.";
+    if (isPopup) {
+      return `<section class="tf-property-upgrades"><h2>Facilities & Staff Upgrades</h2><p>${escapeHtml(installed)} Open Tornfolio on the active Torn properties page to customize this home.</p></section>`;
+    }
+    if (unavailable) {
+      return `<section class="tf-property-upgrades"><h2>Facilities & Staff Upgrades</h2><p>${escapeHtml(installed)}</p><p class="tf-action-note">${escapeHtml(unavailable)}</p></section>`;
+    }
+    return `<section class="tf-property-upgrades"><h2>Facilities & Staff Upgrades</h2><p>${escapeHtml(installed)} Tornfolio loads the current choices and prices directly from Torn before review.</p><div class="tf-button-row"><button class="tf-primary" type="button" data-action="open-property-action" data-property-action="upgrade" data-property-key="${escapeAttr(property.key)}">Customize facilities & staff</button></div><small>You can customize any property you own while it is not listed, including one you do not currently live in. Review is read-only; a separate final click is required before Torn applies and charges for a change.</small></section>`;
+  }
+
   function propertyActionTitle(kind) {
     return (
       {
@@ -6132,11 +6398,18 @@
         remove: "Remove listing",
         extend: "Offer rental extension",
         upkeep: "Pay property upkeep",
+        upgrade: "Upgrade facilities & staff",
       }[kind] || "Manage property"
     );
   }
 
   function tfPropertyActionSummary(action) {
+    if (action.kind === "upgrade") {
+      const review = action.review || {};
+      const typeLabel = review.type === "staff" ? "Staff changes" : "Facility changes";
+      const items = Array.isArray(review.items) ? review.items : [];
+      return `<div class="tf-upgrade-review"><span>${escapeHtml(typeLabel)}</span><ul>${items.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>${review.total ? `<strong>${escapeHtml(review.total)}</strong>` : ""}</div>`;
+    }
     if (action.kind === "rent") {
       const calculation = rentalListingCalculation(action.fields);
       const roi = calculation.projectedRoi || action.fields.projectedRoi;
@@ -6160,10 +6433,45 @@
     return `<div class="tf-action-summary"><div><span>Current listing</span><strong>Remove from Torn's property market</strong></div></div>`;
   }
 
+  function tfPropertyUpgradeFormHtml(action, error) {
+    const groups = action.upgradeGroups || {};
+    const types = ["mods", "staff"].filter((type) => groups[type]);
+    const type = types.includes(action.upgradeType) ? action.upgradeType : types[0];
+    const group = groups[type];
+    if (!group)
+      return `<p class="tf-action-error" role="alert">Torn did not return any upgrade choices for this property.</p>`;
+    const selectedValues = (action.fields && action.fields[type]) || {};
+    const changed = group.controls.some(
+      (control) => String(selectedValues[control.name]) !== String(control.currentValue)
+    );
+    const tabs = types
+      .map(
+        (groupType) =>
+          `<button type="button" class="${groupType === type ? "is-active" : ""}" data-action="set-upgrade-type" data-upgrade-type="${escapeAttr(groupType)}" aria-pressed="${groupType === type ? "true" : "false"}">${escapeHtml(groups[groupType].title)}</button>`
+      )
+      .join("");
+    const fields = group.controls
+      .map((control) => {
+        const selected = Object.prototype.hasOwnProperty.call(selectedValues, control.name)
+          ? String(selectedValues[control.name])
+          : String(control.currentValue);
+        const options = control.options
+          .map(
+            (option) =>
+              `<option value="${escapeAttr(option.value)}"${String(option.value) === selected ? " selected" : ""}>${escapeHtml(option.label)}</option>`
+          )
+          .join("");
+        return `<label>${escapeHtml(control.label)}<select name="${escapeAttr(control.name)}" data-upgrade-field="${escapeAttr(control.name)}">${options}</select>${control.options.length < 2 ? `<small>Already installed; Torn offered no alternative.</small>` : ""}</label>`;
+      })
+      .join("");
+    return `<form class="tf-action-form" data-form="property-action"><div class="tf-segmented tf-upgrade-tabs">${tabs}</div><div class="tf-upgrade-fields">${fields}</div>${error}<p class="tf-action-note">Prices and available levels above came from Torn just now. Review sends one non-final validation request; it does not purchase anything.</p><div class="tf-button-row"><button class="tf-primary" type="submit"${action.busy || !changed ? " disabled" : ""}>${action.busy ? "Checking with Torn…" : changed ? `Review ${type === "staff" ? "staff" : "facilities"} changes` : "Choose a change to review"}</button><button type="button" data-action="reload-upgrade-options"${action.busy ? " disabled" : ""}>Reload choices</button><button type="button" data-action="close-property-action"${action.busy ? " disabled" : ""}>Cancel</button></div></form>`;
+  }
+
   function tfPropertyActionFormHtml(action) {
     const error = action.error
       ? `<p class="tf-action-error" role="alert">${escapeHtml(action.error)}</p>`
       : "";
+    if (action.kind === "upgrade") return tfPropertyUpgradeFormHtml(action, error);
     if (action.kind === "upkeep") {
       const due = Number(action.fields.due || 0);
       const availableCash = Number(action.fields.availableCash || 0);
@@ -6299,14 +6607,18 @@
       const detail =
         action.kind === "upkeep"
           ? `Tornfolio recorded ${tfMoneyKnown(action.fields.remaining || 0)} outstanding for this session. Check upkeep again whenever you want a fresh balance from Torn.`
+          : action.kind === "upgrade"
+            ? "Use Sync Now to refresh the property's installed upgrades, Happiness, value, and upkeep from authoritative data."
           : "The local card has been updated for this session. Use Sync Now when you want Tornfolio to rebuild its authoritative property and history data.";
       body = `<div class="tf-action-success"><strong>Confirmed by Torn</strong><p>${escapeHtml(action.message)}</p><p>${escapeHtml(detail)}</p><button class="tf-primary" type="button" data-action="close-property-action">Done</button></div>`;
     } else if (action.stage === "loading") {
-      body = `<div class="tf-action-success"><strong>Checking Torn…</strong><p>Reading this property's current upkeep balance and your available cash. No payment is being made.</p></div>`;
+      body = `<div class="tf-action-success"><strong>Checking Torn…</strong><p>${action.kind === "upgrade" ? "Loading this property's current facilities, staff, choices, and prices. Nothing is being purchased." : "Reading this property's current upkeep balance and your available cash. No payment is being made."}</p></div>`;
     } else if (action.stage === "clear") {
       body = `<div class="tf-action-success"><strong>Nothing due</strong><p>${escapeHtml(action.message)}</p><button class="tf-primary" type="button" data-action="close-property-action">Done</button></div>`;
     } else if (action.stage === "error") {
-      body = `<p class="tf-action-error" role="alert">${escapeHtml(action.error)}</p><p class="tf-action-note">Nothing was paid and Tornfolio did not retry automatically.</p><div class="tf-button-row"><button class="tf-primary" type="button" data-action="retry-upkeep-check">Check again</button><button type="button" data-action="close-property-action">Cancel</button></div>`;
+      const retryAction = action.kind === "upgrade" ? "reload-upgrade-options" : "retry-upkeep-check";
+      const retryLabel = action.kind === "upgrade" ? "Reload choices" : "Check again";
+      body = `<p class="tf-action-error" role="alert">${escapeHtml(action.error)}</p><p class="tf-action-note">Nothing was changed and Tornfolio did not retry automatically.</p><div class="tf-button-row"><button class="tf-primary" type="button" data-action="${retryAction}">${retryLabel}</button><button type="button" data-action="close-property-action">Cancel</button></div>`;
     } else if (action.stage === "form") {
       body = tfPropertyActionFormHtml(action);
     } else {
@@ -6325,6 +6637,8 @@
               ? "Create sale listing"
               : action.kind === "upkeep"
                 ? "Pay upkeep"
+                : action.kind === "upgrade"
+                  ? `Apply ${action.upgradeType === "staff" ? "staff" : "facility"} changes`
                 : "Create rental listing";
       body = `${preview}${tfPropertyActionSummary(action)}${error}<p class="tf-action-note">This final click sends one property-changing request to Torn. Tornfolio will not retry it automatically.</p><div class="tf-button-row"><button class="${action.kind === "remove" ? "tf-danger" : "tf-primary"}" type="button" data-action="confirm-property-action"${action.busy ? " disabled" : ""}>${action.busy ? "Waiting for Torn…" : finalLabel}</button>${action.kind === "remove" ? "" : `<button type="button" data-action="edit-property-action"${action.busy ? " disabled" : ""}>Back</button>`}<button type="button" data-action="close-property-action"${action.busy ? " disabled" : ""}>Cancel</button></div>`;
     }
@@ -6340,6 +6654,38 @@
     const unavailable = propertyActionUnavailableReason(action.kind, property);
     if (unavailable) throw new Error(unavailable);
     const rawValues = Object.fromEntries(new FormData(form).entries());
+    if (action.kind === "upgrade") {
+      const selections = normalizePropertyUpgradeSelections(action, rawValues);
+      const group = action.upgradeGroups[action.upgradeType];
+      const changed = group.controls.some(
+        (control) => String(selections[control.name]) !== String(control.currentValue)
+      );
+      if (!changed) throw new Error("Choose at least one change before asking Torn to review it.");
+      action.fields[action.upgradeType] = selections;
+      const fields = tornPropertyActionFields("upgrade", "preview", property.id, {
+        type: action.upgradeType,
+        selections,
+      });
+      action.busy = true;
+      action.error = "";
+      render();
+      try {
+        const response = await tornPropertyPost(fields);
+        if (propertyAction !== action) return;
+        action.review = parseTornUpgradeReview(response.text, action.upgradeType);
+        action.busy = false;
+        action.stage = "confirm";
+        action.previewMessage =
+          "Torn calculated the changes below. Nothing has been purchased or hired yet.";
+        render();
+      } catch (error) {
+        if (propertyAction !== action) return;
+        action.busy = false;
+        action.error = error.message || "Torn could not validate these upgrade choices.";
+        render();
+      }
+      return;
+    }
     if (action.kind === "upkeep") {
       const finalFields = tornPropertyActionFields("upkeep", "final", property.id, rawValues);
       const payment = Number(finalFields.pay);
@@ -6444,7 +6790,11 @@
     const property = model.properties.find((row) => row.key === action.propertyKey);
     const unavailable = propertyActionUnavailableReason(action.kind, property);
     if (unavailable) throw new Error(unavailable);
-    const fields = tornPropertyActionFields(action.kind, "final", property.id, action.fields);
+    const actionValues =
+      action.kind === "upgrade"
+        ? { type: action.upgradeType, selections: action.fields[action.upgradeType] }
+        : action.fields;
+    const fields = tornPropertyActionFields(action.kind, "final", property.id, actionValues);
     action.busy = true;
     action.error = "";
     render();
@@ -6502,6 +6852,7 @@
 
   function tfDetailModalHtml(model, isPopup = false) {
     const detail = state.detailView || {};
+    if (detail.kind === "info") return tfInfoModalHtml(detail.id);
     if (detail.kind === "property") {
       const property = model.properties.find((row) => row.key === detail.id);
       if (!property)
@@ -6513,7 +6864,8 @@
         (row) => row.propertyId && row.propertyId === property.id
       );
       const contracts = model.activeRentals.filter((row) => row.propertyKey === property.key);
-      return `<div class="tlt-modal-backdrop tf-modal-backdrop" data-action="close-detail"><div class="tlt-modal tf-modal tf-detail-modal" role="dialog" aria-modal="true" aria-label="Property details" data-modal-stop><div class="tlt-modal-head"><div><strong>${escapeHtml(property.name)}</strong><span>${property.id ? `Property #${escapeHtml(property.id)} · ` : ""}${escapeHtml(property.type)}</span></div><button class="tf-icon-button" type="button" data-action="close-detail" aria-label="Close property details">${tfIcon("close")}</button></div><div class="tf-detail-body">${property.image ? `<img class="tf-detail-image" src="${escapeAttr(property.image)}" alt="${escapeAttr(property.type)}">` : ""}<div class="tf-badges">${tfOwnershipBadge(property.ownership)}${tfStatusBadge(property.status)}${tfUpkeepBadge(property)}</div><div class="tf-detail-grid"><div><span>Owner</span><strong>${escapeHtml(property.owner)}</strong></div><div><span>Happiness</span><strong>${property.happy ? tfNumber(property.happy) : "Unavailable"}</strong></div><div><span>Known Upgrades</span><strong>${property.upgrades.length ? property.upgrades.length : "Unavailable"}</strong></div><div><span>Residents</span><strong>${escapeHtml(property.residents.join(", ") || "Unavailable")}</strong></div><div><span>Daily Upkeep</span><strong>${escapeHtml(tfMoney(property.upkeep))}</strong></div><div><span>Market Value</span><strong>${escapeHtml(tfMoney(property.marketValue))}</strong></div><div><span>Investment Basis</span><strong>${escapeHtml(tfMoney(property.investment))}</strong></div><div><span>Market listing</span><strong>${escapeHtml(tfPropertyListingLabel(property))}</strong></div></div>${tfRentalIncomeEvidenceDetail(property)}${tfPropertyActionsHtml(property, model, isPopup)}<section><h2>Lifecycle Snapshot</h2>${tfLifecycleSnapshot(property.lifecycle)}</section>${property.upgrades.length ? `<section><h2>Upgrades / Modifications</h2><div class="tf-chip-list">${property.upgrades.map((value) => `<span>${escapeHtml(value)}</span>`).join("")}</div></section>` : ""}<section><h2>Current Rental</h2>${contracts.length ? contracts.map(tfRentalCard).join("") : tfEmpty("No active rental", "This property has no active rental contract in the latest data.")}</section><section><h2>Property Journey</h2>${tfPropertyJourney(property.id)}</section><section><h2>Rental History</h2>${history.length ? history.map(tfArchiveCard).join("") : tfEmpty("No rental history", "Archived contracts for this property will appear after history has been synced.")}</section></div></div></div>`;
+      const installedFeatures = tfInstalledPropertyFeatures(property);
+      return `<div class="tlt-modal-backdrop tf-modal-backdrop" data-action="close-detail"><div class="tlt-modal tf-modal tf-detail-modal" role="dialog" aria-modal="true" aria-label="Property details" data-modal-stop><div class="tlt-modal-head"><div><strong>${escapeHtml(property.name)}</strong><span>${property.id ? `Property #${escapeHtml(property.id)} · ` : ""}${escapeHtml(property.type)}</span></div><button class="tf-icon-button" type="button" data-action="close-detail" aria-label="Close property details">${tfIcon("close")}</button></div><div class="tf-detail-body">${property.image ? `<img class="tf-detail-image" src="${escapeAttr(property.image)}" alt="${escapeAttr(property.type)}">` : ""}<div class="tf-badges">${tfOwnershipBadge(property.ownership)}${tfStatusBadge(property.status)}${tfUpkeepBadge(property)}</div><div class="tf-detail-grid"><div><span>Owner</span><strong>${escapeHtml(property.owner)}</strong></div><div><span>Happiness</span><strong>${property.happy ? tfNumber(property.happy) : "Unavailable"}</strong></div><div><span>Facilities / Staff</span><strong>${installedFeatures.length ? installedFeatures.length : "Unavailable"}</strong></div><div><span>Residents</span><strong>${escapeHtml(property.residents.join(", ") || "Unavailable")}</strong></div><div><span>Daily Upkeep</span><strong>${escapeHtml(tfMoney(property.upkeep))}</strong></div><div><span>Market Value</span><strong>${escapeHtml(tfMoney(property.marketValue))}</strong></div><div><span>Investment Basis</span><strong>${escapeHtml(tfMoney(property.investment))}</strong></div><div><span>Market listing</span><strong>${escapeHtml(tfPropertyListingLabel(property))}</strong></div></div>${tfRentalIncomeEvidenceDetail(property)}${tfPropertyActionsHtml(property, model, isPopup)}${tfPropertyUpgradePanel(property, isPopup)}<section><h2>Lifecycle Snapshot</h2>${tfLifecycleSnapshot(property.lifecycle)}</section>${installedFeatures.length ? `<section><h2>Installed Upgrades & Staff</h2><div class="tf-chip-list">${installedFeatures.map((value) => `<span>${escapeHtml(value)}</span>`).join("")}</div></section>` : ""}<section><h2>Current Rental</h2>${contracts.length ? contracts.map(tfRentalCard).join("") : tfEmpty("No active rental", "This property has no active rental contract in the latest data.")}</section><section><h2>Property Journey</h2>${tfPropertyJourney(property.id)}</section><section><h2>Rental History</h2>${history.length ? history.map(tfArchiveCard).join("") : tfEmpty("No rental history", "Archived contracts for this property will appear after history has been synced.")}</section></div></div></div>`;
     }
     if (detail.kind === "rental") {
       const contract = model.activeRentals.find((row) => row.contractId === detail.id);
@@ -6546,6 +6898,33 @@
       );
     }
     return "";
+  }
+
+  function tfInfoModalHtml(view) {
+    const views = {
+      help: {
+        title: "Help & Support",
+        subtitle: "Get help with Tornfolio",
+        body: `<section><h2>Before reporting a problem</h2><ol class="tf-info-list"><li>Use <strong>Sync Now</strong> and wait for every sync line to finish.</li><li>Open the affected property and note whether it belongs to you, your spouse, or a third party.</li><li>Include the Tornfolio version, the screen involved, and a screenshot with private details removed.</li></ol></section><section><h2>Support</h2><p>Tornfolio's GreasyFork feedback page is the public place for questions, bug reports, and release feedback.</p><a class="tf-link-button tf-primary" href="${escapeAttr(`${GREASYFORK_PAGE_URL}/feedback`)}" target="_blank" rel="noopener noreferrer">Open GreasyFork support</a></section>`,
+      },
+      privacy: {
+        title: "Privacy Policy",
+        subtitle: "What Tornfolio stores and sends",
+        body: `<section><h2>Local data</h2><p>Tornfolio stores its settings, portfolio cache, rental history, and reminder timestamps in your userscript manager. Your Torn API key remains in userscript-manager storage and is not inserted into the page.</p></section><section><h2>Hosted sync</h2><p>When you deliberately sync or scan a market, Tornfolio sends the data required for that request to the configured Tornfolio service. It does not run property changes in the background. Property listings, upkeep payments, upgrades, and extensions are sent directly to Torn only after the review and final-confirmation steps you choose.</p></section><section><h2>Your control</h2><p>You can export your records or clear the local cache from Settings. Removing the userscript and its userscript-manager storage removes Tornfolio's local data.</p></section>`,
+      },
+      terms: {
+        title: "Terms of Service",
+        subtitle: "Using Tornfolio safely",
+        body: `<section><h2>Player responsibility</h2><p>Tornfolio is an independent portfolio aid and is not affiliated with Torn. Market suggestions are estimates, not guarantees. Review every amount and property before confirming an action.</p></section><section><h2>Property actions</h2><p>Tornfolio never promises that Torn will accept a request. Torn's current rules, permissions, balances, and property state remain authoritative. Every final listing, payment, extension, sale, or upgrade requires your explicit confirmation.</p></section><section><h2>Availability</h2><p>The tool is provided as-is and may need updates when Torn changes its pages or endpoints. Do not rely on it as the only copy of records you need to retain.</p></section>`,
+      },
+      changelog: {
+        title: `Tornfolio ${APP_VERSION}`,
+        subtitle: "Release notes",
+        body: `<section><h2>Version ${escapeHtml(APP_VERSION)}</h2><ul class="tf-info-list"><li>Repairs Archive and rental-history card sizing and duplicate end-date text.</li><li>Makes the full interface respond to Tornfolio's own panel width, with bounded images and icon-only compact controls.</li><li>Keeps spouse-owned listings informational instead of actionable.</li><li>Adds owner property facility and staff upgrades using Torn's review and final-confirmation flow.</li><li>Adds discoverable rent and sale actions for eligible unlisted properties.</li><li>Turns the footer's help, privacy, terms, and version labels into useful dialogs.</li></ul></section><section><h2>Updates</h2><p>Tornfolio checks GreasyFork for a newer release when it opens. The header status tells you whether this version is current.</p><a class="tf-link-button" href="${escapeAttr(GREASYFORK_PAGE_URL)}" target="_blank" rel="noopener noreferrer">View Tornfolio on GreasyFork</a></section>`,
+      },
+    };
+    const selected = views[view] || views.help;
+    return `<div class="tlt-modal-backdrop tf-modal-backdrop" data-action="close-detail"><div class="tlt-modal tf-modal tf-info-modal" role="dialog" aria-modal="true" aria-label="${escapeAttr(selected.title)}" data-modal-stop><div class="tlt-modal-head"><div><strong>${escapeHtml(selected.title)}</strong><span>${escapeHtml(selected.subtitle)}</span></div><button class="tf-icon-button" type="button" data-action="close-detail" aria-label="Close ${escapeAttr(selected.title)}">${tfIcon("close")}</button></div><div class="tf-detail-body">${selected.body}</div></div></div>`;
   }
 
   function tfContractDetailModal(contract, title, model, isPopup = false) {
@@ -6782,14 +7161,17 @@
       #${APP_ID} .tf-segmented button:last-child { border-right: 0; }
       #${APP_ID} .tf-segmented button.is-active { background: linear-gradient(180deg, #0a816c, #075848); color: #dbfff7; box-shadow: inset 0 0 0 1px var(--tf-teal); }
       #${APP_ID} .tf-property-list, #${APP_ID} .tf-rental-list, #${APP_ID} .tf-market-list, #${APP_ID} .tf-archive-list { display: grid; gap: 9px; }
-      #${APP_ID} .tf-property-card, #${APP_ID} .tf-rental-card { display: grid; grid-template-columns: 240px minmax(0, 1fr) 160px; min-height: 138px; overflow: hidden; }
-      #${APP_ID} .tf-property-card > img, #${APP_ID} .tf-rental-card > img, #${APP_ID} .tf-image-placeholder { width: 100%; height: 100%; min-height: 138px; object-fit: cover; background: #0b2e3d; }
+      #${APP_ID} .tf-property-card, #${APP_ID} .tf-rental-card { display: grid; grid-template-columns: 240px minmax(0, 1fr) 160px; min-width: 0; min-height: 138px; overflow: hidden; }
+      #${APP_ID} .tf-property-card > *, #${APP_ID} .tf-rental-card > * { min-width: 0; }
+      #${APP_ID} .tf-property-card > img, #${APP_ID} .tf-rental-card > img, #${APP_ID} .tf-property-card > .tf-image-placeholder, #${APP_ID} .tf-rental-card > .tf-image-placeholder { align-self: start; width: 100%; height: 138px; min-height: 138px; object-fit: cover; background: #0b2e3d; }
       #${APP_ID} .tf-image-placeholder { display: grid; place-items: center; color: var(--tf-teal); font-size: 34px; }
       #${APP_ID} .tf-image-placeholder .tf-icon { width: 38px; height: 38px; }
       #${APP_ID} .tf-property-body, #${APP_ID} .tf-rental-body { min-width: 0; padding: 12px 15px; }
       #${APP_ID} .tf-property-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
       #${APP_ID} .tf-property-head h2 { margin: 0 0 8px; font-size: 17px; }
       #${APP_ID} .tf-property-meta, #${APP_ID} .tf-contract-grid { display: flex; flex-wrap: wrap; align-items: end; gap: 14px 34px; margin-top: 14px; }
+      #${APP_ID} .tf-property-meta > div, #${APP_ID} .tf-contract-grid > div { flex: 1 1 120px; min-width: 0; }
+      #${APP_ID} .tf-property-head h2, #${APP_ID} .tf-property-meta strong, #${APP_ID} .tf-contract-grid strong { overflow-wrap: anywhere; word-break: normal; }
       #${APP_ID} .tf-card-actions { display: flex; flex-direction: column; justify-content: center; gap: 8px; padding: 10px; }
       #${APP_ID} .tf-card-actions button { display: inline-flex; align-items: center; justify-content: center; width: 100%; white-space: nowrap; }
       #${APP_ID} .tf-wide { width: 100%; margin-top: 7px; }
@@ -6902,7 +7284,9 @@
       #${APP_ID} .tf-footer-brand { display: flex; align-items: center; gap: 8px; }
       #${APP_ID} .tf-footer-brand .tf-icon { width: 15px; height: 15px; }
       #${APP_ID} .tf-footer-brand strong { color: var(--tf-text); font-size: 12px; }
-      #${APP_ID} .tf-footer > div:last-child { display: flex; gap: 23px; margin-left: auto; }
+      #${APP_ID} .tf-footer > nav { display: flex; align-items: center; gap: 17px; margin-left: auto; }
+      #${APP_ID} .tf-footer > nav button { min-height: 24px; padding: 2px 6px; border: 0; background: transparent; color: var(--tf-muted); font-size: 10px; font-weight: 600; white-space: nowrap; }
+      #${APP_ID} .tf-footer > nav button:hover, #${APP_ID} .tf-footer > nav button:focus-visible { background: rgba(20,228,186,.08); color: var(--tf-teal); }
       #${APP_ID} .tf-toast { position: absolute; left: 50%; bottom: 48px; z-index: 20; max-width: 70%; transform: translateX(-50%); padding: 7px 12px; border: 1px solid var(--tf-border); border-radius: 99px; background: rgba(4,20,29,.94); color: var(--tf-muted); opacity: 0; pointer-events: none; transition: opacity .2s; }
       #${APP_ID} .tf-toast.is-visible:not(:empty) { opacity: .92; }
       #${APP_ID} .tf-toast.is-suppressed { display: none; }
@@ -6961,17 +7345,29 @@
       #${APP_ID} .tf-detail-image { width: 100%; max-height: 280px; border-radius: 9px; object-fit: cover; }
       #${APP_ID} .tf-detail-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 9px; }
       #${APP_ID} .tf-detail-grid > div { min-height: 70px; padding: 10px; border: 1px solid var(--tf-border); border-radius: 8px; background: rgba(8,35,47,.72); }
+      #${APP_ID} .tf-info-modal { width: min(720px, 94%); }
+      #${APP_ID} .tf-info-list { display: grid; gap: 8px; margin: 0; padding-left: 22px; color: var(--tf-muted); line-height: 1.5; }
+      #${APP_ID} .tf-info-list strong { color: var(--tf-text); }
+      #${APP_ID} .tf-link-button { display: inline-flex; align-items: center; justify-content: center; width: max-content; min-height: 36px; margin-top: 8px; padding: 7px 11px; border: 1px solid var(--tf-border); border-radius: 8px; background: #092535; color: var(--tf-text); font-weight: 700; text-decoration: none; }
       #${APP_ID} .tf-chip-list { display: flex; flex-wrap: wrap; gap: 7px; }
       #${APP_ID} .tf-chip-list span { padding: 5px 8px; border: 1px solid var(--tf-border-bright); border-radius: 99px; color: #bcd6e5; }
       #${APP_ID} .tf-action-backdrop { z-index: 120; }
-      #${APP_ID} .tf-action-modal { width: min(650px, 94%); }
+      #${APP_ID} .tf-action-modal { width: min(760px, 94%); }
       #${APP_ID} .tf-action-body { display: grid; gap: 13px; overflow: auto; padding: 16px; }
-      #${APP_ID} .tf-property-actions { border-color: rgba(20,228,186,.44) !important; background: linear-gradient(135deg, rgba(9,55,65,.88), rgba(7,34,47,.88)) !important; }
-      #${APP_ID} .tf-property-actions > small { display: block; margin-top: 10px; color: var(--tf-muted); line-height: 1.45; }
+      #${APP_ID} .tf-property-actions, #${APP_ID} .tf-property-upgrades { border-color: rgba(20,228,186,.44) !important; background: linear-gradient(135deg, rgba(9,55,65,.88), rgba(7,34,47,.88)) !important; }
+      #${APP_ID} .tf-property-actions > small, #${APP_ID} .tf-property-upgrades > small { display: block; margin-top: 10px; color: var(--tf-muted); line-height: 1.45; }
       #${APP_ID} .tf-action-form { display: grid; gap: 12px; }
       #${APP_ID} .tf-action-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
       #${APP_ID} .tf-action-form label { display: grid; gap: 6px; color: #d6e6ef; font-weight: 700; }
-      #${APP_ID} .tf-action-form input { width: 100%; min-height: 42px; padding: 9px 11px; box-sizing: border-box; }
+      #${APP_ID} .tf-action-form input, #${APP_ID} .tf-action-form select { width: 100%; min-height: 42px; padding: 9px 11px; box-sizing: border-box; }
+      #${APP_ID} .tf-upgrade-tabs { max-width: none; flex-basis: auto; }
+      #${APP_ID} .tf-upgrade-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+      #${APP_ID} .tf-upgrade-fields label { align-content: start; padding: 10px; border: 1px solid var(--tf-border); border-radius: 8px; background: rgba(8,35,47,.72); }
+      #${APP_ID} .tf-upgrade-fields label > small { color: var(--tf-muted); font-size: 10px; font-weight: 500; line-height: 1.35; }
+      #${APP_ID} .tf-upgrade-review { display: grid; gap: 9px; padding: 13px; border: 1px solid var(--tf-border-bright); border-radius: 9px; background: rgba(8,35,47,.75); }
+      #${APP_ID} .tf-upgrade-review > span { color: var(--tf-muted); font-size: 11px; }
+      #${APP_ID} .tf-upgrade-review ul { display: grid; gap: 6px; margin: 0; padding-left: 20px; color: var(--tf-text); }
+      #${APP_ID} .tf-upgrade-review > strong { color: var(--tf-teal); }
       #${APP_ID} .tf-price-field { display: grid; gap: 6px; color: #d6e6ef; font-weight: 700; }
       #${APP_ID} .tf-pricing-source { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
       #${APP_ID} .tf-pricing-source button { display: grid; gap: 2px; min-height: 48px; padding: 7px 9px; border-color: var(--tf-border-bright); text-align: left; }
@@ -6998,6 +7394,36 @@
       }
       #${APP_ID} .tf-themed-tooltip.is-visible { visibility: visible; opacity: 1; transform: translate(-50%, 0); }
       #${APP_ID} button:disabled { opacity: .58; cursor: wait; transform: none; }
+      @container tornfolio (max-width: 1100px) {
+        #${APP_ID} .tf-main-sidebar { grid-template-columns: minmax(0, 1fr); }
+        #${APP_ID} .tf-sidebar { grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
+        #${APP_ID} .tf-portfolio-row { grid-template-columns: minmax(0, 1fr); }
+        #${APP_ID} .tf-market-top { grid-template-columns: minmax(0, 1fr) minmax(280px, .9fr); }
+        #${APP_ID} .tf-pricing-factors { grid-column: 1 / -1; }
+        #${APP_ID} .tf-property-card, #${APP_ID} .tf-rental-card { grid-template-columns: 180px minmax(0, 1fr) 150px; }
+        #${APP_ID} .tf-archive-card { grid-template-columns: 120px minmax(150px, 1fr) minmax(210px, 1.25fr); }
+        #${APP_ID} .tf-archive-card > img, #${APP_ID} .tf-archive-card > .tf-image-placeholder { width: 120px; }
+        #${APP_ID} .tf-archive-ended, #${APP_ID} .tf-archive-card .tf-card-actions { grid-column: span 1; }
+        #${APP_ID} .tf-insights-grid { grid-template-columns: 1fr 1fr; }
+      }
+      @container tornfolio (max-width: 960px) {
+        #${APP_ID} .tf-header { gap: 11px; }
+        #${APP_ID} .tf-brand small { display: none; }
+        #${APP_ID} .tf-header-actions { gap: 6px; }
+        #${APP_ID} .tf-sync-meta { width: 18px; min-width: 18px; justify-content: center; }
+        #${APP_ID} .tf-sync-meta span,
+        #${APP_ID} .tf-update-status > span,
+        #${APP_ID} .tf-responsive-icon > .tf-button-label {
+          position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap;
+        }
+        #${APP_ID} .tf-update-status,
+        #${APP_ID} .tf-responsive-icon { flex: 0 0 42px; width: 42px; min-width: 42px; height: 42px; min-height: 42px; padding: 0; gap: 0; }
+        #${APP_ID} .tf-card-actions { align-items: center; }
+        #${APP_ID} .tf-card-actions button.tf-responsive-icon { width: 42px; }
+        #${APP_ID} .tf-footer { gap: 10px; padding-inline: 12px; }
+        #${APP_ID} .tf-footer-brand small { display: none; }
+        #${APP_ID} .tf-footer > nav { gap: 7px; }
+      }
       @container tornfolio (max-width: 760px) {
         #${APP_ID} .tf-header { min-height: 64px; padding: 8px 10px; gap: 10px; }
         #${APP_ID} .tf-logo { width: 38px; height: 38px; font-size: 19px; }
@@ -7015,15 +7441,37 @@
         #${APP_ID} .tf-segmented { flex: 0 0 auto; max-width: none; gap: 6px; overflow: visible; border: 0; border-radius: 0; background: transparent; }
         #${APP_ID} .tf-segmented button { flex: 0 0 42px; border: 1px solid var(--tf-border); border-radius: 8px; }
         #${APP_ID} .tf-segmented button:last-child { border-right: 1px solid var(--tf-border); }
+        #${APP_ID} .tf-segmented.tf-upgrade-tabs { display: grid; grid-template-columns: 1fr 1fr; width: 100%; flex: 1 1 100%; gap: 0; overflow: hidden; border: 1px solid var(--tf-border); border-radius: 8px; background: rgba(9,35,49,.8); }
+        #${APP_ID} .tf-segmented.tf-upgrade-tabs button { width: auto; min-width: 0; min-height: 42px; height: auto; padding: 7px 9px; border: 0; border-right: 1px solid var(--tf-border); border-radius: 0; white-space: normal; }
+        #${APP_ID} .tf-segmented.tf-upgrade-tabs button:last-child { border-right: 0; }
         #${APP_ID} .tf-card-actions { flex-direction: row; }
         #${APP_ID} .tf-card-actions button.tf-responsive-icon { flex: 0 0 42px; width: 42px; min-width: 42px; }
         #${APP_ID} .tf-card-head button.tf-card-head-action { width: 36px; min-width: 36px; height: 36px; min-height: 36px; padding: 0; }
         #${APP_ID} .tf-sidebar .tf-card > .tf-wide.tf-responsive-icon { display: inline-flex; width: 42px; min-width: 42px; margin: 7px 6px 0 0; }
+        #${APP_ID} .tf-two-column, #${APP_ID} .tf-settings-body { grid-template-columns: minmax(0, 1fr); }
+        #${APP_ID} .tf-metrics, #${APP_ID} .tf-summary-strip, #${APP_ID} .tf-kpi-row, #${APP_ID} .tf-market-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        #${APP_ID} .tf-property-card, #${APP_ID} .tf-rental-card { grid-template-columns: 110px minmax(0, 1fr); }
+        #${APP_ID} .tf-property-card > img, #${APP_ID} .tf-rental-card > img, #${APP_ID} .tf-property-card > .tf-image-placeholder, #${APP_ID} .tf-rental-card > .tf-image-placeholder { height: 132px; min-height: 132px; }
+        #${APP_ID} .tf-property-card .tf-card-actions, #${APP_ID} .tf-rental-card .tf-card-actions { grid-column: 1 / -1; justify-content: flex-end; padding-block: 8px; }
+        #${APP_ID} .tf-market-top, #${APP_ID} .tf-market-property { grid-template-columns: minmax(0, 1fr); }
+        #${APP_ID} .tf-market-property > img, #${APP_ID} .tf-market-property > .tf-image-placeholder { width: 100%; height: 180px; }
+        #${APP_ID} .tf-market-upgrades { grid-template-columns: minmax(0, 1fr); }
+        #${APP_ID} .tf-detail-grid, #${APP_ID} .tf-action-fields, #${APP_ID} .tf-upgrade-fields { grid-template-columns: minmax(0, 1fr); }
+        #${APP_ID} .tf-sidebar { grid-template-columns: minmax(0, 1fr); }
+        #${APP_ID} .tf-archive-card { grid-template-columns: 90px minmax(0, 1fr); }
+        #${APP_ID} .tf-archive-card > img, #${APP_ID} .tf-archive-card > .tf-image-placeholder { width: 90px; }
+        #${APP_ID} .tf-archive-facts, #${APP_ID} .tf-archive-ended, #${APP_ID} .tf-archive-card .tf-card-actions { grid-column: 1 / -1; }
+        #${APP_ID} .tf-footer > nav button { font-size: 9px; padding-inline: 4px; }
       }
       @container tornfolio (max-width: 520px) {
         #${APP_ID} .tf-header { gap: 7px; }
         #${APP_ID} .tf-header-actions { gap: 5px; }
         #${APP_ID} .tf-brand > div { display: none; }
+        #${APP_ID} .tf-property-card, #${APP_ID} .tf-rental-card { grid-template-columns: minmax(0, 1fr); }
+        #${APP_ID} .tf-property-card > img, #${APP_ID} .tf-rental-card > img, #${APP_ID} .tf-property-card > .tf-image-placeholder, #${APP_ID} .tf-rental-card > .tf-image-placeholder { width: 100%; height: 155px; min-height: 155px; }
+        #${APP_ID} .tf-property-card .tf-card-actions, #${APP_ID} .tf-rental-card .tf-card-actions { grid-column: 1; }
+        #${APP_ID} .tf-footer-brand { display: none; }
+        #${APP_ID} .tf-footer > nav { width: 100%; justify-content: space-between; margin-left: 0; }
       }
       @media (max-width: 1120px) {
         #${APP_ID} { min-width: 520px; }
@@ -7065,7 +7513,7 @@
         #${APP_ID} .tf-card-actions { flex-direction: row; }
         #${APP_ID} .tf-footer > div:last-child span:not(:last-child) { display: none; }
         #${APP_ID} .tf-detail-grid { grid-template-columns: 1fr 1fr; }
-        #${APP_ID} .tf-action-fields { grid-template-columns: 1fr; }
+        #${APP_ID} .tf-action-fields, #${APP_ID} .tf-upgrade-fields { grid-template-columns: 1fr; }
         #${APP_ID} .tf-lifecycle-grid, #${APP_ID} .tf-mini-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
         #${APP_ID} .tf-journey-row { grid-template-columns: 72px 10px minmax(0, 1fr); }
         #${APP_ID} .tf-journey-row em { grid-column: 3; width: max-content; }
@@ -10956,6 +11404,31 @@
 
     const propertyActionForm = root.querySelector("[data-form='property-action']");
     if (propertyActionForm) {
+      if (propertyAction && propertyAction.kind === "upgrade") {
+        propertyActionForm.querySelectorAll("[data-upgrade-field]").forEach((field) => {
+          field.addEventListener("change", () => {
+            if (!propertyAction || propertyAction.kind !== "upgrade") return;
+            const type = propertyAction.upgradeType;
+            if (!propertyAction.fields[type]) propertyAction.fields[type] = {};
+            propertyAction.fields[type][field.name] = field.value;
+            const submit = propertyActionForm.querySelector("button[type='submit']");
+            const group = propertyAction.upgradeGroups && propertyAction.upgradeGroups[type];
+            const changed =
+              group &&
+              group.controls.some(
+                (control) =>
+                  String(propertyAction.fields[type][control.name]) !==
+                  String(control.currentValue)
+              );
+            if (submit) {
+              submit.disabled = !changed;
+              submit.textContent = changed
+                ? `Review ${type === "staff" ? "staff" : "facilities"} changes`
+                : "Choose a change to review";
+            }
+          });
+        });
+      }
       if (propertyAction && ["rent", "extend"].includes(propertyAction.kind)) {
         const daysField = propertyActionForm.elements.days;
         const totalField = propertyActionForm.elements.total;
@@ -11080,6 +11553,14 @@
             saveState();
             render();
           }
+          if (action === "open-info") {
+            state.detailView = {
+              kind: "info",
+              id: button.dataset.infoView || "help",
+            };
+            saveState();
+            render();
+          }
           if (action === "open-property") {
             state.detailView = {
               kind: "property",
@@ -11125,7 +11606,36 @@
           if (action === "edit-property-action" && propertyAction && !propertyAction.busy) {
             propertyAction.stage = "form";
             propertyAction.error = "";
+            propertyAction.review = null;
             render();
+          }
+          if (
+            action === "set-upgrade-type" &&
+            propertyAction &&
+            propertyAction.kind === "upgrade" &&
+            !propertyAction.busy
+          ) {
+            if (propertyActionForm) {
+              const currentValues = Object.fromEntries(new FormData(propertyActionForm).entries());
+              propertyAction.fields[propertyAction.upgradeType] = normalizePropertyUpgradeSelections(
+                propertyAction,
+                currentValues
+              );
+            }
+            const upgradeType = clean(button.dataset.upgradeType, "");
+            if (propertyAction.upgradeGroups && propertyAction.upgradeGroups[upgradeType]) {
+              propertyAction.upgradeType = upgradeType;
+              propertyAction.error = "";
+              render();
+            }
+          }
+          if (
+            action === "reload-upgrade-options" &&
+            propertyAction &&
+            propertyAction.kind === "upgrade" &&
+            !propertyAction.busy
+          ) {
+            await loadUpgradeAction(propertyAction);
           }
           if (
             action === "retry-upkeep-check" &&
@@ -11410,6 +11920,10 @@
   if (typeof globalThis !== "undefined" && globalThis.__TORNFOLIO_TEST__) {
     globalThis.__TORNFOLIO_TEST_API__ = Object.freeze({
       tornPropertyActionFields,
+      tornPropertyUpgradeOptionsFields,
+      tornPropertyUpgradeFields,
+      parseTornUpgradeOptions,
+      parseTornUpgradeReview,
       tornCsrfToken,
       tornPropertyActionEnvironmentReason,
       tornPropertyCashAvailable,
@@ -11426,10 +11940,14 @@
       tfPropertyDailyIncome,
       tfAttention,
       tfAttentionRow,
+      tfArchiveElapsedLabel,
       tfPropertyActionFormHtml,
       tfPropertyActionSummary,
       tfPropertyActionsHtml,
+      tfPropertyUpgradePanel,
+      tfInstalledPropertyFeatures,
       tfPropertyCard,
+      tfInfoModalHtml,
       tfContractDetailModal,
     });
   }

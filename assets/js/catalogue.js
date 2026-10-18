@@ -143,7 +143,7 @@ export const scripts = [
     "tier": "supporter",
     "title": "Tornfolio",
     "desc": "A Torn property, rental, market pricing and ROI manager for owners and renters.",
-    "version": "v0.8.1",
+    "version": "v0.8.2",
     "versionPrefix": "VER",
     "category": "Property management",
     "group": "Property & Finance",
@@ -164,7 +164,7 @@ export const scripts = [
     ],
     "actions": [
       {
-        "label": "Install beta v0.8.1",
+        "label": "Install beta v0.8.2",
         "href": "https://greasyfork.org/en/scripts/591996-tornfolio-property-lease-roi-manager",
         "icon": "download",
         "primary": true,
@@ -766,11 +766,11 @@ export const scriptReleases = [
   {
     scriptId: "tornfolio",
     title: "Tornfolio",
-    version: "v0.8.1",
+    version: "v0.8.2",
     date: "2026-10-18",
     type: "RELEASE",
     summary:
-      "Fixes oversized Archive and rental-history cards, removes modal overflow, applies the Tornfolio teal and navy modal header, and standardizes the userscript namespace.",
+      "Repairs compact panel layouts and archive history, keeps spouse listings informational, adds upgrades for eligible unlisted owned properties, exposes rent and sale actions, and turns footer labels into help, policy, terms, and changelog dialogs.",
     href: "https://greasyfork.org/en/scripts/591996-tornfolio-property-lease-roi-manager/versions",
   },
   {
