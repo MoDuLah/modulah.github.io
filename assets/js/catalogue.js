@@ -143,13 +143,13 @@ export const scripts = [
     "tier": "supporter",
     "title": "Tornfolio",
     "desc": "A Torn property, rental, market pricing and ROI manager for owners and renters.",
-    "version": "v0.7.6",
+    "version": "v0.8.0",
     "versionPrefix": "VER",
     "category": "Property management",
     "group": "Property & Finance",
     "projectType": "Supporter property tool",
     "releaseState": "Beta tester build",
-    "updated": "16 October 2026",
+    "updated": "18 October 2026",
     "badge": "supporter",
     "badgeText": "SUPPORTER",
     "logo": "assets/images/tornfolio/tornfolio-logo.svg",
@@ -164,7 +164,7 @@ export const scripts = [
     ],
     "actions": [
       {
-        "label": "Install beta v0.7.6",
+        "label": "Install beta v0.8.0",
         "href": "https://greasyfork.org/en/scripts/591996-tornfolio-property-lease-roi-manager",
         "icon": "download",
         "primary": true,
@@ -763,6 +763,16 @@ export const scripts = [
 ];
 
 export const scriptReleases = [
+  {
+    scriptId: "tornfolio",
+    title: "Tornfolio",
+    version: "v0.8.0",
+    date: "2026-10-18",
+    type: "RELEASE",
+    summary:
+      "Adds a daily current-home upkeep reminder and reviewed payment flow, owner-only full-portfolio rent and sale comparisons with price ranking, and compact icon actions with themed tooltips when the Tornfolio window is narrow.",
+    href: "https://greasyfork.org/en/scripts/591996-tornfolio-property-lease-roi-manager/versions",
+  },
   {
     scriptId: "tornfolio",
     title: "Tornfolio",

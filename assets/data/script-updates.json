@@ -1,17 +1,17 @@
 {
   "schemaVersion": 1,
-  "checkedAt": "2026-10-16T06:53:08.909060Z",
+  "checkedAt": "2026-10-18T12:57:18.008418Z",
   "scripts": [
     {
       "id": "pythagoras",
       "title": "Pythagoras Project - CIS",
-      "version": "3.3.1",
-      "displayVersion": "v3.3.1",
-      "date": "2026-10-13",
-      "updated": "13 October 2026",
+      "version": "3.3.2",
+      "displayVersion": "v3.3.2",
+      "date": "2026-10-18",
+      "updated": "18 October 2026",
       "source": "greasyfork",
       "updateVersion": true,
-      "actionLabel": "Install v3.3.1",
+      "actionLabel": "Install v3.3.2",
       "sourceUrl": "https://greasyfork.org/en/scripts/580933",
       "marketplace": {
         "author": {
@@ -19,14 +19,14 @@
           "url": "https://greasyfork.org/users/1561217-modul"
         },
         "dailyInstalls": 0,
-        "totalInstalls": 79,
-        "version": "3.3.1",
+        "totalInstalls": 80,
+        "version": "3.3.2",
         "created": "2026-06-03",
         "createdDisplay": "Jun 3, 2026",
-        "updated": "2026-10-13",
-        "updatedDisplay": "Oct 13, 2026",
-        "sizeBytes": 1096526,
-        "size": "1.0 MB",
+        "updated": "2026-10-18",
+        "updatedDisplay": "Oct 18, 2026",
+        "sizeBytes": 1103441,
+        "size": "1.1 MB",
         "license": {
           "name": "All Rights Reserved"
         },
@@ -77,13 +77,13 @@
     {
       "id": "tornfolio",
       "title": "Tornfolio",
-      "version": "0.7.6",
-      "displayVersion": "v0.7.6",
-      "date": "2026-10-16",
-      "updated": "16 October 2026",
+      "version": "0.8.0",
+      "displayVersion": "v0.8.0",
+      "date": "2026-10-18",
+      "updated": "18 October 2026",
       "source": "userscript",
       "updateVersion": true,
-      "actionLabel": "Install beta v0.7.6"
+      "actionLabel": "Install beta v0.8.0"
     },
     {
       "id": "customRaceFilter",
@@ -147,8 +147,8 @@
           "name": "MoDuL",
           "url": "https://greasyfork.org/users/1561217-modul"
         },
-        "dailyInstalls": 2,
-        "totalInstalls": 351,
+        "dailyInstalls": 6,
+        "totalInstalls": 364,
         "version": "2.4.8",
         "created": "2026-07-31",
         "createdDisplay": "Jul 31, 2026",
@@ -337,8 +337,8 @@
           "name": "MoDuL",
           "url": "https://greasyfork.org/users/1561217-modul"
         },
-        "dailyInstalls": 0,
-        "totalInstalls": 45,
+        "dailyInstalls": 3,
+        "totalInstalls": 48,
         "version": "0.3.4",
         "created": "2026-05-22",
         "createdDisplay": "May 22, 2026",
@@ -576,6 +576,25 @@
     }
   ],
   "timeline": [
+    {
+      "scriptId": "tornfolio",
+      "title": "Tornfolio",
+      "version": "v0.8.0",
+      "date": "2026-10-18",
+      "type": "RELEASE",
+      "summary": "The Tornfolio property lifecycle, rental, market and update-checker userscript changed.",
+      "href": "https://greasyfork.org/en/scripts/591996-tornfolio-property-lease-roi-manager",
+      "eventId": "tornfolio:v0.8.0"
+    },
+    {
+      "scriptId": "pythagoras",
+      "title": "Pythagoras Project - CIS",
+      "version": "v3.3.2",
+      "date": "2026-10-18",
+      "type": "RELEASE",
+      "summary": "Fair bought-train allocation. Training setup now offers FIFO, equal Split, and every oldest/next-buyer split for the daily paid cap. Split assigns 4/4 across two buyers when eight paid trains are available, treats multiple orders from the same player as one buyer, and leaves remaining capacity in sponsored rotation.",
+      "href": "https://greasyfork.org/en/scripts/580933/versions"
+    },
     {
       "scriptId": "tornfolio",
       "title": "Tornfolio",

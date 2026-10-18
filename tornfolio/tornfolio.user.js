@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Tornfolio — Property, Lease & ROI Manager
 // @namespace    https://github.com/local/torn-landlord-tenant-ledger
-// @version      0.7.6
+// @version      0.8.0
 // @description  Manage your Torn property portfolio, rentals, market pricing, archive, and ROI.
 // @author       MoDuL
 // @copyright    2026 MoDuL. All rights reserved.
@@ -21,7 +21,8 @@
   "use strict";
 
   const APP_ID = "tlt-ledger";
-  const APP_VERSION = "0.7.6";
+  const APP_VERSION = "0.8.0";
+  const UPKEEP_REMINDER_INTERVAL_MS = 24 * 60 * 60 * 1000;
   const STORE_KEY = "tornLandlordTenantLedger:v1";
   const API_BASE = "https://api.torn.com/v2";
   const HOSTED_API_BASE = "https://pp-api.sokin.xyz/tornfolio";
@@ -32,32 +33,71 @@
   const ICON_SPRITE_URL = `${HOSTED_API_BASE}/assets/icons/tornfolio-icons.svg`;
   const GREASYFORK_SCRIPT_ID = 591996;
   const GREASYFORK_API_URL = `https://api.greasyfork.org/en/scripts/${GREASYFORK_SCRIPT_ID}.json`;
-  const GREASYFORK_PAGE_URL = "https://greasyfork.org/en/scripts/591996-tornfolio-property-lease-roi-manager";
-  const ICON_NAMES = ["logo", "dashboard", "home", "properties", "property", "rentals", "market", "archive", "insights", "alert", "activity", "money", "key", "tag", "heart", "settings", "sync", "external", "minimize", "close", "quick", "idea", "trophy", "exchange", "list", "calendar", "more", "add"];
+  const GREASYFORK_PAGE_URL =
+    "https://greasyfork.org/en/scripts/591996-tornfolio-property-lease-roi-manager";
+  const ICON_NAMES = [
+    "logo",
+    "dashboard",
+    "home",
+    "properties",
+    "property",
+    "rentals",
+    "market",
+    "archive",
+    "insights",
+    "alert",
+    "activity",
+    "money",
+    "key",
+    "tag",
+    "heart",
+    "settings",
+    "sync",
+    "external",
+    "minimize",
+    "close",
+    "quick",
+    "idea",
+    "trophy",
+    "exchange",
+    "list",
+    "calendar",
+    "more",
+    "add",
+  ];
   const BUILTIN_ICON_CONTENT = {
     logo: '<path d="M12 21c.2-5.8-.2-10.3-1.3-13.5"/><path d="M11 7.7C8.9 4.9 6.2 4.5 3.8 5.3c2.1.4 3.7 1.6 4.8 3.4"/><path d="M11 7.3c.2-3.2 2-5.2 4.6-6.1-.9 2.1-.9 4.1.1 5.9"/><path d="M11.6 7.5c2.7-2.2 5.5-2.1 7.8-.6-2.2-.1-4 .7-5.5 2.2"/><path d="M4 21c2.7-1.4 5.3-1.4 8 0 2.7-1.4 5.3-1.4 8 0"/>',
-    dashboard: '<path d="M3 10.5 12 3l9 7.5"/><path d="M5.5 9.5V21h13V9.5"/><path d="M9 21v-7h6v7"/>',
+    dashboard:
+      '<path d="M3 10.5 12 3l9 7.5"/><path d="M5.5 9.5V21h13V9.5"/><path d="M9 21v-7h6v7"/>',
     home: '<path d="M3 10.5 12 3l9 7.5"/><path d="M5.5 9.5V21h13V9.5"/><path d="M9 21v-7h6v7"/>',
-    properties: '<rect x="4" y="3" width="16" height="18" rx="1.5"/><path d="M8 7h2M14 7h2M8 11h2M14 11h2M8 15h2M14 15h2M10 21v-3h4v3"/>',
-    property: '<rect x="4" y="3" width="16" height="18" rx="1.5"/><path d="M8 7h2M14 7h2M8 11h2M14 11h2M8 15h2M14 15h2M10 21v-3h4v3"/>',
-    rentals: '<rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 3.5V2h6v1.5M8 8h8M8 12h8M8 16h5"/>',
-    market: '<path d="M4 10v10h16V10M3 9l2-6h14l2 6"/><path d="M3 9c0 1.7 3 2 3 0 0 1.7 3 2 3 0 0 1.7 3 2 3 0 0 1.7 3 2 3 0 0 1.7 3 2 3 0 0 1.7 3 2 3 0"/><path d="M8 20v-6h8v6"/>',
+    properties:
+      '<rect x="4" y="3" width="16" height="18" rx="1.5"/><path d="M8 7h2M14 7h2M8 11h2M14 11h2M8 15h2M14 15h2M10 21v-3h4v3"/>',
+    property:
+      '<rect x="4" y="3" width="16" height="18" rx="1.5"/><path d="M8 7h2M14 7h2M8 11h2M14 11h2M8 15h2M14 15h2M10 21v-3h4v3"/>',
+    rentals:
+      '<rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 3.5V2h6v1.5M8 8h8M8 12h8M8 16h5"/>',
+    market:
+      '<path d="M4 10v10h16V10M3 9l2-6h14l2 6"/><path d="M3 9c0 1.7 3 2 3 0 0 1.7 3 2 3 0 0 1.7 3 2 3 0 0 1.7 3 2 3 0 0 1.7 3 2 3 0 0 1.7 3 2 3 0"/><path d="M8 20v-6h8v6"/>',
     archive: '<path d="M4 8h16v12H4zM3 4h18v4H3z"/><path d="M9 12h6"/>',
     insights: '<path d="M4 20V10h4v10M10 20V4h4v16M16 20v-7h4v7M3 20h18"/>',
     alert: '<path d="M12 3 2.8 20h18.4z"/><path d="M12 9v5M12 17.5v.1"/>',
     activity: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/>',
-    money: '<circle cx="12" cy="12" r="9"/><path d="M15.5 8.5c-.8-.8-1.9-1.2-3.3-1.2-1.8 0-3.2.9-3.2 2.3 0 3.5 6.5 1.5 6.5 5 0 1.3-1.3 2.3-3.4 2.3-1.5 0-2.8-.5-3.6-1.3M12 5.5v13"/>',
+    money:
+      '<circle cx="12" cy="12" r="9"/><path d="M15.5 8.5c-.8-.8-1.9-1.2-3.3-1.2-1.8 0-3.2.9-3.2 2.3 0 3.5 6.5 1.5 6.5 5 0 1.3-1.3 2.3-3.4 2.3-1.5 0-2.8-.5-3.6-1.3M12 5.5v13"/>',
     key: '<circle cx="8" cy="15" r="4"/><path d="m11 12 8-8M15 8l3 3M17 6l2 2"/>',
     tag: '<path d="M4 4h7l9 9-7 7-9-9z"/><circle cx="8" cy="8" r="1"/>',
-    heart: '<path d="M20.5 8.8c0 5-8.5 10.2-8.5 10.2S3.5 13.8 3.5 8.8A4.3 4.3 0 0 1 12 7.7a4.3 4.3 0 0 1 8.5 1.1Z"/>',
-    settings: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1-2.8 2.8-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6v.2h-4V21a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1L4.2 17l.1-.1a1.7 1.7 0 0 0 .3-1.9A1.7 1.7 0 0 0 3 14H2.8v-4H3a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9L4.2 7 7 4.2l.1.1A1.7 1.7 0 0 0 9 4.6 1.7 1.7 0 0 0 10 3V2.8h4V3a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1L19.8 7l-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.6 1h.2v4H21a1.7 1.7 0 0 0-1.6 1Z"/>',
+    heart:
+      '<path d="M20.5 8.8c0 5-8.5 10.2-8.5 10.2S3.5 13.8 3.5 8.8A4.3 4.3 0 0 1 12 7.7a4.3 4.3 0 0 1 8.5 1.1Z"/>',
+    settings:
+      '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1-2.8 2.8-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6v.2h-4V21a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1L4.2 17l.1-.1a1.7 1.7 0 0 0 .3-1.9A1.7 1.7 0 0 0 3 14H2.8v-4H3a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9L4.2 7 7 4.2l.1.1A1.7 1.7 0 0 0 9 4.6 1.7 1.7 0 0 0 10 3V2.8h4V3a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1L19.8 7l-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.6 1h.2v4H21a1.7 1.7 0 0 0-1.6 1Z"/>',
     sync: '<path d="M20 7v5h-5M4 17v-5h5"/><path d="M6.1 8.5A7 7 0 0 1 18.8 7L20 9M4 15l1.2 2A7 7 0 0 0 18 15.5"/>',
     external: '<path d="M14 4h6v6M20 4l-9 9"/><path d="M18 13v7H4V6h7"/>',
     minimize: '<path d="M5 12h14"/>',
     close: '<path d="m6 6 12 12M18 6 6 18"/>',
     quick: '<path d="m13 2-8 12h7l-1 8 8-12h-7z"/>',
     idea: '<path d="M9 18h6M10 21h4"/><path d="M8.4 15.5A7 7 0 1 1 15.6 15.5c-.8.6-.9 1.4-.9 2.5H9.3c0-1.1-.1-1.9-.9-2.5Z"/>',
-    trophy: '<path d="M8 4h8v5a4 4 0 0 1-8 0zM10 16h4M12 13v3M8 20h8"/><path d="M8 6H4v2a4 4 0 0 0 5 3.9M16 6h4v2a4 4 0 0 1-5 3.9"/>',
+    trophy:
+      '<path d="M8 4h8v5a4 4 0 0 1-8 0zM10 16h4M12 13v3M8 20h8"/><path d="M8 6H4v2a4 4 0 0 0 5 3.9M16 6h4v2a4 4 0 0 1-5 3.9"/>',
     exchange: '<path d="M4 7h14l-3-3M20 17H6l3 3"/>',
     list: '<path d="M9 6h11M9 12h11M9 18h11"/><circle cx="4" cy="6" r="1"/><circle cx="4" cy="12" r="1"/><circle cx="4" cy="18" r="1"/>',
     calendar: '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M7 3v4M17 3v4M3 10h18"/>',
@@ -66,12 +106,55 @@
   };
   const COMMENT = "Tornfolio Property Lease ROI Manager";
   const ENDPOINTS = [
-    { id: "torn-properties", path: "/torn/properties", label: "Home catalogue", detail: "Shows Torn's property types and upgrades.", action: "fetch-torn-properties", actionLabel: "Fetch catalogue" },
-    { id: "user-properties", path: "/user/properties", label: "Homes I own", detail: "Find homes owned by your saved Torn key user.", action: "import-owned", actionLabel: "Fetch my owned homes" },
-    { id: "spouse-properties", path: "/user/{spouse.id}/properties", label: "Spouse homes", detail: "Find homes owned by your spouse.", action: "fetch-spouse-properties", actionLabel: "Fetch spouse homes", spouseOnly: true },
-    { id: "user-id-properties", path: "/user/{id}/properties", label: "Someone's owned homes", detail: "Find homes owned by the user ID or name you enter.", action: "fetch-user-properties", actionLabel: "Fetch that user" },
-    { id: "user-property", path: "/user/property", label: "Home I live in", detail: "Find your current property.", action: "import-current", actionLabel: "Fetch my current home" },
-    { id: "user-id-property", path: "/user/{id}/property", label: "Someone's current home", detail: "Find the current property for the user ID or name you enter.", action: "fetch-user-property", actionLabel: "Fetch that user" },
+    {
+      id: "torn-properties",
+      path: "/torn/properties",
+      label: "Home catalogue",
+      detail: "Shows Torn's property types and upgrades.",
+      action: "fetch-torn-properties",
+      actionLabel: "Fetch catalogue",
+    },
+    {
+      id: "user-properties",
+      path: "/user/properties",
+      label: "Homes I own",
+      detail: "Find homes owned by your saved Torn key user.",
+      action: "import-owned",
+      actionLabel: "Fetch my owned homes",
+    },
+    {
+      id: "spouse-properties",
+      path: "/user/{spouse.id}/properties",
+      label: "Spouse homes",
+      detail: "Find homes owned by your spouse.",
+      action: "fetch-spouse-properties",
+      actionLabel: "Fetch spouse homes",
+      spouseOnly: true,
+    },
+    {
+      id: "user-id-properties",
+      path: "/user/{id}/properties",
+      label: "Someone's owned homes",
+      detail: "Find homes owned by the user ID or name you enter.",
+      action: "fetch-user-properties",
+      actionLabel: "Fetch that user",
+    },
+    {
+      id: "user-property",
+      path: "/user/property",
+      label: "Home I live in",
+      detail: "Find your current property.",
+      action: "import-current",
+      actionLabel: "Fetch my current home",
+    },
+    {
+      id: "user-id-property",
+      path: "/user/{id}/property",
+      label: "Someone's current home",
+      detail: "Find the current property for the user ID or name you enter.",
+      action: "fetch-user-property",
+      actionLabel: "Fetch that user",
+    },
   ];
   const SIMPLE_TABS = [
     { id: "dashboard", label: "Dashboard", icon: "dashboard" },
@@ -150,6 +233,7 @@
     tableSort: {},
     propertyCosts: {},
     spouseListingSnapshots: {},
+    upkeepReminderChecks: {},
     settings: DEFAULT_SETTINGS,
     archivedRentals: [],
     activity: [],
@@ -172,6 +256,7 @@
       marketMode: "rent",
       marketType: "all",
       marketStatus: "all",
+      marketRankOrder: "asc",
       archiveSearch: "",
       archiveOwner: "all",
       archiveType: "all",
@@ -193,6 +278,9 @@
   let updateCheckStatus = "checking";
   let propertyAction = null;
   const propertyActionOverrides = new Map();
+  let tornUpkeepPropertyIds = new Set();
+  let tornUpkeepObserver = null;
+  let tornUpkeepScanQueued = false;
 
   function loadState() {
     const raw = safeGet(STORE_KEY);
@@ -202,14 +290,26 @@
       const next = {
         ...emptyState,
         ...parsed,
-        endpointInputs: { ...emptyState.endpointInputs, ...(parsed.endpointInputs || {}) },
-        propertyTypes: Array.isArray(parsed.propertyTypes) && parsed.propertyTypes.length ? parsed.propertyTypes.map(normalizeHostedPropertyType).filter(Boolean) : PROPERTY_TYPES,
+        endpointInputs: {
+          ...emptyState.endpointInputs,
+          ...(parsed.endpointInputs || {}),
+        },
+        propertyTypes:
+          Array.isArray(parsed.propertyTypes) && parsed.propertyTypes.length
+            ? parsed.propertyTypes.map(normalizeHostedPropertyType).filter(Boolean)
+            : PROPERTY_TYPES,
         tableSort: { ...(parsed.tableSort || {}) },
         propertyCosts: { ...(parsed.propertyCosts || {}) },
         spouseListingSnapshots: { ...(parsed.spouseListingSnapshots || {}) },
         settings: { ...DEFAULT_SETTINGS, ...(parsed.settings || {}) },
         archivedRentals: Array.isArray(parsed.archivedRentals) ? parsed.archivedRentals : [],
         activity: Array.isArray(parsed.activity) ? parsed.activity : [],
+        upkeepReminderChecks:
+          parsed.upkeepReminderChecks &&
+          typeof parsed.upkeepReminderChecks === "object" &&
+          !Array.isArray(parsed.upkeepReminderChecks)
+            ? { ...parsed.upkeepReminderChecks }
+            : {},
         syncProgress: normalizeSyncProgress(parsed.syncProgress),
         ui: { ...emptyState.ui, ...(parsed.ui || {}) },
       };
@@ -229,26 +329,68 @@
 
   function syncProgressSteps() {
     return [
-      { id: "access", label: "Secure account access", status: "pending", detail: "Waiting to check the saved Tornfolio session." },
-      { id: "profile", label: "Profile and spouse details", status: "pending", detail: "Waiting for the hosted sync." },
-      { id: "portfolio", label: "Owned, current and spouse properties", status: "pending", detail: "Waiting for the hosted sync." },
-      { id: "rentals", label: "Current rental contracts", status: "pending", detail: "Waiting for the hosted sync." },
-      { id: "history", label: "Property and rental history", status: "pending", detail: "Waiting for the hosted sync." },
-      { id: "rentalMarket", label: "Rental comparisons", status: "pending", detail: "Waiting to scan rental listings." },
-      { id: "saleMarket", label: "Sale comparisons", status: "pending", detail: "Waiting to scan sale listings." },
-      { id: "save", label: "Save and rebuild Tornfolio", status: "pending", detail: "Waiting for fetched data." },
+      {
+        id: "access",
+        label: "Secure account access",
+        status: "pending",
+        detail: "Waiting to check the saved Tornfolio session.",
+      },
+      {
+        id: "profile",
+        label: "Profile and spouse details",
+        status: "pending",
+        detail: "Waiting for the hosted sync.",
+      },
+      {
+        id: "portfolio",
+        label: "Owned, current and spouse properties",
+        status: "pending",
+        detail: "Waiting for the hosted sync.",
+      },
+      {
+        id: "rentals",
+        label: "Current rental contracts",
+        status: "pending",
+        detail: "Waiting for the hosted sync.",
+      },
+      {
+        id: "history",
+        label: "Property and rental history",
+        status: "pending",
+        detail: "Waiting for the hosted sync.",
+      },
+      {
+        id: "rentalMarket",
+        label: "Rental comparisons",
+        status: "pending",
+        detail: "Waiting to scan rental listings.",
+      },
+      {
+        id: "saleMarket",
+        label: "Sale comparisons",
+        status: "pending",
+        detail: "Waiting to scan sale listings.",
+      },
+      {
+        id: "save",
+        label: "Save and rebuild Tornfolio",
+        status: "pending",
+        detail: "Waiting for fetched data.",
+      },
     ];
   }
 
   function normalizeSyncProgress(progress) {
     if (!progress || typeof progress !== "object") return null;
     const allowed = new Set(["pending", "active", "done", "warning", "error"]);
-    const steps = Array.isArray(progress.steps) ? progress.steps.map((step) => ({
-      id: clean(step && step.id, "step"),
-      label: clean(step && step.label, "Sync step"),
-      status: allowed.has(step && step.status) ? step.status : "pending",
-      detail: clean(step && step.detail, ""),
-    })) : syncProgressSteps();
+    const steps = Array.isArray(progress.steps)
+      ? progress.steps.map((step) => ({
+          id: clean(step && step.id, "step"),
+          label: clean(step && step.label, "Sync step"),
+          status: allowed.has(step && step.status) ? step.status : "pending",
+          detail: clean(step && step.detail, ""),
+        }))
+      : syncProgressSteps();
     return {
       kind: clean(progress.kind, "all"),
       title: clean(progress.title, "Tornfolio sync"),
@@ -273,7 +415,15 @@
     next.title = "Sync interrupted";
     next.message = "The page closed before the last sync finished. Start Sync Now to try again.";
     next.finishedAt = nowIso();
-    next.steps = next.steps.map((step) => step.status === "active" ? { ...step, status: "error", detail: "Interrupted before this check finished." } : step);
+    next.steps = next.steps.map((step) =>
+      step.status === "active"
+        ? {
+            ...step,
+            status: "error",
+            detail: "Interrupted before this check finished.",
+          }
+        : step
+    );
     return next;
   }
 
@@ -292,10 +442,15 @@
     };
     state.syncProgress = {
       kind,
-      title: rentalOnly ? "Refreshing rental comparisons" : saleOnly ? "Refreshing sale comparisons" : "Syncing Tornfolio",
-      message: rentalOnly || saleOnly
-        ? `Preparing a fresh ${saleOnly ? "sale" : "rental"} comparison for available properties.`
-        : "Preparing a secure portfolio sync.",
+      title: rentalOnly
+        ? "Refreshing rental comparisons"
+        : saleOnly
+          ? "Refreshing sale comparisons"
+          : "Syncing Tornfolio",
+      message:
+        rentalOnly || saleOnly
+          ? `Preparing a fresh ${saleOnly ? "sale" : "rental"} comparison for available properties.`
+          : "Preparing a secure portfolio sync.",
       percent: 6,
       startedAt: nowIso(),
       finishedAt: "",
@@ -306,7 +461,9 @@
   function updateSyncProgress(stepId, status, detail, percent, message = "", paint = true) {
     const progress = normalizeSyncProgress(state.syncProgress);
     if (!progress) return;
-    progress.steps = progress.steps.map((step) => step.id === stepId ? { ...step, status, detail: clean(detail, step.detail) } : step);
+    progress.steps = progress.steps.map((step) =>
+      step.id === stepId ? { ...step, status, detail: clean(detail, step.detail) } : step
+    );
     if (Number.isFinite(Number(percent))) progress.percent = clamp(Number(percent), 0, 100);
     if (message) progress.message = message;
     state.syncProgress = progress;
@@ -335,16 +492,19 @@
     const jobId = clean(accepted && accepted.jobId, "");
     if (!jobId) throw new Error("The hosted sync did not return a job reference.");
     applyHostedSyncJobProgress(accepted.progress);
-    const deadline = Date.now() + (30 * 60 * 1000);
+    const deadline = Date.now() + 30 * 60 * 1000;
     let transientFailures = 0;
     while (Date.now() < deadline) {
       await sleep(1250);
       let body;
       try {
-        body = await hostedRequest(`/api/tornfolio/sync/status?jobId=${encodeURIComponent(jobId)}`, {
-          session,
-          timeout: 20000,
-        });
+        body = await hostedRequest(
+          `/api/tornfolio/sync/status?jobId=${encodeURIComponent(jobId)}`,
+          {
+            session,
+            timeout: 20000,
+          }
+        );
         transientFailures = 0;
       } catch (error) {
         if (error.status === 401 || error.status === 403 || error.status === 404) throw error;
@@ -360,7 +520,8 @@
       }
       applyHostedSyncJobProgress(body.progress);
       if (body.status === "done") {
-        if (!body.result || typeof body.result !== "object") throw new Error("The hosted sync finished without a result.");
+        if (!body.result || typeof body.result !== "object")
+          throw new Error("The hosted sync finished without a result.");
         return body.result;
       }
       if (body.status === "error") {
@@ -369,7 +530,9 @@
         throw error;
       }
     }
-    throw new Error("The hosted sync is still running after 30 minutes. Start Sync Now again to reconnect.");
+    throw new Error(
+      "The hosted sync is still running after 30 minutes. Start Sync Now again to reconnect."
+    );
   }
 
   function completeSyncProgressFromBody(body, paint = false) {
@@ -378,42 +541,127 @@
     const metadata = body.metadata || body._metadata || {};
     const profile = body.profile || body.userProfile || body.user || {};
     const spouse = profile.spouse || {};
-    const owned = firstArray(body, ["ownedProperties", "owned_properties", "userProperties", "propertiesOwned"]);
-    const partner = firstArray(body, ["partnerProperties", "spouseProperties", "partner_properties", "spouse_properties"]);
+    const owned = firstArray(body, [
+      "ownedProperties",
+      "owned_properties",
+      "userProperties",
+      "propertiesOwned",
+    ]);
+    const partner = firstArray(body, [
+      "partnerProperties",
+      "spouseProperties",
+      "partner_properties",
+      "spouse_properties",
+    ]);
     const current = body.currentProperty || body.current_property || body.home || null;
     const leases = firstArray(body, ["leases", "ledger", "contracts"]);
     const suggestions = firstArray(body, ["suggestions", "rentSuggestions", "rent_suggestions"]);
-    const marketRows = cleanRoiSummaryRows(firstArray(body, ["roiSummary", "roi_summary", "marketSummary", "market_summary"]));
-    const rentalComparableMatches = marketRows.reduce((sum, row) => sum + Number(row.rental_listings || row.listings || 0), 0);
-    const saleComparableMatches = marketRows.reduce((sum, row) => sum + Number(row.sale_listings || 0), 0);
-    const marketKinds = Array.isArray(metadata.marketKinds) ? metadata.marketKinds : ["rentals", "properties"];
+    const marketRows = cleanRoiSummaryRows(
+      firstArray(body, ["roiSummary", "roi_summary", "marketSummary", "market_summary"])
+    );
+    const rentalComparableMatches = marketRows.reduce(
+      (sum, row) => sum + Number(row.rental_listings || row.listings || 0),
+      0
+    );
+    const saleComparableMatches = marketRows.reduce(
+      (sum, row) => sum + Number(row.sale_listings || 0),
+      0
+    );
+    const marketKinds = Array.isArray(metadata.marketKinds)
+      ? metadata.marketKinds
+      : ["rentals", "properties"];
     const eligibleCount = Number(metadata.marketEligibleCount ?? suggestions.length);
     const skippedCount = Number(metadata.marketSkippedCount || 0);
     const eligibleOwnedCount = Number(metadata.marketEligibleOwnedCount || 0);
     const eligiblePartnerCount = Number(metadata.marketEligiblePartnerCount || 0);
     const eligibilityBreakdown = ` (${eligibleOwnedCount.toLocaleString()} mine, ${eligiblePartnerCount.toLocaleString()} spouse)`;
-    const historyEvents = Number(metadata.historyEventCount || firstArray(body, ["propertyHistoryEvents", "property_history_events", "propertyLogs", "property_logs"]).length || 0);
-    const historyProperties = Number(metadata.historyPropertyCount || firstArray(body, ["propertyHistory", "property_history"]).length || 0);
-    const archive = firstArray(body, ["tenancyArchive", "tenancy_archive", "leaseArchive", "lease_archive"]);
+    const ownedMarketOnly = Object.prototype.hasOwnProperty.call(
+      metadata,
+      "marketExcludedPartnerCount"
+    );
+    const excludedPartnerCount = Number(metadata.marketExcludedPartnerCount || 0);
+    const marketScopeDetail = ownedMarketOnly
+      ? `${eligibleCount.toLocaleString()} owned propert${eligibleCount === 1 ? "y" : "ies"}, including rented and listed, compared; ${excludedPartnerCount.toLocaleString()} spouse-owned kept to listing and tenancy checks only`
+      : `${eligibleCount.toLocaleString()} available household propert${eligibleCount === 1 ? "y" : "ies"}${eligibilityBreakdown} compared; ${skippedCount.toLocaleString()} rented or listed skipped`;
+    const historyEvents = Number(
+      metadata.historyEventCount ||
+        firstArray(body, [
+          "propertyHistoryEvents",
+          "property_history_events",
+          "propertyLogs",
+          "property_logs",
+        ]).length ||
+        0
+    );
+    const historyProperties = Number(
+      metadata.historyPropertyCount ||
+        firstArray(body, ["propertyHistory", "property_history"]).length ||
+        0
+    );
+    const archive = firstArray(body, [
+      "tenancyArchive",
+      "tenancy_archive",
+      "leaseArchive",
+      "lease_archive",
+    ]);
     const historyError = clean(metadata.historyError || metadata.history_error, "");
-    const profileLabel = clean(profile.displayName || profile.name || profile.id || metadata.userId, "account owner");
+    const profileLabel = clean(
+      profile.displayName || profile.name || profile.id || metadata.userId,
+      "account owner"
+    );
     const details = {
-      access: { status: "done", detail: "Tornfolio access accepted and the Torn key owner matched." },
-      profile: { status: "done", detail: `Fetched ${profileLabel}${spouse.id || spouse.name ? ` and spouse ${clean(spouse.name || spouse.id, "details")}` : "; no spouse was returned"}.` },
-      portfolio: { status: "done", detail: `${owned.length.toLocaleString()} owned · ${current ? "current home found" : "no current home returned"} · ${partner.length.toLocaleString()} spouse-owned.` },
-      rentals: { status: "done", detail: `${leases.length.toLocaleString()} current rental record${leases.length === 1 ? "" : "s"} rebuilt.` },
+      access: {
+        status: "done",
+        detail: "Tornfolio access accepted and the Torn key owner matched.",
+      },
+      profile: {
+        status: "done",
+        detail: `Fetched ${profileLabel}${spouse.id || spouse.name ? ` and spouse ${clean(spouse.name || spouse.id, "details")}` : "; no spouse was returned"}.`,
+      },
+      portfolio: {
+        status: "done",
+        detail: `${owned.length.toLocaleString()} owned · ${current ? "current home found" : "no current home returned"} · ${partner.length.toLocaleString()} spouse-owned.`,
+      },
+      rentals: {
+        status: "done",
+        detail: `${leases.length.toLocaleString()} current rental record${leases.length === 1 ? "" : "s"} rebuilt.`,
+      },
       history: historyError
         ? { status: "warning", detail: `History was limited: ${historyError}` }
-        : { status: "done", detail: `${historyEvents.toLocaleString()} history event${historyEvents === 1 ? "" : "s"} across ${historyProperties.toLocaleString()} propert${historyProperties === 1 ? "y" : "ies"}; ${archive.length.toLocaleString()} archived rental${archive.length === 1 ? "" : "s"}.` },
-      rentalMarket: { status: "done", detail: marketKinds.includes("rentals") ? `${eligibleCount.toLocaleString()} available household propert${eligibleCount === 1 ? "y" : "ies"}${eligibilityBreakdown} compared with ${rentalComparableMatches.toLocaleString()} selected rental listings; ${skippedCount.toLocaleString()} rented or listed skipped.` : "Rental comparison was not requested in this scan." },
-      saleMarket: { status: "done", detail: marketKinds.includes("properties") ? `${eligibleCount.toLocaleString()} available household propert${eligibleCount === 1 ? "y" : "ies"}${eligibilityBreakdown} compared with ${saleComparableMatches.toLocaleString()} selected sale listings; ${skippedCount.toLocaleString()} rented or listed skipped.` : "Sale comparison was not requested in this scan." },
-      save: { status: "done", detail: "Fetched data saved locally and every Tornfolio view rebuilt." },
+        : {
+            status: "done",
+            detail: `${historyEvents.toLocaleString()} history event${historyEvents === 1 ? "" : "s"} across ${historyProperties.toLocaleString()} propert${historyProperties === 1 ? "y" : "ies"}; ${archive.length.toLocaleString()} archived rental${archive.length === 1 ? "" : "s"}.`,
+          },
+      rentalMarket: {
+        status: "done",
+        detail: marketKinds.includes("rentals")
+          ? `${marketScopeDetail} with ${rentalComparableMatches.toLocaleString()} selected rental listings.`
+          : "Rental comparison was not requested in this scan.",
+      },
+      saleMarket: {
+        status: "done",
+        detail: marketKinds.includes("properties")
+          ? `${marketScopeDetail} with ${saleComparableMatches.toLocaleString()} selected sale listings.`
+          : "Sale comparison was not requested in this scan.",
+      },
+      save: {
+        status: "done",
+        detail: "Fetched data saved locally and every Tornfolio view rebuilt.",
+      },
     };
-    progress.steps = progress.steps.map((step) => ({ ...step, ...(details[step.id] || {}) }));
+    progress.steps = progress.steps.map((step) => ({
+      ...step,
+      ...(details[step.id] || {}),
+    }));
     progress.percent = 100;
     progress.finishedAt = nowIso();
-    progress.title = ["scan-owned-market", "scan-rental-market"].includes(progress.kind) ? "Rental comparison complete" : progress.kind === "scan-sale-market" ? "Sale comparison complete" : "Tornfolio sync complete";
-    progress.message = body.message || "Everything returned by the sync has been checked and saved.";
+    progress.title = ["scan-owned-market", "scan-rental-market"].includes(progress.kind)
+      ? "Rental comparison complete"
+      : progress.kind === "scan-sale-market"
+        ? "Sale comparison complete"
+        : "Tornfolio sync complete";
+    progress.message =
+      body.message || "Everything returned by the sync has been checked and saved.";
     state.syncProgress = progress;
     scheduleCompletedSyncDismiss();
     if (paint) {
@@ -424,12 +672,23 @@
 
   function scheduleCompletedSyncDismiss() {
     const progress = normalizeSyncProgress(state.syncProgress);
-    if (!progress || !progress.finishedAt || progress.steps.some((step) => step.status === "error") || syncProgressDismissTimer) return;
+    if (
+      !progress ||
+      !progress.finishedAt ||
+      progress.steps.some((step) => step.status === "error") ||
+      syncProgressDismissTimer
+    )
+      return;
     const finishedAt = progress.finishedAt;
     syncProgressDismissTimer = setTimeout(() => {
       syncProgressDismissTimer = null;
       const latest = normalizeSyncProgress(state.syncProgress);
-      if (!latest || latest.finishedAt !== finishedAt || latest.steps.some((step) => step.status === "error")) return;
+      if (
+        !latest ||
+        latest.finishedAt !== finishedAt ||
+        latest.steps.some((step) => step.status === "error")
+      )
+        return;
       state.syncProgress = null;
       if (state.syncState !== "syncing") {
         state.syncState = "idle";
@@ -443,9 +702,15 @@
   function failSyncProgress(error, message = "Sync stopped before every check finished.") {
     const progress = normalizeSyncProgress(state.syncProgress);
     if (!progress) return;
-    progress.steps = progress.steps.map((step) => step.status === "active"
-      ? { ...step, status: "error", detail: clean(error && error.message, "This check failed.") }
-      : step);
+    progress.steps = progress.steps.map((step) =>
+      step.status === "active"
+        ? {
+            ...step,
+            status: "error",
+            detail: clean(error && error.message, "This check failed."),
+          }
+        : step
+    );
     progress.title = "Sync needs attention";
     progress.message = message;
     progress.finishedAt = nowIso();
@@ -499,9 +764,13 @@
     const text = saveStatusText(message);
     const selectors = [`#${APP_ID} .tlt-save-status`];
     for (const selector of selectors) {
-      document.querySelectorAll(selector).forEach((node) => { node.textContent = text; });
+      document.querySelectorAll(selector).forEach((node) => {
+        node.textContent = text;
+      });
       if (popupWindow && !popupWindow.closed) {
-        popupWindow.document.querySelectorAll(selector).forEach((node) => { node.textContent = text; });
+        popupWindow.document.querySelectorAll(selector).forEach((node) => {
+          node.textContent = text;
+        });
       }
     }
   }
@@ -547,12 +816,22 @@
   function validatedIconSprite(value) {
     const source = String(value || "").trim();
     if (source.length < 500 || source.length > 100000 || !/^<svg\b/i.test(source)) return "";
-    if (/<(?:script|style|foreignObject|iframe|object|embed|image|audio|video|link|meta)\b/i.test(source)) return "";
+    if (
+      /<(?:script|style|foreignObject|iframe|object|embed|image|audio|video|link|meta)\b/i.test(
+        source
+      )
+    )
+      return "";
     if (/\son[a-z]+\s*=|\s(?:href|xlink:href)\s*=/i.test(source)) return "";
-    if (!ICON_NAMES.every((name) => new RegExp(`\\bid=["']tf-icon-${name}["']`, "i").test(source))) return "";
+    if (!ICON_NAMES.every((name) => new RegExp(`\\bid=["']tf-icon-${name}["']`, "i").test(source)))
+      return "";
     try {
       const parsed = new DOMParser().parseFromString(source, "image/svg+xml");
-      if (parsed.querySelector("parsererror") || parsed.documentElement.nodeName.toLowerCase() !== "svg") return "";
+      if (
+        parsed.querySelector("parsererror") ||
+        parsed.documentElement.nodeName.toLowerCase() !== "svg"
+      )
+        return "";
     } catch (_error) {
       return "";
     }
@@ -618,7 +897,10 @@
         });
         return;
       }
-      fetch(requestUrl, { headers: { Accept: "image/svg+xml" }, cache: "no-store" })
+      fetch(requestUrl, {
+        headers: { Accept: "image/svg+xml" },
+        cache: "no-store",
+      })
         .then((response) => {
           if (!response.ok) throw new Error(`Icon download returned ${response.status}.`);
           return response.text();
@@ -628,10 +910,12 @@
   }
 
   function primeIconCache() {
-    return fetchIconSpriteOnce().then((downloaded) => {
-      if (downloaded) render();
-      return downloaded;
-    }).catch(() => false);
+    return fetchIconSpriteOnce()
+      .then((downloaded) => {
+        if (downloaded) render();
+        return downloaded;
+      })
+      .catch(() => false);
   }
 
   function clearIconCache() {
@@ -645,8 +929,11 @@
 
   function iconCacheStatusText() {
     const cached = ensureIconCacheLoaded();
-    if (!cached) return "Using the built-in fallback. The server sprite will download once on the next page load.";
-    const when = cached.cachedAt ? new Date(cached.cachedAt).toLocaleString() : "an earlier session";
+    if (!cached)
+      return "Using the built-in fallback. The server sprite will download once on the next page load.";
+    const when = cached.cachedAt
+      ? new Date(cached.cachedAt).toLocaleString()
+      : "an earlier session";
     return `SVG sprite cached locally since ${when}. It is not fetched again while this cache exists.`;
   }
 
@@ -743,22 +1030,23 @@
   function householdIdentity(spouse = null) {
     const profile = profileInfo() || {};
     const partner = spouse || profileSpouse() || profile.spouse || {};
-    const ids = new Set([
-      keyInfoUserId(state.keyInfo),
-      (state.endpointInputs || {}).userId,
-      profile.id,
-      profile.userId,
-      partner.id,
-      partner.userId,
-    ].map(normalizeLookup).filter(Boolean));
-    const names = new Set([
-      profile.name,
-      profile.displayName,
-      partner.name,
-      partner.displayName,
-      "you",
-      "spouse",
-    ].map(normalizeLookup).filter(Boolean));
+    const ids = new Set(
+      [
+        keyInfoUserId(state.keyInfo),
+        (state.endpointInputs || {}).userId,
+        profile.id,
+        profile.userId,
+        partner.id,
+        partner.userId,
+      ]
+        .map(normalizeLookup)
+        .filter(Boolean)
+    );
+    const names = new Set(
+      [profile.name, profile.displayName, partner.name, partner.displayName, "you", "spouse"]
+        .map(normalizeLookup)
+        .filter(Boolean)
+    );
     return { ids, names };
   }
 
@@ -772,18 +1060,37 @@
 
   function explicitPropertyRenter(property) {
     if (!property || typeof property !== "object") return null;
-    return property.rented_by || property.renter || property.tenant || property.renter_asked || null;
+    return (
+      property.rented_by || property.renter || property.tenant || property.renter_asked || null
+    );
   }
 
   function propertyHasRentalTerms(property) {
     if (!property || typeof property !== "object") return false;
-    return ["cost", "cost_per_day", "rental_period", "rental_period_remaining", "start_date", "end_date"]
-      .some((key) => property[key] !== undefined && property[key] !== null && property[key] !== "");
+    return [
+      "cost",
+      "cost_per_day",
+      "rental_period",
+      "rental_period_remaining",
+      "start_date",
+      "end_date",
+    ].some((key) => property[key] !== undefined && property[key] !== null && property[key] !== "");
   }
 
   function propertyHasRentalStatus(property) {
-    const status = clean(property && property.status, "").toLowerCase().replace(/[ -]/g, "_");
-    return ["rented", "leased", "lease_from", "leased_from", "on_lease", "rent_to", "rent_from", "rented_from_others"].includes(status);
+    const status = clean(property && property.status, "")
+      .toLowerCase()
+      .replace(/[ -]/g, "_");
+    return [
+      "rented",
+      "leased",
+      "lease_from",
+      "leased_from",
+      "on_lease",
+      "rent_to",
+      "rent_from",
+      "rented_from_others",
+    ].includes(status);
   }
 
   function propertyRentalParty(property, spouse = null) {
@@ -792,33 +1099,59 @@
     const owner = property.owner;
     const renter = explicitPropertyRenter(property);
     const residents = Array.isArray(property.used_by) ? property.used_by : [];
-    const evidence = Boolean(renter) || propertyHasRentalStatus(property) || propertyHasRentalTerms(property);
+    const evidence =
+      Boolean(renter) || propertyHasRentalStatus(property) || propertyHasRentalTerms(property);
     if (!evidence) return null;
 
     if (isHouseholdUser(owner, household)) {
-      const outside = [renter, ...residents].find((person) => person && !isHouseholdUser(person, household) && (userRecordId(person) || person === renter));
+      const outside = [renter, ...residents].find(
+        (person) =>
+          person &&
+          !isHouseholdUser(person, household) &&
+          (userRecordId(person) || person === renter)
+      );
       return outside || null;
     }
 
-    const householdOccupant = [renter, ...residents].find((person) => isHouseholdUser(person, household));
-    if (householdOccupant && (propertyHasRentalStatus(property) || propertyHasRentalTerms(property) || householdOccupant === renter)) return householdOccupant;
-    if (!userName(owner) && renter && (propertyHasRentalStatus(property) || propertyHasRentalTerms(property))) return renter;
+    const householdOccupant = [renter, ...residents].find((person) =>
+      isHouseholdUser(person, household)
+    );
+    if (
+      householdOccupant &&
+      (propertyHasRentalStatus(property) ||
+        propertyHasRentalTerms(property) ||
+        householdOccupant === renter)
+    )
+      return householdOccupant;
+    if (
+      !userName(owner) &&
+      renter &&
+      (propertyHasRentalStatus(property) || propertyHasRentalTerms(property))
+    )
+      return renter;
     return null;
   }
 
   function isHouseholdOccupancyLease(lease, currentProperty, spouse = null) {
-    if (!lease || !currentProperty || clean(lease.source, "").toLowerCase() === "manual") return false;
-    const leaseId = clean(lease.propertyId || lease.property_id, "") || propertyIdFromLeaseId(lease.id);
-    const currentId = clean(currentProperty.id || currentProperty.property_id || currentProperty.propertyId, "");
-    const sameProperty = currentId && leaseId
-      ? currentId === leaseId
-      : normalizeLookup(lease.property) === normalizeLookup(propertyDisplayName(currentProperty));
+    if (!lease || !currentProperty || clean(lease.source, "").toLowerCase() === "manual")
+      return false;
+    const leaseId =
+      clean(lease.propertyId || lease.property_id, "") || propertyIdFromLeaseId(lease.id);
+    const currentId = clean(
+      currentProperty.id || currentProperty.property_id || currentProperty.propertyId,
+      ""
+    );
+    const sameProperty =
+      currentId && leaseId
+        ? currentId === leaseId
+        : normalizeLookup(lease.property) === normalizeLookup(propertyDisplayName(currentProperty));
     if (!sameProperty) return false;
 
     const household = householdIdentity(spouse);
     if (!isHouseholdUser(currentProperty.owner, household)) return false;
-    const parties = [lease.landlord || lease.owner, lease.tenant || lease.renter]
-      .filter((value) => value && !/^unknown\b/i.test(String(value)));
+    const parties = [lease.landlord || lease.owner, lease.tenant || lease.renter].filter(
+      (value) => value && !/^unknown\b/i.test(String(value))
+    );
     return !parties.some((party) => !isHouseholdUser(party, household));
   }
 
@@ -836,14 +1169,19 @@
 
   function normalizeLease(property, source) {
     const propertyId = property.id || property.property_id || "";
-    const propertyLabel = propertyName(property.property) || propertyName(property) || `Property ${propertyId}`;
+    const propertyLabel =
+      propertyName(property.property) || propertyName(property) || `Property ${propertyId}`;
     const remaining = property.rental_period_remaining;
     const period = property.rental_period;
     const totalCost = property.cost || "";
-    const dailyCost = property.cost_per_day || (totalCost && period ? moneyRatio(totalCost / period) : "");
+    const dailyCost =
+      property.cost_per_day || (totalCost && period ? moneyRatio(totalCost / period) : "");
     const owner = userName(property.owner);
-    const usedBy = Array.isArray(property.used_by) && property.used_by.length ? property.used_by[0] : null;
-    const tenant = userName(property.rented_by || property.renter || property.renter_asked || usedBy);
+    const usedBy =
+      Array.isArray(property.used_by) && property.used_by.length ? property.used_by[0] : null;
+    const tenant = userName(
+      property.rented_by || property.renter || property.renter_asked || usedBy
+    );
     const endDate = dateFromRemainingDays(remaining);
     const startDate = endDate && period ? addDays(endDate, -Number(period)) : "";
     const notes = leaseNotesFromProperty(property);
@@ -870,7 +1208,9 @@
 
   function leaseNotesFromProperty(property) {
     const notes = [];
-    const users = Array.isArray(property && property.used_by) ? property.used_by.map(userName).filter(Boolean) : [];
+    const users = Array.isArray(property && property.used_by)
+      ? property.used_by.map(userName).filter(Boolean)
+      : [];
     if (users.length > 1) notes.push(`Shared by ${users.join(" + ")}`);
     if (property && property.lease_extension) notes.push("Lease extension offered");
     return notes.join("; ");
@@ -886,7 +1226,8 @@
     if (["rent_from", "rentfrom", "rented_from_others"].includes(value)) return "rent_from";
     if (["ended", "expired"].includes(value)) return "ended";
     if (value === "sold") return "sold";
-    if (["none", "owned", "spouse_owned", "unknown", ""].includes(value)) return tenant ? (role === "tenant" ? "leased" : "rented") : "manual";
+    if (["none", "owned", "spouse_owned", "unknown", ""].includes(value))
+      return tenant ? (role === "tenant" ? "leased" : "rented") : "manual";
     return value;
   }
 
@@ -903,11 +1244,13 @@
       const key = leaseMergeKey(lease);
       byId.set(key, mergeLeaseRecords(byId.get(key), lease));
     }
-    return Array.from(byId.values()).map((lease) => {
-      const recalculated = recalculateLease(lease);
-      const contractId = contractIdentity(recalculated);
-      return { ...recalculated, contractId, id: contractId };
-    }).sort(compareLeases);
+    return Array.from(byId.values())
+      .map((lease) => {
+        const recalculated = recalculateLease(lease);
+        const contractId = contractIdentity(recalculated);
+        return { ...recalculated, contractId, id: contractId };
+      })
+      .sort(compareLeases);
   }
 
   function leaseMergeKey(lease) {
@@ -915,11 +1258,19 @@
   }
 
   function contractIdentity(lease = {}) {
-    const propertyId = clean(lease.propertyId || lease.property_id, "") || propertyIdFromLeaseId(lease.id);
+    const propertyId =
+      clean(lease.propertyId || lease.property_id, "") || propertyIdFromLeaseId(lease.id);
     const rawRole = clean(lease.roleHint || lease.source, "").toLowerCase();
     const direction = ["tenant", "on-lease", "rented-from-others", "rent-from"].includes(rawRole)
       ? "tenant"
-      : ["spouse", "spouse-owned", "spouse_owned", "partner", "partner-owned", "partner_owned"].includes(rawRole)
+      : [
+            "spouse",
+            "spouse-owned",
+            "spouse_owned",
+            "partner",
+            "partner-owned",
+            "partner_owned",
+          ].includes(rawRole)
         ? "spouse"
         : ["market", "listed"].includes(rawRole)
           ? "market"
@@ -930,8 +1281,12 @@
       // syncs, but a property can only have one live contract in each direction.
       return `active:${propertyId}:${direction}`;
     }
-    const explicit = clean(lease.contractId || lease.contract_id || lease.rentalId || lease.rental_id, "");
-    if (explicit && !/^(?:active|derived):/.test(explicit)) return /^(?:contract|legacy|manual):/.test(explicit) ? explicit : `contract:${explicit}`;
+    const explicit = clean(
+      lease.contractId || lease.contract_id || lease.rentalId || lease.rental_id,
+      ""
+    );
+    if (explicit && !/^(?:active|derived):/.test(explicit))
+      return /^(?:contract|legacy|manual):/.test(explicit) ? explicit : `contract:${explicit}`;
     const landlord = normalizeLookup(lease.landlord);
     const tenant = normalizeLookup(lease.tenant);
     const start = clean(lease.startDate || lease.start_date, "");
@@ -980,11 +1335,19 @@
   }
 
   function canonicalLeaseId(previous = {}, incoming = {}) {
-    return incoming.contractId || previous.contractId || incoming.id || previous.id || contractIdentity({ ...previous, ...incoming });
+    return (
+      incoming.contractId ||
+      previous.contractId ||
+      incoming.id ||
+      previous.id ||
+      contractIdentity({ ...previous, ...incoming })
+    );
   }
 
   function migrateContractLifecycle(targetState) {
-    const archived = Array.isArray(targetState.archivedRentals) ? [...targetState.archivedRentals] : [];
+    const archived = Array.isArray(targetState.archivedRentals)
+      ? [...targetState.archivedRentals]
+      : [];
     const active = [];
     for (const lease of targetState.leases || []) {
       const normalized = { ...lease, contractId: contractIdentity(lease) };
@@ -1002,15 +1365,21 @@
       const key = contractIdentity(lease);
       byId.set(key, mergeLeaseRecords(byId.get(key), lease));
     }
-    return Array.from(byId.values()).map((lease) => {
-      const recalculated = recalculateLease(lease);
-      const contractId = contractIdentity(recalculated);
-      return { ...recalculated, contractId, id: contractId };
-    }).sort(compareLeases);
+    return Array.from(byId.values())
+      .map((lease) => {
+        const recalculated = recalculateLease(lease);
+        const contractId = contractIdentity(recalculated);
+        return { ...recalculated, contractId, id: contractId };
+      })
+      .sort(compareLeases);
   }
 
   function isExplicitlyArchivedContract(lease) {
-    const status = normalizeLeaseStatus(lease && lease.status, lease && (lease.roleHint || lease.source), lease && lease.tenant);
+    const status = normalizeLeaseStatus(
+      lease && lease.status,
+      lease && (lease.roleHint || lease.source),
+      lease && lease.tenant
+    );
     return ["ended", "expired", "sold"].includes(status);
   }
 
@@ -1037,14 +1406,19 @@
     for (const row of rows || []) {
       if (!row || typeof row !== "object") continue;
       const sourceLogId = clean(row.start_log_id || row.log_id, "");
-      const key = sourceLogId ? `contract-log:${sourceLogId}` : clean(row.contractId || row.contract_id, "") || [
-        row.property_id || row.propertyId || row.id,
-        row.role || row.roleHint || row.source,
-        row.owner || row.landlord,
-        row.renter || row.tenant,
-        row.start_date || row.startDate,
-        row.end_date || row.endDate,
-      ].map((value) => normalizeLookup(value)).join(":");
+      const key = sourceLogId
+        ? `contract-log:${sourceLogId}`
+        : clean(row.contractId || row.contract_id, "") ||
+          [
+            row.property_id || row.propertyId || row.id,
+            row.role || row.roleHint || row.source,
+            row.owner || row.landlord,
+            row.renter || row.tenant,
+            row.start_date || row.startDate,
+            row.end_date || row.endDate,
+          ]
+            .map((value) => normalizeLookup(value))
+            .join(":");
       byId.set(key, { ...(byId.get(key) || {}), ...row, contractId: key });
     }
     return Array.from(byId.values());
@@ -1106,7 +1480,9 @@
           try {
             const body = JSON.parse(response.responseText || "{}");
             if (body.error) {
-              reject(new Error(body.error.error || body.error.message || "Torn returned an error."));
+              reject(
+                new Error(body.error.error || body.error.message || "Torn returned an error.")
+              );
               return;
             }
             if (response.status >= 400) {
@@ -1126,7 +1502,10 @@
   }
 
   function hostedSessionValue() {
-    const stored = state.serverSession || safeGet(HOSTED_SESSION_KEY) || LEGACY_HOSTED_SESSION_KEYS.map((key) => safeGet(key)).find(Boolean);
+    const stored =
+      state.serverSession ||
+      safeGet(HOSTED_SESSION_KEY) ||
+      LEGACY_HOSTED_SESSION_KEYS.map((key) => safeGet(key)).find(Boolean);
     return clean(stored, "").trim();
   }
 
@@ -1136,8 +1515,7 @@
     if (value) {
       safeSet(HOSTED_SESSION_KEY, value);
       LEGACY_HOSTED_SESSION_KEYS.forEach((key) => safeDelete(key));
-    }
-    else safeDelete(HOSTED_SESSION_KEY);
+    } else safeDelete(HOSTED_SESSION_KEY);
   }
 
   function clearHostedSession() {
@@ -1174,7 +1552,11 @@
             body = { raw: response.responseText || "" };
           }
           if (response.status < 200 || response.status >= 300) {
-            const error = new Error(body.error || body.message || `The Tornfolio service returned error ${response.status}.`);
+            const error = new Error(
+              body.error ||
+                body.message ||
+                `The Tornfolio service returned error ${response.status}.`
+            );
             error.status = response.status;
             error.payload = body;
             reject(error);
@@ -1198,18 +1580,28 @@
 
   function tornPropertyActionEnvironmentReason() {
     const pageLocation = window.location || location;
-    if (String(pageLocation.hostname || "").toLowerCase() !== "www.torn.com" || !/^\/properties\.php$/i.test(pageLocation.pathname || "")) {
+    if (
+      String(pageLocation.hostname || "").toLowerCase() !== "www.torn.com" ||
+      !/^\/properties\.php$/i.test(pageLocation.pathname || "")
+    ) {
       return "Property actions only run on Torn's properties page.";
     }
-    if (window.top !== window.self) return "Property actions are unavailable inside an embedded page.";
-    if (document.visibilityState !== "visible" || (typeof document.hasFocus === "function" && !document.hasFocus())) {
+    if (window.top !== window.self)
+      return "Property actions are unavailable inside an embedded page.";
+    if (
+      document.visibilityState !== "visible" ||
+      (typeof document.hasFocus === "function" && !document.hasFocus())
+    ) {
       return "Bring the Torn properties page to the foreground before continuing.";
     }
     return "";
   }
 
   function tornCsrfToken() {
-    const row = String(document.cookie || "").split(";").map((part) => part.trim()).find((part) => part.startsWith("rfc_v="));
+    const row = String(document.cookie || "")
+      .split(";")
+      .map((part) => part.trim())
+      .find((part) => part.startsWith("rfc_v="));
     if (!row) return "";
     const value = row.slice("rfc_v=".length);
     try {
@@ -1220,11 +1612,16 @@
   }
 
   function propertyActionInteger(value, label, minimum = 1, maximum = Number.MAX_SAFE_INTEGER) {
-    const normalized = String(value === null || value === undefined ? "" : value).trim().replace(/^\$/, "").replace(/[\s,]/g, "");
+    const normalized = String(value === null || value === undefined ? "" : value)
+      .trim()
+      .replace(/^\$/, "")
+      .replace(/[\s,]/g, "");
     if (!/^\d+$/.test(normalized)) throw new Error(`${label} must be a whole number.`);
     const number = Number(normalized);
     if (!Number.isSafeInteger(number) || number < minimum || number > maximum) {
-      throw new Error(`${label} must be between ${minimum.toLocaleString()} and ${maximum.toLocaleString()}.`);
+      throw new Error(
+        `${label} must be between ${minimum.toLocaleString()} and ${maximum.toLocaleString()}.`
+      );
     }
     return String(number);
   }
@@ -1232,8 +1629,9 @@
   function tornPropertyActionFields(kind, phase, propertyId, values = {}) {
     const id = String(propertyId || "").trim();
     if (!/^\d+$/.test(id)) throw new Error("A valid Torn property ID is required.");
-    if (!['rent', 'sale', 'remove', 'extend', 'upkeep'].includes(kind)) throw new Error("Unknown property action.");
-    if (!['preview', 'final'].includes(phase)) throw new Error("Unknown property action stage.");
+    if (!["rent", "sale", "remove", "extend", "upkeep"].includes(kind))
+      throw new Error("Unknown property action.");
+    if (!["preview", "final"].includes(phase)) throw new Error("Unknown property action stage.");
 
     if (kind === "upkeep") {
       if (phase === "preview") return { p: "options", ID: id, tab: "upkeep", step: "options" };
@@ -1250,34 +1648,68 @@
       const money = propertyActionInteger(values.total, "Total rent", 1, 9999999999);
       const days = propertyActionInteger(values.days, "Lease days", 3, 100);
       return phase === "preview"
-        ? { step: "optionsAction", action: "lease", to: "market", ID: id, money, days }
+        ? {
+            step: "optionsAction",
+            action: "lease",
+            to: "market",
+            ID: id,
+            money,
+            days,
+          }
         : { step: "leaseProperty", to: "market", money, days, ID: id };
     }
 
     if (kind === "sale") {
       const money = propertyActionInteger(values.price, "Sale price", 1, 9999999999);
       return phase === "preview"
-        ? { step: "optionsAction", action: "sell", to: "market", route: "properties", ID: id, money }
-        : { step: "sellProperty", to: "market", route: "properties", ID: id, money };
+        ? {
+            step: "optionsAction",
+            action: "sell",
+            to: "market",
+            route: "properties",
+            ID: id,
+            money,
+          }
+        : {
+            step: "sellProperty",
+            to: "market",
+            route: "properties",
+            ID: id,
+            money,
+          };
     }
 
     const offercost = propertyActionInteger(values.total, "Extension total", 1, 9999999999);
     const days = propertyActionInteger(values.days, "Extension days", 1, 100);
     return phase === "preview"
-      ? { step: "optionsAction", action: "offer", propertyID: id, offercost, days }
+      ? {
+          step: "optionsAction",
+          action: "offer",
+          propertyID: id,
+          offercost,
+          days,
+        }
       : { step: "offerExtention", propertyID: id, offercost, days };
   }
 
   function tornPropertyResponseMessage(text, json) {
-    const source = json && typeof json === "object"
-      ? clean(json.message || json.text || json.error, "").trim()
-      : String(text || "");
+    const source =
+      json && typeof json === "object"
+        ? clean(json.message || json.text || json.error, "").trim()
+        : String(text || "");
     if (!source) return "";
     try {
       const parsed = new DOMParser().parseFromString(source, "text/html");
-      return clean(parsed.body && parsed.body.textContent, "").replace(/\s+/g, " ").trim().slice(0, 300);
+      return clean(parsed.body && parsed.body.textContent, "")
+        .replace(/\s+/g, " ")
+        .trim()
+        .slice(0, 300);
     } catch (_error) {
-      return source.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim().slice(0, 300);
+      return source
+        .replace(/<[^>]+>/g, " ")
+        .replace(/\s+/g, " ")
+        .trim()
+        .slice(0, 300);
     }
   }
 
@@ -1285,7 +1717,10 @@
     const unavailable = tornPropertyActionEnvironmentReason();
     if (unavailable) throw new Error(unavailable);
     const token = tornCsrfToken();
-    if (!token) throw new Error("Torn's page token is unavailable. Reload the properties page and try again.");
+    if (!token)
+      throw new Error(
+        "Torn's page token is unavailable. Reload the properties page and try again."
+      );
 
     const controller = typeof AbortController === "function" ? new AbortController() : null;
     const timeout = controller ? setTimeout(() => controller.abort(), 20000) : null;
@@ -1305,7 +1740,8 @@
         signal: controller ? controller.signal : undefined,
       });
     } catch (error) {
-      if (error && error.name === "AbortError") throw new Error("Torn did not answer within 20 seconds. Nothing was retried.");
+      if (error && error.name === "AbortError")
+        throw new Error("Torn did not answer within 20 seconds. Nothing was retried.");
       throw new Error("Could not reach Torn. Nothing was retried.");
     } finally {
       if (timeout) clearTimeout(timeout);
@@ -1320,11 +1756,15 @@
     }
     const message = tornPropertyResponseMessage(text, json);
     if (!response.ok) throw new Error(message || `Torn returned error ${response.status}.`);
-    if (json && json.success === false) throw new Error(message || "Torn declined the property action.");
+    if (json && json.success === false)
+      throw new Error(message || "Torn declined the property action.");
     if (/captcha|cloudflare|verify you are human|name=["']login["']/i.test(text)) {
-      throw new Error("Torn requested an interactive verification. Complete it on the page, then try again.");
+      throw new Error(
+        "Torn requested an interactive verification. Complete it on the page, then try again."
+      );
     }
-    if (!text.trim()) throw new Error("Torn returned an empty response, so the action was not confirmed.");
+    if (!text.trim())
+      throw new Error("Torn returned an empty response, so the action was not confirmed.");
     return { json, text, message };
   }
 
@@ -1333,16 +1773,90 @@
     const section = parsed.querySelector(".upkeep-opt") || parsed;
     const payInput = section.querySelector("input[name='pay']");
     const idInput = section.querySelector("input[name='ID']");
-    if (!payInput || !idInput) throw new Error("Torn's upkeep form was not present in the response. Nothing was paid.");
+    if (!payInput || !idInput)
+      throw new Error("Torn's upkeep form was not present in the response. Nothing was paid.");
 
     const returnedId = String(idInput.value || "").trim();
     if (returnedId !== String(expectedPropertyId || "").trim()) {
       throw new Error("Torn returned upkeep details for a different property. Nothing was paid.");
     }
-    const due = propertyActionInteger(payInput.getAttribute("data-max") || payInput.getAttribute("data-money") || payInput.value, "Outstanding upkeep", 0, Number.MAX_SAFE_INTEGER);
+    const due = propertyActionInteger(
+      payInput.getAttribute("data-max") || payInput.getAttribute("data-money") || payInput.value,
+      "Outstanding upkeep",
+      0,
+      Number.MAX_SAFE_INTEGER
+    );
     const required = section.querySelector(".required-fees");
-    const requiredText = clean(required && required.textContent, "").replace(/\s+/g, " ").trim();
-    return { due, requiredText: requiredText || `Required fees: ${tfMoneyKnown(due)}` };
+    const requiredText = clean(required && required.textContent, "")
+      .replace(/\s+/g, " ")
+      .trim();
+    return {
+      due,
+      requiredText: requiredText || `Required fees: ${tfMoneyKnown(due)}`,
+    };
+  }
+
+  function tornUpkeepMarkerSnapshot(root = document) {
+    if (!root || typeof root.querySelectorAll !== "function") {
+      return { available: false, propertyIds: [] };
+    }
+    const links = Array.from(root.querySelectorAll("a[href*='tab=upkeep']"));
+    const propertyIds = new Set();
+    for (const link of links) {
+      const href = clean(
+        link && typeof link.getAttribute === "function" ? link.getAttribute("href") : "",
+        ""
+      ).replace(/&amp;/gi, "&");
+      const match = href.match(/(?:^|[?&])ID=(\d+)(?:&|$)/i);
+      const item = link && typeof link.closest === "function" ? link.closest("li") : null;
+      const hasUpkeepIcon =
+        link &&
+        typeof link.querySelector === "function" &&
+        Boolean(link.querySelector(".property-option-upkeep"));
+      if (!match || !item || !hasUpkeepIcon) continue;
+      propertyIds.add(match[1]);
+    }
+    return {
+      available: propertyIds.size > 0,
+      propertyIds: Array.from(propertyIds),
+    };
+  }
+
+  function sameStringSet(left, right) {
+    return left.size === right.size && Array.from(left).every((value) => right.has(value));
+  }
+
+  function refreshTornUpkeepMarkers(root = document, paint = true) {
+    const snapshot = tornUpkeepMarkerSnapshot(root);
+    if (!snapshot.available) return false;
+    const nextPropertyIds = new Set(snapshot.propertyIds);
+    if (sameStringSet(tornUpkeepPropertyIds, nextPropertyIds)) return false;
+    tornUpkeepPropertyIds = nextPropertyIds;
+    if (paint) render();
+    return true;
+  }
+
+  function scheduleTornUpkeepMarkerScan() {
+    if (tornUpkeepScanQueued) return;
+    tornUpkeepScanQueued = true;
+    Promise.resolve().then(() => {
+      tornUpkeepScanQueued = false;
+      refreshTornUpkeepMarkers();
+    });
+  }
+
+  function observeTornUpkeepMarkers() {
+    refreshTornUpkeepMarkers();
+    if (tornUpkeepObserver || typeof MutationObserver !== "function") return;
+    const target = document.body || document.documentElement;
+    if (!target) return;
+    tornUpkeepObserver = new MutationObserver(scheduleTornUpkeepMarkerScan);
+    tornUpkeepObserver.observe(target, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ["class", "href"],
+    });
   }
 
   async function tornPropertyCashAvailable(propertyId) {
@@ -1351,13 +1865,20 @@
     const id = String(propertyId || "").trim();
     if (!/^\d+$/.test(id)) throw new Error("A valid Torn property ID is required.");
     const token = tornCsrfToken();
-    if (!token) throw new Error("Torn's page token is unavailable. Reload the properties page and try again.");
+    if (!token)
+      throw new Error(
+        "Torn's page token is unavailable. Reload the properties page and try again."
+      );
 
     const controller = typeof AbortController === "function" ? new AbortController() : null;
     const timeout = controller ? setTimeout(() => controller.abort(), 20000) : null;
     let response;
     try {
-      const query = new URLSearchParams({ step: "propertyFeesAction", ID: id, rfcv: token });
+      const query = new URLSearchParams({
+        step: "propertyFeesAction",
+        ID: id,
+        rfcv: token,
+      });
       response = await fetch(`/inputMoneyAction.php?${query.toString()}`, {
         method: "GET",
         credentials: "same-origin",
@@ -1370,22 +1891,34 @@
         signal: controller ? controller.signal : undefined,
       });
     } catch (error) {
-      if (error && error.name === "AbortError") throw new Error("Torn did not return your available cash within 20 seconds. Nothing was paid or retried.");
-      throw new Error("Could not check your available cash with Torn. Nothing was paid or retried.");
+      if (error && error.name === "AbortError")
+        throw new Error(
+          "Torn did not return your available cash within 20 seconds. Nothing was paid or retried."
+        );
+      throw new Error(
+        "Could not check your available cash with Torn. Nothing was paid or retried."
+      );
     } finally {
       if (timeout) clearTimeout(timeout);
     }
 
     const text = (await response.text()).trim();
-    if (!response.ok) throw new Error(`Torn returned error ${response.status} while checking available cash. Nothing was paid.`);
+    if (!response.ok)
+      throw new Error(
+        `Torn returned error ${response.status} while checking available cash. Nothing was paid.`
+      );
     if (/captcha|cloudflare|verify you are human|name=["']login["']/i.test(text)) {
-      throw new Error("Torn requested an interactive verification. Complete it on the page, then check upkeep again.");
+      throw new Error(
+        "Torn requested an interactive verification. Complete it on the page, then check upkeep again."
+      );
     }
     return propertyActionInteger(text, "Available cash", 0, Number.MAX_SAFE_INTEGER);
   }
 
   function versionParts(value) {
-    const match = clean(value, "").trim().match(/^(\d+)(?:\.(\d+))?(?:\.(\d+))?/);
+    const match = clean(value, "")
+      .trim()
+      .match(/^(\d+)(?:\.(\d+))?(?:\.(\d+))?/);
     return match ? match.slice(1, 4).map((part) => Number(part || 0)) : [0, 0, 0];
   }
 
@@ -1401,8 +1934,14 @@
   function safeGreasyForkUrl(value, fallback) {
     try {
       const url = new URL(clean(value, ""), GREASYFORK_PAGE_URL);
-      const allowedHost = ["greasyfork.org", "www.greasyfork.org", "update.greasyfork.org"].includes(url.hostname);
-      const matchesScript = new RegExp(`/scripts/${GREASYFORK_SCRIPT_ID}(?:/|-|$)`).test(url.pathname);
+      const allowedHost = [
+        "greasyfork.org",
+        "www.greasyfork.org",
+        "update.greasyfork.org",
+      ].includes(url.hostname);
+      const matchesScript = new RegExp(`/scripts/${GREASYFORK_SCRIPT_ID}(?:/|-|$)`).test(
+        url.pathname
+      );
       return url.protocol === "https:" && allowedHost && matchesScript ? url.href : fallback;
     } catch (_error) {
       return fallback;
@@ -1442,15 +1981,20 @@
           url: GREASYFORK_API_URL,
           timeout: 12000,
           headers: { Accept: "application/json" },
-          onload: (response) => accept(response && response.status, response && response.responseText),
+          onload: (response) =>
+            accept(response && response.status, response && response.responseText),
           onerror: () => reject(new Error("GreasyFork update check failed.")),
           ontimeout: () => reject(new Error("GreasyFork update check timed out.")),
         });
         return;
       }
-      fetch(GREASYFORK_API_URL, { headers: { Accept: "application/json" }, cache: "no-store" })
+      fetch(GREASYFORK_API_URL, {
+        headers: { Accept: "application/json" },
+        cache: "no-store",
+      })
         .then((response) => {
-          if (!response.ok) throw new Error(`GreasyFork update check returned HTTP ${response.status}.`);
+          if (!response.ok)
+            throw new Error(`GreasyFork update check returned HTTP ${response.status}.`);
           return response.json();
         })
         .then(resolve, reject);
@@ -1479,9 +2023,17 @@
 
   function openAvailableUpdate(root) {
     if (!availableUpdate) return;
-    const sourceWindow = root && root.ownerDocument && root.ownerDocument.defaultView || window;
-    const opened = sourceWindow.open(availableUpdate.installUrl || availableUpdate.pageUrl || GREASYFORK_PAGE_URL, "_blank", "noopener,noreferrer");
-    if (!opened) setStatus("The update page was blocked. Allow pop-ups for Torn, then press Update again.", true);
+    const sourceWindow = (root && root.ownerDocument && root.ownerDocument.defaultView) || window;
+    const opened = sourceWindow.open(
+      availableUpdate.installUrl || availableUpdate.pageUrl || GREASYFORK_PAGE_URL,
+      "_blank",
+      "noopener,noreferrer"
+    );
+    if (!opened)
+      setStatus(
+        "The update page was blocked. Allow pop-ups for Torn, then press Update again.",
+        true
+      );
   }
 
   async function verifyHostedAccess() {
@@ -1518,14 +2070,16 @@
     saveState("Access saved");
     if (!token) {
       const info = subscriptionStatusInfo();
-      if (!info.isSubscribed) throw new Error(info.message || "No active Tornfolio subscription was found.");
+      if (!info.isSubscribed)
+        throw new Error(info.message || "No active Tornfolio subscription was found.");
       throw new Error("Hosted account check did not return a session.");
     }
     return token;
   }
 
   async function currentApiKeyUserId() {
-    const known = (state.endpointInputs && state.endpointInputs.userId) || keyInfoUserId(state.keyInfo);
+    const known =
+      (state.endpointInputs && state.endpointInputs.userId) || keyInfoUserId(state.keyInfo);
     if (known) return String(known);
     const body = await checkApiKey();
     return String(keyInfoUserId(body));
@@ -1537,15 +2091,18 @@
     const profile = body.profile || body.userProfile || body.user || null;
     const mergedProfile = profile ? mergeProfileInfo(profileInfo(), profile) : null;
     const keyInfo = body.keyInfo || body.key || body.account || null;
-    let entitlement = body.entitlement || body.subscription || body.license || body.access || {
-      status: body.status,
-      active: body.active,
-      valid: body.valid,
-      product: body.product,
-      plan: body.plan,
-      tier: body.tier,
-      expires_at: body.expires_at || body.expiresAt,
-    };
+    let entitlement = body.entitlement ||
+      body.subscription ||
+      body.license ||
+      body.access || {
+        status: body.status,
+        active: body.active,
+        valid: body.valid,
+        product: body.product,
+        plan: body.plan,
+        tier: body.tier,
+        expires_at: body.expires_at || body.expiresAt,
+      };
     if (!entitlement || typeof entitlement !== "object") {
       entitlement = {
         status: entitlement || body.status,
@@ -1564,10 +2121,14 @@
         ...emptyState.endpointInputs,
         ...(state.endpointInputs || {}),
         userId: String(resolvedUserId),
-        lookupUser: (state.endpointInputs && state.endpointInputs.lookupUser) || String(resolvedUserId),
+        lookupUser:
+          (state.endpointInputs && state.endpointInputs.lookupUser) || String(resolvedUserId),
       };
     }
-    state.serverEntitlement = { ...(entitlement || {}), userId: resolvedUserId || (entitlement && entitlement.userId) || "" };
+    state.serverEntitlement = {
+      ...(entitlement || {}),
+      userId: resolvedUserId || (entitlement && entitlement.userId) || "",
+    };
     state.lastSubscriptionCheckAt = nowIso();
   }
 
@@ -1588,7 +2149,8 @@
         propertyCosts: { ...(state.propertyCosts || {}) },
       },
     };
-    const userId = (state.endpointInputs && state.endpointInputs.userId) || keyInfoUserId(state.keyInfo);
+    const userId =
+      (state.endpointInputs && state.endpointInputs.userId) || keyInfoUserId(state.keyInfo);
     if (userId) payload.userId = String(userId);
 
     const submit = async (session) => {
@@ -1605,11 +2167,32 @@
 
     let session = hostedSessionValue();
     if (!session) {
-      updateSyncProgress("access", "active", "Checking the subscription and creating a secure Tornfolio session.", 8, "Checking secure account access…", true);
+      updateSyncProgress(
+        "access",
+        "active",
+        "Checking the subscription and creating a secure Tornfolio session.",
+        8,
+        "Checking secure account access…",
+        true
+      );
       session = await verifyHostedAccess();
     }
-    updateSyncProgress("access", "done", "A secure Tornfolio session is ready for this account.", 14, "Access is ready. The hosted service is now fetching Torn data…", false);
-    updateSyncProgress("profile", "active", "Secure request sent. Waiting for the server's first progress update.", 16, "Starting the hosted portfolio checks…", true);
+    updateSyncProgress(
+      "access",
+      "done",
+      "A secure Tornfolio session is ready for this account.",
+      14,
+      "Access is ready. The hosted service is now fetching Torn data…",
+      false
+    );
+    updateSyncProgress(
+      "profile",
+      "active",
+      "Secure request sent. Waiting for the server's first progress update.",
+      16,
+      "Starting the hosted portfolio checks…",
+      true
+    );
     let body;
     try {
       body = await submit(session);
@@ -1617,7 +2200,14 @@
       const authFailure = error.status === 401 || error.status === 403;
       if (!authFailure) throw error;
       clearHostedSession();
-      updateSyncProgress("access", "active", "The saved session expired; checking account access again.", 10, "Renewing secure account access…", true);
+      updateSyncProgress(
+        "access",
+        "active",
+        "The saved session expired; checking account access again.",
+        10,
+        "Renewing secure account access…",
+        true
+      );
       session = await verifyHostedAccess();
       body = await submit(session);
     }
@@ -1632,9 +2222,25 @@
       return await syncHostedLedger(scope);
     } catch (error) {
       if (!canUseDirectTornFallback(error)) throw error;
-      updateSyncProgress("access", "warning", "Hosted sync was unavailable, so Tornfolio switched to the direct Torn fallback.", 16, "Hosted sync unavailable. Fetching the safe direct-Torn subset…", false);
-      updateSyncProgress("profile", "active", "Checking the profile directly with Torn.", 24, "Fetching the safe direct-Torn subset…", true);
-      setStatus(`The main fetch is not ready (${error.message || "unknown error"}). Fetching directly from Torn for now...`);
+      updateSyncProgress(
+        "access",
+        "warning",
+        "Hosted sync was unavailable, so Tornfolio switched to the direct Torn fallback.",
+        16,
+        "Hosted sync unavailable. Fetching the safe direct-Torn subset…",
+        false
+      );
+      updateSyncProgress(
+        "profile",
+        "active",
+        "Checking the profile directly with Torn.",
+        24,
+        "Fetching the safe direct-Torn subset…",
+        true
+      );
+      setStatus(
+        `The main fetch is not ready (${error.message || "unknown error"}). Fetching directly from Torn for now...`
+      );
       return fallback ? fallback(error) : null;
     }
   }
@@ -1644,38 +2250,61 @@
     if (!error) return false;
     if (error.status === 404) return true;
     if (error.network) return true;
-    return /landlord-ledger|tornfolio|not found|timed out|hosted ledger server/i.test(error.message || "");
+    return /landlord-ledger|tornfolio|not found|timed out|hosted ledger server/i.test(
+      error.message || ""
+    );
   }
 
   function applyHostedLedgerSync(body, scope = "all") {
-    if (!body || typeof body !== "object") throw new Error("The Tornfolio service returned an empty response.");
+    if (!body || typeof body !== "object")
+      throw new Error("The Tornfolio service returned an empty response.");
 
     applyHostedPropertyTypes(body);
     const profile = body.profile || body.userProfile || body.user || null;
     const mergedProfile = profile ? mergeProfileInfo(profileInfo(), profile) : null;
     const keyInfo = body.keyInfo || body.key || body.account || null;
     const entitlement = body.entitlement || body.subscription || body.license || null;
-    const ownedProperties = firstArray(body, ["ownedProperties", "owned_properties", "userProperties", "propertiesOwned"]);
+    const ownedProperties = firstArray(body, [
+      "ownedProperties",
+      "owned_properties",
+      "userProperties",
+      "propertiesOwned",
+    ]);
     const currentProperty = body.currentProperty || body.current_property || body.home || null;
-    const partnerProperties = firstArray(body, ["partnerProperties", "spouseProperties", "partner_properties", "spouse_properties"]);
+    const partnerProperties = firstArray(body, [
+      "partnerProperties",
+      "spouseProperties",
+      "partner_properties",
+      "spouse_properties",
+    ]);
     const allProperties = uniqueProperties([
       ...ownedProperties,
       ...partnerProperties,
       ...firstArray(body, ["properties", "allProperties", "all_properties"]),
     ]);
     const serverLeases = firstArray(body, ["leases", "ledger", "contracts"]);
-    const spouse = mergedProfile && mergedProfile.spouse ? mergedProfile.spouse : profile && profile.spouse ? profile.spouse : null;
-    const viewerId = String(keyInfoUserId(keyInfo || state.keyInfo) || (mergedProfile && mergedProfile.id) || (profile && profile.id) || "");
+    const spouse =
+      mergedProfile && mergedProfile.spouse
+        ? mergedProfile.spouse
+        : profile && profile.spouse
+          ? profile.spouse
+          : null;
+    const viewerId = String(
+      keyInfoUserId(keyInfo || state.keyInfo) ||
+        (mergedProfile && mergedProfile.id) ||
+        (profile && profile.id) ||
+        ""
+    );
     state.spouseListingSnapshots = spouseListingSnapshotsAfterFetch(
       state.spouseListingSnapshots,
       partnerProperties,
-      { viewerId, spouse },
+      { viewerId, spouse }
     );
     const leases = serverLeases.length
       ? serverLeases.map(normalizeHostedLease).filter(Boolean)
       : uniqueProperties([...allProperties, ...(currentProperty ? [currentProperty] : [])])
-        .map((property) => leaseFromFetchedProperty(property, spouse))
-        .filter(Boolean);
+          .map((property) => leaseFromFetchedProperty(property, spouse))
+          .filter(Boolean);
     const marketKinds = Array.isArray((body.metadata || body._metadata || {}).marketKinds)
       ? (body.metadata || body._metadata || {}).marketKinds
       : ["rentals", "properties"];
@@ -1683,52 +2312,106 @@
       serverRentSuggestionRows(),
       firstArray(body, ["suggestions", "rentSuggestions", "rent_suggestions"]),
       marketKinds,
-      "suggestion",
+      "suggestion"
     );
-    const roiSummary = cleanRoiSummaryRows(mergePartialMarketRows(
-      serverRoiSummaryRows(),
-      firstArray(body, ["roiSummary", "roi_summary", "marketSummary", "market_summary"]),
-      marketKinds,
-      "summary",
-    ));
-    const tenancyArchive = firstArray(body, ["tenancyArchive", "tenancy_archive", "leaseArchive", "lease_archive"]);
+    const roiSummary = cleanRoiSummaryRows(
+      mergePartialMarketRows(
+        serverRoiSummaryRows(),
+        firstArray(body, ["roiSummary", "roi_summary", "marketSummary", "market_summary"]),
+        marketKinds,
+        "summary"
+      )
+    );
+    const tenancyArchive = firstArray(body, [
+      "tenancyArchive",
+      "tenancy_archive",
+      "leaseArchive",
+      "lease_archive",
+    ]);
     const propertyHistory = firstArray(body, ["propertyHistory", "property_history"]);
-    const propertyHistoryEvents = firstArray(body, ["propertyHistoryEvents", "property_history_events", "propertyLogs", "property_logs"]);
-    const message = body.message || `Refreshed ${leases.length.toLocaleString()} rental records${suggestions.length ? ` and ${suggestions.length.toLocaleString()} suggestions` : ""}.`;
+    const propertyHistoryEvents = firstArray(body, [
+      "propertyHistoryEvents",
+      "property_history_events",
+      "propertyLogs",
+      "property_logs",
+    ]);
+    const message =
+      body.message ||
+      `Refreshed ${leases.length.toLocaleString()} rental records${suggestions.length ? ` and ${suggestions.length.toLocaleString()} suggestions` : ""}.`;
 
     if (keyInfo) state.keyInfo = mergeProfileInfo(state.keyInfo, keyInfo);
     if (entitlement) {
       state.serverEntitlement = entitlement;
       state.lastSubscriptionCheckAt = nowIso();
     }
-    if (mergedProfile) storeEndpointDataWithoutRender("user-profile", { profile: mergedProfile }, "Fetched profile.");
-    storeEndpointDataWithoutRender("user-properties", {
-      properties: ownedProperties,
-      _raw_total: ownedProperties.length,
-      metadata: body.metadata || body._metadata || {},
-      source: "server-sync",
-    }, `Found ${ownedProperties.length.toLocaleString()} owned homes.`);
-    storeEndpointDataWithoutRender("user-property", {
-      property: currentProperty,
-      metadata: body.metadata || body._metadata || {},
-      source: "server-sync",
-    }, currentProperty ? "Found current home." : "No current home returned.");
-    const spouseBody = spouseOwnedPropertiesBody(
-      { properties: partnerProperties, _raw_total: partnerProperties.length, source: "server-sync" },
-      mergedProfile && mergedProfile.spouse ? mergedProfile.spouse : profile && profile.spouse ? profile.spouse : null,
+    if (mergedProfile)
+      storeEndpointDataWithoutRender(
+        "user-profile",
+        { profile: mergedProfile },
+        "Fetched profile."
+      );
+    storeEndpointDataWithoutRender(
+      "user-properties",
+      {
+        properties: ownedProperties,
+        _raw_total: ownedProperties.length,
+        metadata: body.metadata || body._metadata || {},
+        source: "server-sync",
+      },
+      `Found ${ownedProperties.length.toLocaleString()} owned homes.`
     );
-    storeEndpointDataWithoutRender("spouse-properties", spouseBody, spousePropertiesMessage(spouseBody));
-    storeEndpointDataWithoutRender("lease-archive", {
-      archive: tenancyArchive,
-      metadata: body.metadata || body._metadata || {},
-    }, tenancyArchive.length ? `Found ${tenancyArchive.length.toLocaleString()} past rent rows.` : historyEmptyMessage(body.metadata || body._metadata || {}));
-    storeEndpointDataWithoutRender("property-history", {
-      history: propertyHistory,
-      events: propertyHistoryEvents,
-      metadata: body.metadata || body._metadata || {},
-    }, propertyHistory.length ? `Found history for ${propertyHistory.length.toLocaleString()} homes.` : historyEmptyMessage(body.metadata || body._metadata || {}));
+    storeEndpointDataWithoutRender(
+      "user-property",
+      {
+        property: currentProperty,
+        metadata: body.metadata || body._metadata || {},
+        source: "server-sync",
+      },
+      currentProperty ? "Found current home." : "No current home returned."
+    );
+    const spouseBody = spouseOwnedPropertiesBody(
+      {
+        properties: partnerProperties,
+        _raw_total: partnerProperties.length,
+        source: "server-sync",
+      },
+      mergedProfile && mergedProfile.spouse
+        ? mergedProfile.spouse
+        : profile && profile.spouse
+          ? profile.spouse
+          : null
+    );
+    storeEndpointDataWithoutRender(
+      "spouse-properties",
+      spouseBody,
+      spousePropertiesMessage(spouseBody)
+    );
+    storeEndpointDataWithoutRender(
+      "lease-archive",
+      {
+        archive: tenancyArchive,
+        metadata: body.metadata || body._metadata || {},
+      },
+      tenancyArchive.length
+        ? `Found ${tenancyArchive.length.toLocaleString()} past rent rows.`
+        : historyEmptyMessage(body.metadata || body._metadata || {})
+    );
+    storeEndpointDataWithoutRender(
+      "property-history",
+      {
+        history: propertyHistory,
+        events: propertyHistoryEvents,
+        metadata: body.metadata || body._metadata || {},
+      },
+      propertyHistory.length
+        ? `Found history for ${propertyHistory.length.toLocaleString()} homes.`
+        : historyEmptyMessage(body.metadata || body._metadata || {})
+    );
 
-    state.endpointResults = { ...(state.endpointResults || {}), "server-sync": message };
+    state.endpointResults = {
+      ...(state.endpointResults || {}),
+      "server-sync": message,
+    };
     state.endpointData = {
       ...(state.endpointData || {}),
       "server-sync": {
@@ -1743,12 +2426,19 @@
           metadata: body.metadata || body._metadata || {},
         },
         fetchedAt: nowIso(),
-        message: suggestions.length ? `Found ${suggestions.length.toLocaleString()} rent suggestions.` : "No rent suggestions yet.",
+        message: suggestions.length
+          ? `Found ${suggestions.length.toLocaleString()} rent suggestions.`
+          : "No rent suggestions yet.",
       },
     };
-    state.leases = (state.leases || []).filter((lease) => !isHouseholdOccupancyLease(lease, currentProperty, spouse));
+    state.leases = (state.leases || []).filter(
+      (lease) => !isHouseholdOccupancyLease(lease, currentProperty, spouse)
+    );
     if (leases.length) state.leases = compactLeaseList([...(state.leases || []), ...leases]);
-    state.archivedRentals = dedupeArchiveRows([...(state.archivedRentals || []), ...tenancyArchive]).filter(isCompletedArchiveRow);
+    state.archivedRentals = dedupeArchiveRows([
+      ...(state.archivedRentals || []),
+      ...tenancyArchive,
+    ]).filter(isCompletedArchiveRow);
     migrateContractLifecycle(state);
     propertyAction = null;
     propertyActionOverrides.clear();
@@ -1773,8 +2463,15 @@
     try {
       const body = await syncHostedLedger(scope);
       const suggestions = firstArray(body, ["suggestions", "rentSuggestions", "rent_suggestions"]);
-      const roiSummary = firstArray(body, ["roiSummary", "roi_summary", "marketSummary", "market_summary"]);
-      const message = body.message || `${saleOnly ? "Sale" : "Rental"} comparison finished: ${suggestions.length.toLocaleString()} available properties and ${roiSummary.length.toLocaleString()} market summaries.`;
+      const roiSummary = firstArray(body, [
+        "roiSummary",
+        "roi_summary",
+        "marketSummary",
+        "market_summary",
+      ]);
+      const message =
+        body.message ||
+        `${saleOnly ? "Sale" : "Rental"} comparison finished: ${suggestions.length.toLocaleString()} available properties and ${roiSummary.length.toLocaleString()} market summaries.`;
       state.syncState = "success";
       state.syncMessage = message;
       saveState("Market scan complete");
@@ -1783,14 +2480,25 @@
       return body;
     } catch (error) {
       if (canUseDirectTornFallback(error)) {
-        updateSyncProgress("access", "warning", "Hosted market access was unavailable, so only current Torn property details could be refreshed.", 18, "Hosted market scan unavailable. Refreshing current property details…", true);
+        updateSyncProgress(
+          "access",
+          "warning",
+          "Hosted market access was unavailable, so only current Torn property details could be refreshed.",
+          18,
+          "Hosted market scan unavailable. Refreshing current property details…",
+          true
+        );
         await importOwnedPropertiesDirect();
         completeDirectSyncProgress([]);
         state.syncState = "partial";
-        state.syncMessage = "The hosted market scan was unavailable; Torn contract details were refreshed instead.";
+        state.syncMessage =
+          "The hosted market scan was unavailable; Torn contract details were refreshed instead.";
         saveState("Market scan partial");
         render();
-        setStatus(`${saleOnly ? "Sale" : "Rental"} comparisons are not live yet. Torn contract details were refreshed.`, true);
+        setStatus(
+          `${saleOnly ? "Sale" : "Rental"} comparisons are not live yet. Torn contract details were refreshed.`,
+          true
+        );
         return null;
       }
       state.syncState = "error";
@@ -1804,31 +2512,43 @@
 
   function normalizeHostedLease(row) {
     if (!row || typeof row !== "object") return normalizeLease({}, "server");
-    if (row.owner || row.rented_by || row.rental_period || row.cost_per_day || row.used_by) return leaseFromFetchedProperty(row);
+    if (row.owner || row.rented_by || row.rental_period || row.cost_per_day || row.used_by)
+      return leaseFromFetchedProperty(row);
     const propertyId = clean(row.propertyId || row.property_id || row.id, "");
-    return recalculateLease({
-      id: clean(row.id || propertyId || makeId("server"), makeId("server")),
-      propertyId,
-      property: clean(row.property || row.home || row.propertyName || row.property_name, propertyId ? `Property ${propertyId}` : "Property"),
-      landlord: clean(row.landlord || row.ownerName || row.owner_name || userName(row.owner), ""),
-      tenant: clean(row.tenant || row.renter || row.renterName || row.renter_name || userName(row.rented_by), ""),
-      amount: moneyNumber(row.amount || row.total || row.cost),
-      dailyAmount: moneyNumber(row.dailyAmount || row.daily_amount || row.cost_per_day),
-      durationDays: positiveNumber(row.durationDays || row.duration_days || row.rental_period),
-      remainingDays: positiveNumber(row.remainingDays || row.remaining_days || row.rental_period_remaining),
-      startDate: clean(row.startDate || row.start_date, ""),
-      endDate: clean(row.endDate || row.end_date, ""),
-      status: clean(row.status, "manual"),
-      roleHint: clean(row.roleHint || row.role || row.source, "landlord"),
-      notes: clean(row.notes || row.note, ""),
-      extensionCount: positiveNumber(row.extensionCount || row.extension_count),
-      extensionDays: positiveNumber(row.extensionDays || row.extension_days),
-      extensionStatus: clean(row.extensionStatus || row.extension_status, ""),
-      lastExtensionAt: clean(row.lastExtensionAt || row.last_extension_at, ""),
-      historyContractId: clean(row.historyContractId || row.history_contract_id, ""),
-      updatedAt: nowIso(),
-      source: "server",
-    }, "server");
+    return recalculateLease(
+      {
+        id: clean(row.id || propertyId || makeId("server"), makeId("server")),
+        propertyId,
+        property: clean(
+          row.property || row.home || row.propertyName || row.property_name,
+          propertyId ? `Property ${propertyId}` : "Property"
+        ),
+        landlord: clean(row.landlord || row.ownerName || row.owner_name || userName(row.owner), ""),
+        tenant: clean(
+          row.tenant || row.renter || row.renterName || row.renter_name || userName(row.rented_by),
+          ""
+        ),
+        amount: moneyNumber(row.amount || row.total || row.cost),
+        dailyAmount: moneyNumber(row.dailyAmount || row.daily_amount || row.cost_per_day),
+        durationDays: positiveNumber(row.durationDays || row.duration_days || row.rental_period),
+        remainingDays: positiveNumber(
+          row.remainingDays || row.remaining_days || row.rental_period_remaining
+        ),
+        startDate: clean(row.startDate || row.start_date, ""),
+        endDate: clean(row.endDate || row.end_date, ""),
+        status: clean(row.status, "manual"),
+        roleHint: clean(row.roleHint || row.role || row.source, "landlord"),
+        notes: clean(row.notes || row.note, ""),
+        extensionCount: positiveNumber(row.extensionCount || row.extension_count),
+        extensionDays: positiveNumber(row.extensionDays || row.extension_days),
+        extensionStatus: clean(row.extensionStatus || row.extension_status, ""),
+        lastExtensionAt: clean(row.lastExtensionAt || row.last_extension_at, ""),
+        historyContractId: clean(row.historyContractId || row.history_contract_id, ""),
+        updatedAt: nowIso(),
+        source: "server",
+      },
+      "server"
+    );
   }
 
   function firstArray(body, keys) {
@@ -1842,25 +2562,102 @@
   function mergePartialMarketRows(previousRows, incomingRows, marketKinds, rowType) {
     const kinds = new Set(Array.isArray(marketKinds) ? marketKinds : ["rentals", "properties"]);
     if (kinds.has("rentals") && kinds.has("properties")) return incomingRows;
-    const rentalKeys = rowType === "summary"
-      ? ["rental_listings", "listings", "rent_match", "avg_daily", "median_daily", "min_daily", "max_daily", "avg_landlord_roi_market", "best_landlord_roi_market", "avg_landlord_roi_investment", "avg_rent_per_happy", "avg_tenant_cost_per_happy"]
-      : ["current_cost_per_day", "market_median_daily", "market_avg_daily", "market_min_daily", "market_max_daily", "rent_listings", "market_basis", "comparable_confidence", "comparable_listings", "rental_comparison", "target_rent_per_day", "suggested_rent_per_day", "rent_per_day_suggested", "suggested_duration_days", "suggested_total", "duration_basis", "suggested_roi", "recommended_action", "suggested_action", "suggestion_note"];
-    const saleKeys = rowType === "summary"
-      ? ["sale_listings", "sale_match", "avg_market_price", "median_market_price", "min_market_price", "max_market_price"]
-      : ["sale_listings", "sale_price_suggested", "suggested_sale_price", "market_median_sale", "market_avg_sale", "market_min_sale", "market_max_sale", "sale_market_basis", "sale_comparable_confidence", "sale_comparable_listings", "sale_comparison", "sale_suggested_action"];
-    const keyFor = (row) => clean(row && (row.id || row.property_id || row.propertyId || row.market_key || row._market_key || `${row.property_type_id || ""}:${row.happy || ""}`), "");
+    const rentalKeys =
+      rowType === "summary"
+        ? [
+            "rental_listings",
+            "listings",
+            "rent_match",
+            "avg_daily",
+            "median_daily",
+            "min_daily",
+            "max_daily",
+            "avg_landlord_roi_market",
+            "best_landlord_roi_market",
+            "avg_landlord_roi_investment",
+            "avg_rent_per_happy",
+            "avg_tenant_cost_per_happy",
+          ]
+        : [
+            "current_cost_per_day",
+            "market_median_daily",
+            "market_avg_daily",
+            "market_min_daily",
+            "market_max_daily",
+            "rent_listings",
+            "market_basis",
+            "comparable_confidence",
+            "comparable_listings",
+            "rental_comparison",
+            "target_rent_per_day",
+            "suggested_rent_per_day",
+            "rent_per_day_suggested",
+            "suggested_duration_days",
+            "suggested_total",
+            "duration_basis",
+            "suggested_roi",
+            "recommended_action",
+            "suggested_action",
+            "suggestion_note",
+          ];
+    const saleKeys =
+      rowType === "summary"
+        ? [
+            "sale_listings",
+            "sale_match",
+            "avg_market_price",
+            "median_market_price",
+            "min_market_price",
+            "max_market_price",
+          ]
+        : [
+            "sale_listings",
+            "sale_price_suggested",
+            "suggested_sale_price",
+            "market_median_sale",
+            "market_avg_sale",
+            "market_min_sale",
+            "market_max_sale",
+            "sale_market_basis",
+            "sale_comparable_confidence",
+            "sale_comparable_listings",
+            "sale_comparison",
+            "sale_suggested_action",
+          ];
+    const keyFor = (row) =>
+      clean(
+        row &&
+          (row.id ||
+            row.property_id ||
+            row.propertyId ||
+            row.market_key ||
+            row._market_key ||
+            `${row.property_type_id || ""}:${row.happy || ""}`),
+        ""
+      );
     const previous = new Map((previousRows || []).map((row) => [keyFor(row), row]));
     return (incomingRows || []).map((row) => {
       const old = previous.get(keyFor(row)) || {};
       const merged = { ...old, ...row };
-      if (!kinds.has("rentals")) rentalKeys.forEach((key) => { if (Object.prototype.hasOwnProperty.call(old, key)) merged[key] = old[key]; });
-      if (!kinds.has("properties")) saleKeys.forEach((key) => { if (Object.prototype.hasOwnProperty.call(old, key)) merged[key] = old[key]; });
+      if (!kinds.has("rentals"))
+        rentalKeys.forEach((key) => {
+          if (Object.prototype.hasOwnProperty.call(old, key)) merged[key] = old[key];
+        });
+      if (!kinds.has("properties"))
+        saleKeys.forEach((key) => {
+          if (Object.prototype.hasOwnProperty.call(old, key)) merged[key] = old[key];
+        });
       return merged;
     });
   }
 
   function applyHostedPropertyTypes(body) {
-    const rows = firstArray(body, ["propertyTypes", "property_types", "propertyCatalogue", "property_catalogue"]);
+    const rows = firstArray(body, [
+      "propertyTypes",
+      "property_types",
+      "propertyCatalogue",
+      "property_catalogue",
+    ]);
     if (!rows.length) return false;
     const next = rows.map(normalizeHostedPropertyType).filter(Boolean);
     if (!next.length) return false;
@@ -1875,7 +2672,10 @@
     return {
       id: Number(id),
       property_type_id: Number(id),
-      name: clean(row.name || row.property || row.property_type || row.propertyType, `Property ${id}`),
+      name: clean(
+        row.name || row.property || row.property_type || row.propertyType,
+        `Property ${id}`
+      ),
       cost: moneyNumber(row.cost),
       happy: positiveNumber(row.happy),
       upkeep: moneyNumber(row.upkeep),
@@ -1896,7 +2696,10 @@
       } catch (_error) {
         // Some older/manual values are plain comma-separated text.
       }
-      return value.split(",").map((item) => item.trim()).filter(Boolean);
+      return value
+        .split(",")
+        .map((item) => item.trim())
+        .filter(Boolean);
     }
     return [];
   }
@@ -1915,7 +2718,10 @@
     const rows = [];
     for (const property of properties) {
       if (!property || typeof property !== "object") continue;
-      const key = property.id || property.property_id || `${userName(property.owner)}:${propertyName(property.property) || propertyName(property)}:${property.happy || ""}:${userName(property.rented_by)}`;
+      const key =
+        property.id ||
+        property.property_id ||
+        `${userName(property.owner)}:${propertyName(property.property) || propertyName(property)}:${property.happy || ""}:${userName(property.rented_by)}`;
       if (seen.has(String(key))) continue;
       seen.add(String(key));
       rows.push(property);
@@ -1979,9 +2785,13 @@
 
   function tornRateLimitOptionsHtml() {
     const selected = String(tornRateLimitPerMinute());
-    return [75, 50, 25].map((value) => `
+    return [75, 50, 25]
+      .map(
+        (value) => `
       <option value="${value}"${selected === String(value) ? " selected" : ""}>Up to ${value} Torn calls/min</option>
-    `).join("");
+    `
+      )
+      .join("");
   }
 
   function propertyHistoryPagesOptionsHtml() {
@@ -1992,7 +2802,12 @@
       [50, "Deep history"],
       [100, "Maximum history"],
     ];
-    return options.map(([value, label]) => `<option value="${value}"${selected === String(value) ? " selected" : ""}>${label}</option>`).join("");
+    return options
+      .map(
+        ([value, label]) =>
+          `<option value="${value}"${selected === String(value) ? " selected" : ""}>${label}</option>`
+      )
+      .join("");
   }
 
   function waitForTornRateSlot() {
@@ -2018,7 +2833,9 @@
       "user-panel": {
         body,
         fetchedAt: nowIso(),
-        message: userId ? `Checked key user ${userId}.` : "Fetched key info, but no user ID was found in the known response paths.",
+        message: userId
+          ? `Checked key user ${userId}.`
+          : "Fetched key info, but no user ID was found in the known response paths.",
       },
     };
     if (!userId) {
@@ -2046,10 +2863,17 @@
   }
 
   async function lookupUserValue() {
-    const existing = state.endpointInputs && state.endpointInputs.lookupUser && state.endpointInputs.lookupUser.trim();
+    const existing =
+      state.endpointInputs &&
+      state.endpointInputs.lookupUser &&
+      state.endpointInputs.lookupUser.trim();
     if (existing) return existing;
     const userId = await keyUserId();
-    state.endpointInputs = { ...emptyState.endpointInputs, ...(state.endpointInputs || {}), lookupUser: String(userId) };
+    state.endpointInputs = {
+      ...emptyState.endpointInputs,
+      ...(state.endpointInputs || {}),
+      lookupUser: String(userId),
+    };
     saveState();
     return String(userId);
   }
@@ -2064,7 +2888,9 @@
     } catch (error) {
       if (!appSettings().allowDirectTornFallback) throw error;
       body = await apiGet("/torn/properties");
-      applyHostedPropertyTypes({ propertyTypes: firstArray(body, ["properties"]) });
+      applyHostedPropertyTypes({
+        propertyTypes: firstArray(body, ["properties"]),
+      });
     }
     storeEndpointData("torn-properties", body, summarizeResult(body, "properties"));
     setStatus(state.endpointResults["torn-properties"]);
@@ -2098,14 +2924,19 @@
       await fetchUserProfile();
       spouse = profileSpouse();
     }
-    if (!spouse || !spouse.id) throw new Error("Fetch user details first; no spouse ID is available.");
+    if (!spouse || !spouse.id)
+      throw new Error("Fetch user details first; no spouse ID is available.");
     setStatus(`Fetching properties for spouse ${spouse.name || spouse.id}...`);
     const all = [];
     const limit = 100;
     let offset = 0;
 
     for (let guard = 0; guard < 20; guard += 1) {
-      const page = await apiGet(`/user/${encodeURIComponent(spouse.id)}/properties`, { offset, limit, key: apiKeyValue() });
+      const page = await apiGet(`/user/${encodeURIComponent(spouse.id)}/properties`, {
+        offset,
+        limit,
+        key: apiKeyValue(),
+      });
       const properties = propertiesFromBody(page);
       all.push(...properties);
       if (properties.length < limit) break;
@@ -2116,16 +2947,27 @@
     state.spouseListingSnapshots = spouseListingSnapshotsAfterFetch(
       state.spouseListingSnapshots,
       propertiesFromBody(body),
-      { viewerId: String(keyInfoUserId(state.keyInfo) || (profileInfo() && profileInfo().id) || ""), spouse },
+      {
+        viewerId: String(keyInfoUserId(state.keyInfo) || (profileInfo() && profileInfo().id) || ""),
+        spouse,
+      }
     );
-    const leases = all.map((property) => leaseFromFetchedProperty(property, spouse)).filter(Boolean);
+    const leases = all
+      .map((property) => leaseFromFetchedProperty(property, spouse))
+      .filter(Boolean);
     mergeLeases(leases);
     const owned = propertiesFromBody(body).length;
-    const used = all.filter((property) => propertyUsedByLookup(property, spouse.id) || renterMatchesLookup(property, spouse.id)).length;
+    const used = all.filter(
+      (property) =>
+        propertyUsedByLookup(property, spouse.id) || renterMatchesLookup(property, spouse.id)
+    ).length;
     const withContracts = all.filter(propertyHasContractDetails).length;
     const label = spouse.name ? `${spouse.name} [${spouse.id}]` : spouse.id;
     const message = `Fetched ${all.length.toLocaleString()} partner properties/contracts for ${label}: showing ${owned.toLocaleString()} spouse-owned homes, ${used.toLocaleString()} used or rented, ${withContracts.toLocaleString()} with contract details.`;
-    state.endpointResults = { ...(state.endpointResults || {}), "spouse-properties": message };
+    state.endpointResults = {
+      ...(state.endpointResults || {}),
+      "spouse-properties": message,
+    };
     state.endpointData = {
       ...(state.endpointData || {}),
       "spouse-properties": {
@@ -2150,12 +2992,14 @@
   }
 
   function fetchedPropertyRole(property, spouse = null) {
-    const myId = keyInfoUserId(state.keyInfo) || ((state.endpointInputs || {}).userId);
+    const myId = keyInfoUserId(state.keyInfo) || (state.endpointInputs || {}).userId;
     const spouseId = spouse && spouse.id;
     if (ownerMatchesLookup(property, myId)) return "landlord";
     if (ownerMatchesLookup(property, spouseId)) return "spouse";
-    if (renterMatchesLookup(property, myId) || renterMatchesLookup(property, spouseId)) return "tenant";
-    if (propertyUsedByLookup(property, myId) || propertyUsedByLookup(property, spouseId)) return "tenant";
+    if (renterMatchesLookup(property, myId) || renterMatchesLookup(property, spouseId))
+      return "tenant";
+    if (propertyUsedByLookup(property, myId) || propertyUsedByLookup(property, spouseId))
+      return "tenant";
     return "landlord";
   }
 
@@ -2180,7 +3024,11 @@
   async function fetchUserProfile() {
     const userId = await keyUserId();
     setStatus(`Fetching profile for user ${userId}...`);
-    const body = await apiGet("/user", { selections: "profile", id: userId, key: apiKeyValue() });
+    const body = await apiGet("/user", {
+      selections: "profile",
+      id: userId,
+      key: apiKeyValue(),
+    });
     storeEndpointData("user-profile", body, `Fetched profile for user ${userId}.`);
     setStatus(state.endpointResults["user-profile"]);
     return body;
@@ -2194,10 +3042,14 @@
     render();
     try {
       const result = await runHostedFirst("all", refreshUserDetailsDirect);
-      const metadata = result && (result.metadata || result._metadata) || {};
-      const partialMessage = clean(metadata.historyError || metadata.history_error, "") || (result && result.partial && (result.errors || []).join(" · "));
+      const metadata = (result && (result.metadata || result._metadata)) || {};
+      const partialMessage =
+        clean(metadata.historyError || metadata.history_error, "") ||
+        (result && result.partial && (result.errors || []).join(" · "));
       state.syncState = partialMessage ? "partial" : "success";
-      state.syncMessage = partialMessage ? `Portfolio synced with a warning: ${partialMessage}` : "Portfolio synced.";
+      state.syncMessage = partialMessage
+        ? `Portfolio synced with a warning: ${partialMessage}`
+        : "Portfolio synced.";
       state.lastSyncAt = state.lastSyncAt || nowIso();
       saveState("Sync complete");
       render();
@@ -2241,7 +3093,11 @@
     }
     completeDirectSyncProgress(errors);
     render();
-    setStatus(errors.length ? `User details partially refreshed: ${errors.join(" | ")}` : "User details refreshed.");
+    setStatus(
+      errors.length
+        ? `User details partially refreshed: ${errors.join(" | ")}`
+        : "User details refreshed."
+    );
     return {
       partial: true,
       errors: errors.length ? errors : ["Hosted history and market checks were unavailable."],
@@ -2257,15 +3113,42 @@
     const current = currentPropertyFromBody(endpointBody("user-property"));
     const hasErrors = Boolean(errors.length);
     const details = {
-      profile: { status: profile.id || profile.name ? "done" : "warning", detail: profile.id || profile.name ? `Fetched ${clean(profile.name || profile.id, "the account profile")} directly from Torn.` : "No profile details were returned." },
-      portfolio: { status: "done", detail: `${owned.length.toLocaleString()} owned · ${current ? "current home found" : "no current home returned"} · ${spouse.length.toLocaleString()} spouse-owned.` },
-      rentals: { status: "done", detail: `${(state.leases || []).length.toLocaleString()} saved rental record${(state.leases || []).length === 1 ? "" : "s"} rebuilt.` },
-      history: { status: "warning", detail: "The direct fallback does not rebuild the hosted property-log archive." },
-      rentalMarket: { status: "warning", detail: "The direct fallback does not run server-side rental comparisons." },
-      saleMarket: { status: "warning", detail: "The direct fallback does not run server-side sale comparisons." },
-      save: { status: "done", detail: "The directly fetched subset was saved locally." },
+      profile: {
+        status: profile.id || profile.name ? "done" : "warning",
+        detail:
+          profile.id || profile.name
+            ? `Fetched ${clean(profile.name || profile.id, "the account profile")} directly from Torn.`
+            : "No profile details were returned.",
+      },
+      portfolio: {
+        status: "done",
+        detail: `${owned.length.toLocaleString()} owned · ${current ? "current home found" : "no current home returned"} · ${spouse.length.toLocaleString()} spouse-owned.`,
+      },
+      rentals: {
+        status: "done",
+        detail: `${(state.leases || []).length.toLocaleString()} saved rental record${(state.leases || []).length === 1 ? "" : "s"} rebuilt.`,
+      },
+      history: {
+        status: "warning",
+        detail: "The direct fallback does not rebuild the hosted property-log archive.",
+      },
+      rentalMarket: {
+        status: "warning",
+        detail: "The direct fallback does not run server-side rental comparisons.",
+      },
+      saleMarket: {
+        status: "warning",
+        detail: "The direct fallback does not run server-side sale comparisons.",
+      },
+      save: {
+        status: "done",
+        detail: "The directly fetched subset was saved locally.",
+      },
     };
-    progress.steps = progress.steps.map((step) => ({ ...step, ...(details[step.id] || {}) }));
+    progress.steps = progress.steps.map((step) => ({
+      ...step,
+      ...(details[step.id] || {}),
+    }));
     progress.percent = 100;
     progress.finishedAt = nowIso();
     progress.title = hasErrors ? "Partial sync finished" : "Direct fallback finished";
@@ -2292,7 +3175,9 @@
     const period = rentalPeriod(row);
     const totalRent = rentalTotal(row, period);
     const dailyRent = rentalDaily(row, period, totalRent);
-    const happy = positiveNumber(nestedValue(row, "happy") || nestedValue(row, "property.happy") || type.happy);
+    const happy = positiveNumber(
+      nestedValue(row, "happy") || nestedValue(row, "property.happy") || type.happy
+    );
     const marketPrice = marketPriceValue(row, type);
     const baseCost = moneyNumber(type.cost);
     const upgradeCost = estimatedUpgradeCost(row, type);
@@ -2328,10 +3213,16 @@
     const dailyValues = rows.map((row) => Number(row.cost_per_day)).filter(Number.isFinite);
     const marketValues = rows.map((row) => Number(row.market_price)).filter(Number.isFinite);
     const happyValues = rows.map((row) => Number(row.happy)).filter(Number.isFinite);
-    const landlordMarketValues = rows.map((row) => Number(row.landlord_roi_market)).filter(Number.isFinite);
-    const investmentValues = rows.map((row) => Number(row.landlord_roi_investment)).filter(Number.isFinite);
+    const landlordMarketValues = rows
+      .map((row) => Number(row.landlord_roi_market))
+      .filter(Number.isFinite);
+    const investmentValues = rows
+      .map((row) => Number(row.landlord_roi_investment))
+      .filter(Number.isFinite);
     const rentHappyValues = rows.map((row) => Number(row.rent_per_happy)).filter(Number.isFinite);
-    const tenantCostHappyValues = rows.map((row) => Number(row.tenant_cost_per_happy)).filter(Number.isFinite);
+    const tenantCostHappyValues = rows
+      .map((row) => Number(row.tenant_cost_per_happy))
+      .filter(Number.isFinite);
 
     return {
       _property_type_id: type.id,
@@ -2367,7 +3258,8 @@
       setStatus(`Fetched ${all.length.toLocaleString()} ${collectionName}...`);
 
       const total = metadataTotal(body);
-      if (!rows.length || rows.length < limit || (Number.isFinite(total) && all.length >= total)) break;
+      if (!rows.length || rows.length < limit || (Number.isFinite(total) && all.length >= total))
+        break;
       offset += limit;
       if (delayMs) await sleep(delayMs);
     }
@@ -2395,34 +3287,38 @@
   function rentalPeriod(row) {
     return positiveNumber(
       nestedValue(row, "rental_period") ||
-      nestedValue(row, "period") ||
-      nestedValue(row, "duration") ||
-      nestedValue(row, "duration_days") ||
-      nestedValue(row, "rent.period") ||
-      nestedValue(row, "lease.period")
+        nestedValue(row, "period") ||
+        nestedValue(row, "duration") ||
+        nestedValue(row, "duration_days") ||
+        nestedValue(row, "rent.period") ||
+        nestedValue(row, "lease.period")
     );
   }
 
   function rentalTotal(row, period = "") {
     const direct = moneyNumber(
       nestedValue(row, "cost") ||
-      nestedValue(row, "total_cost") ||
-      nestedValue(row, "total_rent") ||
-      nestedValue(row, "rent.cost") ||
-      nestedValue(row, "lease.cost")
+        nestedValue(row, "total_cost") ||
+        nestedValue(row, "total_rent") ||
+        nestedValue(row, "rent.cost") ||
+        nestedValue(row, "lease.cost")
     );
     if (direct) return direct;
-    const daily = moneyNumber(nestedValue(row, "cost_per_day") || nestedValue(row, "rent.cost_per_day") || nestedValue(row, "lease.cost_per_day"));
+    const daily = moneyNumber(
+      nestedValue(row, "cost_per_day") ||
+        nestedValue(row, "rent.cost_per_day") ||
+        nestedValue(row, "lease.cost_per_day")
+    );
     return daily && period ? daily * period : "";
   }
 
   function rentalDaily(row, period = "", totalRent = "") {
     const direct = moneyNumber(
       nestedValue(row, "cost_per_day") ||
-      nestedValue(row, "daily_cost") ||
-      nestedValue(row, "daily_rent") ||
-      nestedValue(row, "rent.cost_per_day") ||
-      nestedValue(row, "lease.cost_per_day")
+        nestedValue(row, "daily_cost") ||
+        nestedValue(row, "daily_rent") ||
+        nestedValue(row, "rent.cost_per_day") ||
+        nestedValue(row, "lease.cost_per_day")
     );
     if (direct) return direct;
     return totalRent && period ? Math.round(totalRent / period) : "";
@@ -2431,16 +3327,22 @@
   function marketPriceValue(row, type) {
     return moneyNumber(
       nestedValue(row, "market_price") ||
-      nestedValue(row, "property.market_price") ||
-      nestedValue(row, "price") ||
-      nestedValue(row, "property.price") ||
-      (type && type.cost)
+        nestedValue(row, "property.market_price") ||
+        nestedValue(row, "price") ||
+        nestedValue(row, "property.price") ||
+        (type && type.cost)
     );
   }
 
   function upkeepDaily(row, type) {
-    const propertyUpkeep = moneyNumber(nestedValue(row, "upkeep.property") || nestedValue(row, "property_upkeep") || (type && type.upkeep));
-    const staffUpkeep = moneyNumber(nestedValue(row, "upkeep.staff") || nestedValue(row, "staff_upkeep"));
+    const propertyUpkeep = moneyNumber(
+      nestedValue(row, "upkeep.property") ||
+        nestedValue(row, "property_upkeep") ||
+        (type && type.upkeep)
+    );
+    const staffUpkeep = moneyNumber(
+      nestedValue(row, "upkeep.staff") || nestedValue(row, "staff_upkeep")
+    );
     return (propertyUpkeep || 0) + (staffUpkeep || 0);
   }
 
@@ -2477,22 +3379,30 @@
 
   function targetAnnualRoi() {
     const value = Number(appSettings().targetAnnualRoi);
-    return Number.isFinite(value) && value > 0 ? clamp(value, 0.1, 500) : DEFAULT_SETTINGS.targetAnnualRoi;
+    return Number.isFinite(value) && value > 0
+      ? clamp(value, 0.1, 500)
+      : DEFAULT_SETTINGS.targetAnnualRoi;
   }
 
   function defaultSuggestionLeaseDays() {
     const value = Number(appSettings().defaultSuggestionLeaseDays);
-    return Number.isFinite(value) && value > 0 ? Math.round(clamp(value, 1, 100)) : DEFAULT_SETTINGS.defaultSuggestionLeaseDays;
+    return Number.isFinite(value) && value > 0
+      ? Math.round(clamp(value, 1, 100))
+      : DEFAULT_SETTINGS.defaultSuggestionLeaseDays;
   }
 
   function propertyHistoryPages() {
     const value = Number(appSettings().propertyHistoryPages);
-    return propertyHistoryPagesFromInput(Number.isFinite(value) && value > 0 ? value : DEFAULT_SETTINGS.propertyHistoryPages);
+    return propertyHistoryPagesFromInput(
+      Number.isFinite(value) && value > 0 ? value : DEFAULT_SETTINGS.propertyHistoryPages
+    );
   }
 
   function propertyHistoryPagesFromInput(value) {
     const number = Number(value);
-    return Number.isFinite(number) && number > 0 ? Math.round(clamp(number, 1, 100)) : DEFAULT_SETTINGS.propertyHistoryPages;
+    return Number.isFinite(number) && number > 0
+      ? Math.round(clamp(number, 1, 100))
+      : DEFAULT_SETTINGS.propertyHistoryPages;
   }
 
   function propertyCostKey(row) {
@@ -2508,7 +3418,7 @@
   function roundRent(value) {
     const number = Number(value);
     if (!Number.isFinite(number) || number <= 0) return "";
-    const step = number < 10 ? 1 : (number < 100 ? SUGGESTION_ROUNDING : 10);
+    const step = number < 10 ? 1 : number < 100 ? SUGGESTION_ROUNDING : 10;
     return Math.max(1, Math.round(number / step) * step);
   }
 
@@ -2533,10 +3443,16 @@
   }
 
   function medianNumber(values) {
-    const numbers = values.map(Number).filter(Number.isFinite).sort((a, b) => a - b);
+    const numbers = values
+      .map(Number)
+      .filter(Number.isFinite)
+      .sort((a, b) => a - b);
     if (!numbers.length) return "";
     const middle = Math.floor(numbers.length / 2);
-    return roundNumber(numbers.length % 2 ? numbers[middle] : (numbers[middle - 1] + numbers[middle]) / 2, 2);
+    return roundNumber(
+      numbers.length % 2 ? numbers[middle] : (numbers[middle - 1] + numbers[middle]) / 2,
+      2
+    );
   }
 
   function minNumber(values) {
@@ -2556,7 +3472,9 @@
   }
 
   function marketPropertyTypeId() {
-    const propertyTypeId = (state.endpointInputs && state.endpointInputs.propertyTypeId) || appSettings().defaultPropertyTypeId;
+    const propertyTypeId =
+      (state.endpointInputs && state.endpointInputs.propertyTypeId) ||
+      appSettings().defaultPropertyTypeId;
     if (!propertyTypeId) throw new Error("Pick a home type first.");
     return propertyTypeId;
   }
@@ -2603,17 +3521,30 @@
     const limit = 100;
 
     for (let guard = 0; guard < 20; guard += 1) {
-      const page = await apiGet("/user/properties", { filters: "ownedByUser", offset, limit, key: apiKeyValue() });
-      const properties = Array.isArray(page.properties) ? page.properties : Object.values(page.properties || {});
+      const page = await apiGet("/user/properties", {
+        filters: "ownedByUser",
+        offset,
+        limit,
+        key: apiKeyValue(),
+      });
+      const properties = Array.isArray(page.properties)
+        ? page.properties
+        : Object.values(page.properties || {});
       all.push(...properties);
       const total = page._metadata && page._metadata.total;
-      if (properties.length < limit || (Number.isFinite(Number(total)) && all.length >= Number(total))) break;
+      if (
+        properties.length < limit ||
+        (Number.isFinite(Number(total)) && all.length >= Number(total))
+      )
+        break;
       offset += limit;
     }
 
     const ownedByOwner = all.filter((property) => ownerMatchesLookup(property, ownerId));
     const owned = ownedByOwner.length ? ownedByOwner : all;
-    const leases = owned.map((property) => leaseFromFetchedProperty(property, profileSpouse())).filter(Boolean);
+    const leases = owned
+      .map((property) => leaseFromFetchedProperty(property, profileSpouse()))
+      .filter(Boolean);
 
     mergeLeases(leases);
     const rented = owned.filter((property) => property.status === "rented").length;
@@ -2621,7 +3552,10 @@
     const idle = owned.filter((property) => !property.status || property.status === "none").length;
     const withContracts = owned.filter(propertyHasContractDetails).length;
     const message = `Fetched ${owned.length.toLocaleString()} owned properties. Imported ${leases.length.toLocaleString()} rows: ${rented.toLocaleString()} rented, ${listed.toLocaleString()} listed, ${idle.toLocaleString()} idle, ${withContracts.toLocaleString()} with contract details.`;
-    state.endpointResults = { ...(state.endpointResults || {}), "user-properties": message };
+    state.endpointResults = {
+      ...(state.endpointResults || {}),
+      "user-properties": message,
+    };
     state.endpointData = {
       ...(state.endpointData || {}),
       "user-properties": {
@@ -2650,7 +3584,10 @@
     const lease = leaseFromFetchedProperty(body.property || body, profileSpouse());
     const leaseStatus = currentPropertyLeaseStatus(body.property || body);
     if (lease) mergeLeases([lease]);
-    state.endpointResults = { ...(state.endpointResults || {}), "user-property": `Imported current property. Status: ${leaseStatus.label}.` };
+    state.endpointResults = {
+      ...(state.endpointResults || {}),
+      "user-property": `Imported current property. Status: ${leaseStatus.label}.`,
+    };
     state.endpointData = {
       ...(state.endpointData || {}),
       "user-property": {
@@ -2671,7 +3608,9 @@
       return await apiGet("/property", { selections: "property", id });
     } catch (firstError) {
       try {
-        return await apiGet(`/property/${encodeURIComponent(id)}`, { selections: "property" });
+        return await apiGet(`/property/${encodeURIComponent(id)}`, {
+          selections: "property",
+        });
       } catch (_secondError) {
         throw firstError;
       }
@@ -2686,7 +3625,7 @@
     const body = await fetchPropertyLookup(propertyId);
     const property = currentPropertyFromBody(body);
     const owner = property && property.owner;
-    const ownerLabel = owner ? (owner.name || userName(owner)) : "";
+    const ownerLabel = owner ? owner.name || userName(owner) : "";
     if (ownerLabel && form.elements.landlord) form.elements.landlord.value = ownerLabel;
 
     const type = property && (property.property || property.type || property.name);
@@ -2722,7 +3661,10 @@
     clearHostedSession();
     state.serverEntitlement = null;
     state.lastSubscriptionCheckAt = null;
-    state.endpointInputs = { ...emptyState.endpointInputs, propertyTypeId: (state.endpointInputs || {}).propertyTypeId || "" };
+    state.endpointInputs = {
+      ...emptyState.endpointInputs,
+      propertyTypeId: (state.endpointInputs || {}).propertyTypeId || "",
+    };
     saveState();
     render();
     setStatus("Torn key cleared.");
@@ -2731,23 +3673,26 @@
   function addManualLease(form) {
     const data = new FormData(form);
     const tenant = userLabelFromParts(data.get("tenantName"), data.get("tenantId"));
-    const lease = recalculateLease({
-      id: makeId("manual"),
-      propertyId: clean(data.get("propertyId"), ""),
-      property: clean(data.get("property"), "Property"),
-      landlord: clean(data.get("landlord"), ""),
-      tenant,
-      amount: moneyNumber(data.get("amount")),
-      dailyAmount: moneyNumber(data.get("dailyAmount")),
-      durationDays: Number(data.get("durationDays")) || "",
-      startDate: clean(data.get("startDate"), ""),
-      endDate: clean(data.get("endDate"), ""),
-      status: clean(data.get("status"), "manual"),
-      roleHint: clean(data.get("roleHint"), "landlord"),
-      notes: clean(data.get("notes"), ""),
-      updatedAt: nowIso(),
-      source: "manual",
-    }, "manual");
+    const lease = recalculateLease(
+      {
+        id: makeId("manual"),
+        propertyId: clean(data.get("propertyId"), ""),
+        property: clean(data.get("property"), "Property"),
+        landlord: clean(data.get("landlord"), ""),
+        tenant,
+        amount: moneyNumber(data.get("amount")),
+        dailyAmount: moneyNumber(data.get("dailyAmount")),
+        durationDays: Number(data.get("durationDays")) || "",
+        startDate: clean(data.get("startDate"), ""),
+        endDate: clean(data.get("endDate"), ""),
+        status: clean(data.get("status"), "manual"),
+        roleHint: clean(data.get("roleHint"), "landlord"),
+        notes: clean(data.get("notes"), ""),
+        updatedAt: nowIso(),
+        source: "manual",
+      },
+      "manual"
+    );
     form.reset();
     mergeLeases([lease]);
     state.manualModalOpen = false;
@@ -2758,9 +3703,14 @@
 
   function updateLease(id, patch, changedProp = "") {
     let updatedLease = null;
-    state.leases = state.leases.map((lease) => (
-      lease.id === id ? (updatedLease = recalculateLease({ ...lease, ...patch, updatedAt: nowIso() }, changedProp)) : lease
-    ));
+    state.leases = state.leases.map((lease) =>
+      lease.id === id
+        ? (updatedLease = recalculateLease(
+            { ...lease, ...patch, updatedAt: nowIso() },
+            changedProp
+          ))
+        : lease
+    );
     saveState();
     if (updatedLease) refreshLeaseRowValues(id, updatedLease);
   }
@@ -2780,33 +3730,49 @@
     } else if (changedProp === "amount" && next.amount && next.durationDays) {
       next.dailyAmount = moneyRatio(next.amount / next.durationDays);
     } else if (changedProp === "durationDays") {
-      if (next.amount && next.durationDays) next.dailyAmount = moneyRatio(next.amount / next.durationDays);
-      else if (next.dailyAmount && next.durationDays) next.amount = moneyRatio(next.dailyAmount * next.durationDays);
+      if (next.amount && next.durationDays)
+        next.dailyAmount = moneyRatio(next.amount / next.durationDays);
+      else if (next.dailyAmount && next.durationDays)
+        next.amount = moneyRatio(next.dailyAmount * next.durationDays);
     } else if (!next.dailyAmount && next.amount && next.durationDays) {
       next.dailyAmount = moneyRatio(next.amount / next.durationDays);
     } else if (!next.amount && next.dailyAmount && next.durationDays) {
       next.amount = moneyRatio(next.dailyAmount * next.durationDays);
     }
 
-    if ((changedProp === "amount" || changedProp === "dailyAmount") && next.amount && next.dailyAmount && !next.durationDays) {
+    if (
+      (changedProp === "amount" || changedProp === "dailyAmount") &&
+      next.amount &&
+      next.dailyAmount &&
+      !next.durationDays
+    ) {
       next.durationDays = Math.round(next.amount / next.dailyAmount);
     }
 
-    if ((changedProp === "startDate" || changedProp === "durationDays" || changedProp === "manual") && next.startDate && next.durationDays) {
+    if (
+      (changedProp === "startDate" || changedProp === "durationDays" || changedProp === "manual") &&
+      next.startDate &&
+      next.durationDays
+    ) {
       next.endDate = addDays(next.startDate, next.durationDays);
     } else if (changedProp === "endDate" && next.startDate && next.endDate) {
       next.durationDays = daysBetween(next.startDate, next.endDate);
-      if (next.amount && next.durationDays) next.dailyAmount = moneyRatio(next.amount / next.durationDays);
-      if (!next.amount && next.dailyAmount && next.durationDays) next.amount = moneyRatio(next.dailyAmount * next.durationDays);
+      if (next.amount && next.durationDays)
+        next.dailyAmount = moneyRatio(next.amount / next.durationDays);
+      if (!next.amount && next.dailyAmount && next.durationDays)
+        next.amount = moneyRatio(next.dailyAmount * next.durationDays);
     } else if (changedProp === "manual" && next.startDate && next.endDate && !next.durationDays) {
       next.durationDays = daysBetween(next.startDate, next.endDate);
-      if (next.amount && next.durationDays) next.dailyAmount = moneyRatio(next.amount / next.durationDays);
-      if (!next.amount && next.dailyAmount && next.durationDays) next.amount = moneyRatio(next.dailyAmount * next.durationDays);
+      if (next.amount && next.durationDays)
+        next.dailyAmount = moneyRatio(next.amount / next.durationDays);
+      if (!next.amount && next.dailyAmount && next.durationDays)
+        next.amount = moneyRatio(next.dailyAmount * next.durationDays);
     }
 
     if (changedProp === "remainingDays" && next.remainingDays !== "") {
       next.endDate = dateFromRemainingDays(next.remainingDays);
-      if (next.endDate && next.durationDays) next.startDate = addDays(next.endDate, -next.durationDays);
+      if (next.endDate && next.durationDays)
+        next.startDate = addDays(next.endDate, -next.durationDays);
     }
 
     if (next.endDate) next.remainingDays = remainingDaysFromEnd(next.endDate);
@@ -2833,21 +3799,29 @@
 
   function syncManualLeaseForm(form, changedProp) {
     if (!form) return;
-    const lease = recalculateLease({
-      amount: moneyNumber(form.elements.amount && form.elements.amount.value),
-      dailyAmount: moneyNumber(form.elements.dailyAmount && form.elements.dailyAmount.value),
-      durationDays: positiveNumber(form.elements.durationDays && form.elements.durationDays.value),
-      startDate: form.elements.startDate ? form.elements.startDate.value : "",
-      endDate: form.elements.endDate ? form.elements.endDate.value : "",
-    }, changedProp || "manual");
+    const lease = recalculateLease(
+      {
+        amount: moneyNumber(form.elements.amount && form.elements.amount.value),
+        dailyAmount: moneyNumber(form.elements.dailyAmount && form.elements.dailyAmount.value),
+        durationDays: positiveNumber(
+          form.elements.durationDays && form.elements.durationDays.value
+        ),
+        startDate: form.elements.startDate ? form.elements.startDate.value : "",
+        endDate: form.elements.endDate ? form.elements.endDate.value : "",
+      },
+      changedProp || "manual"
+    );
 
     if (form.elements.amount) form.elements.amount.value = currencyInputValue(lease.amount);
-    if (form.elements.dailyAmount) form.elements.dailyAmount.value = currencyInputValue(lease.dailyAmount);
-    if (form.elements.durationDays && lease.durationDays !== "") form.elements.durationDays.value = lease.durationDays;
+    if (form.elements.dailyAmount)
+      form.elements.dailyAmount.value = currencyInputValue(lease.dailyAmount);
+    if (form.elements.durationDays && lease.durationDays !== "")
+      form.elements.durationDays.value = lease.durationDays;
     if (form.elements.startDate && lease.startDate) form.elements.startDate.value = lease.startDate;
     if (form.elements.endDate && lease.endDate) form.elements.endDate.value = lease.endDate;
     const daysLeft = form.querySelector("[data-manual-days-left]");
-    if (daysLeft) daysLeft.textContent = lease.remainingDays !== "" ? String(lease.remainingDays) : "Auto";
+    if (daysLeft)
+      daysLeft.textContent = lease.remainingDays !== "" ? String(lease.remainingDays) : "Auto";
   }
 
   function refreshLeaseRowValues(id, lease) {
@@ -2855,7 +3829,9 @@
     if (popupWindow && !popupWindow.closed) docs.push(popupWindow.document);
     for (const doc of docs) {
       const active = doc.activeElement;
-      for (const row of Array.from(doc.querySelectorAll(`#${APP_ID} tr[data-id]`)).filter((item) => item.dataset.id === id)) {
+      for (const row of Array.from(doc.querySelectorAll(`#${APP_ID} tr[data-id]`)).filter(
+        (item) => item.dataset.id === id
+      )) {
         row.querySelectorAll("[data-prop]").forEach((field) => {
           const prop = field.dataset.prop;
           if (!prop || field === active) return;
@@ -2887,9 +3863,21 @@
     return state.leases.filter((lease) => {
       const roleMatch = state.role === "all" || leaseRoleGroup(lease) === state.role;
       if (!roleMatch) return false;
-      if (statusFilter !== "all" && normalizeLeaseStatus(lease.status, lease.roleHint || lease.source, lease.tenant) !== statusFilter) return false;
+      if (
+        statusFilter !== "all" &&
+        normalizeLeaseStatus(lease.status, lease.roleHint || lease.source, lease.tenant) !==
+          statusFilter
+      )
+        return false;
       if (!query) return true;
-      return [lease.property, lease.propertyId, lease.landlord, lease.tenant, lease.status, lease.notes]
+      return [
+        lease.property,
+        lease.propertyId,
+        lease.landlord,
+        lease.tenant,
+        lease.status,
+        lease.notes,
+      ]
         .join(" ")
         .toLowerCase()
         .includes(query);
@@ -2898,7 +3886,17 @@
 
   function leaseRoleGroup(lease) {
     const role = clean(lease && lease.roleHint, "").toLowerCase();
-    if (["spouse", "spouse-owned", "spouse_owned", "partner", "partner-owned", "partner_owned"].includes(role)) return "spouse";
+    if (
+      [
+        "spouse",
+        "spouse-owned",
+        "spouse_owned",
+        "partner",
+        "partner-owned",
+        "partner_owned",
+      ].includes(role)
+    )
+      return "spouse";
     if (["tenant", "on-lease", "rented-from-others", "rent-from"].includes(role)) return "tenant";
     if (["market", "listed"].includes(role)) return "market";
     if (["contracts", "lease-offers", "lease_offers", "offers"].includes(role)) return "contracts";
@@ -2916,29 +3914,54 @@
   function stats(leases) {
     const leased = leases.filter((lease) => lease.status === "rented" || lease.tenant).length;
     const income = leases.reduce((sum, lease) => sum + (Number(lease.amount) || 0), 0);
-    const soon = leases.filter((lease) => Number(lease.remainingDays) >= 0 && Number(lease.remainingDays) <= 7).length;
+    const soon = leases.filter(
+      (lease) => Number(lease.remainingDays) >= 0 && Number(lease.remainingDays) <= 7
+    ).length;
     return { total: leases.length, leased, income, soon };
   }
 
   function exportJson() {
-    download("tornfolio-backup.json", JSON.stringify({
-      format: "tornfolio-backup",
-      schemaVersion: 2,
-      exportedAt: nowIso(),
-      leases: state.leases,
-      archivedRentals: state.archivedRentals || [],
-      activity: state.activity || [],
-      propertyCosts: state.propertyCosts || {},
-      spouseListingSnapshots: state.spouseListingSnapshots || {},
-      settings: appSettings(),
-      endpointData: state.endpointData || {},
-      keyInfo: state.keyInfo || null,
-    }, null, 2), "application/json");
+    download(
+      "tornfolio-backup.json",
+      JSON.stringify(
+        {
+          format: "tornfolio-backup",
+          schemaVersion: 2,
+          exportedAt: nowIso(),
+          leases: state.leases,
+          archivedRentals: state.archivedRentals || [],
+          activity: state.activity || [],
+          propertyCosts: state.propertyCosts || {},
+          spouseListingSnapshots: state.spouseListingSnapshots || {},
+          settings: appSettings(),
+          endpointData: state.endpointData || {},
+          keyInfo: state.keyInfo || null,
+        },
+        null,
+        2
+      ),
+      "application/json"
+    );
   }
 
   function exportCsv() {
-    const headers = ["propertyId", "property", "landlord", "tenant", "durationDays", "amount", "dailyAmount", "startDate", "endDate", "remainingDays", "status", "notes"];
-    const rows = state.leases.map((lease) => headers.map((header) => csvCell(lease[header])).join(","));
+    const headers = [
+      "propertyId",
+      "property",
+      "landlord",
+      "tenant",
+      "durationDays",
+      "amount",
+      "dailyAmount",
+      "startDate",
+      "endDate",
+      "remainingDays",
+      "status",
+      "notes",
+    ];
+    const rows = state.leases.map((lease) =>
+      headers.map((header) => csvCell(lease[header])).join(",")
+    );
     download("tornfolio-rentals.csv", [headers.join(","), ...rows].join("\n"), "text/csv");
   }
 
@@ -2949,15 +3972,21 @@
     if (!summary.length && !rentals.length) throw new Error("Run the ROI scan first.");
 
     const summaryHeaders = preferredTableKeys("roi-summary");
-    const rentalHeaders = preferredTableKeys("roi-rentals").filter((key) => !key.startsWith("mod::") && !key.startsWith("staff::") && key !== "property_image");
+    const rentalHeaders = preferredTableKeys("roi-rentals").filter(
+      (key) => !key.startsWith("mod::") && !key.startsWith("staff::") && key !== "property_image"
+    );
     const parts = [
       "ROI summary",
       summaryHeaders.join(","),
-      ...summary.map((row) => summaryHeaders.map((header) => csvCell(cellValue(row, header))).join(",")),
+      ...summary.map((row) =>
+        summaryHeaders.map((header) => csvCell(cellValue(row, header))).join(",")
+      ),
       "",
       "Rental listings",
       rentalHeaders.join(","),
-      ...rentals.map((row) => rentalHeaders.map((header) => csvCell(cellValue(row, header))).join(",")),
+      ...rentals.map((row) =>
+        rentalHeaders.map((header) => csvCell(cellValue(row, header))).join(",")
+      ),
     ];
     download("torn-rental-roi-scan.csv", parts.join("\n"), "text/csv");
   }
@@ -2965,8 +3994,12 @@
   function exportRentSuggestionsCsv() {
     const rows = serverRentSuggestionRows();
     if (!rows.length) throw new Error("Fetch everything first. Suggestions will appear here.");
-    const headers = tableKeys(rows, "rent-suggestions").filter((key) => key !== "property_image" && !key.startsWith("mod::") && !key.startsWith("staff::"));
-    const csvRows = rows.map((row) => headers.map((header) => csvCell(cellValue(row, header))).join(","));
+    const headers = tableKeys(rows, "rent-suggestions").filter(
+      (key) => key !== "property_image" && !key.startsWith("mod::") && !key.startsWith("staff::")
+    );
+    const csvRows = rows.map((row) =>
+      headers.map((header) => csvCell(cellValue(row, header))).join(",")
+    );
     download("torn-rent-suggestions.csv", [headers.join(","), ...csvRows].join("\n"), "text/csv");
   }
 
@@ -2993,15 +4026,30 @@
         const leases = Array.isArray(parsed) ? parsed : parsed.leases;
         if (!Array.isArray(leases)) throw new Error("No leases array found.");
         if (parsed && !Array.isArray(parsed)) {
-          state.propertyCosts = { ...(state.propertyCosts || {}), ...(parsed.propertyCosts || {}) };
+          state.propertyCosts = {
+            ...(state.propertyCosts || {}),
+            ...(parsed.propertyCosts || {}),
+          };
           state.settings = { ...appSettings(), ...(parsed.settings || {}) };
-          state.archivedRentals = dedupeArchiveRows([...(state.archivedRentals || []), ...(parsed.archivedRentals || [])]).filter(isCompletedArchiveRow);
-          state.activity = Array.isArray(parsed.activity) ? parsed.activity : (state.activity || []);
-          state.endpointData = { ...(state.endpointData || {}), ...(parsed.endpointData || {}) };
+          state.archivedRentals = dedupeArchiveRows([
+            ...(state.archivedRentals || []),
+            ...(parsed.archivedRentals || []),
+          ]).filter(isCompletedArchiveRow);
+          state.activity = Array.isArray(parsed.activity) ? parsed.activity : state.activity || [];
+          state.endpointData = {
+            ...(state.endpointData || {}),
+            ...(parsed.endpointData || {}),
+          };
           state.keyInfo = parsed.keyInfo || state.keyInfo;
           saveState();
         }
-        mergeLeases(leases.map((lease) => ({ ...lease, id: lease.id || makeId("import"), updatedAt: lease.updatedAt || nowIso() })));
+        mergeLeases(
+          leases.map((lease) => ({
+            ...lease,
+            id: lease.id || makeId("import"),
+            updatedAt: lease.updatedAt || nowIso(),
+          }))
+        );
         setStatus(`Imported ${leases.length} lease records.`);
       } catch (error) {
         setStatus(error.message || "Could not import JSON.", true);
@@ -3044,8 +4092,14 @@
     if (api && typeof api.getContract === "function") {
       try {
         const contract = api.getContract() || {};
-        Object.values(contract.cssVars || {}).forEach((name) => { if (name) names.add(name); });
-        Object.values(contract.aliases || {}).flat().forEach((name) => { if (name) names.add(name); });
+        Object.values(contract.cssVars || {}).forEach((name) => {
+          if (name) names.add(name);
+        });
+        Object.values(contract.aliases || {})
+          .flat()
+          .forEach((name) => {
+            if (name) names.add(name);
+          });
       } catch (_error) {
         // Fall through to computed custom properties below.
       }
@@ -3072,9 +4126,16 @@
     return parts.every(Boolean) ? parts.join(":") : "";
   }
 
-  function spouseListingSnapshotsAfterFetch(previous, properties, context = {}, observedAt = nowIso()) {
+  function spouseListingSnapshotsAfterFetch(
+    previous,
+    properties,
+    context = {},
+    observedAt = nowIso()
+  ) {
     const next = { ...(previous || {}) };
-    const spouseId = String(context.spouse && (context.spouse.id || context.spouse.userId) || "").trim();
+    const spouseId = String(
+      (context.spouse && (context.spouse.id || context.spouse.userId)) || ""
+    ).trim();
     const viewerId = String(context.viewerId || "").trim();
     for (const row of properties || []) {
       if (!row || typeof row !== "object" || !isForRent(row)) continue;
@@ -3083,8 +4144,9 @@
       if (!key) continue;
       const durationDays = positiveNumber(row.rental_period || row.durationDays || row.days);
       const totalAmount = moneyNumber(row.cost || row.total || row.amount);
-      const dailyAmount = moneyNumber(row.cost_per_day || row.dailyAmount || row.daily_amount)
-        || (totalAmount && durationDays ? Math.round(totalAmount / durationDays) : 0);
+      const dailyAmount =
+        moneyNumber(row.cost_per_day || row.dailyAmount || row.daily_amount) ||
+        (totalAmount && durationDays ? Math.round(totalAmount / durationDays) : 0);
       if (!dailyAmount) continue;
       next[key] = {
         viewerId,
@@ -3100,26 +4162,37 @@
     }
     return Object.fromEntries(
       Object.entries(next)
-        .sort((left, right) => String(right[1] && right[1].observedAt || "").localeCompare(String(left[1] && left[1].observedAt || "")))
-        .slice(0, 250),
+        .sort((left, right) =>
+          String((right[1] && right[1].observedAt) || "").localeCompare(
+            String((left[1] && left[1].observedAt) || "")
+          )
+        )
+        .slice(0, 250)
     );
   }
 
   function spouseRentalEvidenceForProperty(raw, context = {}, snapshots = {}) {
     if (!raw || typeof raw !== "object") return null;
     const propertyId = String(raw.id || raw.property_id || raw.propertyId || "").trim();
-    const spouseId = String(context.spouse && (context.spouse.id || context.spouse.userId) || "").trim();
+    const spouseId = String(
+      (context.spouse && (context.spouse.id || context.spouse.userId)) || ""
+    ).trim();
     const key = spouseListingSnapshotKey(context.myId || context.viewerId, spouseId, propertyId);
     const snapshot = key && snapshots && snapshots[key];
     const currentListing = isForRent(raw);
     const rented = isLeasedToOther(raw);
     if (!currentListing && !rented) return null;
-    const durationDays = positiveNumber(raw.rental_period || raw.durationDays || raw.days || (snapshot && snapshot.durationDays));
-    const totalAmount = moneyNumber(raw.cost || raw.total || raw.amount || (snapshot && snapshot.totalAmount));
+    const durationDays = positiveNumber(
+      raw.rental_period || raw.durationDays || raw.days || (snapshot && snapshot.durationDays)
+    );
+    const totalAmount = moneyNumber(
+      raw.cost || raw.total || raw.amount || (snapshot && snapshot.totalAmount)
+    );
     const directDaily = moneyNumber(raw.cost_per_day || raw.dailyAmount || raw.daily_amount);
-    const dailyAmount = directDaily
-      || moneyNumber(snapshot && snapshot.dailyAmount)
-      || (totalAmount && durationDays ? Math.round(totalAmount / durationDays) : 0);
+    const dailyAmount =
+      directDaily ||
+      moneyNumber(snapshot && snapshot.dailyAmount) ||
+      (totalAmount && durationDays ? Math.round(totalAmount / durationDays) : 0);
     if (!dailyAmount) return null;
     return {
       propertyId,
@@ -3129,27 +4202,119 @@
       observedAt: clean(snapshot && snapshot.observedAt, currentListing ? nowIso() : ""),
       currentListing,
       estimatedContract: rented && !directDaily,
-      source: currentListing ? "current spouse listing" : directDaily ? "current spouse contract" : "last observed spouse listing",
+      source: currentListing
+        ? "current spouse listing"
+        : directDaily
+          ? "current spouse contract"
+          : "last observed spouse listing",
     };
+  }
+
+  function upkeepTimestampMs(value) {
+    if (value === null || value === undefined || value === "") return 0;
+    const numeric = Number(value);
+    if (Number.isFinite(numeric) && numeric > 0)
+      return numeric < 100000000000 ? numeric * 1000 : numeric;
+    const parsed = Date.parse(String(value));
+    return Number.isFinite(parsed) ? parsed : 0;
+  }
+
+  function latestUpkeepPaymentTimes(rows) {
+    const result = {};
+    for (const row of rows || []) {
+      if (!row || typeof row !== "object") continue;
+      const eventType = normalizeLookup(row.event_type || row.eventType || row.event).replace(
+        /[_-]+/g,
+        " "
+      );
+      const eventId = Number(row.event_id || row.eventId || 0);
+      if (
+        eventType !== "property upkeep" &&
+        eventType !== "property upkeep paid" &&
+        eventId !== 5920
+      )
+        continue;
+      const propertyId = String(row.property_id || row.propertyId || row.id || "").trim();
+      if (!/^\d+$/.test(propertyId)) continue;
+      const timestamp = upkeepTimestampMs(
+        row.event_at || row.timestamp || row.created_at || row.createdAt
+      );
+      if (timestamp > Number(result[propertyId] || 0)) result[propertyId] = timestamp;
+    }
+    return result;
+  }
+
+  function upkeepReminderStatus(
+    propertyId,
+    paymentTimes = {},
+    localChecks = {},
+    nowMs = Date.now()
+  ) {
+    const id = String(propertyId || "").trim();
+    const lastPaymentMs = Number(paymentTimes[id] || 0);
+    const lastCheckMs = upkeepTimestampMs(localChecks[id]);
+    const lastActivityMs = Math.max(lastPaymentMs, lastCheckMs);
+    return {
+      due: !lastActivityMs || Number(nowMs) - lastActivityMs >= UPKEEP_REMINDER_INTERVAL_MS,
+      lastPaymentAt: lastPaymentMs ? new Date(lastPaymentMs).toISOString() : "",
+      lastCheckAt: lastCheckMs ? new Date(lastCheckMs).toISOString() : "",
+      lastActivityAt: lastActivityMs ? new Date(lastActivityMs).toISOString() : "",
+    };
+  }
+
+  function recordUpkeepCheck(propertyId, at = nowIso()) {
+    const id = String(propertyId || "").trim();
+    if (!/^\d+$/.test(id)) return;
+    state.upkeepReminderChecks = {
+      ...(state.upkeepReminderChecks || {}),
+      [id]: at,
+    };
+    saveState("Upkeep check recorded");
   }
 
   function tfModel() {
     const server = endpointBody("server-sync") || {};
     const profile = profileInfo() || server.profile || {};
     const spouse = profileSpouse() || profile.spouse || {};
-    const myId = String(keyInfoUserId(state.keyInfo) || (state.endpointInputs || {}).userId || profile.id || "");
-    const owned = firstArray(server, ["ownedProperties", "owned_properties", "userProperties", "propertiesOwned"]);
+    const myId = String(
+      keyInfoUserId(state.keyInfo) || (state.endpointInputs || {}).userId || profile.id || ""
+    );
+    const owned = firstArray(server, [
+      "ownedProperties",
+      "owned_properties",
+      "userProperties",
+      "propertiesOwned",
+    ]);
     const mine = owned.length ? owned : propertiesFromBody(endpointBody("user-properties"));
-    const partner = firstArray(server, ["partnerProperties", "spouseProperties", "partner_properties", "spouse_properties"]);
-    const spouseRows = partner.length ? partner : propertiesFromBody(spouseOwnedPropertiesBody(endpointBody("spouse-properties")));
-    const current = currentPropertyFromBody(server) || currentPropertyFromBody(endpointBody("user-property")) || currentPropertyFromBody(endpointBody("user-id-property"));
+    const partner = firstArray(server, [
+      "partnerProperties",
+      "spouseProperties",
+      "partner_properties",
+      "spouse_properties",
+    ]);
+    const spouseRows = partner.length
+      ? partner
+      : propertiesFromBody(spouseOwnedPropertiesBody(endpointBody("spouse-properties")));
+    const current =
+      currentPropertyFromBody(server) ||
+      currentPropertyFromBody(endpointBody("user-property")) ||
+      currentPropertyFromBody(endpointBody("user-id-property"));
     const propertyMap = new Map();
     const lifecycle = serverPropertyLifecycleRows();
-    const lifecycleByProperty = new Map(lifecycle.map((row) => [String(row.property_id || row.propertyId || ""), row]));
+    const lifecycleByProperty = new Map(
+      lifecycle.map((row) => [String(row.property_id || row.propertyId || ""), row])
+    );
+    const upkeepPaymentTimes = latestUpkeepPaymentTimes(serverPropertyHistoryEventRows());
+    const upkeepReminderChecks = state.upkeepReminderChecks || {};
+    const upkeepReminderNow = Date.now();
 
     const addProperty = (raw, ownershipHint = "") => {
       if (!raw || typeof raw !== "object") return;
-      const property = tfNormalizeProperty(raw, ownershipHint, { myId, spouse, spouseListingSnapshots: state.spouseListingSnapshots || {} });
+      const property = tfNormalizeProperty(raw, ownershipHint, {
+        myId,
+        spouse,
+        spouseListingSnapshots: state.spouseListingSnapshots || {},
+      });
       const key = property.key;
       const previous = propertyMap.get(key);
       propertyMap.set(key, previous ? tfMergeProperty(previous, property) : property);
@@ -3162,21 +4327,44 @@
     const currentName = current && propertyDisplayName(current);
     let currentHome = null;
     for (const property of propertyMap.values()) {
-      property.isCurrentHome = Boolean(current && ((currentId && property.id === currentId) || (!currentId && currentName && normalizeLookup(property.name) === normalizeLookup(currentName))));
+      property.isCurrentHome = Boolean(
+        current &&
+        ((currentId && property.id === currentId) ||
+          (!currentId &&
+            currentName &&
+            normalizeLookup(property.name) === normalizeLookup(currentName)))
+      );
       if (property.isCurrentHome) currentHome = property;
     }
 
-    const contracts = (state.leases || []).map((lease) => tfNormalizeContract(lease, propertyMap, { myId, spouse })).filter(Boolean);
+    const contracts = (state.leases || [])
+      .map((lease) => tfNormalizeContract(lease, propertyMap, { myId, spouse }))
+      .filter(Boolean);
     for (const contract of contracts) {
       const property = propertyMap.get(contract.propertyKey);
       if (!property && contract.propertyId) {
-        addProperty({ id: contract.propertyId, property: { name: contract.property }, owner: splitUserLabel(contract.owner) }, contract.ownership);
+        addProperty(
+          {
+            id: contract.propertyId,
+            property: { name: contract.property },
+            owner: splitUserLabel(contract.owner),
+          },
+          contract.ownership
+        );
       }
     }
-    const activeRentals = contracts.filter((contract) => tfIsActiveContract(contract) && !tfIsHouseholdOccupancyContract(contract, propertyMap.get(contract.propertyKey), spouse));
+    const activeRentals = contracts.filter(
+      (contract) =>
+        tfIsActiveContract(contract) &&
+        !tfIsHouseholdOccupancyContract(contract, propertyMap.get(contract.propertyKey), spouse)
+    );
     for (const contract of activeRentals) {
       const property = propertyMap.get(contract.propertyKey);
-      if (property && (!property.activeContract || tfContractPriority(contract) > tfContractPriority(property.activeContract))) {
+      if (
+        property &&
+        (!property.activeContract ||
+          tfContractPriority(contract) > tfContractPriority(property.activeContract))
+      ) {
         property.activeContract = contract;
       }
     }
@@ -3188,17 +4376,48 @@
       property.rentalListed = listingState.rentalListed;
       property.saleListed = listingState.saleListed;
       property.listed = property.rentalListed || property.saleListed;
-      property.listingKind = property.rentalListed && property.saleListed ? "rent and sale" : property.rentalListed ? "rent" : property.saleListed ? "sale" : "";
+      property.listingKind =
+        property.rentalListed && property.saleListed
+          ? "rent and sale"
+          : property.rentalListed
+            ? "rent"
+            : property.saleListed
+              ? "sale"
+              : "";
       property.extensionPending = Object.prototype.hasOwnProperty.call(override, "extensionPending")
         ? Boolean(override.extensionPending)
-        : normalizeLookup((property.lifecycle && property.lifecycle.extension_status) || (property.activeContract && property.activeContract.extensionStatus)) === "pending";
+        : normalizeLookup(
+            (property.lifecycle && property.lifecycle.extension_status) ||
+              (property.activeContract && property.activeContract.extensionStatus)
+          ) === "pending";
       property.upkeepBalance = Object.prototype.hasOwnProperty.call(override, "upkeepBalance")
         ? Number(override.upkeepBalance)
         : null;
+      property.upkeepActionAvailable =
+        tornUpkeepPropertyIds.has(property.id) || property.ownership === "mine";
+      property.hasUnpaidUpkeep =
+        Number.isFinite(property.upkeepBalance) && property.upkeepBalance > 0;
+      const upkeepReminder = upkeepReminderStatus(
+        property.id,
+        upkeepPaymentTimes,
+        upkeepReminderChecks,
+        upkeepReminderNow
+      );
+      property.lastUpkeepPaymentAt = upkeepReminder.lastPaymentAt;
+      property.lastUpkeepCheckAt = upkeepReminder.lastCheckAt;
+      property.lastUpkeepReminderAt = upkeepReminder.lastActivityAt;
+      property.upkeepReminderDue =
+        property.isCurrentHome &&
+        property.upkeepActionAvailable &&
+        upkeepReminder.due &&
+        !property.hasUnpaidUpkeep;
       property.status = property.isCurrentHome
         ? "occupied"
-        : (property.activeContract && property.activeContract.direction === "out"
-          || property.ownership === "spouse" && property.rentalIncomeEvidence && property.rentalIncomeEvidence.estimatedContract && isLeasedToOther(property.raw))
+        : (property.activeContract && property.activeContract.direction === "out") ||
+            (property.ownership === "spouse" &&
+              property.rentalIncomeEvidence &&
+              property.rentalIncomeEvidence.estimatedContract &&
+              isLeasedToOther(property.raw))
           ? "rented"
           : property.listed
             ? "listed"
@@ -3206,35 +4425,85 @@
       if (property.isCurrentHome) currentHome = property;
     }
 
-    const properties = Array.from(propertyMap.values()).sort((a, b) => tfOwnershipOrder(a.ownership) - tfOwnershipOrder(b.ownership) || a.name.localeCompare(b.name));
-    const archive = dedupeArchiveRows([...(state.archivedRentals || []), ...serverArchiveRows()]).filter(isCompletedArchiveRow).map(tfNormalizeArchive).sort((a, b) => String(b.endDate || b.startDate).localeCompare(String(a.endDate || a.startDate)));
+    const properties = Array.from(propertyMap.values()).sort(
+      (a, b) =>
+        tfOwnershipOrder(a.ownership) - tfOwnershipOrder(b.ownership) ||
+        a.name.localeCompare(b.name)
+    );
+    const archive = dedupeArchiveRows([...(state.archivedRentals || []), ...serverArchiveRows()])
+      .filter(isCompletedArchiveRow)
+      .map(tfNormalizeArchive)
+      .sort((a, b) =>
+        String(b.endDate || b.startDate).localeCompare(String(a.endDate || a.startDate))
+      );
     const activities = tfActivityRows(properties, activeRentals, archive);
-    const suggestions = serverRentSuggestionRows().map((row) => tfNormalizeSuggestion(row, properties));
+    const suggestions = serverRentSuggestionRows().map((row) =>
+      tfNormalizeSuggestion(row, properties)
+    );
     const marketSummary = serverRoiSummaryRows();
-    return { profile, spouse, myId, properties, currentHome, activeRentals, archive, activities, suggestions, marketSummary, lifecycle };
+    return {
+      profile,
+      spouse,
+      myId,
+      properties,
+      currentHome,
+      activeRentals,
+      archive,
+      activities,
+      suggestions,
+      marketSummary,
+      lifecycle,
+    };
   }
 
   function tfNormalizeProperty(raw, ownershipHint, context) {
     const id = String(raw.id || raw.property_id || raw.propertyId || "");
     const name = propertyDisplayName(raw) || (id ? `Property #${id}` : "Property");
-    const owner = userName(raw.owner) || (ownershipHint === "mine" ? "You" : ownershipHint === "spouse" ? (context.spouse.name || "Spouse") : "Unknown owner");
+    const owner =
+      userName(raw.owner) ||
+      (ownershipHint === "mine"
+        ? "You"
+        : ownershipHint === "spouse"
+          ? context.spouse.name || "Spouse"
+          : "Unknown owner");
     const ownerParts = splitUserLabel(owner);
     let ownership = ownershipHint;
     if (ownership === "current") ownership = "";
-    if (!ownership && context.myId && ownerParts.id && normalizeLookup(ownerParts.id) === normalizeLookup(context.myId)) ownership = "mine";
-    if (!ownership && context.spouse && context.spouse.id && ownerParts.id && normalizeLookup(ownerParts.id) === normalizeLookup(context.spouse.id)) ownership = "spouse";
+    if (
+      !ownership &&
+      context.myId &&
+      ownerParts.id &&
+      normalizeLookup(ownerParts.id) === normalizeLookup(context.myId)
+    )
+      ownership = "mine";
+    if (
+      !ownership &&
+      context.spouse &&
+      context.spouse.id &&
+      ownerParts.id &&
+      normalizeLookup(ownerParts.id) === normalizeLookup(context.spouse.id)
+    )
+      ownership = "spouse";
     if (!ownership) ownership = "third-party";
     const type = propertyName(raw.property) || propertyName(raw) || name.replace(/\s+#?\d+$/, "");
     const happy = positiveNumber(raw.happy || nestedValue(raw, "property.happy"));
-    const upgrades = modificationNames(raw.modifications || nestedValue(raw, "property.modifications"));
+    const upgrades = modificationNames(
+      raw.modifications || nestedValue(raw, "property.modifications")
+    );
     const staff = staffEntries(raw.staff || nestedValue(raw, "property.staff"));
     const residents = Array.isArray(raw.used_by) ? raw.used_by.map(userName).filter(Boolean) : [];
-    const image = propertyImageUrlFromRow(raw) || propertyImageUrl(propertyTypeIdFromRow(raw) || type);
-    const marketValue = moneyNumber(raw.market_price || raw.marketValue || nestedValue(raw, "property.market_price"));
-    const key = id ? `property:${id}` : `property:${normalizeLookup(name)}:${normalizeLookup(owner)}`;
-    const rentalIncomeEvidence = ownership === "spouse"
-      ? spouseRentalEvidenceForProperty(raw, context, context.spouseListingSnapshots || {})
-      : null;
+    const image =
+      propertyImageUrlFromRow(raw) || propertyImageUrl(propertyTypeIdFromRow(raw) || type);
+    const marketValue = moneyNumber(
+      raw.market_price || raw.marketValue || nestedValue(raw, "property.market_price")
+    );
+    const key = id
+      ? `property:${id}`
+      : `property:${normalizeLookup(name)}:${normalizeLookup(owner)}`;
+    const rentalIncomeEvidence =
+      ownership === "spouse"
+        ? spouseRentalEvidenceForProperty(raw, context, context.spouseListingSnapshots || {})
+        : null;
     return {
       key,
       id,
@@ -3249,7 +4518,8 @@
       residents,
       upkeep: moneyNumber(nestedValue(raw, "upkeep.property")) || moneyNumber(raw.upkeep),
       marketValue,
-      investment: manualInvestmentForRow(raw) || estimatedInvestmentCost(raw, propertyTypeForRow(raw) || {}),
+      investment:
+        manualInvestmentForRow(raw) || estimatedInvestmentCost(raw, propertyTypeForRow(raw) || {}),
       image,
       rentalListed: isForRent(raw),
       saleListed: isForSale(raw),
@@ -3265,7 +4535,11 @@
   function tfMergeProperty(previous, incoming) {
     return {
       ...previous,
-      ...Object.fromEntries(Object.entries(incoming).filter(([, value]) => !isBlankValue(value) && (!Array.isArray(value) || value.length))),
+      ...Object.fromEntries(
+        Object.entries(incoming).filter(
+          ([, value]) => !isBlankValue(value) && (!Array.isArray(value) || value.length)
+        )
+      ),
       raw: { ...(previous.raw || {}), ...(incoming.raw || {}) },
       ownership: previous.ownership !== "third-party" ? previous.ownership : incoming.ownership,
       residents: incoming.residents.length ? incoming.residents : previous.residents,
@@ -3278,59 +4552,85 @@
   }
 
   function tfListingStatusActive(value) {
-    return ["listed", "active", "for rent", "for sale", "for_rent", "for_sale"].includes(normalizeLookup(value));
+    return ["listed", "active", "for rent", "for sale", "for_rent", "for_sale"].includes(
+      normalizeLookup(value)
+    );
   }
 
   function tfResolvePropertyListingState(property, lifecycle, override = {}) {
     const raw = property && property.raw;
     const hasLiveStatus = Boolean(
-      raw
-      && typeof raw === "object"
-      && Object.prototype.hasOwnProperty.call(raw, "status")
-      && !isBlankValue(raw.status)
+      raw &&
+      typeof raw === "object" &&
+      Object.prototype.hasOwnProperty.call(raw, "status") &&
+      !isBlankValue(raw.status)
     );
-    const lifecycleRentalListed = tfListingStatusActive(lifecycle && lifecycle.rental_listing_status);
+    const lifecycleRentalListed = tfListingStatusActive(
+      lifecycle && lifecycle.rental_listing_status
+    );
     const lifecycleSaleListed = tfListingStatusActive(lifecycle && lifecycle.sale_listing_status);
     return {
       rentalListed: Object.prototype.hasOwnProperty.call(override, "rentalListed")
         ? Boolean(override.rentalListed)
         : hasLiveStatus
           ? isForRent(raw)
-          : Boolean(property && property.rentalListed || lifecycleRentalListed),
+          : Boolean((property && property.rentalListed) || lifecycleRentalListed),
       saleListed: Object.prototype.hasOwnProperty.call(override, "saleListed")
         ? Boolean(override.saleListed)
         : hasLiveStatus
           ? isForSale(raw)
-          : Boolean(property && property.saleListed || lifecycleSaleListed),
+          : Boolean((property && property.saleListed) || lifecycleSaleListed),
     };
   }
 
   function tfNormalizeContract(lease, propertyMap, context) {
     if (!lease || typeof lease !== "object") return null;
-    const propertyId = String(lease.propertyId || lease.property_id || propertyIdFromLeaseId(lease.id) || "");
+    const propertyId = String(
+      lease.propertyId || lease.property_id || propertyIdFromLeaseId(lease.id) || ""
+    );
     let propertyKey = propertyId ? `property:${propertyId}` : "";
     if (!propertyKey) {
-      const match = Array.from(propertyMap.values()).find((property) => normalizeLookup(property.name) === normalizeLookup(lease.property));
-      propertyKey = match ? match.key : `property:${normalizeLookup(lease.property)}:${normalizeLookup(lease.landlord)}`;
+      const match = Array.from(propertyMap.values()).find(
+        (property) => normalizeLookup(property.name) === normalizeLookup(lease.property)
+      );
+      propertyKey = match
+        ? match.key
+        : `property:${normalizeLookup(lease.property)}:${normalizeLookup(lease.landlord)}`;
     }
     const property = propertyMap.get(propertyKey);
     const role = leaseRoleGroup(lease);
     const status = normalizeLeaseStatus(lease.status, lease.roleHint || lease.source, lease.tenant);
-    const direction = role === "tenant" || ["leased", "rent_from"].includes(status) ? "from" : "out";
-    const ownership = property ? property.ownership : role === "spouse" ? "spouse" : direction === "from" ? "third-party" : "mine";
+    const direction =
+      role === "tenant" || ["leased", "rent_from"].includes(status) ? "from" : "out";
+    const ownership = property
+      ? property.ownership
+      : role === "spouse"
+        ? "spouse"
+        : direction === "from"
+          ? "third-party"
+          : "mine";
     const directDaily = moneyNumber(lease.dailyAmount || lease.per_day);
     const directTotal = moneyNumber(lease.amount || lease.total);
     const directDuration = positiveNumber(lease.durationDays || lease.days);
     const rentalIncomeEvidence = property && property.rentalIncomeEvidence;
-    const evidenceFallback = ownership === "spouse" && direction === "out" && rentalIncomeEvidence && rentalIncomeEvidence.estimatedContract
-      ? rentalIncomeEvidence
-      : null;
-    const remaining = lease.remainingDays !== "" && lease.remainingDays !== undefined ? Number(lease.remainingDays) : remainingDaysFromEnd(lease.endDate);
+    const evidenceFallback =
+      ownership === "spouse" &&
+      direction === "out" &&
+      rentalIncomeEvidence &&
+      rentalIncomeEvidence.estimatedContract
+        ? rentalIncomeEvidence
+        : null;
+    const remaining =
+      lease.remainingDays !== "" && lease.remainingDays !== undefined
+        ? Number(lease.remainingDays)
+        : remainingDaysFromEnd(lease.endDate);
     return {
       contractId: contractIdentity(lease),
       propertyKey,
       propertyId,
-      property: property ? property.name : clean(lease.property, propertyId ? `Property #${propertyId}` : "Property"),
+      property: property
+        ? property.name
+        : clean(lease.property, propertyId ? `Property #${propertyId}` : "Property"),
       type: property ? property.type : clean(lease.property, "Property"),
       image: property ? property.image : propertyImageUrl(propertyTypeId(lease.property)),
       ownership,
@@ -3359,7 +4659,8 @@
   }
 
   function tfIsActiveContract(contract) {
-    if (!contract || ["ended", "expired", "sold", "for_rent"].includes(contract.status)) return false;
+    if (!contract || ["ended", "expired", "sold", "for_rent"].includes(contract.status))
+      return false;
     if (["rented", "leased", "rent_to", "rent_from"].includes(contract.status)) return true;
     if (contract.tenant && contract.tenant !== "Unknown renter") {
       return !(contract.endDate && contract.remaining === 0 && contract.status === "manual");
@@ -3368,12 +4669,21 @@
   }
 
   function tfIsHouseholdOccupancyContract(contract, property, spouse = null) {
-    if (!contract || !property || !property.isCurrentHome || !["mine", "spouse"].includes(property.ownership)) return false;
+    if (
+      !contract ||
+      !property ||
+      !property.isCurrentHome ||
+      !["mine", "spouse"].includes(property.ownership)
+    )
+      return false;
     return isHouseholdOccupancyLease(contract.raw || contract, property.raw || property, spouse);
   }
 
   function tfContractPriority(contract) {
-    return (contract.status === "rented" || contract.status === "leased" ? 1000000 : 0) + (Number(contract.remaining) || 0);
+    return (
+      (contract.status === "rented" || contract.status === "leased" ? 1000000 : 0) +
+      (Number(contract.remaining) || 0)
+    );
   }
 
   function tfNormalizeArchive(row) {
@@ -3382,8 +4692,15 @@
     return {
       ...row,
       propertyId,
-      property: clean(row.property_type || row.property || row.home, propertyId ? `Property #${propertyId}` : "Property"),
-      ownership: role.includes("spouse") ? "spouse" : role.includes("tenant") || role.includes("renter") || role.includes("leased from") ? "third-party" : "mine",
+      property: clean(
+        row.property_type || row.property || row.home,
+        propertyId ? `Property #${propertyId}` : "Property"
+      ),
+      ownership: role.includes("spouse")
+        ? "spouse"
+        : role.includes("tenant") || role.includes("renter") || role.includes("leased from")
+          ? "third-party"
+          : "mine",
       owner: clean(row.owner || row.landlord, ""),
       tenant: clean(row.renter || row.tenant, ""),
       daily: moneyNumber(row.per_day || row.dailyAmount || row.cost_per_day),
@@ -3402,14 +4719,24 @@
 
   function tfNormalizeSuggestion(row, properties) {
     const propertyId = String(row.id || row.property_id || row.propertyId || "");
-    const property = properties.find((item) => propertyId && item.id === propertyId) || properties.find((item) => normalizeLookup(item.name) === normalizeLookup(row.property));
+    const property =
+      properties.find((item) => propertyId && item.id === propertyId) ||
+      properties.find((item) => normalizeLookup(item.name) === normalizeLookup(row.property));
     const basis = clean(row.market_basis, "Target ROI only");
-    const derivedConfidence = /same happiness/i.test(basis) ? "Excellent" : /home type|property type/i.test(basis) ? "Fair" : /target roi/i.test(basis) ? "Weak" : "Good";
+    const derivedConfidence = /same happiness/i.test(basis)
+      ? "Excellent"
+      : /home type|property type/i.test(basis)
+        ? "Fair"
+        : /target roi/i.test(basis)
+          ? "Weak"
+          : "Good";
     return {
       ...row,
       propertyId,
       property: property || null,
-      name: property ? property.name : clean(row.property, propertyId ? `Property #${propertyId}` : "Property"),
+      name: property
+        ? property.name
+        : clean(row.property, propertyId ? `Property #${propertyId}` : "Property"),
       ownership: property ? property.ownership : clean(row.ownership || row._ownership, "mine"),
       happy: positiveNumber(row.happy || (property && property.happy)),
       upgrades: property ? property.upgrades : modificationNames(row.modifications),
@@ -3424,15 +4751,32 @@
       suggestedTotal: moneyNumber(row.suggested_total),
       targetRoi: positiveNumber(row.target_roi) || targetAnnualRoi(),
       suggestedRoi: positiveNumber(row.suggested_roi),
-      investmentBasis: moneyNumber(row.investment_basis || row.manual_investment || row.my_investment || row.estimated_investment),
+      investmentBasis: moneyNumber(
+        row.investment_basis ||
+          row.manual_investment ||
+          row.my_investment ||
+          row.estimated_investment
+      ),
       durationBasis: clean(row.duration_basis, "Saved default lease duration"),
       confidence: clean(row.comparable_confidence || row.confidence, derivedConfidence),
       basis,
       action: clean(row.suggested_action || row.recommended_action, "Review pricing"),
       note: clean(row.suggestion_note, ""),
       listings: Number(row.rent_listings || 0),
-      comparables: Array.isArray(row.comparable_listings) ? row.comparable_listings : Array.isArray(row.comparables) ? row.comparables : [],
-      saleMedian: moneyNumber(row.market_median_sale || row.sale_median || row.suggested_sale_price),
+      comparables: Array.isArray(row.comparable_listings)
+        ? row.comparable_listings
+        : Array.isArray(row.comparables)
+          ? row.comparables
+          : [],
+      rentPositionValue: moneyNumber(row.rent_position_value || row.current_cost_per_day),
+      rentPositionAscending: positiveNumber(row.rent_position_ascending),
+      rentPositionDescending: positiveNumber(row.rent_position_descending),
+      rentPositionTotal: positiveNumber(row.rent_position_total),
+      rentPositionEqual: positiveNumber(row.rent_position_equal),
+      currentSaleListing: moneyNumber(row.current_sale_listing_price || row.sale_position_value),
+      saleMedian: moneyNumber(
+        row.market_median_sale || row.sale_median || row.suggested_sale_price
+      ),
       saleAverage: moneyNumber(row.market_avg_sale || row.sale_average),
       saleMin: moneyNumber(row.market_min_sale || row.sale_min),
       saleMax: moneyNumber(row.market_max_sale || row.sale_max),
@@ -3440,7 +4784,13 @@
       saleBasis: clean(row.sale_market_basis, "No sale comparison yet"),
       saleConfidence: clean(row.sale_comparable_confidence, "Weak"),
       saleListings: Number(row.sale_listings || 0),
-      saleComparables: Array.isArray(row.sale_comparable_listings) ? row.sale_comparable_listings : [],
+      saleComparables: Array.isArray(row.sale_comparable_listings)
+        ? row.sale_comparable_listings
+        : [],
+      salePositionAscending: positiveNumber(row.sale_position_ascending),
+      salePositionDescending: positiveNumber(row.sale_position_descending),
+      salePositionTotal: positiveNumber(row.sale_position_total),
+      salePositionEqual: positiveNumber(row.sale_position_equal),
       saleAction: clean(row.sale_suggested_action, "Review sale price"),
     };
   }
@@ -3449,16 +4799,31 @@
     const events = serverPropertyHistoryEventRows().map((row) => ({
       at: row.event_at || row.timestamp || row.created_at || "",
       type: clean(row.event || row.event_type, "Property updated"),
-      property: clean(row.property_type || row.property, row.property_id ? `Property #${row.property_id}` : "Property"),
+      property: clean(
+        row.property_type || row.property,
+        row.property_id ? `Property #${row.property_id}` : "Property"
+      ),
       detail: tfHistoryDetail(row),
       category: clean(row.category, "property"),
       state: clean(row.event_state, "recorded"),
     }));
-    const archived = archive.map((row) => ({ at: row.endDate, type: "Contract archived", property: row.property, detail: row.tenant ? `Rental with ${row.tenant} finished.` : "Rental contract finished." }));
+    const archived = archive.map((row) => ({
+      at: row.endDate,
+      type: "Contract archived",
+      property: row.property,
+      detail: row.tenant ? `Rental with ${row.tenant} finished.` : "Rental contract finished.",
+    }));
     if (!events.length && !archived.length) {
-      return activeRentals.slice(0, 5).map((row) => ({ at: row.startDate, type: row.direction === "out" ? "Active rental" : "Renting from", property: row.property, detail: row.direction === "out" ? `Tenant: ${row.tenant}` : `Owner: ${row.owner}` }));
+      return activeRentals.slice(0, 5).map((row) => ({
+        at: row.startDate,
+        type: row.direction === "out" ? "Active rental" : "Renting from",
+        property: row.property,
+        detail: row.direction === "out" ? `Tenant: ${row.tenant}` : `Owner: ${row.owner}`,
+      }));
     }
-    return [...events, ...archived].sort((a, b) => String(b.at).localeCompare(String(a.at))).slice(0, 20);
+    return [...events, ...archived]
+      .sort((a, b) => String(b.at).localeCompare(String(a.at)))
+      .slice(0, 20);
   }
 
   function tfHistoryDetail(row) {
@@ -3477,37 +4842,60 @@
   }
 
   function tfLifecycleTotals(model) {
-    return (model.lifecycle || []).reduce((totals, row) => {
-      totals.events += Number(row.event_count || 0);
-      totals.offers += Number(row.offers_made_or_received || 0);
-      totals.declinedOffers += Number(row.offers_declined || 0);
-      totals.pendingOffers += normalizeLookup(row.rental_offer_status) === "pending" ? 1 : 0;
-      totals.extensions += Number(row.extensions_accepted || 0);
-      totals.pendingExtensions += normalizeLookup(row.extension_status) === "pending" ? 1 : 0;
-      totals.expiredRentals += Number(row.tenancies_expired || 0);
-      totals.rent += Number(row.rent_received || 0);
-      totals.upkeep += Number(row.upkeep_paid || 0);
-      totals.net += Number(row.net_property_cashflow || 0);
-      return totals;
-    }, { events: 0, offers: 0, declinedOffers: 0, pendingOffers: 0, extensions: 0, pendingExtensions: 0, expiredRentals: 0, rent: 0, upkeep: 0, net: 0 });
+    return (model.lifecycle || []).reduce(
+      (totals, row) => {
+        totals.events += Number(row.event_count || 0);
+        totals.offers += Number(row.offers_made_or_received || 0);
+        totals.declinedOffers += Number(row.offers_declined || 0);
+        totals.pendingOffers += normalizeLookup(row.rental_offer_status) === "pending" ? 1 : 0;
+        totals.extensions += Number(row.extensions_accepted || 0);
+        totals.pendingExtensions += normalizeLookup(row.extension_status) === "pending" ? 1 : 0;
+        totals.expiredRentals += Number(row.tenancies_expired || 0);
+        totals.rent += Number(row.rent_received || 0);
+        totals.upkeep += Number(row.upkeep_paid || 0);
+        totals.net += Number(row.net_property_cashflow || 0);
+        return totals;
+      },
+      {
+        events: 0,
+        offers: 0,
+        declinedOffers: 0,
+        pendingOffers: 0,
+        extensions: 0,
+        pendingExtensions: 0,
+        expiredRentals: 0,
+        rent: 0,
+        upkeep: 0,
+        net: 0,
+      }
+    );
   }
 
   function tfRentalJourneyPanel(model) {
     const totals = tfLifecycleTotals(model);
     const events = serverPropertyHistoryEventRows()
-      .filter((row) => ["rental_offer", "rental_extension", "rental_listing"].includes(clean(row.category, "")))
+      .filter((row) =>
+        ["rental_offer", "rental_extension", "rental_listing"].includes(clean(row.category, ""))
+      )
       .slice(0, 5)
       .map((row) => ({
         at: row.event_at || "",
         type: clean(row.event, "Rental activity"),
-        property: clean(row.property_type, row.property_id ? `Property #${row.property_id}` : "Property"),
+        property: clean(
+          row.property_type,
+          row.property_id ? `Property #${row.property_id}` : "Property"
+        ),
         detail: tfHistoryDetail(row),
       }));
     return `<section class="tf-card tf-journey-panel"><div class="tf-card-head"><h2>${tfIcon("exchange")} Rental Journey</h2></div><div class="tf-mini-stats"><span><b>${tfNumber(totals.pendingOffers)}</b><small>Pending offers</small></span><span><b>${tfNumber(totals.pendingExtensions)}</b><small>Pending extensions</small></span><span><b>${tfNumber(totals.extensions)}</b><small>Accepted extensions</small></span><span><b>${tfNumber(totals.expiredRentals)}</b><small>Expired contracts</small></span></div>${events.length ? tfActivityList(events) : tfEmpty("No rental journey yet", "Listings, offers, contracts and extensions appear after history sync.")}</section>`;
   }
 
   function tfLifecycleSnapshot(lifecycle) {
-    if (!lifecycle) return tfEmpty("No journey data yet", "Sync property history to reconstruct ownership, listings, offers and contracts.");
+    if (!lifecycle)
+      return tfEmpty(
+        "No journey data yet",
+        "Sync property history to reconstruct ownership, listings, offers and contracts."
+      );
     const states = [
       ["Ownership", lifecycle.ownership_status],
       ["Occupancy", lifecycle.occupancy_status],
@@ -3525,13 +4913,21 @@
       .filter((row) => String(row.property_id || row.propertyId || "") === String(propertyId || ""))
       .sort((a, b) => String(b.event_at || "").localeCompare(String(a.event_at || "")))
       .slice(0, 16);
-    if (!rows.length) return tfEmpty("No property journey yet", "Sync history to see ownership, occupancy, listings, offers, contracts, extensions and costs.");
+    if (!rows.length)
+      return tfEmpty(
+        "No property journey yet",
+        "Sync history to see ownership, occupancy, listings, offers, contracts, extensions and costs."
+      );
     return `<div class="tf-journey">${rows.map((row) => `<div class="tf-journey-row" data-category="${escapeAttr(clean(row.category, "property"))}"><time>${escapeHtml(tfDate(row.event_at))}</time><i></i><div><strong>${escapeHtml(clean(row.event, "Property event"))}</strong><span>${escapeHtml(tfHistoryDetail(row))}</span></div><em>${escapeHtml(humanHeader(clean(row.category, "property")))}</em></div>`).join("")}</div>`;
   }
 
   function tfLifecycleIntelligence(model) {
     const totals = tfLifecycleTotals(model);
-    if (!totals.events) return tfEmpty("More history is needed", "Lifecycle intelligence appears after a property-history sync.");
+    if (!totals.events)
+      return tfEmpty(
+        "More history is needed",
+        "Lifecycle intelligence appears after a property-history sync."
+      );
     return `<div class="tf-lifecycle-intelligence"><div class="tf-mini-stats"><span><b>${tfNumber(totals.offers)}</b><small>Offers recorded</small></span><span><b>${tfNumber(totals.declinedOffers)}</b><small>Offers declined</small></span><span><b>${tfNumber(totals.extensions)}</b><small>Extensions accepted</small></span><span><b>${tfNumber(totals.expiredRentals)}</b><small>Rentals completed</small></span></div><div class="tf-kv-list"><span><b>Upfront rent recorded</b><strong>${escapeHtml(tfMoney(totals.rent))}</strong></span><span><b>Upkeep recorded</b><strong>${escapeHtml(tfMoney(totals.upkeep))}</strong></span><span><b>Known lifecycle cashflow</b><strong>${escapeHtml(tfMoney(totals.net))}</strong></span><span><b>Events understood</b><strong>${tfNumber(totals.events)}</strong></span></div><small>Cashflow uses only events returned within your configured history depth; rent is recorded when Torn reports the upfront contract payment.</small></div>`;
   }
 
@@ -3551,8 +4947,23 @@
   }
 
   function tfStatusBadge(status) {
-    const labels = { occupied: "Current Home", rented: "Rented Out", listed: "Listed", available: "Available", active: "Active", expired: "Expired Rental" };
+    const labels = {
+      occupied: "Current Home",
+      rented: "Rented Out",
+      listed: "Listed",
+      available: "Available",
+      active: "Active",
+      expired: "Expired Rental",
+    };
     return `<span class="tf-badge tf-status-${escapeAttr(status)}">${escapeHtml(labels[status] || leaseStatusLabel(status))}</span>`;
+  }
+
+  function tfUpkeepBadge(property) {
+    if (property && property.isCurrentHome && property.hasUnpaidUpkeep)
+      return `<span class="tf-badge tf-badge-warning">Upkeep due</span>`;
+    return property && property.isCurrentHome && property.upkeepReminderDue
+      ? `<span class="tf-badge tf-badge-info">Check upkeep</span>`
+      : "";
   }
 
   function tfMoney(value, suffix = "") {
@@ -3578,7 +4989,13 @@
   function tfDate(value) {
     if (!value) return "Unknown";
     const date = new Date(`${String(value).slice(0, 10)}T00:00:00`);
-    return Number.isNaN(date.getTime()) ? clean(value, "Unknown") : date.toLocaleDateString(undefined, { day: "2-digit", month: "short", year: "numeric" });
+    return Number.isNaN(date.getTime())
+      ? clean(value, "Unknown")
+      : date.toLocaleDateString(undefined, {
+          day: "2-digit",
+          month: "short",
+          year: "numeric",
+        });
   }
 
   function tfRelative(value) {
@@ -3597,7 +5014,7 @@
     const iconName = ICON_NAMES.includes(name) ? name : "property";
     const content = ensureIconCacheLoaded()
       ? `<use href="#tf-icon-${escapeAttr(iconName)}"></use>`
-      : (BUILTIN_ICON_CONTENT[iconName] || BUILTIN_ICON_CONTENT.property);
+      : BUILTIN_ICON_CONTENT[iconName] || BUILTIN_ICON_CONTENT.property;
     return `<svg class="tf-icon tf-icon-${escapeAttr(iconName)}" viewBox="0 0 24 24" aria-hidden="true" focusable="false">${content}</svg>`;
   }
 
@@ -3615,8 +5032,12 @@
 
   function tfPropertyDailyIncome(property) {
     const contract = property && property.activeContract;
-    const contractDaily = Number(contract && contract.daily || 0);
-    if (contractDaily) return { daily: contractDaily, estimated: Boolean(contract.dailyEstimated) };
+    const contractDaily = Number((contract && contract.daily) || 0);
+    if (contractDaily)
+      return {
+        daily: contractDaily,
+        estimated: Boolean(contract.dailyEstimated),
+      };
     const evidence = property && property.rentalIncomeEvidence;
     if (property && property.status === "rented" && evidence && evidence.estimatedContract) {
       return { daily: Number(evidence.dailyAmount) || 0, estimated: true };
@@ -3626,66 +5047,164 @@
 
   function tfPortfolioStats(model, scope) {
     const rows = model.properties.filter((property) => property.ownership === scope);
-    const rented = rows.filter((property) => property.status === "rented" || property.activeContract && property.activeContract.direction === "out");
+    const rented = rows.filter(
+      (property) =>
+        property.status === "rented" ||
+        (property.activeContract && property.activeContract.direction === "out")
+    );
     const available = rows.filter((property) => property.status === "available");
     const listed = rows.filter((property) => property.status === "listed");
     const income = rented.map(tfPropertyDailyIncome);
     const daily = income.reduce((sum, row) => sum + row.daily, 0);
     const estimatedIncomeCount = income.filter((row) => row.estimated && row.daily).length;
-    return { total: rows.length, rented: rented.length, available: available.length, listed: listed.length, daily, estimatedIncomeCount };
+    return {
+      total: rows.length,
+      rented: rented.length,
+      available: available.length,
+      listed: listed.length,
+      daily,
+      estimatedIncomeCount,
+    };
   }
 
   function tfAttention(model) {
-    const soon = model.activeRentals.filter((contract) => Number.isFinite(Number(contract.remaining)) && Number(contract.remaining) >= 0 && Number(contract.remaining) <= 7);
-    const vacant = model.properties.filter((property) => property.status === "available" && property.ownership !== "third-party");
+    const unpaidUpkeep = model.properties.filter(
+      (property) =>
+        property.isCurrentHome && property.hasUnpaidUpkeep && property.upkeepActionAvailable
+    );
+    const upkeepReminders = model.properties.filter(
+      (property) =>
+        property.isCurrentHome &&
+        property.upkeepReminderDue &&
+        !property.hasUnpaidUpkeep &&
+        property.upkeepActionAvailable
+    );
+    const soon = model.activeRentals.filter(
+      (contract) =>
+        Number.isFinite(Number(contract.remaining)) &&
+        Number(contract.remaining) >= 0 &&
+        Number(contract.remaining) <= 7
+    );
+    const vacant = model.properties.filter(
+      (property) => property.status === "available" && property.ownership !== "third-party"
+    );
     const listed = model.properties.filter((property) => property.status === "listed");
-    const missing = model.activeRentals.filter((contract) => !contract.endDate || (contract.direction === "out" && (!contract.tenant || contract.tenant === "Unknown renter")));
+    const missing = model.activeRentals.filter(
+      (contract) =>
+        !contract.endDate ||
+        (contract.direction === "out" && (!contract.tenant || contract.tenant === "Unknown renter"))
+    );
     return [
-      soon.length ? { tone: "danger", title: "Rentals ending soon", detail: `${soon.length} contract${soon.length === 1 ? "" : "s"} end within 7 days`, count: soon.length, tab: "rentals" } : null,
-      vacant.length ? { tone: "warning", title: "Vacant properties", detail: `${vacant.length} owned propert${vacant.length === 1 ? "y is" : "ies are"} available`, count: vacant.length, tab: "properties" } : null,
-      listed.length ? { tone: "info", title: "Listed properties", detail: `${listed.length} propert${listed.length === 1 ? "y is" : "ies are"} listed for rent`, count: listed.length, tab: "properties" } : null,
-      missing.length ? { tone: "danger", title: "Missing contract details", detail: `${missing.length} active contract${missing.length === 1 ? " needs" : "s need"} attention`, count: missing.length, tab: "rentals" } : null,
+      ...unpaidUpkeep.map((property) => ({
+        tone: "danger",
+        title: "Unpaid property upkeep",
+        detail: Number.isFinite(property.upkeepBalance)
+          ? `${property.name} has ${tfMoneyKnown(property.upkeepBalance)} outstanding`
+          : `${property.name} has Torn-confirmed upkeep outstanding`,
+        count: 1,
+        action: "open-property",
+        propertyKey: property.key,
+      })),
+      ...upkeepReminders.map((property) => ({
+        tone: "info",
+        title: "Daily upkeep check",
+        detail: property.lastUpkeepReminderAt
+          ? `${property.name} was last checked or paid ${tfRelative(property.lastUpkeepReminderAt)}`
+          : `${property.name} has no recorded upkeep check yet`,
+        count: 1,
+        action: "open-property",
+        propertyKey: property.key,
+      })),
+      soon.length
+        ? {
+            tone: "danger",
+            title: "Rentals ending soon",
+            detail: `${soon.length} contract${soon.length === 1 ? "" : "s"} end within 7 days`,
+            count: soon.length,
+            tab: "rentals",
+          }
+        : null,
+      vacant.length
+        ? {
+            tone: "warning",
+            title: "Vacant properties",
+            detail: `${vacant.length} owned propert${vacant.length === 1 ? "y is" : "ies are"} available`,
+            count: vacant.length,
+            tab: "properties",
+          }
+        : null,
+      listed.length
+        ? {
+            tone: "info",
+            title: "Listed properties",
+            detail: `${listed.length} propert${listed.length === 1 ? "y is" : "ies are"} listed for rent`,
+            count: listed.length,
+            tab: "properties",
+          }
+        : null,
+      missing.length
+        ? {
+            tone: "danger",
+            title: "Missing contract details",
+            detail: `${missing.length} active contract${missing.length === 1 ? " needs" : "s need"} attention`,
+            count: missing.length,
+            tab: "rentals",
+          }
+        : null,
     ].filter(Boolean);
   }
 
   function tfSyncProgressHtml() {
     const progress = normalizeSyncProgress(state.syncProgress);
     if (!progress) return "";
-    const symbols = { pending: "○", active: "…", done: "✓", warning: "!", error: "×" };
+    const symbols = {
+      pending: "○",
+      active: "…",
+      done: "✓",
+      warning: "!",
+      error: "×",
+    };
     const finished = Boolean(progress.finishedAt);
     const progressClass = finished ? "is-finished" : "is-running";
-    return `<section class="tf-sync-progress-toast ${progressClass} ${state.syncState === "error" ? "is-error" : ""}" aria-live="polite" aria-label="Tornfolio sync progress"><header><span class="tf-sync-progress-icon">${tfIcon(finished && state.syncState !== "error" ? "activity" : "sync")}</span><div><strong>${escapeHtml(progress.title)}</strong><small>${escapeHtml(progress.message)}</small></div><button class="tf-sync-progress-close" type="button" data-action="dismiss-sync-progress" aria-label="Dismiss sync details">${tfIcon("close")}</button></header><div class="tf-sync-progress-meta"><div class="tf-sync-progress-track" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${escapeAttr(Math.round(progress.percent))}"><i style="--tf-sync-progress:${escapeAttr(progress.percent)}%"></i></div><b>${Math.round(progress.percent)}%</b></div><ol>${progress.steps.map((step) => `<li class="is-${escapeAttr(step.status)}"><i>${symbols[step.status] || "○"}</i><span><strong>${escapeHtml(step.label)}</strong><small>${escapeHtml(step.detail)}</small></span></li>`).join("")}</ol>${finished ? `<footer><span>${progress.startedAt ? `Started ${escapeHtml(new Date(progress.startedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }))}` : "Sync finished"}</span><strong>${progress.finishedAt ? `Finished ${escapeHtml(new Date(progress.finishedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }))}` : ""}</strong></footer>` : `<footer><span>Live progress is reported by the hosted sync.</span><strong>Please keep Torn open</strong></footer>`}</section>`;
+    return `<section class="tf-sync-progress-toast ${progressClass} ${state.syncState === "error" ? "is-error" : ""}" aria-live="polite" aria-label="Tornfolio sync progress"><header><span class="tf-sync-progress-icon">${tfIcon(finished && state.syncState !== "error" ? "activity" : "sync")}</span><div><strong>${escapeHtml(progress.title)}</strong><small>${escapeHtml(progress.message)}</small></div><button class="tf-sync-progress-close" type="button" data-action="dismiss-sync-progress" aria-label="Dismiss sync details" data-tf-tooltip="Dismiss sync details">${tfIcon("close")}</button></header><div class="tf-sync-progress-meta"><div class="tf-sync-progress-track" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${escapeAttr(Math.round(progress.percent))}"><i style="--tf-sync-progress:${escapeAttr(progress.percent)}%"></i></div><b>${Math.round(progress.percent)}%</b></div><ol>${progress.steps.map((step) => `<li class="is-${escapeAttr(step.status)}"><i>${symbols[step.status] || "○"}</i><span><strong>${escapeHtml(step.label)}</strong><small>${escapeHtml(step.detail)}</small></span></li>`).join("")}</ol>${finished ? `<footer><span>${progress.startedAt ? `Started ${escapeHtml(new Date(progress.startedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }))}` : "Sync finished"}</span><strong>${progress.finishedAt ? `Finished ${escapeHtml(new Date(progress.finishedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }))}` : ""}</strong></footer>` : `<footer><span>Live progress is reported by the hosted sync.</span><strong>Please keep Torn open</strong></footer>`}</section>`;
   }
 
   function tfUpdateButtonHtml() {
     if (availableUpdate && availableUpdate.version) {
       const title = `Tornfolio ${availableUpdate.version} is available. Click here to update now.`;
-      return `<button class="tf-update-status is-outdated" type="button" data-action="install-update" title="${escapeAttr(title)}" aria-label="${escapeAttr(title)}"><i class="tf-update-dot" aria-hidden="true"></i><span>Out of date</span></button>`;
+      return `<button class="tf-update-status is-outdated" type="button" data-action="install-update" aria-label="${escapeAttr(title)}" data-tf-tooltip="${escapeAttr(title)}"><i class="tf-update-dot" aria-hidden="true"></i><span>Out of date</span></button>`;
     }
     if (updateCheckStatus === "error") {
       const title = "GreasyFork could not be reached. Click here to check again.";
-      return `<button class="tf-update-status is-error" type="button" data-action="retry-update-check" title="${escapeAttr(title)}" aria-label="${escapeAttr(title)}"><i class="tf-update-dot" aria-hidden="true"></i><span>Check failed</span></button>`;
+      return `<button class="tf-update-status is-error" type="button" data-action="retry-update-check" aria-label="${escapeAttr(title)}" data-tf-tooltip="${escapeAttr(title)}"><i class="tf-update-dot" aria-hidden="true"></i><span>Check failed</span></button>`;
     }
     if (updateCheckStatus === "current") {
       const title = `Tornfolio ${APP_VERSION} is the latest GreasyFork version.`;
-      return `<span class="tf-update-status is-current" role="status" title="${escapeAttr(title)}"><i class="tf-update-dot" aria-hidden="true"></i><span>Up to date</span></span>`;
+      return `<span class="tf-update-status is-current" role="status" data-tf-tooltip="${escapeAttr(title)}"><i class="tf-update-dot" aria-hidden="true"></i><span>Up to date</span></span>`;
     }
-    return `<span class="tf-update-status is-checking" role="status" title="Checking GreasyFork for a newer Tornfolio release"><i class="tf-update-dot" aria-hidden="true"></i><span>Checking…</span></span>`;
+    return `<span class="tf-update-status is-checking" role="status" data-tf-tooltip="Checking GreasyFork for a newer Tornfolio release"><i class="tf-update-dot" aria-hidden="true"></i><span>Checking…</span></span>`;
   }
 
   function tfShellHtml(model, isPopup) {
+    const upkeepAlertCount = model.properties.filter(
+      (property) =>
+        property.isCurrentHome &&
+        property.upkeepActionAvailable &&
+        (property.hasUnpaidUpkeep || property.upkeepReminderDue)
+    ).length;
+    const syncLabel = state.syncState === "syncing" ? "Syncing Tornfolio" : "Sync Now";
     return `
       ${iconSpriteDefsHtml()}
-      <button class="tlt-tab tf-launcher" type="button">${state.panelOpen ? "Hide Tornfolio" : "Open Tornfolio"}</button>
+      <button class="tlt-tab tf-launcher${upkeepAlertCount ? " has-alert" : ""}" type="button">${state.panelOpen ? "Hide Tornfolio" : "Open Tornfolio"}${upkeepAlertCount ? `<span class="tf-launcher-alert" aria-label="${escapeAttr(`${upkeepAlertCount} upkeep alert${upkeepAlertCount === 1 ? "" : "s"}`)}">${tfNumber(upkeepAlertCount)}</span>` : ""}</button>
       <div class="tlt-panel tf-shell" role="region" aria-label="Tornfolio portfolio and rental management">
         <header class="tlt-header tf-header">
           <div class="tf-brand"><span class="tf-logo">${tfIcon("logo")}</span><div><strong>Torn<span>folio</span></strong><small>Portfolio &amp; Rental Management</small></div></div>
           <div class="tf-header-actions">
             <div class="tf-sync-meta"><i class="tf-sync-dot is-${escapeAttr(state.syncState || "idle")}"></i><span>Last synced<strong>${state.lastSyncAt ? escapeHtml(new Date(state.lastSyncAt).toLocaleString()) : "Not yet"}</strong></span></div>
-            <button class="tf-sync-button" type="button" data-action="refresh-user-details"${state.syncState === "syncing" ? " disabled" : ""}>${tfIcon("sync")}<span>${state.syncState === "syncing" ? "Syncing…" : "Sync Now"}</span></button>
+            <button class="tf-sync-button tf-responsive-icon" type="button" data-action="refresh-user-details" aria-label="${escapeAttr(syncLabel)}" data-tf-tooltip="${escapeAttr(syncLabel)}"${state.syncState === "syncing" ? " disabled" : ""}>${tfIcon("sync")}<span class="tf-button-label">${state.syncState === "syncing" ? "Syncing…" : "Sync Now"}</span></button>
             ${tfUpdateButtonHtml()}
-            <button class="tf-icon-button" type="button" data-action="open-settings" aria-label="Open settings">${tfIcon("settings")}</button>
-            ${isPopup ? `<button class="tf-icon-button" type="button" data-action="close-popup" aria-label="Close popup">${tfIcon("close")}</button>` : `<button class="tf-icon-button" type="button" data-action="open-popup" aria-label="Open in popup">${tfIcon("external")}</button><button class="tf-icon-button" type="button" data-action="hide-panel" aria-label="Hide Tornfolio">${tfIcon("minimize")}</button>`}
+            <button class="tf-icon-button" type="button" data-action="open-settings" aria-label="Open settings" data-tf-tooltip="Open settings">${tfIcon("settings")}</button>
+            ${isPopup ? `<button class="tf-icon-button" type="button" data-action="close-popup" aria-label="Close popup" data-tf-tooltip="Close popup">${tfIcon("close")}</button>` : `<button class="tf-icon-button" type="button" data-action="open-popup" aria-label="Open in popup" data-tf-tooltip="Open in popup">${tfIcon("external")}</button><button class="tf-icon-button" type="button" data-action="hide-panel" aria-label="Hide Tornfolio" data-tf-tooltip="Hide Tornfolio">${tfIcon("minimize")}</button>`}
           </div>
         </header>
         <nav class="tf-nav" role="tablist" aria-label="Tornfolio sections">${tabsHtml()}</nav>
@@ -3696,6 +5215,7 @@
         ${propertyAction && !isPopup ? tfPropertyActionModalHtml(model) : ""}
         <footer class="tf-footer"><div class="tf-footer-brand">${tfIcon("logo")}<strong>Tornfolio</strong><small>Portfolio &amp; Rental Management</small></div><div><span>Help &amp; Support</span><span>Privacy Policy</span><span>Terms of Service</span><span>v${escapeHtml(APP_VERSION)}</span></div></footer>
         ${tfSyncProgressHtml()}
+        <div id="${APP_ID}-tooltip" class="tf-themed-tooltip" role="tooltip" aria-hidden="true"></div>
         <div class="tlt-status tf-toast ${state.syncProgress ? "is-suppressed" : ""} ${state.syncState && state.syncState !== "idle" ? "is-visible" : ""} ${state.syncState === "error" ? "is-error" : ""}" aria-live="polite">${escapeHtml(state.syncMessage || "")}</div>
       </div>
     `;
@@ -3714,16 +5234,16 @@
         </div>
         <div class="tf-main-sidebar">
           <section class="tf-card">
-            <div class="tf-card-head"><h2>${tfIcon("rentals")} Active Rentals</h2><button type="button" data-tab="rentals">View All Rentals →</button></div>
+            <div class="tf-card-head"><h2>${tfIcon("rentals")} Active Rentals</h2><button class="tf-responsive-icon tf-card-head-action" type="button" data-tab="rentals" aria-label="View all rentals" data-tf-tooltip="View all rentals">${tfIcon("rentals")}<span class="tf-button-label">View All Rentals →</span></button></div>
             ${tfRentalTable(model.activeRentals.slice(0, 5))}
           </section>
           <section class="tf-card tf-attention">
-            <div class="tf-card-head"><h2>${tfIcon("alert")} Needs Attention ${attention.length ? `<span class="tf-count">${attention.reduce((sum, item) => sum + item.count, 0)}</span>` : ""}</h2><button type="button" data-tab="properties">View All →</button></div>
+            <div class="tf-card-head"><h2>${tfIcon("alert")} Needs Attention ${attention.length ? `<span class="tf-count">${attention.reduce((sum, item) => sum + item.count, 0)}</span>` : ""}</h2><button class="tf-responsive-icon tf-card-head-action" type="button" data-tab="properties" aria-label="View all properties" data-tf-tooltip="View all properties">${tfIcon("properties")}<span class="tf-button-label">View All →</span></button></div>
             ${attention.length ? attention.map(tfAttentionRow).join("") : tfEmpty("Everything looks clear", "No urgent portfolio items were found.")}
           </section>
         </div>
         <section class="tf-card">
-          <div class="tf-card-head"><h2>${tfIcon("activity")} Recent Activity</h2><button type="button" data-tab="archive">View Archive →</button></div>
+          <div class="tf-card-head"><h2>${tfIcon("activity")} Recent Activity</h2><button class="tf-responsive-icon tf-card-head-action" type="button" data-tab="archive" aria-label="View archive" data-tf-tooltip="View archive">${tfIcon("archive")}<span class="tf-button-label">View Archive →</span></button></div>
           ${tfActivityList(model.activities.slice(0, 5))}
         </section>
       </section>
@@ -3731,12 +5251,14 @@
   }
 
   function tfCurrentHomeHero(property) {
-    const residentText = property.residents.length ? property.residents.join(", ") : "Residents unavailable";
+    const residentText = property.residents.length
+      ? property.residents.join(", ")
+      : "Residents unavailable";
     return `<section class="tf-current-home ${property.image ? "has-image" : ""}"${property.image ? ` style="--tf-hero-image:url('${escapeAttr(property.image)}')"` : ""}>
       <div class="tf-current-overlay">
-        <div class="tf-card-head"><h2>${tfIcon("home")} Current Home</h2><button type="button" data-action="open-property" data-property-key="${escapeAttr(property.key)}">View Property →</button></div>
+        <div class="tf-card-head"><h2>${tfIcon("home")} Current Home</h2><button class="tf-responsive-icon tf-card-head-action" type="button" data-action="open-property" data-property-key="${escapeAttr(property.key)}" aria-label="View property" data-tf-tooltip="View property">${tfIcon("properties")}<span class="tf-button-label">View Property →</span></button></div>
         <h1>${escapeHtml(property.name)}${property.id && !property.name.includes(property.id) ? ` <small>#${escapeHtml(property.id)}</small>` : ""}</h1>
-        <div class="tf-badges">${tfOwnershipBadge(property.ownership, property.ownership === "third-party")}${tfStatusBadge("occupied")}</div>
+        <div class="tf-badges">${tfOwnershipBadge(property.ownership, property.ownership === "third-party")}${tfStatusBadge("occupied")}${tfUpkeepBadge(property)}</div>
         <div class="tf-hero-meta"><div><span>Owner</span><strong>${escapeHtml(property.owner)}</strong></div><div><span>Residents</span><strong>${escapeHtml(residentText)}</strong></div><div><span>Status</span><strong class="is-success">Occupied</strong></div></div>
       </div>
     </section>`;
@@ -3754,31 +5276,50 @@
   }
 
   function tfRentalTable(rows) {
-    if (!rows.length) return tfEmpty("No active rentals", "Current rental contracts will appear here after a sync.");
+    if (!rows.length)
+      return tfEmpty(
+        "No active rentals",
+        "Current rental contracts will appear here after a sync."
+      );
     return `<div class="tf-table-wrap"><table class="tf-table"><thead><tr><th>Property</th><th>Direction</th><th>Other party</th><th>Rent / Day</th><th>End Date</th><th>Remaining</th><th></th></tr></thead><tbody>${rows.map((row) => `<tr><td><div class="tf-table-property">${row.image ? `<img src="${escapeAttr(row.image)}" alt="">` : ""}<div><strong>${escapeHtml(row.property)}</strong><small>${row.propertyId ? `#${escapeHtml(row.propertyId)}` : escapeHtml(row.type)}</small></div></div></td><td>${row.direction === "out" ? "Renting Out" : "Renting From"}</td><td>${escapeHtml(row.direction === "out" ? row.tenant : row.owner)}</td><td>${escapeHtml(tfRentAmount(row.daily, row.dailyEstimated))}</td><td>${escapeHtml(tfDate(row.endDate))}</td><td class="${Number(row.remaining) <= 7 ? "is-urgent" : "is-success"}">${row.remaining === "" ? "Unknown" : `${tfNumber(row.remaining)} days`}</td><td><button class="tf-more" type="button" data-action="open-rental" data-contract-id="${escapeAttr(row.contractId)}" aria-label="View rental details">${tfIcon("more")}</button></td></tr>`).join("")}</tbody></table></div>`;
   }
 
   function tfAttentionRow(item) {
-    return `<button class="tf-attention-row is-${escapeAttr(item.tone)}" type="button" data-tab="${escapeAttr(item.tab)}"><span class="tf-attention-symbol">${tfIcon(item.tone === "danger" ? "alert" : item.tone === "warning" ? "home" : "tag")}</span><span><strong>${escapeHtml(item.title)}</strong><small>${escapeHtml(item.detail)}</small></span><b>${item.count}</b><i>›</i></button>`;
+    const target = item.action
+      ? `data-action="${escapeAttr(item.action)}" data-property-key="${escapeAttr(item.propertyKey || "")}"`
+      : `data-tab="${escapeAttr(item.tab)}"`;
+    return `<button class="tf-attention-row is-${escapeAttr(item.tone)}" type="button" ${target}><span class="tf-attention-symbol">${tfIcon(item.tone === "danger" ? "alert" : item.tone === "warning" ? "home" : "tag")}</span><span><strong>${escapeHtml(item.title)}</strong><small>${escapeHtml(item.detail)}</small></span><b>${item.count}</b><i>›</i></button>`;
   }
 
   function tfActivityList(rows) {
-    if (!rows.length) return tfEmpty("No activity yet", "Property activity appears after history has been synced.");
+    if (!rows.length)
+      return tfEmpty("No activity yet", "Property activity appears after history has been synced.");
     return `<div class="tf-activity-list">${rows.map((row) => `<div class="tf-activity-row"><time>${escapeHtml(tfRelative(row.at))}</time><i></i><strong>${escapeHtml(row.type)}</strong><span>${escapeHtml(row.property)} · ${escapeHtml(row.detail)}</span></div>`).join("")}</div>`;
   }
 
   function tfPropertiesHtml(model, isPopup = false) {
     const ui = tfUi();
-    const scoped = model.properties.filter((property) => ui.propertyScope === "all" || property.ownership === ui.propertyScope);
+    const scoped = model.properties.filter(
+      (property) => ui.propertyScope === "all" || property.ownership === ui.propertyScope
+    );
     const filtered = scoped.filter((property) => {
       const query = normalizeLookup(ui.propertySearch);
-      if (query && ![property.name, property.id, property.type, property.owner].join(" ").toLowerCase().includes(query)) return false;
+      if (
+        query &&
+        ![property.name, property.id, property.type, property.owner]
+          .join(" ")
+          .toLowerCase()
+          .includes(query)
+      )
+        return false;
       if (ui.propertyStatus !== "all" && property.status !== ui.propertyStatus) return false;
       if (ui.propertyType !== "all" && property.type !== ui.propertyType) return false;
       return true;
     });
     const summary = tfStatsForProperties(scoped);
-    const types = Array.from(new Set(model.properties.map((property) => property.type).filter(Boolean))).sort();
+    const types = Array.from(
+      new Set(model.properties.map((property) => property.type).filter(Boolean))
+    ).sort();
     return `<section class="tf-page">
       ${tfPageTitle("property", "Properties", "Manage your owned homes and household portfolio.")}
       <div class="tf-filter-row"><div class="tf-segmented">
@@ -3787,12 +5328,15 @@
         ${tfSegmentButton("propertyScope", "all", "list", "All Properties", ui.propertyScope)}
       </div><input type="search" data-ui-field="propertySearch" placeholder="Search properties…" value="${escapeAttr(ui.propertySearch)}"><select data-ui-field="propertyStatus"><option value="all">All Statuses</option>${["occupied", "rented", "available", "listed"].map((value) => `<option value="${value}"${ui.propertyStatus === value ? " selected" : ""}>${escapeHtml(humanHeader(value))}</option>`).join("")}</select><select data-ui-field="propertyType"><option value="all">All Types</option>${types.map((value) => `<option value="${escapeAttr(value)}"${ui.propertyType === value ? " selected" : ""}>${escapeHtml(value)}</option>`).join("")}</select></div>
       <div class="tf-main-sidebar"><div><div class="tf-summary-strip">${tfMetric("property", tfNumber(summary.total), "Total Properties")}${tfMetric("key", tfNumber(summary.rented), "Rented Out", "info")}${tfMetric("home", tfNumber(summary.available), "Available")}${tfMetric("tag", tfNumber(summary.listed), "Listed", "warning")}${tfMetric("money", tfRentAmount(summary.daily, summary.estimatedIncomeCount > 0), summary.estimatedIncomeCount > 0 ? "Estimated Total Daily Rent Income" : "Total Daily Rent Income", "success")}</div><div class="tf-property-list">${filtered.length ? filtered.map((property) => tfPropertyCard(property, isPopup)).join("") : tfEmpty("No matching properties", "Change the filters or sync to load your property portfolio.")}</div></div>
-        <aside class="tf-sidebar"><section class="tf-card"><div class="tf-card-head"><h2>${tfIcon("quick")} Quick Actions</h2></div><button class="tf-primary tf-wide" type="button" data-action="export-csv">Export CSV</button><button class="tf-wide" type="button" data-tab="archive">View Archive</button></section>${tfAttentionPanel(model)}<section class="tf-card"><div class="tf-card-head"><h2>${tfIcon("activity")} Recent Property Activity</h2></div>${tfActivityList(model.activities.slice(0, 5))}</section></aside>
+        <aside class="tf-sidebar"><section class="tf-card"><div class="tf-card-head"><h2>${tfIcon("quick")} Quick Actions</h2></div><button class="tf-primary tf-wide tf-responsive-icon" type="button" data-action="export-csv" aria-label="Export properties CSV" data-tf-tooltip="Export properties CSV">${tfIcon("external")}<span class="tf-button-label">Export CSV</span></button><button class="tf-wide tf-responsive-icon" type="button" data-tab="archive" aria-label="View archive" data-tf-tooltip="View archive">${tfIcon("archive")}<span class="tf-button-label">View Archive</span></button></section>${tfAttentionPanel(model)}<section class="tf-card"><div class="tf-card-head"><h2>${tfIcon("activity")} Recent Property Activity</h2></div>${tfActivityList(model.activities.slice(0, 5))}</section></aside>
       </div></section>`;
   }
 
   function tfStatsForProperties(rows) {
-    const rented = rows.filter((row) => row.status === "rented" || row.activeContract && row.activeContract.direction === "out");
+    const rented = rows.filter(
+      (row) =>
+        row.status === "rented" || (row.activeContract && row.activeContract.direction === "out")
+    );
     const income = rented.map(tfPropertyDailyIncome);
     return {
       total: rows.length,
@@ -3805,7 +5349,7 @@
   }
 
   function tfSegmentButton(field, value, icon, label, selected) {
-    return `<button type="button" data-ui-field="${escapeAttr(field)}" data-ui-value="${escapeAttr(value)}" class="${selected === value ? "is-active" : ""}">${tfIcon(icon)}<span>${escapeHtml(label)}</span></button>`;
+    return `<button type="button" data-ui-field="${escapeAttr(field)}" data-ui-value="${escapeAttr(value)}" class="tf-responsive-icon${selected === value ? " is-active" : ""}" aria-label="${escapeAttr(label)}" data-tf-tooltip="${escapeAttr(label)}">${tfIcon(icon)}<span class="tf-button-label">${escapeHtml(label)}</span></button>`;
   }
 
   function tfPropertyCard(property, isPopup = false) {
@@ -3817,13 +5361,14 @@
         ? `<div><span>Tenant</span><strong>${escapeHtml(contract.tenant)}</strong></div><div><span>${contract.dailyEstimated ? "Estimated rent / day" : "Rent / Day"}</span><strong>${escapeHtml(tfRentAmount(contract.daily, contract.dailyEstimated))}</strong></div><div><span>End Date</span><strong>${escapeHtml(tfDate(contract.endDate))}</strong></div><div><span>Remaining</span><strong class="${Number(contract.remaining) <= 7 ? "is-urgent" : "is-success"}">${contract.remaining === "" ? "Unknown" : `${tfNumber(contract.remaining)} days`}</strong></div>`
         : property.status === "rented" && evidence && evidence.estimatedContract
           ? `<div><span>Tenant</span><strong>Private contract details unavailable</strong></div><div><span>Estimated rent / day</span><strong>${escapeHtml(tfRentAmount(evidence.dailyAmount, true))}</strong></div><div><span>Basis</span><strong>Last observed asking rent</strong></div><div><span>Observed</span><strong>${escapeHtml(evidence.observedAt ? tfRelative(evidence.observedAt) : "Unavailable")}</strong></div>`
-        : property.listed
-          ? `<div><span>Owner</span><strong>${escapeHtml(property.owner)}</strong></div><div><span>Status</span><strong class="is-warning">Available for rent</strong></div>${evidence && evidence.currentListing ? `<div><span>Listed Rent / Day</span><strong>${escapeHtml(tfRentAmount(evidence.dailyAmount))}</strong></div><div><span>Listing Period</span><strong>${evidence.durationDays ? `${tfNumber(evidence.durationDays)} days` : "Unavailable"}</strong></div>` : `<div><span>Happiness</span><strong>${property.happy ? tfNumber(property.happy) : "Unavailable"}</strong></div>`}`
-          : `<div><span>Owner</span><strong>${escapeHtml(property.owner)}</strong></div><div><span>Status</span><strong class="is-success">Available</strong></div><div><span>Type</span><strong>${escapeHtml(property.type)}</strong></div>`;
-    const quickList = !isPopup && !propertyActionUnavailableReason("rent", property)
-      ? `<button class="tf-primary" type="button" data-action="open-property-action" data-property-action="rent" data-property-key="${escapeAttr(property.key)}">List for rent</button>`
-      : "";
-    return `<article class="tf-property-card">${property.image ? `<img src="${escapeAttr(property.image)}" alt="${escapeAttr(property.type)}">` : `<div class="tf-image-placeholder">${tfIcon("home")}</div>`}<div class="tf-property-body"><div class="tf-property-head"><div><h2>${escapeHtml(property.name)}${property.id && !property.name.includes(property.id) ? ` <small>#${escapeHtml(property.id)}</small>` : ""}</h2><div class="tf-badges">${tfOwnershipBadge(property.ownership)}${tfStatusBadge(property.status)}</div></div></div><div class="tf-property-meta">${detail}</div></div><div class="tf-card-actions">${quickList}<button type="button" data-action="open-property" data-property-key="${escapeAttr(property.key)}">View Property →</button>${contract ? `<button type="button" data-action="open-rental" data-contract-id="${escapeAttr(contract.contractId)}">View Rental →</button>` : ""}</div></article>`;
+          : property.listed
+            ? `<div><span>Owner</span><strong>${escapeHtml(property.owner)}</strong></div><div><span>Status</span><strong class="is-warning">Available for rent</strong></div>${evidence && evidence.currentListing ? `<div><span>Listed Rent / Day</span><strong>${escapeHtml(tfRentAmount(evidence.dailyAmount))}</strong></div><div><span>Listing Period</span><strong>${evidence.durationDays ? `${tfNumber(evidence.durationDays)} days` : "Unavailable"}</strong></div>` : `<div><span>Happiness</span><strong>${property.happy ? tfNumber(property.happy) : "Unavailable"}</strong></div>`}`
+            : `<div><span>Owner</span><strong>${escapeHtml(property.owner)}</strong></div><div><span>Status</span><strong class="is-success">Available</strong></div><div><span>Type</span><strong>${escapeHtml(property.type)}</strong></div>`;
+    const quickList =
+      !isPopup && !propertyActionUnavailableReason("rent", property)
+        ? `<button class="tf-primary tf-responsive-icon" type="button" data-action="open-property-action" data-property-action="rent" data-property-key="${escapeAttr(property.key)}" aria-label="List for rent" data-tf-tooltip="List for rent">${tfIcon("key")}<span class="tf-button-label">List for rent</span></button>`
+        : "";
+    return `<article class="tf-property-card">${property.image ? `<img src="${escapeAttr(property.image)}" alt="${escapeAttr(property.type)}">` : `<div class="tf-image-placeholder">${tfIcon("home")}</div>`}<div class="tf-property-body"><div class="tf-property-head"><div><h2>${escapeHtml(property.name)}${property.id && !property.name.includes(property.id) ? ` <small>#${escapeHtml(property.id)}</small>` : ""}</h2><div class="tf-badges">${tfOwnershipBadge(property.ownership)}${tfStatusBadge(property.status)}${tfUpkeepBadge(property)}</div></div></div><div class="tf-property-meta">${detail}</div></div><div class="tf-card-actions">${quickList}<button class="tf-responsive-icon" type="button" data-action="open-property" data-property-key="${escapeAttr(property.key)}" aria-label="View property" data-tf-tooltip="View property">${tfIcon("properties")}<span class="tf-button-label">View Property →</span></button>${contract ? `<button class="tf-responsive-icon" type="button" data-action="open-rental" data-contract-id="${escapeAttr(contract.contractId)}" aria-label="View rental" data-tf-tooltip="View rental">${tfIcon("rentals")}<span class="tf-button-label">View Rental →</span></button>` : ""}</div></article>`;
   }
 
   function tfAttentionPanel(model) {
@@ -3833,11 +5378,20 @@
 
   function tfRentalsHtml(model) {
     const ui = tfUi();
-    const types = Array.from(new Set(model.activeRentals.map((row) => row.type).filter(Boolean))).sort();
+    const types = Array.from(
+      new Set(model.activeRentals.map((row) => row.type).filter(Boolean))
+    ).sort();
     const rows = model.activeRentals.filter((row) => {
       if (ui.rentalScope !== "all" && row.direction !== ui.rentalScope) return false;
       const query = normalizeLookup(ui.rentalSearch);
-      if (query && ![row.property, row.propertyId, row.owner, row.tenant].join(" ").toLowerCase().includes(query)) return false;
+      if (
+        query &&
+        ![row.property, row.propertyId, row.owner, row.tenant]
+          .join(" ")
+          .toLowerCase()
+          .includes(query)
+      )
+        return false;
       if (ui.rentalOwner !== "all" && row.ownership !== ui.rentalOwner) return false;
       if (ui.rentalType !== "all" && row.type !== ui.rentalType) return false;
       return true;
@@ -3849,78 +5403,170 @@
     const estimatedTotal = rows.some((row) => row.totalEstimated && Number(row.total || 0));
     return `<section class="tf-page">${tfPageTitle("rentals", "Rentals", "Manage your active rental contracts.")}
       <div class="tf-filter-row"><div class="tf-segmented">${tfSegmentButton("rentalScope", "out", "key", "Renting Out", ui.rentalScope)}${tfSegmentButton("rentalScope", "from", "exchange", "Renting From", ui.rentalScope)}${tfSegmentButton("rentalScope", "all", "list", "All Rentals", ui.rentalScope)}</div><input type="search" data-ui-field="rentalSearch" placeholder="Search rentals…" value="${escapeAttr(ui.rentalSearch)}"><select data-ui-field="rentalOwner"><option value="all">All Owners</option><option value="mine"${ui.rentalOwner === "mine" ? " selected" : ""}>My Properties</option><option value="spouse"${ui.rentalOwner === "spouse" ? " selected" : ""}>Spouse Properties</option><option value="third-party"${ui.rentalOwner === "third-party" ? " selected" : ""}>Third Party</option></select><select data-ui-field="rentalType"><option value="all">All Types</option>${types.map((type) => `<option value="${escapeAttr(type)}"${ui.rentalType === type ? " selected" : ""}>${escapeHtml(type)}</option>`).join("")}</select></div>
-      <div class="tf-main-sidebar"><div><div class="tf-summary-strip">${tfMetric("home", tfNumber(rows.length), "Active Rentals")}${tfMetric("alert", tfNumber(soon.length), "Ending Soon", soon.length ? "danger" : "")}${tfMetric("money", tfRentAmount(daily, estimatedDaily), estimatedDaily ? "Estimated Total Daily Rent" : "Total Daily Rent", "success")}${tfMetric("rentals", tfRentAmount(total, estimatedTotal), estimatedTotal ? "Estimated Total Contract Value" : "Total Contract Value", "info")}</div><div class="tf-rental-list">${rows.length ? rows.map(tfRentalCard).join("") : tfEmpty("No matching active rentals", "Finished contracts live in Archive. Sync or change the current filters.")}</div></div><aside class="tf-sidebar"><section class="tf-card"><div class="tf-card-head"><h2>${tfIcon("quick")} Quick Actions</h2></div><button class="tf-primary tf-wide" type="button" data-action="open-manual-modal">${tfIcon("add")} Add Manual Rental</button><button class="tf-wide" type="button" data-action="export-csv">Export CSV</button><button class="tf-wide" type="button" data-tab="archive">View Archive</button></section>${tfAttentionPanel(model)}${tfRentalJourneyPanel(model)}<section class="tf-card"><div class="tf-card-head"><h2>${tfIcon("calendar")} Upcoming End Dates</h2></div>${tfUpcomingRentals(model.activeRentals)}</section></aside></div>
+      <div class="tf-main-sidebar"><div><div class="tf-summary-strip">${tfMetric("home", tfNumber(rows.length), "Active Rentals")}${tfMetric("alert", tfNumber(soon.length), "Ending Soon", soon.length ? "danger" : "")}${tfMetric("money", tfRentAmount(daily, estimatedDaily), estimatedDaily ? "Estimated Total Daily Rent" : "Total Daily Rent", "success")}${tfMetric("rentals", tfRentAmount(total, estimatedTotal), estimatedTotal ? "Estimated Total Contract Value" : "Total Contract Value", "info")}</div><div class="tf-rental-list">${rows.length ? rows.map(tfRentalCard).join("") : tfEmpty("No matching active rentals", "Finished contracts live in Archive. Sync or change the current filters.")}</div></div><aside class="tf-sidebar"><section class="tf-card"><div class="tf-card-head"><h2>${tfIcon("quick")} Quick Actions</h2></div><button class="tf-primary tf-wide tf-responsive-icon" type="button" data-action="open-manual-modal" aria-label="Add manual rental" data-tf-tooltip="Add manual rental">${tfIcon("add")}<span class="tf-button-label">Add Manual Rental</span></button><button class="tf-wide tf-responsive-icon" type="button" data-action="export-csv" aria-label="Export rentals CSV" data-tf-tooltip="Export rentals CSV">${tfIcon("external")}<span class="tf-button-label">Export CSV</span></button><button class="tf-wide tf-responsive-icon" type="button" data-tab="archive" aria-label="View archive" data-tf-tooltip="View archive">${tfIcon("archive")}<span class="tf-button-label">View Archive</span></button></section>${tfAttentionPanel(model)}${tfRentalJourneyPanel(model)}<section class="tf-card"><div class="tf-card-head"><h2>${tfIcon("calendar")} Upcoming End Dates</h2></div>${tfUpcomingRentals(model.activeRentals)}</section></aside></div>
     </section>`;
   }
 
   function tfRentalCard(contract) {
-    return `<article class="tf-rental-card">${contract.image ? `<img src="${escapeAttr(contract.image)}" alt="">` : `<div class="tf-image-placeholder">${tfIcon("home")}</div>`}<div class="tf-rental-body"><div class="tf-property-head"><div><h2>${escapeHtml(contract.property)}${contract.propertyId && !contract.property.includes(contract.propertyId) ? ` <small>#${escapeHtml(contract.propertyId)}</small>` : ""}</h2><div class="tf-badges">${tfOwnershipBadge(contract.ownership, contract.direction === "from")}${tfStatusBadge("active")}${contract.dailyEstimated ? `<span class="tf-badge tf-badge-warning">Last listing estimate</span>` : contract.extensionCount ? `<span class="tf-badge tf-badge-info">Extended ×${tfNumber(contract.extensionCount)}</span>` : normalizeLookup(contract.extensionStatus) === "pending" ? `<span class="tf-badge tf-badge-warning">Extension pending</span>` : ""}</div></div></div><div class="tf-contract-grid"><div><span>${contract.direction === "out" ? "Tenant" : "Owner"}</span><strong>${escapeHtml(contract.direction === "out" ? contract.tenant : contract.owner)}</strong></div><div><span>${contract.dailyEstimated ? "Estimated rent / day" : "Rent / Day"}</span><strong>${escapeHtml(tfRentAmount(contract.daily, contract.dailyEstimated))}</strong></div><div><span>${contract.totalEstimated ? "Estimated total" : "Total Contract"}</span><strong>${escapeHtml(tfRentAmount(contract.total, contract.totalEstimated))}</strong></div><div><span>Started</span><strong>${escapeHtml(tfDate(contract.startDate))}</strong></div><div><span>Ends</span><strong>${escapeHtml(tfDate(contract.endDate))}</strong></div><div><span>Remaining</span><strong class="${Number(contract.remaining) <= 7 ? "is-urgent" : "is-success"}">${contract.remaining === "" ? "Unknown" : `${tfNumber(contract.remaining)} days`}</strong></div></div></div><div class="tf-card-actions"><button type="button" data-action="open-property" data-property-key="${escapeAttr(contract.propertyKey)}">View Property →</button><button type="button" data-action="open-rental" data-contract-id="${escapeAttr(contract.contractId)}">View Rental →</button></div></article>`;
+    return `<article class="tf-rental-card">${contract.image ? `<img src="${escapeAttr(contract.image)}" alt="">` : `<div class="tf-image-placeholder">${tfIcon("home")}</div>`}<div class="tf-rental-body"><div class="tf-property-head"><div><h2>${escapeHtml(contract.property)}${contract.propertyId && !contract.property.includes(contract.propertyId) ? ` <small>#${escapeHtml(contract.propertyId)}</small>` : ""}</h2><div class="tf-badges">${tfOwnershipBadge(contract.ownership, contract.direction === "from")}${tfStatusBadge("active")}${contract.dailyEstimated ? `<span class="tf-badge tf-badge-warning">Last listing estimate</span>` : contract.extensionCount ? `<span class="tf-badge tf-badge-info">Extended ×${tfNumber(contract.extensionCount)}</span>` : normalizeLookup(contract.extensionStatus) === "pending" ? `<span class="tf-badge tf-badge-warning">Extension pending</span>` : ""}</div></div></div><div class="tf-contract-grid"><div><span>${contract.direction === "out" ? "Tenant" : "Owner"}</span><strong>${escapeHtml(contract.direction === "out" ? contract.tenant : contract.owner)}</strong></div><div><span>${contract.dailyEstimated ? "Estimated rent / day" : "Rent / Day"}</span><strong>${escapeHtml(tfRentAmount(contract.daily, contract.dailyEstimated))}</strong></div><div><span>${contract.totalEstimated ? "Estimated total" : "Total Contract"}</span><strong>${escapeHtml(tfRentAmount(contract.total, contract.totalEstimated))}</strong></div><div><span>Started</span><strong>${escapeHtml(tfDate(contract.startDate))}</strong></div><div><span>Ends</span><strong>${escapeHtml(tfDate(contract.endDate))}</strong></div><div><span>Remaining</span><strong class="${Number(contract.remaining) <= 7 ? "is-urgent" : "is-success"}">${contract.remaining === "" ? "Unknown" : `${tfNumber(contract.remaining)} days`}</strong></div></div></div><div class="tf-card-actions"><button class="tf-responsive-icon" type="button" data-action="open-property" data-property-key="${escapeAttr(contract.propertyKey)}" aria-label="View property" data-tf-tooltip="View property">${tfIcon("properties")}<span class="tf-button-label">View Property →</span></button><button class="tf-responsive-icon" type="button" data-action="open-rental" data-contract-id="${escapeAttr(contract.contractId)}" aria-label="View rental" data-tf-tooltip="View rental">${tfIcon("rentals")}<span class="tf-button-label">View Rental →</span></button></div></article>`;
   }
 
   function tfUpcomingRentals(rows) {
-    const sorted = [...rows].filter((row) => row.endDate).sort((a, b) => Number(a.remaining) - Number(b.remaining)).slice(0, 6);
-    if (!sorted.length) return tfEmpty("No end dates", "Active contracts with known end dates appear here.");
+    const sorted = [...rows]
+      .filter((row) => row.endDate)
+      .sort((a, b) => Number(a.remaining) - Number(b.remaining))
+      .slice(0, 6);
+    if (!sorted.length)
+      return tfEmpty("No end dates", "Active contracts with known end dates appear here.");
     return `<div class="tf-upcoming">${sorted.map((row) => `<button type="button" data-action="open-rental" data-contract-id="${escapeAttr(row.contractId)}">${row.image ? `<img src="${escapeAttr(row.image)}" alt="">` : ""}<span><strong>${escapeHtml(row.property)}</strong><small>${escapeHtml(row.direction === "out" ? row.tenant : row.owner)}</small></span><b class="${Number(row.remaining) <= 7 ? "is-urgent" : "is-success"}">${row.remaining === "" ? "?" : `${tfNumber(row.remaining)} days`}</b></button>`).join("")}</div>`;
   }
 
   function tfMarketHtml(model) {
     const ui = tfUi();
     const mode = ui.marketMode === "sale" ? "sale" : "rent";
-    const suggestions = model.suggestions.filter((row) => {
-      if (ui.marketScope !== "all" && row.ownership !== ui.marketScope) return false;
-      if (ui.marketType !== "all" && (!row.property || row.property.type !== ui.marketType)) return false;
-      return !row.property || !["rented", "listed"].includes(row.property.status);
-    });
-    const types = Array.from(new Set(model.properties.map((row) => row.type).filter(Boolean))).sort();
-    const listingCount = suggestions.reduce((sum, row) => sum + (mode === "sale" ? row.saleListings : row.listings), 0);
-    const medians = suggestions.map((row) => mode === "sale" ? row.saleMedian : row.medianDaily).filter(Boolean);
-    const averages = suggestions.map((row) => mode === "sale" ? row.saleAverage : row.averageDaily).filter(Boolean);
+    const rankOrder = ui.marketRankOrder === "desc" ? "desc" : "asc";
+    const suggestions = model.suggestions
+      .filter((row) => {
+        if (row.ownership !== "mine") return false;
+        if (ui.marketType !== "all" && (!row.property || row.property.type !== ui.marketType))
+          return false;
+        return true;
+      })
+      .sort((left, right) => {
+        const leftRank =
+          Number(
+            mode === "sale"
+              ? rankOrder === "desc"
+                ? left.salePositionDescending
+                : left.salePositionAscending
+              : rankOrder === "desc"
+                ? left.rentPositionDescending
+                : left.rentPositionAscending
+          ) || Number.MAX_SAFE_INTEGER;
+        const rightRank =
+          Number(
+            mode === "sale"
+              ? rankOrder === "desc"
+                ? right.salePositionDescending
+                : right.salePositionAscending
+              : rankOrder === "desc"
+                ? right.rentPositionDescending
+                : right.rentPositionAscending
+          ) || Number.MAX_SAFE_INTEGER;
+        return leftRank - rightRank || left.name.localeCompare(right.name);
+      });
+    const types = Array.from(
+      new Set(
+        model.properties
+          .filter((row) => row.ownership === "mine")
+          .map((row) => row.type)
+          .filter(Boolean)
+      )
+    ).sort();
+    const listingCount = suggestions.reduce(
+      (sum, row) => sum + (mode === "sale" ? row.saleListings : row.listings),
+      0
+    );
+    const medians = suggestions
+      .map((row) => (mode === "sale" ? row.saleMedian : row.medianDaily))
+      .filter(Boolean);
+    const averages = suggestions
+      .map((row) => (mode === "sale" ? row.saleAverage : row.averageDaily))
+      .filter(Boolean);
     const happiness = suggestions.map((row) => row.happy).filter(Boolean);
-    const min = minNumber(suggestions.map((row) => mode === "sale" ? row.saleMin : row.minDaily).filter(Boolean));
-    const max = maxNumber(suggestions.map((row) => mode === "sale" ? row.saleMax : row.maxDaily).filter(Boolean));
+    const min = minNumber(
+      suggestions.map((row) => (mode === "sale" ? row.saleMin : row.minDaily)).filter(Boolean)
+    );
+    const max = maxNumber(
+      suggestions.map((row) => (mode === "sale" ? row.saleMax : row.maxDaily)).filter(Boolean)
+    );
     const action = mode === "sale" ? "scan-sale-market" : "scan-rental-market";
     const modeLabel = mode === "sale" ? "Sale" : "Rental";
-    return `<section class="tf-page">${tfPageTitle("market", "Market Comparisons", "Rental and sale comparisons are separate and only include properties that are not rented or listed.")}
-      <div class="tf-filter-row"><div class="tf-segmented tf-market-mode">${tfSegmentButton("marketMode", "rent", "key", "Rental Comparison", mode)}${tfSegmentButton("marketMode", "sale", "money", "Sale Comparison", mode)}</div><div class="tf-segmented">${tfSegmentButton("marketScope", "mine", "home", "My Properties", ui.marketScope)}${tfSegmentButton("marketScope", "spouse", "heart", "Spouse Properties", ui.marketScope)}${tfSegmentButton("marketScope", "all", "list", "All Properties", ui.marketScope)}</div><select data-ui-field="marketType"><option value="all">All Types</option>${types.map((type) => `<option value="${escapeAttr(type)}"${ui.marketType === type ? " selected" : ""}>${escapeHtml(type)}</option>`).join("")}</select><button class="tf-primary" type="button" data-action="${action}"${state.syncState === "syncing" ? " disabled" : ""}>${tfIcon("sync")} ${state.syncState === "syncing" ? "Scanning…" : `Refresh ${modeLabel}`}</button></div>
-      <div class="tf-main-sidebar"><div><div class="tf-summary-strip tf-market-summary">${tfMetric("home", tfNumber(listingCount), `${modeLabel} Comparable Listings`)}${tfMetric("money", tfMoney(medianNumber(medians)), `Median ${mode === "sale" ? "Sale Price" : "Rent / Day"}`, "success")}${tfMetric("insights", tfMoney(averageNumber(averages)), `Average ${mode === "sale" ? "Sale Price" : "Rent / Day"}`, "info")}${tfMetric("tag", min && max ? `${money(min)} – ${money(max)}` : "Unavailable", "Typical Range", "warning")}${tfMetric("heart", happiness.length ? tfNumber(Math.round(averageNumber(happiness))) : "Unavailable", "Typical Happiness")}</div><div class="tf-market-list">${suggestions.length ? suggestions.map((row) => tfMarketAdvisorCard(row, mode)).join("") : tfEmpty(`No eligible ${modeLabel.toLowerCase()} comparisons`, "Rented and already-listed properties are skipped. Refresh after a property becomes available.", `<button class="tf-primary" type="button" data-action="${action}"${state.syncState === "syncing" ? " disabled" : ""}>${state.syncState === "syncing" ? "Scanning…" : `Refresh ${modeLabel}`}</button>`)}</div></div><aside class="tf-sidebar">${tfMarketSidebar(model, suggestions, mode)}</aside></div>
+    return `<section class="tf-page">${tfPageTitle("market", "Market Comparisons", "Current suggestions for every property you own, including homes that are occupied, rented or already listed. Spouse-owned properties are not market-scanned.")}
+      <div class="tf-filter-row"><div class="tf-segmented tf-market-mode">${tfSegmentButton("marketMode", "rent", "key", "Rental Comparison", mode)}${tfSegmentButton("marketMode", "sale", "money", "Sale Comparison", mode)}</div><select data-ui-field="marketType"><option value="all">All My Property Types</option>${types.map((type) => `<option value="${escapeAttr(type)}"${ui.marketType === type ? " selected" : ""}>${escapeHtml(type)}</option>`).join("")}</select><select data-ui-field="marketRankOrder" aria-label="Market price rank order"><option value="asc"${rankOrder === "asc" ? " selected" : ""}>Cheapest → expensive</option><option value="desc"${rankOrder === "desc" ? " selected" : ""}>Expensive → cheapest</option></select><button class="tf-primary tf-responsive-icon" type="button" data-action="${action}" aria-label="${state.syncState === "syncing" ? "Scanning market" : `Refresh ${modeLabel.toLowerCase()} market`}" data-tf-tooltip="${state.syncState === "syncing" ? "Scanning market" : `Refresh ${modeLabel.toLowerCase()} market`}"${state.syncState === "syncing" ? " disabled" : ""}>${tfIcon("sync")}<span class="tf-button-label">${state.syncState === "syncing" ? "Scanning…" : `Refresh ${modeLabel}`}</span></button></div>
+      <div class="tf-main-sidebar"><div><div class="tf-summary-strip tf-market-summary">${tfMetric("home", tfNumber(listingCount), `${modeLabel} Comparable Listings`)}${tfMetric("money", tfMoney(medianNumber(medians)), `Median ${mode === "sale" ? "Sale Price" : "Rent / Day"}`, "success")}${tfMetric("insights", tfMoney(averageNumber(averages)), `Average ${mode === "sale" ? "Sale Price" : "Rent / Day"}`, "info")}${tfMetric("tag", min && max ? `${money(min)} – ${money(max)}` : "Unavailable", "Typical Range", "warning")}${tfMetric("heart", happiness.length ? tfNumber(Math.round(averageNumber(happiness))) : "Unavailable", "Typical Happiness")}</div><div class="tf-market-list">${suggestions.length ? suggestions.map((row) => tfMarketAdvisorCard(row, mode, rankOrder)).join("") : tfEmpty(`No ${modeLabel.toLowerCase()} comparisons yet`, "Refresh this market to calculate suggestions for every property you own.", `<button class="tf-primary" type="button" data-action="${action}"${state.syncState === "syncing" ? " disabled" : ""}>${state.syncState === "syncing" ? "Scanning…" : `Refresh ${modeLabel}`}</button>`)}</div></div><aside class="tf-sidebar">${tfMarketSidebar(model, suggestions, mode)}</aside></div>
     </section>`;
   }
 
-  function tfMarketAdvisorCard(row, mode = "rent") {
+  function tfMarketAdvisorCard(row, mode = "rent", rankOrder = "asc") {
     const property = row.property;
-    const difference = row.suggestedDaily && row.currentDaily ? row.suggestedDaily - row.currentDaily : 0;
+    const difference =
+      row.suggestedDaily && row.currentDaily ? row.suggestedDaily - row.currentDaily : 0;
     const percent = difference && row.currentDaily ? (difference / row.currentDaily) * 100 : 0;
-    const upgradeText = row.upgrades.length ? `${row.upgrades.length} upgrade${row.upgrades.length === 1 ? "" : "s"}` : "No upgrade data";
+    const upgradeText = row.upgrades.length
+      ? `${row.upgrades.length} upgrade${row.upgrades.length === 1 ? "" : "s"}`
+      : "No upgrade data";
     const isSale = mode === "sale";
     const action = isSale ? row.saleAction : row.action;
     const basis = isSale ? row.saleBasis : row.basis;
     const confidence = isSale ? row.saleConfidence : row.confidence;
+    const rank = isSale
+      ? rankOrder === "desc"
+        ? row.salePositionDescending
+        : row.salePositionAscending
+      : rankOrder === "desc"
+        ? row.rentPositionDescending
+        : row.rentPositionAscending;
+    const rankTotal = isSale ? row.salePositionTotal : row.rentPositionTotal;
+    const currentPositionValue = isSale ? row.currentSaleListing : row.rentPositionValue;
+    const currentPositionLabel = isSale
+      ? "Current sale listing"
+      : property && property.rentalListed
+        ? "Current rental listing"
+        : property && property.status === "rented"
+          ? "Current contract rent"
+          : "Current rent";
+    const rankTile =
+      currentPositionValue && rank && rankTotal
+        ? `<span class="tf-market-rank"><small>${escapeHtml(currentPositionLabel)} position</small><strong>#${tfNumber(rank)} against ${tfNumber(rankTotal)}</strong><em>${rankOrder === "desc" ? "Expensive → cheapest" : "Cheapest → expensive"}</em></span>`
+        : "";
     const priceGrid = isSale
-      ? `<div class="tf-price-grid"><span>Known Property Value<strong>${escapeHtml(tfMoney(property && property.marketValue))}</strong></span><span>Market Median (similar)<strong>${escapeHtml(tfMoney(row.saleMedian))}</strong></span><span>Market Average (similar)<strong>${escapeHtml(tfMoney(row.saleAverage))}</strong></span><span>Market Range<strong>${row.saleMin && row.saleMax ? `${escapeHtml(money(row.saleMin))} – ${escapeHtml(money(row.saleMax))}` : "Unavailable"}</strong></span><span class="tf-suggested"><small>Suggested sale price</small><strong>${escapeHtml(tfMoney(row.suggestedSale))}</strong></span></div>`
-      : `<div class="tf-price-grid"><span>Current Rent / Day<strong>${escapeHtml(tfMoney(row.currentDaily))}</strong></span><span>Market Median (similar)<strong>${escapeHtml(tfMoney(row.medianDaily))}</strong></span><span>Market Average (similar)<strong>${escapeHtml(tfMoney(row.averageDaily))}</strong></span><span>Market Range<strong>${row.minDaily && row.maxDaily ? `${escapeHtml(money(row.minDaily))} – ${escapeHtml(money(row.maxDaily))}` : "Unavailable"}</strong></span><span>Competitive Duration<strong>${row.suggestedDays ? `${tfNumber(row.suggestedDays)} days` : "Unavailable"}</strong></span><span>Contract Total<strong>${escapeHtml(tfMoney(row.suggestedTotal))}</strong></span><span>ROI Target (${escapeHtml(String(targetAnnualRoi()))}%)<strong>${escapeHtml(tfMoney(row.targetDaily))}</strong></span><span class="tf-suggested"><small>List it at</small><strong>${escapeHtml(tfMoney(row.suggestedDaily, " / day"))}${row.suggestedDays ? ` for ${tfNumber(row.suggestedDays)} days` : ""}</strong>${difference ? `<em class="${difference > 0 ? "is-success" : "is-urgent"}">${difference > 0 ? "+" : ""}${money(difference)} (${percent > 0 ? "+" : ""}${percent.toFixed(1)}%)</em>` : ""}</span></div>`;
-    return `<article class="tf-market-card"><div class="tf-market-top"><div class="tf-market-property">${property && property.image ? `<img src="${escapeAttr(property.image)}" alt="">` : `<div class="tf-image-placeholder">${tfIcon("home")}</div>`}<div><span class="tf-market-eyebrow">${isSale ? "Sale" : "Rental"} comparison</span><h2>${escapeHtml(row.name)}</h2><div class="tf-badges">${tfOwnershipBadge(row.ownership)}${property ? tfStatusBadge(property.status) : ""}</div><small>${property ? escapeHtml(property.type) : "Property"}</small><div class="tf-property-quality"><span>${tfIcon("heart")} <strong>${row.happy ? tfNumber(row.happy) : "Unavailable"}</strong><small>Happiness</small></span><span>${tfIcon("tag")} <strong>${escapeHtml(upgradeText)}</strong><small>Installed</small></span></div><div class="tf-market-action">${tfIcon("idea")}<span><small>Suggested action</small><strong>${escapeHtml(action)}</strong></span></div></div></div>${priceGrid}<div class="tf-pricing-factors"><h3>Why this price?</h3><span><b>${tfIcon("heart")} Happiness</b><em>${row.happy ? "Included" : "Unavailable"}</em></span><span><b>${tfIcon("tag")} Upgrades</b><em>${row.upgrades.length ? `All ${row.upgrades.length} included` : "Unavailable"}</em></span><span><b>${tfIcon("market")} Market match</b><em>${escapeHtml(basis)}</em></span>${isSale ? "" : `<span><b>${tfIcon("calendar")} Lease length</b><em>${escapeHtml(row.durationBasis)}</em></span><span><b>${tfIcon("money")} ROI target</b><em>${escapeHtml(String(targetAnnualRoi()))}%</em></span>`}<span><b>${tfIcon("insights")} Confidence</b><em class="tf-confidence is-${escapeAttr(confidence.toLowerCase())}">${escapeHtml(confidence)}</em></span></div></div>${tfMarketUpgrades(row.upgrades)}${tfComparableListings(row, mode)}</article>`;
+      ? `<div class="tf-price-grid"><span>Current Sale Listing<strong>${escapeHtml(tfMoney(row.currentSaleListing))}</strong></span><span>Known Property Value<strong>${escapeHtml(tfMoney(property && property.marketValue))}</strong></span><span>Market Median (similar)<strong>${escapeHtml(tfMoney(row.saleMedian))}</strong></span><span>Market Average (similar)<strong>${escapeHtml(tfMoney(row.saleAverage))}</strong></span><span>Market Range<strong>${row.saleMin && row.saleMax ? `${escapeHtml(money(row.saleMin))} – ${escapeHtml(money(row.saleMax))}` : "Unavailable"}</strong></span>${rankTile}<span class="tf-suggested"><small>Suggested sale price</small><strong>${escapeHtml(tfMoney(row.suggestedSale))}</strong></span></div>`
+      : `<div class="tf-price-grid"><span>Current Rent / Day<strong>${escapeHtml(tfMoney(row.currentDaily))}</strong></span><span>Market Median (similar)<strong>${escapeHtml(tfMoney(row.medianDaily))}</strong></span><span>Market Average (similar)<strong>${escapeHtml(tfMoney(row.averageDaily))}</strong></span><span>Market Range<strong>${row.minDaily && row.maxDaily ? `${escapeHtml(money(row.minDaily))} – ${escapeHtml(money(row.maxDaily))}` : "Unavailable"}</strong></span>${rankTile}<span>Competitive Duration<strong>${row.suggestedDays ? `${tfNumber(row.suggestedDays)} days` : "Unavailable"}</strong></span><span>Contract Total<strong>${escapeHtml(tfMoney(row.suggestedTotal))}</strong></span><span>ROI Target (${escapeHtml(String(targetAnnualRoi()))}%)<strong>${escapeHtml(tfMoney(row.targetDaily))}</strong></span><span class="tf-suggested"><small>List it at</small><strong>${escapeHtml(tfMoney(row.suggestedDaily, " / day"))}${row.suggestedDays ? ` for ${tfNumber(row.suggestedDays)} days` : ""}</strong>${difference ? `<em class="${difference > 0 ? "is-success" : "is-urgent"}">${difference > 0 ? "+" : ""}${money(difference)} (${percent > 0 ? "+" : ""}${percent.toFixed(1)}%)</em>` : ""}</span></div>`;
+    return `<article class="tf-market-card"><div class="tf-market-top"><div class="tf-market-property">${property && property.image ? `<img src="${escapeAttr(property.image)}" alt="">` : `<div class="tf-image-placeholder">${tfIcon("home")}</div>`}<div><span class="tf-market-eyebrow">${isSale ? "Sale" : "Rental"} comparison</span><h2>${escapeHtml(row.name)}</h2><div class="tf-badges">${tfOwnershipBadge(row.ownership)}${property ? tfStatusBadge(property.status) : ""}</div><small>${property ? escapeHtml(property.type) : "Property"}</small><div class="tf-property-quality"><span>${tfIcon("heart")} <strong>${row.happy ? tfNumber(row.happy) : "Unavailable"}</strong><small>Happiness</small></span><span>${tfIcon("tag")} <strong>${escapeHtml(upgradeText)}</strong><small>Installed</small></span></div><div class="tf-market-action">${tfIcon("idea")}<span><small>Suggested action</small><strong>${escapeHtml(action)}</strong></span></div></div></div>${priceGrid}<div class="tf-pricing-factors"><h3>Why this price?</h3><span><b>${tfIcon("heart")} Happiness</b><em>${row.happy ? "Included" : "Unavailable"}</em></span><span><b>${tfIcon("tag")} Upgrades</b><em>${row.upgrades.length ? `All ${row.upgrades.length} included` : "Unavailable"}</em></span><span><b>${tfIcon("market")} Market match</b><em>${escapeHtml(basis)}</em></span>${isSale ? "" : `<span><b>${tfIcon("calendar")} Lease length</b><em>${escapeHtml(row.durationBasis)}</em></span><span><b>${tfIcon("money")} ROI target</b><em>${escapeHtml(String(targetAnnualRoi()))}%</em></span>`}<span><b>${tfIcon("insights")} Confidence</b><em class="tf-confidence is-${escapeAttr(confidence.toLowerCase())}">${escapeHtml(confidence)}</em></span></div></div>${tfMarketUpgrades(row.upgrades)}${tfComparableListings(row, mode, rankOrder)}</article>`;
   }
 
   function tfMarketUpgrades(upgrades) {
     const rows = modificationNames(upgrades);
-    if (!rows.length) return `<div class="tf-market-upgrades is-empty"><div><strong>${tfIcon("tag")} Installed upgrades</strong><small>Torn did not return upgrade names for this property, so upgrade matching is unavailable.</small></div></div>`;
+    if (!rows.length)
+      return `<div class="tf-market-upgrades is-empty"><div><strong>${tfIcon("tag")} Installed upgrades</strong><small>Torn did not return upgrade names for this property, so upgrade matching is unavailable.</small></div></div>`;
     return `<div class="tf-market-upgrades"><div><strong>${tfIcon("tag")} Installed upgrades</strong><small>These ${rows.length} upgrade${rows.length === 1 ? " is" : "s are"} included in comparable matching.</small></div><div class="tf-chip-list">${rows.map((value) => `<span>${escapeHtml(value)}</span>`).join("")}</div></div>`;
   }
 
-  function tfComparableListings(row, mode = "rent") {
+  function tfComparableListings(row, mode = "rent", rankOrder = "asc") {
     const isSale = mode === "sale";
-    const rows = (isSale ? row.saleComparables : row.comparables).slice(0, 12);
+    const rows = [...(isSale ? row.saleComparables : row.comparables)]
+      .sort((left, right) => {
+        const leftValue = moneyNumber(
+          isSale ? left.sale_price || left.total : left.rent_per_day || left.daily
+        );
+        const rightValue = moneyNumber(
+          isSale ? right.sale_price || right.total : right.rent_per_day || right.daily
+        );
+        return rankOrder === "desc" ? rightValue - leftValue : leftValue - rightValue;
+      })
+      .slice(0, 12);
     const listingCount = isSale ? row.saleListings : row.listings;
-    const summary = listingCount ? `${listingCount.toLocaleString()} matching ${isSale ? "sale" : "rental"} listings informed this comparison.` : `No comparable ${isSale ? "sale" : "rental"} listings were returned.`;
+    const summary = listingCount
+      ? `${listingCount.toLocaleString()} matching ${isSale ? "sale" : "rental"} listings informed this comparison.`
+      : `No comparable ${isSale ? "sale" : "rental"} listings were returned.`;
     const note = !isSale && row.note ? `<small>${escapeHtml(row.note)}</small>` : "";
-    if (!rows.length) return `<div class="tf-comparable-note"><strong>Comparable Listings</strong><span>${summary}</span>${note}</div>`;
-    const valueHeaders = isSale ? "<th>Sale Price</th>" : "<th>Rent / Day</th><th>Days</th><th>Total</th>";
-    return `<details class="tf-comparable-note"><summary><strong>Comparable Listings</strong><span>${summary}</span><b>View ${rows.length}</b></summary>${note}<div class="tf-comparable-scroll"><table><thead><tr><th>Property</th><th>Happiness</th><th>Upgrades</th>${valueHeaders}<th>Match</th></tr></thead><tbody>${rows.map((item) => {
-      const upgrades = modificationNames(item.upgrades || item.modifications).join(", ") || "None listed";
-      const score = Number(item.match_score);
-      const values = isSale ? `<td>${escapeHtml(tfMoney(moneyNumber(item.sale_price || item.total)))}</td>` : `<td>${escapeHtml(tfMoney(moneyNumber(item.rent_per_day || item.daily)))}</td><td>${item.lease_days ? tfNumber(item.lease_days) : "Unknown"}</td><td>${escapeHtml(tfMoney(moneyNumber(item.total)))}</td>`;
-      return `<tr><td>${escapeHtml(clean(item.property, row.name))}</td><td>${item.happy ? tfNumber(item.happy) : "Unavailable"}</td><td title="${escapeAttr(upgrades)}">${escapeHtml(upgrades)}</td>${values}<td><span class="tf-confidence is-${escapeAttr(clean(item.match_quality, isSale ? row.saleConfidence : row.confidence).toLowerCase())}">${Number.isFinite(score) ? `${score.toFixed(0)}%` : escapeHtml(clean(item.match_quality, isSale ? row.saleConfidence : row.confidence))}</span></td></tr>`;
-    }).join("")}</tbody></table></div></details>`;
+    if (!rows.length)
+      return `<div class="tf-comparable-note"><strong>Comparable Listings</strong><span>${summary}</span>${note}</div>`;
+    const valueHeaders = isSale
+      ? "<th>Sale Price</th>"
+      : "<th>Rent / Day</th><th>Days</th><th>Total</th>";
+    return `<details class="tf-comparable-note"><summary><strong>Comparable Listings</strong><span>${summary} Showing the closest ${rows.length}, ${rankOrder === "desc" ? "most expensive first" : "cheapest first"}.</span><b>View ${rows.length}</b></summary>${note}<div class="tf-comparable-scroll"><table><thead><tr><th>Property</th><th>Happiness</th><th>Upgrades</th>${valueHeaders}<th>Match</th></tr></thead><tbody>${rows
+      .map((item) => {
+        const upgrades =
+          modificationNames(item.upgrades || item.modifications).join(", ") || "None listed";
+        const score = Number(item.match_score);
+        const values = isSale
+          ? `<td>${escapeHtml(tfMoney(moneyNumber(item.sale_price || item.total)))}</td>`
+          : `<td>${escapeHtml(tfMoney(moneyNumber(item.rent_per_day || item.daily)))}</td><td>${item.lease_days ? tfNumber(item.lease_days) : "Unknown"}</td><td>${escapeHtml(tfMoney(moneyNumber(item.total)))}</td>`;
+        return `<tr><td>${escapeHtml(clean(item.property, row.name))}</td><td>${item.happy ? tfNumber(item.happy) : "Unavailable"}</td><td title="${escapeAttr(upgrades)}">${escapeHtml(upgrades)}</td>${values}<td><span class="tf-confidence is-${escapeAttr(clean(item.match_quality, isSale ? row.saleConfidence : row.confidence).toLowerCase())}">${Number.isFinite(score) ? `${score.toFixed(0)}%` : escapeHtml(clean(item.match_quality, isSale ? row.saleConfidence : row.confidence))}</span></td></tr>`;
+      })
+      .join("")}</tbody></table></div></details>`;
   }
 
   function tfMarketSidebar(model, suggestions, mode = "rent") {
@@ -3931,18 +5577,54 @@
       const count = Number(isSale ? row.sale_listings : row.rental_listings || row.listings || 0);
       byType.set(name, Math.max(byType.get(name) || 0, count));
     }
-    const opportunities = suggestions.filter((row) => isSale ? row.suggestedSale : row.suggestedDaily && (!row.currentDaily || Math.abs(row.suggestedDaily - row.currentDaily) / row.suggestedDaily >= 0.08));
-    const calculator = isSale ? `<section class="tf-card"><div class="tf-card-head"><h2>${tfIcon("money")} Sale Pricing</h2></div><small>Sale comparisons use matching property type, Happiness and installed upgrades. Rental ROI does not influence sale prices.</small></section>` : `<section class="tf-card"><div class="tf-card-head"><h2>${tfIcon("money")} ROI Calculator</h2></div><label>Target Annual ROI<input type="number" min="0.1" max="500" step="0.1" data-setting-field="targetAnnualRoi" value="${escapeAttr(targetAnnualRoi())}"></label><label>Lease Duration<input type="number" min="1" max="100" step="1" data-setting-field="defaultSuggestionLeaseDays" value="${escapeAttr(defaultSuggestionLeaseDays())}"></label><small>Property-specific investment values can be reviewed in Settings and property details.</small></section>`;
-    return `<section class="tf-card"><div class="tf-card-head"><h2>${tfIcon("market")} ${isSale ? "Sale" : "Rental"} Market Summary</h2></div><div class="tf-kv-list"><span><b>Total Comparable Listings</b><strong>${tfNumber([...byType.values()].reduce((sum, value) => sum + value, 0))}</strong></span>${Array.from(byType.entries()).slice(0, 7).map(([type, count]) => `<span><b>${escapeHtml(type)}</b><strong>${tfNumber(count)}</strong></span>`).join("")}</div></section>${calculator}<section class="tf-card"><div class="tf-card-head"><h2>${tfIcon("idea")} ${isSale ? "Sale" : "Rental"} Opportunities</h2></div>${opportunities.length ? opportunities.slice(0, 5).map((row) => `<button class="tf-opportunity" type="button" data-action="open-property" data-property-key="${escapeAttr(row.property && row.property.key || "")}"><span><strong>${escapeHtml(row.name)}</strong><small>${escapeHtml(isSale ? row.saleAction : row.action)}</small></span><b>›</b></button>`).join("") : tfEmpty("No strong opportunities", "More market data may reveal pricing opportunities.")}</section>`;
+    const opportunities = suggestions.filter((row) =>
+      isSale
+        ? row.suggestedSale
+        : row.suggestedDaily &&
+          (!row.currentDaily ||
+            Math.abs(row.suggestedDaily - row.currentDaily) / row.suggestedDaily >= 0.08)
+    );
+    const calculator = isSale
+      ? `<section class="tf-card"><div class="tf-card-head"><h2>${tfIcon("money")} Sale Pricing</h2></div><small>Sale comparisons use matching property type, Happiness and installed upgrades. Rental ROI does not influence sale prices.</small></section>`
+      : `<section class="tf-card"><div class="tf-card-head"><h2>${tfIcon("money")} ROI Calculator</h2></div><label>Target Annual ROI<input type="number" min="0.1" max="500" step="0.1" data-setting-field="targetAnnualRoi" value="${escapeAttr(targetAnnualRoi())}"></label><label>Lease Duration<input type="number" min="1" max="100" step="1" data-setting-field="defaultSuggestionLeaseDays" value="${escapeAttr(defaultSuggestionLeaseDays())}"></label><small>Property-specific investment values can be reviewed in Settings and property details.</small></section>`;
+    return `<section class="tf-card"><div class="tf-card-head"><h2>${tfIcon("market")} ${isSale ? "Sale" : "Rental"} Market Summary</h2></div><div class="tf-kv-list"><span><b>Total Comparable Listings</b><strong>${tfNumber([...byType.values()].reduce((sum, value) => sum + value, 0))}</strong></span>${Array.from(
+      byType.entries()
+    )
+      .slice(0, 7)
+      .map(
+        ([type, count]) =>
+          `<span><b>${escapeHtml(type)}</b><strong>${tfNumber(count)}</strong></span>`
+      )
+      .join(
+        ""
+      )}</div></section>${calculator}<section class="tf-card"><div class="tf-card-head"><h2>${tfIcon("idea")} ${isSale ? "Sale" : "Rental"} Opportunities</h2></div>${
+      opportunities.length
+        ? opportunities
+            .slice(0, 5)
+            .map(
+              (row) =>
+                `<button class="tf-opportunity" type="button" data-action="open-property" data-property-key="${escapeAttr((row.property && row.property.key) || "")}"><span><strong>${escapeHtml(row.name)}</strong><small>${escapeHtml(isSale ? row.saleAction : row.action)}</small></span><b>›</b></button>`
+            )
+            .join("")
+        : tfEmpty("No strong opportunities", "More market data may reveal pricing opportunities.")
+    }</section>`;
   }
 
   function tfArchiveHtml(model) {
     const ui = tfUi();
     const rows = model.archive.filter((row) => {
       const query = normalizeLookup(ui.archiveSearch);
-      if (query && ![row.property, row.propertyId, row.owner, row.tenant].join(" ").toLowerCase().includes(query)) return false;
+      if (
+        query &&
+        ![row.property, row.propertyId, row.owner, row.tenant]
+          .join(" ")
+          .toLowerCase()
+          .includes(query)
+      )
+        return false;
       if (ui.archiveOwner !== "all" && row.ownership !== ui.archiveOwner) return false;
-      if (ui.archiveType === "expired" && !/completed|expired|ended/i.test(row.status)) return false;
+      if (ui.archiveType === "expired" && !/completed|expired|ended/i.test(row.status))
+        return false;
       if (ui.archiveType === "sold" && !/sold/i.test(row.status)) return false;
       return true;
     });
@@ -3955,16 +5637,29 @@
 
   function tfArchiveCard(row) {
     const endedAgo = row.endDate ? tfRelative(row.endDate) : "End date unavailable";
-    return `<article class="tf-archive-card">${row.image ? `<img src="${escapeAttr(row.image)}" alt="">` : `<div class="tf-image-placeholder">${tfIcon("archive")}</div>`}<div class="tf-archive-property"><h2>${escapeHtml(row.property)}${row.propertyId && !row.property.includes(row.propertyId) ? ` <small>#${escapeHtml(row.propertyId)}</small>` : ""}</h2><div class="tf-badges">${tfStatusBadge(/sold/i.test(row.status) ? "sold" : "expired")}${tfOwnershipBadge(row.ownership)}${row.extensionCount ? `<span class="tf-badge tf-badge-info">${tfNumber(row.extensionCount)} extension${Number(row.extensionCount) === 1 ? "" : "s"}</span>` : ""}</div><small>${escapeHtml(row.completionReason || row.property)}</small></div><div class="tf-archive-facts"><span><b>${row.tenant ? "Tenant" : "Owner"}</b><strong>${escapeHtml(row.tenant || row.owner || "Unavailable")}</strong></span><span><b>Rent / Day</b><strong>${escapeHtml(tfMoney(row.daily))}</strong></span><span><b>Total Contract</b><strong>${escapeHtml(tfMoney(row.total))}</strong></span><span><b>Started</b><strong>${escapeHtml(tfDate(row.startDate))}</strong></span></div><div class="tf-archive-ended"><span>Ended</span><strong>${escapeHtml(tfDate(row.endDate))}</strong><b>${escapeHtml(endedAgo)}</b><small>${escapeHtml(row.status)}</small></div><div class="tf-card-actions"><button type="button" data-action="open-property" data-property-key="${escapeAttr(row.propertyId ? `property:${row.propertyId}` : "")}">View Property</button><button class="tf-primary" type="button" data-action="open-archive" data-contract-id="${escapeAttr(row.contractId)}">View Details →</button></div></article>`;
+    return `<article class="tf-archive-card">${row.image ? `<img src="${escapeAttr(row.image)}" alt="">` : `<div class="tf-image-placeholder">${tfIcon("archive")}</div>`}<div class="tf-archive-property"><h2>${escapeHtml(row.property)}${row.propertyId && !row.property.includes(row.propertyId) ? ` <small>#${escapeHtml(row.propertyId)}</small>` : ""}</h2><div class="tf-badges">${tfStatusBadge(/sold/i.test(row.status) ? "sold" : "expired")}${tfOwnershipBadge(row.ownership)}${row.extensionCount ? `<span class="tf-badge tf-badge-info">${tfNumber(row.extensionCount)} extension${Number(row.extensionCount) === 1 ? "" : "s"}</span>` : ""}</div><small>${escapeHtml(row.completionReason || row.property)}</small></div><div class="tf-archive-facts"><span><b>${row.tenant ? "Tenant" : "Owner"}</b><strong>${escapeHtml(row.tenant || row.owner || "Unavailable")}</strong></span><span><b>Rent / Day</b><strong>${escapeHtml(tfMoney(row.daily))}</strong></span><span><b>Total Contract</b><strong>${escapeHtml(tfMoney(row.total))}</strong></span><span><b>Started</span><strong>${escapeHtml(tfDate(row.startDate))}</strong></span></div><div class="tf-archive-ended"><span>Ended</span><strong>${escapeHtml(tfDate(row.endDate))}</strong><b>${escapeHtml(endedAgo)}</b><small>${escapeHtml(row.status)}</small></div><div class="tf-card-actions"><button class="tf-responsive-icon" type="button" data-action="open-property" data-property-key="${escapeAttr(row.propertyId ? `property:${row.propertyId}` : "")}" aria-label="View property" data-tf-tooltip="View property">${tfIcon("properties")}<span class="tf-button-label">View Property</span></button><button class="tf-primary tf-responsive-icon" type="button" data-action="open-archive" data-contract-id="${escapeAttr(row.contractId)}" aria-label="View archive details" data-tf-tooltip="View archive details">${tfIcon("archive")}<span class="tf-button-label">View Details →</span></button></div></article>`;
   }
 
   function tfInsightsHtml(model) {
     const ui = tfUi();
-    const properties = model.properties.filter((row) => (ui.insightOwner === "all" || row.ownership === ui.insightOwner) && (ui.insightType === "all" || row.type === ui.insightType));
-    const active = model.activeRentals.filter((row) => properties.some((property) => property.key === row.propertyKey));
-    const value = properties.reduce((sum, row) => sum + Number(row.marketValue || row.investment || 0), 0);
-    const daily = active.filter((row) => row.direction === "out").reduce((sum, row) => sum + Number(row.daily || 0), 0);
-    const types = Array.from(new Set(model.properties.map((row) => row.type).filter(Boolean))).sort();
+    const properties = model.properties.filter(
+      (row) =>
+        (ui.insightOwner === "all" || row.ownership === ui.insightOwner) &&
+        (ui.insightType === "all" || row.type === ui.insightType)
+    );
+    const active = model.activeRentals.filter((row) =>
+      properties.some((property) => property.key === row.propertyKey)
+    );
+    const value = properties.reduce(
+      (sum, row) => sum + Number(row.marketValue || row.investment || 0),
+      0
+    );
+    const daily = active
+      .filter((row) => row.direction === "out")
+      .reduce((sum, row) => sum + Number(row.daily || 0), 0);
+    const types = Array.from(
+      new Set(model.properties.map((row) => row.type).filter(Boolean))
+    ).sort();
     const breakdown = tfTypeBreakdown(properties);
     const owned = properties.filter((row) => row.ownership !== "third-party");
     const rentedCount = owned.filter((row) => row.status === "rented").length;
@@ -3982,35 +5677,62 @@
   }
 
   function tfBreakdownBars(rows, total) {
-    if (!rows.length) return tfEmpty("No property data", "Sync Tornfolio to analyse your property types.");
+    if (!rows.length)
+      return tfEmpty("No property data", "Sync Tornfolio to analyse your property types.");
     return `<div class="tf-bars">${rows.map(([label, value], index) => `<div><span>${escapeHtml(label)}</span><i style="--tf-bar:${total ? Math.round((value / total) * 100) : 0}%;--tf-index:${index}"></i><strong>${value} · ${total ? Math.round((value / total) * 100) : 0}%</strong></div>`).join("")}</div>`;
   }
 
   function tfTopProperties(active) {
-    const rows = [...active].filter((row) => row.direction === "out").sort((a, b) => Number(b.daily) - Number(a.daily)).slice(0, 6);
-    if (!rows.length) return tfEmpty("No rental income yet", "Active renting-out contracts appear here.");
+    const rows = [...active]
+      .filter((row) => row.direction === "out")
+      .sort((a, b) => Number(b.daily) - Number(a.daily))
+      .slice(0, 6);
+    if (!rows.length)
+      return tfEmpty("No rental income yet", "Active renting-out contracts appear here.");
     return `<div class="tf-ranking">${rows.map((row) => `<button type="button" data-action="open-rental" data-contract-id="${escapeAttr(row.contractId)}">${row.image ? `<img src="${escapeAttr(row.image)}" alt="">` : ""}<strong>${escapeHtml(row.property)}</strong><span>${escapeHtml(row.type)}</span><b>${escapeHtml(tfMoney(row.daily, " / day"))}</b><em>${row.remaining === "" ? "Unknown" : `${row.remaining} days`}</em></button>`).join("")}</div>`;
   }
 
   function tfOwnerIncome(active) {
-    const mine = active.filter((row) => row.direction === "out" && row.ownership === "mine").reduce((sum, row) => sum + Number(row.daily || 0), 0);
-    const spouse = active.filter((row) => row.direction === "out" && row.ownership === "spouse").reduce((sum, row) => sum + Number(row.daily || 0), 0);
+    const mine = active
+      .filter((row) => row.direction === "out" && row.ownership === "mine")
+      .reduce((sum, row) => sum + Number(row.daily || 0), 0);
+    const spouse = active
+      .filter((row) => row.direction === "out" && row.ownership === "spouse")
+      .reduce((sum, row) => sum + Number(row.daily || 0), 0);
     const max = Math.max(mine, spouse, 1);
     return `<div class="tf-comparison"><div><span>My Properties</span><i style="--tf-bar:${(mine / max) * 100}%"></i><strong>${tfMoney(mine)}</strong></div><div class="is-spouse"><span>Spouse Properties</span><i style="--tf-bar:${(spouse / max) * 100}%"></i><strong>${tfMoney(spouse)}</strong></div></div>`;
   }
 
   function tfValueByType(properties) {
     const values = new Map();
-    properties.forEach((row) => values.set(row.type, (values.get(row.type) || 0) + Number(row.marketValue || row.investment || 0)));
-    const rows = Array.from(values.entries()).filter(([, value]) => value).sort((a, b) => b[1] - a[1]);
-    if (!rows.length) return tfEmpty("Values unavailable", "Known market or investment values will appear here.");
+    properties.forEach((row) =>
+      values.set(
+        row.type,
+        (values.get(row.type) || 0) + Number(row.marketValue || row.investment || 0)
+      )
+    );
+    const rows = Array.from(values.entries())
+      .filter(([, value]) => value)
+      .sort((a, b) => b[1] - a[1]);
+    if (!rows.length)
+      return tfEmpty("Values unavailable", "Known market or investment values will appear here.");
     const max = Math.max(...rows.map(([, value]) => value), 1);
     return `<div class="tf-comparison">${rows.map(([type, value]) => `<div><span>${escapeHtml(type)}</span><i style="--tf-bar:${(value / max) * 100}%"></i><strong>${escapeHtml(tfMoney(value))}</strong></div>`).join("")}</div>`;
   }
 
   function tfDurationBars(active) {
-    const buckets = [["< 7", 0, 6], ["7 – 30", 7, 30], ["31 – 60", 31, 60], ["61 – 90", 61, 90], ["91 – 180", 91, 180], ["> 180", 181, Infinity]];
-    const counts = buckets.map(([label, min, max]) => [label, active.filter((row) => Number(row.remaining) >= min && Number(row.remaining) <= max).length]);
+    const buckets = [
+      ["< 7", 0, 6],
+      ["7 – 30", 7, 30],
+      ["31 – 60", 31, 60],
+      ["61 – 90", 61, 90],
+      ["91 – 180", 91, 180],
+      ["> 180", 181, Infinity],
+    ];
+    const counts = buckets.map(([label, min, max]) => [
+      label,
+      active.filter((row) => Number(row.remaining) >= min && Number(row.remaining) <= max).length,
+    ]);
     const peak = Math.max(...counts.map(([, count]) => count), 1);
     return `<div class="tf-duration-bars">${counts.map(([label, count], index) => `<div><i style="--tf-height:${Math.max(6, Math.round((count / peak) * 100))}%;--tf-index:${index}"></i><strong>${count}</strong><span>${escapeHtml(label)}</span></div>`).join("")}</div>`;
   }
@@ -4018,8 +5740,15 @@
   function tfKeyInsights(model, occupancy, daily) {
     const attention = tfAttention(model);
     const rows = [];
-    rows.push({ title: `${occupancy}% current occupancy`, detail: `${model.activeRentals.filter((row) => row.direction === "out").length} owned rental contracts are active.` });
-    if (daily) rows.push({ title: `${money(daily)} daily rental income`, detail: "Calculated from current renting-out contracts." });
+    rows.push({
+      title: `${occupancy}% current occupancy`,
+      detail: `${model.activeRentals.filter((row) => row.direction === "out").length} owned rental contracts are active.`,
+    });
+    if (daily)
+      rows.push({
+        title: `${money(daily)} daily rental income`,
+        detail: "Calculated from current renting-out contracts.",
+      });
     attention.slice(0, 3).forEach((row) => rows.push({ title: row.title, detail: row.detail }));
     return `<div class="tf-insight-list">${rows.map((row) => `<div>${tfIcon("idea")}<strong>${escapeHtml(row.title)}</strong><small>${escapeHtml(row.detail)}</small></div>`).join("")}</div>`;
   }
@@ -4038,38 +5767,72 @@
   }
 
   function tfSuggestionForProperty(model, property) {
-    return (model.suggestions || []).find((row) => row.propertyId && row.propertyId === property.id)
-      || (model.suggestions || []).find((row) => row.property && row.property.key === property.key)
-      || null;
+    return (
+      (model.suggestions || []).find((row) => row.propertyId && row.propertyId === property.id) ||
+      (model.suggestions || []).find((row) => row.property && row.property.key === property.key) ||
+      null
+    );
   }
 
   function tfRentalListingSuggestion(property, model) {
     const suggestion = tfSuggestionForProperty(model, property);
     const propertyTypeIdValue = String(propertyTypeIdFromRow(property.raw) || "");
-    const summary = (model.marketSummary || []).find((row) => propertyTypeIdValue && String(row.property_type_id || row._property_type_id || "") === propertyTypeIdValue)
-      || (model.marketSummary || []).find((row) => normalizeLookup(row.property_type || row.property || row.name) === normalizeLookup(property.type))
-      || {};
+    const summary =
+      (model.marketSummary || []).find(
+        (row) =>
+          propertyTypeIdValue &&
+          String(row.property_type_id || row._property_type_id || "") === propertyTypeIdValue
+      ) ||
+      (model.marketSummary || []).find(
+        (row) =>
+          normalizeLookup(row.property_type || row.property || row.name) ===
+          normalizeLookup(property.type)
+      ) ||
+      {};
     const medianDaily = moneyNumber((suggestion && suggestion.medianDaily) || summary.median_daily);
     const averageDaily = moneyNumber((suggestion && suggestion.averageDaily) || summary.avg_daily);
     const minDaily = moneyNumber((suggestion && suggestion.minDaily) || summary.min_daily);
     const maxDaily = moneyNumber((suggestion && suggestion.maxDaily) || summary.max_daily);
-    const listings = Number((suggestion && suggestion.listings) || summary.rental_listings || summary.listings || 0);
-    const investmentBasis = moneyNumber((suggestion && suggestion.investmentBasis) || property.investment || property.marketValue);
+    const listings = Number(
+      (suggestion && suggestion.listings) || summary.rental_listings || summary.listings || 0
+    );
+    const investmentBasis = moneyNumber(
+      (suggestion && suggestion.investmentBasis) || property.investment || property.marketValue
+    );
     const targetRoi = positiveNumber(suggestion && suggestion.targetRoi) || targetAnnualRoi();
-    const targetDaily = moneyNumber((suggestion && suggestion.targetDaily) || (investmentBasis ? roundRent((investmentBasis * (targetRoi / 100)) / 365) : ""));
-    const suggestedDaily = moneyNumber(suggestion && suggestion.suggestedDaily)
-      || suggestedDailyRent(targetDaily, { median_daily: medianDaily, avg_daily: averageDaily, min_daily: minDaily, max_daily: maxDaily });
-    const days = Math.max(3, Math.min(100, Math.round(positiveNumber(suggestion && suggestion.suggestedDays) || defaultSuggestionLeaseDays())));
+    const targetDaily = moneyNumber(
+      (suggestion && suggestion.targetDaily) ||
+        (investmentBasis ? roundRent((investmentBasis * (targetRoi / 100)) / 365) : "")
+    );
+    const suggestedDaily =
+      moneyNumber(suggestion && suggestion.suggestedDaily) ||
+      suggestedDailyRent(targetDaily, {
+        median_daily: medianDaily,
+        avg_daily: averageDaily,
+        min_daily: minDaily,
+        max_daily: maxDaily,
+      });
+    const days = Math.max(
+      3,
+      Math.min(
+        100,
+        Math.round(
+          positiveNumber(suggestion && suggestion.suggestedDays) || defaultSuggestionLeaseDays()
+        )
+      )
+    );
     const total = suggestedDaily ? Math.round(suggestedDaily * days) : "";
-    const projectedRoi = suggestedDaily && investmentBasis ? roiPercent(suggestedDaily * 365, investmentBasis) : "";
+    const projectedRoi =
+      suggestedDaily && investmentBasis ? roiPercent(suggestedDaily * 365, investmentBasis) : "";
     const hasMarketData = Boolean(listings || medianDaily || averageDaily);
-    const basis = suggestion && suggestion.basis
-      ? suggestion.basis
-      : hasMarketData
-        ? "Latest comparable rental market and ROI target"
-        : investmentBasis
-          ? "ROI target fallback; refresh the rental market for comparable pricing"
-          : "No market or investment basis available";
+    const basis =
+      suggestion && suggestion.basis
+        ? suggestion.basis
+        : hasMarketData
+          ? "Latest comparable rental market and ROI target"
+          : investmentBasis
+            ? "ROI target fallback; refresh the rental market for comparable pricing"
+            : "No market or investment basis available";
     return {
       days,
       total,
@@ -4085,7 +5848,10 @@
       listings,
       basis,
       confidence: clean(suggestion && suggestion.confidence, hasMarketData ? "Fair" : "Weak"),
-      durationBasis: clean(suggestion && suggestion.durationBasis, hasMarketData ? "Latest comparable lease periods" : "Saved default lease duration"),
+      durationBasis: clean(
+        suggestion && suggestion.durationBasis,
+        hasMarketData ? "Latest comparable lease periods" : "Saved default lease duration"
+      ),
       note: clean(suggestion && suggestion.note, ""),
       hasMarketData,
     };
@@ -4097,13 +5863,15 @@
     const useMarket = Boolean(fields && fields.pricingUseMarket && marketDaily);
     const useRoi = Boolean(fields && fields.pricingUseRoi && roiDaily);
     if (useMarket && useRoi) {
-      return moneyNumber(fields && fields.combinedDaily)
-        || suggestedDailyRent(roiDaily, {
+      return (
+        moneyNumber(fields && fields.combinedDaily) ||
+        suggestedDailyRent(roiDaily, {
           median_daily: moneyNumber(fields && fields.marketMedianDaily) || marketDaily,
           avg_daily: marketDaily,
           min_daily: moneyNumber(fields && fields.marketMinDaily),
           max_daily: moneyNumber(fields && fields.marketMaxDaily),
-        });
+        })
+      );
     }
     if (useMarket) return marketDaily;
     if (useRoi) return roiDaily;
@@ -4115,10 +5883,12 @@
     const minimumDays = Number(fields && fields.minimumDays) || 3;
     const suggestedDaily = moneyNumber(fields && fields.suggestedDaily);
     const investmentBasis = moneyNumber(fields && fields.investmentBasis);
-    if (!Number.isInteger(days) || days < minimumDays || days > 100) return { days: "", total: "", daily: "", projectedRoi: "" };
-    const total = recalculateFromSuggestion && suggestedDaily
-      ? Math.round(suggestedDaily * days)
-      : moneyNumber(fields && fields.total);
+    if (!Number.isInteger(days) || days < minimumDays || days > 100)
+      return { days: "", total: "", daily: "", projectedRoi: "" };
+    const total =
+      recalculateFromSuggestion && suggestedDaily
+        ? Math.round(suggestedDaily * days)
+        : moneyNumber(fields && fields.total);
     const daily = total ? total / days : "";
     return {
       days: String(days),
@@ -4137,20 +5907,28 @@
 
   function propertyActionUnavailableReason(kind, property) {
     if (!property) return "That property is no longer present in the latest Tornfolio data.";
-    if (!property.id || !/^\d+$/.test(property.id)) return "A Torn property ID is required before this property can be managed.";
-    if (property.ownership !== "mine") return "Only properties owned by your verified Torn account can be managed.";
-    if (kind === "upkeep") return "";
+    if (!property.id || !/^\d+$/.test(property.id))
+      return "A Torn property ID is required before this property can be managed.";
+    if (kind === "upkeep") {
+      return property.ownership === "mine" || property.upkeepActionAvailable
+        ? ""
+        : "Torn's current properties page does not show an upkeep action for this property.";
+    }
+    if (property.ownership !== "mine")
+      return "Only properties owned by your verified Torn account can be managed.";
     if (property.isCurrentHome) return "Your current home cannot be listed from Tornfolio.";
 
     const rentedOut = property.activeContract && property.activeContract.direction === "out";
     if (kind === "extend") {
-      if (!rentedOut) return "An active outgoing rental is required before an extension can be offered.";
+      if (!rentedOut)
+        return "An active outgoing rental is required before an extension can be offered.";
       if (property.extensionPending) return "An extension is already pending for this contract.";
       return "";
     }
     if (kind === "remove") return property.listed ? "" : "This property is not shown as listed.";
     if (kind === "rent" || kind === "sale") {
-      if (rentedOut || isLeasedToOther(property.raw)) return "A rented property cannot be listed again.";
+      if (rentedOut || isLeasedToOther(property.raw))
+        return "A rented property cannot be listed again.";
       if (property.listed) return "Remove the current listing before creating a different one.";
       return "";
     }
@@ -4192,13 +5970,24 @@
       };
     }
     if (kind === "sale") {
-      const price = (suggestion && (suggestion.suggestedSale || suggestion.saleMedian)) || property.marketValue || "";
+      const price =
+        (suggestion && (suggestion.suggestedSale || suggestion.saleMedian)) ||
+        property.marketValue ||
+        "";
       return { price: String(price || "") };
     }
     if (kind === "extend") {
       const pricing = tfRentalListingSuggestion(property, model);
       const contract = property.activeContract || {};
-      const days = Math.max(1, Math.min(100, Math.round(positiveNumber(contract.duration) || pricing.days || defaultSuggestionLeaseDays())));
+      const days = Math.max(
+        1,
+        Math.min(
+          100,
+          Math.round(
+            positiveNumber(contract.duration) || pricing.days || defaultSuggestionLeaseDays()
+          )
+        )
+      );
       const marketDaily = moneyNumber(pricing.averageDaily || pricing.medianDaily);
       const roiDaily = moneyNumber(pricing.targetDaily);
       const pricingFields = {
@@ -4212,7 +6001,8 @@
         pricingUseRoi: Boolean(roiDaily && !marketDaily),
       };
       const daily = propertyPricingDaily(pricingFields) || moneyNumber(contract.daily);
-      const projectedRoi = daily && pricing.investmentBasis ? roiPercent(daily * 365, pricing.investmentBasis) : "";
+      const projectedRoi =
+        daily && pricing.investmentBasis ? roiPercent(daily * 365, pricing.investmentBasis) : "";
       return {
         days: String(days),
         total: daily ? String(Math.round(daily * days)) : "",
@@ -4221,7 +6011,9 @@
         projectedRoi: String(projectedRoi || ""),
         investmentBasis: String(pricing.investmentBasis || ""),
         marketListings: String(pricing.listings || 0),
-        marketBasis: pricing.listings ? `Market average for ${property.name}` : "Current contract rate fallback; refresh the rental market for an average",
+        marketBasis: pricing.listings
+          ? `Market average for ${property.name}`
+          : "Current contract rate fallback; refresh the rental market for an average",
         marketConfidence: pricing.confidence,
         lastContractDays: String(contract.duration || ""),
         currentContractDaily: String(contract.daily || ""),
@@ -4240,11 +6032,14 @@
     action.previewMessage = "";
     render();
     try {
-      const options = await tornPropertyPost(tornPropertyActionFields("upkeep", "preview", action.propertyId));
+      const options = await tornPropertyPost(
+        tornPropertyActionFields("upkeep", "preview", action.propertyId)
+      );
       if (propertyAction !== action) return;
       const upkeep = parseTornUpkeepOptions(options.text, action.propertyId);
       const due = Number(upkeep.due);
-      const availableCash = due > 0 ? Number(await tornPropertyCashAvailable(action.propertyId)) : 0;
+      const availableCash =
+        due > 0 ? Number(await tornPropertyCashAvailable(action.propertyId)) : 0;
       if (propertyAction !== action) return;
       action.fields = {
         due: upkeep.due,
@@ -4252,6 +6047,12 @@
         pay: due > 0 && availableCash > 0 ? String(Math.min(due, availableCash)) : "",
         requiredText: upkeep.requiredText,
       };
+      const previous = propertyActionOverrides.get(action.propertyId) || {};
+      propertyActionOverrides.set(action.propertyId, {
+        ...previous,
+        upkeepBalance: due,
+      });
+      recordUpkeepCheck(action.propertyId);
       action.busy = false;
       action.stage = due > 0 ? "form" : "clear";
       action.message = due > 0 ? "" : "Torn reports that no upkeep is currently due.";
@@ -4266,7 +6067,10 @@
   }
 
   async function openPropertyAction(kind, propertyKey, isPopup) {
-    if (isPopup) throw new Error("Property actions are disabled in the detached popup. Use Tornfolio on the active Torn properties page.");
+    if (isPopup)
+      throw new Error(
+        "Property actions are disabled in the detached popup. Use Tornfolio on the active Torn properties page."
+      );
     const model = tfModel();
     const property = model.properties.find((row) => row.key === propertyKey);
     const unavailable = propertyActionUnavailableReason(kind, property);
@@ -4288,12 +6092,14 @@
   }
 
   function tfPropertyActionsHtml(property, model, isPopup) {
-    if (property.ownership !== "mine") return "";
+    if (property.ownership !== "mine" && !property.upkeepActionAvailable) return "";
     let content = "";
     if (isPopup) {
       content = `<p>Management controls are disabled in the detached popup. Open Tornfolio on the active Torn properties page to make changes.</p>`;
     } else if (!property.id) {
       content = `<p>Sync Tornfolio to recover this property's Torn ID before managing it.</p>`;
+    } else if (property.ownership !== "mine") {
+      content = `<p>Torn's current properties page allows you to check and pay the upkeep for this property.</p><div class="tf-button-row"><button class="tf-primary" type="button" data-action="open-property-action" data-property-action="upkeep" data-property-key="${escapeAttr(property.key)}">Check upkeep</button></div>`;
     } else if (property.isCurrentHome) {
       content = `<p>This is your current home. It cannot be listed here, but you can check and pay its outstanding upkeep.</p><div class="tf-button-row"><button class="tf-primary" type="button" data-action="open-property-action" data-property-action="upkeep" data-property-key="${escapeAttr(property.key)}">Check upkeep</button></div>`;
     } else if (property.listed) {
@@ -4306,9 +6112,10 @@
       content = `<p>Torn reports this property as rented, but the active contract is not available yet. Sync before changing its rental details.</p><div class="tf-button-row"><button type="button" data-action="open-property-action" data-property-action="upkeep" data-property-key="${escapeAttr(property.key)}">Check upkeep</button></div>`;
     } else {
       const suggestion = tfSuggestionForProperty(model, property);
-      const hint = suggestion && suggestion.suggestedDaily
-        ? ` Latest rental suggestion: ${tfMoney(suggestion.suggestedDaily, " / day")}.`
-        : "";
+      const hint =
+        suggestion && suggestion.suggestedDaily
+          ? ` Latest rental suggestion: ${tfMoney(suggestion.suggestedDaily, " / day")}.`
+          : "";
       content = `<p>This property is available.${escapeHtml(hint)} Tornfolio will ask for review before sending a final request.</p><div class="tf-button-row"><button class="tf-primary" type="button" data-action="open-property-action" data-property-action="rent" data-property-key="${escapeAttr(property.key)}">List for rent</button><button type="button" data-action="open-property-action" data-property-action="sale" data-property-key="${escapeAttr(property.key)}">List for sale</button><button type="button" data-action="open-property-action" data-property-action="upkeep" data-property-key="${escapeAttr(property.key)}">Check upkeep</button></div>`;
     }
     const upkeepStatus = Number.isFinite(property.upkeepBalance)
@@ -4318,7 +6125,15 @@
   }
 
   function propertyActionTitle(kind) {
-    return { rent: "List for rent", sale: "List for sale", remove: "Remove listing", extend: "Offer rental extension", upkeep: "Pay property upkeep" }[kind] || "Manage property";
+    return (
+      {
+        rent: "List for rent",
+        sale: "List for sale",
+        remove: "Remove listing",
+        extend: "Offer rental extension",
+        upkeep: "Pay property upkeep",
+      }[kind] || "Manage property"
+    );
   }
 
   function tfPropertyActionSummary(action) {
@@ -4327,7 +6142,8 @@
       const roi = calculation.projectedRoi || action.fields.projectedRoi;
       return `<div class="tf-action-summary"><div><span>Lease length</span><strong>${tfNumber(action.fields.days)} days</strong></div><div><span>Total rent</span><strong>${escapeHtml(tfMoney(action.fields.total))}</strong></div><div><span>Rent / day</span><strong>${escapeHtml(tfMoney(calculation.daily))}</strong></div><div><span>Projected annual ROI</span><strong>${roi ? `${escapeHtml(String(roi))}%` : "Unavailable"}</strong></div></div>`;
     }
-    if (action.kind === "sale") return `<div class="tf-action-summary"><div><span>Sale price</span><strong>${escapeHtml(tfMoney(action.fields.price))}</strong></div></div>`;
+    if (action.kind === "sale")
+      return `<div class="tf-action-summary"><div><span>Sale price</span><strong>${escapeHtml(tfMoney(action.fields.price))}</strong></div></div>`;
     if (action.kind === "extend") {
       const calculation = rentalListingCalculation(action.fields);
       const roi = calculation.projectedRoi || action.fields.projectedRoi;
@@ -4345,15 +6161,18 @@
   }
 
   function tfPropertyActionFormHtml(action) {
-    const error = action.error ? `<p class="tf-action-error" role="alert">${escapeHtml(action.error)}</p>` : "";
+    const error = action.error
+      ? `<p class="tf-action-error" role="alert">${escapeHtml(action.error)}</p>`
+      : "";
     if (action.kind === "upkeep") {
       const due = Number(action.fields.due || 0);
       const availableCash = Number(action.fields.availableCash || 0);
       const maximumPayment = Math.min(due, availableCash);
       const shortfall = Math.max(0, due - availableCash);
-      const warning = shortfall > 0
-        ? `<p class="tf-action-note">You are ${escapeHtml(tfMoneyKnown(shortfall))} short of the full upkeep balance. Tornfolio will not sell stocks, withdraw investments, or move money automatically. You may make a partial payment now, or get cash manually and check again.</p>`
-        : `<p class="tf-action-ok">Your current cash can cover the full upkeep balance.</p>`;
+      const warning =
+        shortfall > 0
+          ? `<p class="tf-action-note">You are ${escapeHtml(tfMoneyKnown(shortfall))} short of the full upkeep balance. Tornfolio will not sell stocks, withdraw investments, or move money automatically. You may make a partial payment now, or get cash manually and check again.</p>`
+          : `<p class="tf-action-ok">Your current cash can cover the full upkeep balance.</p>`;
       const disabled = action.busy || maximumPayment < 1;
       return `<form class="tf-action-form" data-form="property-action"><div class="tf-action-summary"><div><span>Outstanding upkeep</span><strong>${escapeHtml(tfMoneyKnown(due))}</strong></div><div><span>Cash on hand</span><strong>${escapeHtml(tfMoneyKnown(availableCash))}</strong></div><div><span>Maximum payment now</span><strong>${escapeHtml(tfMoneyKnown(maximumPayment))}</strong></div></div><label>Payment amount<input type="text" inputmode="numeric" name="pay" min="1" max="${escapeAttr(maximumPayment)}" value="${escapeAttr(action.fields.pay || "")}" placeholder="Amount to pay" required${disabled ? " disabled" : ""}></label>${warning}${error}<p class="tf-action-note">Reviewing this amount is local only. The separate final confirmation is the only step that pays Torn.</p><div class="tf-button-row"><button class="tf-primary" type="submit"${disabled ? " disabled" : ""}>Review payment</button><button type="button" data-action="retry-upkeep-check"${action.busy ? " disabled" : ""}>Check again</button><button type="button" data-action="close-property-action"${action.busy ? " disabled" : ""}>Cancel</button></div></form>`;
     }
@@ -4377,13 +6196,16 @@
           ? "Market pricing available"
           : "ROI fallback";
       const sourceClass = action.fields.hasMarketData ? "tf-action-ok" : "tf-action-note";
-      const pricingMode = useMarket && useRoi ? "Market + ROI" : useMarket ? "Market" : useRoi ? "ROI" : "Fallback";
+      const pricingMode =
+        useMarket && useRoi ? "Market + ROI" : useMarket ? "Market" : useRoi ? "ROI" : "Fallback";
       const sourceText = suggestedDaily
         ? isExtension
           ? `${pricingMode} pricing. ${action.fields.marketBasis || "Market average for this property"}. ${action.fields.lastContractDays ? `The current contract period is ${action.fields.lastContractDays} days. ` : ""}${action.fields.marketConfidence || "Unknown"} confidence.`
           : `${pricingMode} pricing. ${action.fields.marketBasis || "Market and ROI suggestion"}. Target ROI ${targetRoi}%; ${action.fields.marketConfidence || "Unknown"} confidence.`
         : `No defensible ${isExtension ? "market average" : "rental suggestion"} is available yet. Refresh the rental market and confirm the property's investment basis before continuing.`;
-      const automaticPrice = suggestedDaily ? tfMoney(suggestedDaily, " / day") : "the latest matched market rate";
+      const automaticPrice = suggestedDaily
+        ? tfMoney(suggestedDaily, " / day")
+        : "the latest matched market rate";
       const pricingControls = `<div class="tf-pricing-source" role="group" aria-label="Choose pricing sources"><button type="button" data-pricing-source="market" class="${useMarket ? "is-active" : ""}" aria-pressed="${useMarket ? "true" : "false"}"${marketDaily ? "" : " disabled"}>Market<span>${escapeHtml(tfMoney(marketDaily, " / day"))}</span></button><button type="button" data-pricing-source="roi" class="${useRoi ? "is-active" : ""}" aria-pressed="${useRoi ? "true" : "false"}"${roiDaily ? "" : " disabled"}>ROI<span>${escapeHtml(tfMoney(roiDaily, " / day"))}</span></button></div>`;
       return `<form class="tf-action-form" data-form="property-action"><div class="tf-action-summary"><div><span>${isExtension ? "Selected rate / day" : "Suggested rent / day"}</span><strong data-rent-form-suggested>${escapeHtml(tfMoney(suggestedDaily))}</strong></div><div><span>${isExtension ? "Extension total" : "Contract total"}</span><strong data-rent-form-total>${escapeHtml(tfMoney(calculation.total))}</strong></div><div><span>Projected annual ROI</span><strong data-rent-form-roi>${projectedRoi ? `${escapeHtml(String(projectedRoi))}%` : "Unavailable"}</strong></div><div><span>Pricing evidence</span><strong data-rent-pricing-mode>${escapeHtml(pricingMode)} · ${escapeHtml(marketStatus)}</strong></div></div><div class="tf-action-fields"><label>${isExtension ? "Extension period (days)" : "Lease length (days)"}<input type="number" min="${isExtension ? "1" : "3"}" max="100" step="1" name="days" value="${escapeAttr(action.fields.days || "")}" required></label><div class="tf-price-field"><span>${isExtension ? "Extension cost" : "Total contract rent"}</span>${pricingControls}<input type="text" inputmode="numeric" name="total" value="${escapeAttr(action.fields.total || "")}" placeholder="Calculated from selected pricing" required></div></div>${error}<p class="${sourceClass}" data-rent-pricing-source-text>${escapeHtml(sourceText)}</p><p class="tf-action-note">Choose Market, ROI, or both above the amount. Changing the ${isExtension ? "extension" : "lease"} period automatically recalculates the total from ${escapeHtml(automaticPrice)}. You can still edit the total manually; changing the period or pricing source recalculates it.</p><div class="tf-button-row"><button class="tf-primary" type="submit"${action.busy ? " disabled" : ""}>${action.busy ? "Checking with Torn…" : "Review with Torn"}</button><button type="button" data-action="close-property-action"${action.busy ? " disabled" : ""}>Cancel</button></div></form>`;
     }
@@ -4395,15 +6217,19 @@
 
   function updateRentalListingForm(form, recalculateFromSuggestion = false) {
     const action = propertyAction;
-    if (!action || !["rent", "extend"].includes(action.kind) || action.stage !== "form" || !form) return;
+    if (!action || !["rent", "extend"].includes(action.kind) || action.stage !== "form" || !form)
+      return;
     const daysField = form.elements.days;
     const totalField = form.elements.total;
     if (!daysField || !totalField) return;
-    const calculation = rentalListingCalculation({
-      ...action.fields,
-      days: daysField.value,
-      total: totalField.value,
-    }, recalculateFromSuggestion);
+    const calculation = rentalListingCalculation(
+      {
+        ...action.fields,
+        days: daysField.value,
+        total: totalField.value,
+      },
+      recalculateFromSuggestion
+    );
     if (recalculateFromSuggestion && calculation.total) totalField.value = calculation.total;
     action.fields.days = String(daysField.value || "");
     action.fields.total = String(totalField.value || "");
@@ -4412,16 +6238,23 @@
     const roiOutput = form.querySelector("[data-rent-form-roi]");
     const suggestedOutput = form.querySelector("[data-rent-form-suggested]");
     if (totalOutput) totalOutput.textContent = tfMoney(calculation.total);
-    if (roiOutput) roiOutput.textContent = calculation.projectedRoi ? `${calculation.projectedRoi}%` : "Unavailable";
+    if (roiOutput)
+      roiOutput.textContent = calculation.projectedRoi
+        ? `${calculation.projectedRoi}%`
+        : "Unavailable";
     if (suggestedOutput) suggestedOutput.textContent = tfMoney(action.fields.suggestedDaily);
   }
 
   function updateRentalPricingSource(form, source) {
     const action = propertyAction;
-    if (!action || !["rent", "extend"].includes(action.kind) || !["market", "roi"].includes(source)) return;
+    if (!action || !["rent", "extend"].includes(action.kind) || !["market", "roi"].includes(source))
+      return;
     const field = source === "market" ? "pricingUseMarket" : "pricingUseRoi";
     const otherField = source === "market" ? "pricingUseRoi" : "pricingUseMarket";
-    const available = source === "market" ? moneyNumber(action.fields.marketDaily) : moneyNumber(action.fields.roiDaily);
+    const available =
+      source === "market"
+        ? moneyNumber(action.fields.marketDaily)
+        : moneyNumber(action.fields.roiDaily);
     if (!available) return;
     const next = !action.fields[field];
     if (!next && !action.fields[otherField]) return;
@@ -4430,22 +6263,28 @@
     updateRentalListingForm(form, true);
 
     form.querySelectorAll("[data-pricing-source]").forEach((button) => {
-      const selected = button.dataset.pricingSource === "market" ? Boolean(action.fields.pricingUseMarket) : Boolean(action.fields.pricingUseRoi);
+      const selected =
+        button.dataset.pricingSource === "market"
+          ? Boolean(action.fields.pricingUseMarket)
+          : Boolean(action.fields.pricingUseRoi);
       button.classList.toggle("is-active", selected);
       button.setAttribute("aria-pressed", selected ? "true" : "false");
     });
-    const mode = action.fields.pricingUseMarket && action.fields.pricingUseRoi
-      ? "Market + ROI"
-      : action.fields.pricingUseMarket
-        ? "Market"
-        : "ROI";
+    const mode =
+      action.fields.pricingUseMarket && action.fields.pricingUseRoi
+        ? "Market + ROI"
+        : action.fields.pricingUseMarket
+          ? "Market"
+          : "ROI";
     const listings = Number(action.fields.marketListings || 0);
     const modeOutput = form.querySelector("[data-rent-pricing-mode]");
-    if (modeOutput) modeOutput.textContent = listings
-      ? `${mode} · ${listings.toLocaleString()} comparable listing${listings === 1 ? "" : "s"}`
-      : `${mode} pricing`;
+    if (modeOutput)
+      modeOutput.textContent = listings
+        ? `${mode} · ${listings.toLocaleString()} comparable listing${listings === 1 ? "" : "s"}`
+        : `${mode} pricing`;
     const sourceOutput = form.querySelector("[data-rent-pricing-source-text]");
-    if (sourceOutput) sourceOutput.textContent = `${mode} pricing selected. Changing the period uses ${tfMoney(action.fields.suggestedDaily, " / day")}.`;
+    if (sourceOutput)
+      sourceOutput.textContent = `${mode} pricing selected. Changing the period uses ${tfMoney(action.fields.suggestedDaily, " / day")}.`;
   }
 
   function tfPropertyActionModalHtml(model) {
@@ -4453,12 +6292,14 @@
     if (!action) return "";
     const property = model.properties.find((row) => row.key === action.propertyKey);
     const title = propertyActionTitle(action.kind);
-    if (!property) return `<div class="tlt-modal-backdrop tf-modal-backdrop tf-action-backdrop" data-action="close-property-action"><div class="tlt-modal tf-modal tf-action-modal" data-modal-stop>${tfEmpty("Property unavailable", "Sync Tornfolio and try again.", `<button type="button" data-action="close-property-action">Close</button>`)}</div></div>`;
+    if (!property)
+      return `<div class="tlt-modal-backdrop tf-modal-backdrop tf-action-backdrop" data-action="close-property-action"><div class="tlt-modal tf-modal tf-action-modal" data-modal-stop>${tfEmpty("Property unavailable", "Sync Tornfolio and try again.", `<button type="button" data-action="close-property-action">Close</button>`)}</div></div>`;
     let body = "";
     if (action.stage === "success") {
-      const detail = action.kind === "upkeep"
-        ? `Tornfolio recorded ${tfMoneyKnown(action.fields.remaining || 0)} outstanding for this session. Check upkeep again whenever you want a fresh balance from Torn.`
-        : "The local card has been updated for this session. Use Sync Now when you want Tornfolio to rebuild its authoritative property and history data.";
+      const detail =
+        action.kind === "upkeep"
+          ? `Tornfolio recorded ${tfMoneyKnown(action.fields.remaining || 0)} outstanding for this session. Check upkeep again whenever you want a fresh balance from Torn.`
+          : "The local card has been updated for this session. Use Sync Now when you want Tornfolio to rebuild its authoritative property and history data.";
       body = `<div class="tf-action-success"><strong>Confirmed by Torn</strong><p>${escapeHtml(action.message)}</p><p>${escapeHtml(detail)}</p><button class="tf-primary" type="button" data-action="close-property-action">Done</button></div>`;
     } else if (action.stage === "loading") {
       body = `<div class="tf-action-success"><strong>Checking Torn…</strong><p>Reading this property's current upkeep balance and your available cash. No payment is being made.</p></div>`;
@@ -4469,9 +6310,22 @@
     } else if (action.stage === "form") {
       body = tfPropertyActionFormHtml(action);
     } else {
-      const error = action.error ? `<p class="tf-action-error" role="alert">${escapeHtml(action.error)}</p>` : "";
-      const preview = action.previewMessage ? `<p class="tf-action-ok">${escapeHtml(action.previewMessage)}</p>` : "";
-      const finalLabel = action.kind === "remove" ? "Remove listing" : action.kind === "extend" ? "Send extension offer" : action.kind === "sale" ? "Create sale listing" : action.kind === "upkeep" ? "Pay upkeep" : "Create rental listing";
+      const error = action.error
+        ? `<p class="tf-action-error" role="alert">${escapeHtml(action.error)}</p>`
+        : "";
+      const preview = action.previewMessage
+        ? `<p class="tf-action-ok">${escapeHtml(action.previewMessage)}</p>`
+        : "";
+      const finalLabel =
+        action.kind === "remove"
+          ? "Remove listing"
+          : action.kind === "extend"
+            ? "Send extension offer"
+            : action.kind === "sale"
+              ? "Create sale listing"
+              : action.kind === "upkeep"
+                ? "Pay upkeep"
+                : "Create rental listing";
       body = `${preview}${tfPropertyActionSummary(action)}${error}<p class="tf-action-note">This final click sends one property-changing request to Torn. Tornfolio will not retry it automatically.</p><div class="tf-button-row"><button class="${action.kind === "remove" ? "tf-danger" : "tf-primary"}" type="button" data-action="confirm-property-action"${action.busy ? " disabled" : ""}>${action.busy ? "Waiting for Torn…" : finalLabel}</button>${action.kind === "remove" ? "" : `<button type="button" data-action="edit-property-action"${action.busy ? " disabled" : ""}>Back</button>`}<button type="button" data-action="close-property-action"${action.busy ? " disabled" : ""}>Cancel</button></div>`;
     }
     return `<div class="tlt-modal-backdrop tf-modal-backdrop tf-action-backdrop" data-action="close-property-action"><div class="tlt-modal tf-modal tf-action-modal" role="dialog" aria-modal="true" aria-label="${escapeAttr(title)}" data-modal-stop><div class="tlt-modal-head"><div><strong>${escapeHtml(title)}</strong><span>${escapeHtml(property.name)} · Property #${escapeHtml(property.id)}</span></div><button class="tf-icon-button" type="button" data-action="close-property-action" aria-label="Close property action"${action.busy ? " disabled" : ""}>${tfIcon("close")}</button></div><div class="tf-action-body">${body}</div></div></div>`;
@@ -4491,12 +6345,23 @@
       const payment = Number(finalFields.pay);
       const due = Number(action.fields.due || 0);
       const availableCash = Number(action.fields.availableCash || 0);
-      if (payment > due) throw new Error(`The payment cannot exceed the ${tfMoneyKnown(due)} outstanding upkeep balance.`);
-      if (payment > availableCash) throw new Error(`The payment cannot exceed the ${tfMoneyKnown(availableCash)} cash Torn reported as available.`);
-      action.fields = { ...action.fields, pay: finalFields.pay, remaining: Math.max(0, due - payment) };
+      if (payment > due)
+        throw new Error(
+          `The payment cannot exceed the ${tfMoneyKnown(due)} outstanding upkeep balance.`
+        );
+      if (payment > availableCash)
+        throw new Error(
+          `The payment cannot exceed the ${tfMoneyKnown(availableCash)} cash Torn reported as available.`
+        );
+      action.fields = {
+        ...action.fields,
+        pay: finalFields.pay,
+        remaining: Math.max(0, due - payment),
+      };
       action.stage = "confirm";
       action.error = "";
-      action.previewMessage = "The balance and available cash were checked directly with Torn. No payment has been sent yet.";
+      action.previewMessage =
+        "The balance and available cash were checked directly with Torn. No payment has been sent yet.";
       render();
       return;
     }
@@ -4504,11 +6369,19 @@
     if (action.kind === "sale") {
       action.fields = { price: fields.money };
     } else if (action.kind === "rent") {
-      action.fields = { ...action.fields, days: fields.days, total: fields.money };
+      action.fields = {
+        ...action.fields,
+        days: fields.days,
+        total: fields.money,
+      };
       const calculation = rentalListingCalculation(action.fields);
       action.fields.projectedRoi = calculation.projectedRoi ? String(calculation.projectedRoi) : "";
     } else {
-      action.fields = { ...action.fields, days: fields.days, total: fields.offercost };
+      action.fields = {
+        ...action.fields,
+        days: fields.days,
+        total: fields.offercost,
+      };
       const calculation = rentalListingCalculation(action.fields);
       action.fields.projectedRoi = calculation.projectedRoi ? String(calculation.projectedRoi) : "";
     }
@@ -4520,7 +6393,8 @@
       if (propertyAction !== action) return;
       action.busy = false;
       action.stage = "confirm";
-      action.previewMessage = "Torn accepted these details for review. No final change has been sent yet.";
+      action.previewMessage =
+        "Torn accepted these details for review. No final change has been sent yet.";
       render();
     } catch (error) {
       if (propertyAction !== action) return;
@@ -4532,11 +6406,34 @@
 
   function applyPropertyActionOverride(action) {
     const previous = propertyActionOverrides.get(action.propertyId) || {};
-    if (action.kind === "rent") propertyActionOverrides.set(action.propertyId, { ...previous, rentalListed: true, saleListed: false });
-    if (action.kind === "sale") propertyActionOverrides.set(action.propertyId, { ...previous, rentalListed: false, saleListed: true });
-    if (action.kind === "remove") propertyActionOverrides.set(action.propertyId, { ...previous, rentalListed: false, saleListed: false });
-    if (action.kind === "extend") propertyActionOverrides.set(action.propertyId, { ...previous, extensionPending: true });
-    if (action.kind === "upkeep") propertyActionOverrides.set(action.propertyId, { ...previous, upkeepBalance: Number(action.fields.remaining || 0) });
+    if (action.kind === "rent")
+      propertyActionOverrides.set(action.propertyId, {
+        ...previous,
+        rentalListed: true,
+        saleListed: false,
+      });
+    if (action.kind === "sale")
+      propertyActionOverrides.set(action.propertyId, {
+        ...previous,
+        rentalListed: false,
+        saleListed: true,
+      });
+    if (action.kind === "remove")
+      propertyActionOverrides.set(action.propertyId, {
+        ...previous,
+        rentalListed: false,
+        saleListed: false,
+      });
+    if (action.kind === "extend")
+      propertyActionOverrides.set(action.propertyId, {
+        ...previous,
+        extensionPending: true,
+      });
+    if (action.kind === "upkeep")
+      propertyActionOverrides.set(action.propertyId, {
+        ...previous,
+        upkeepBalance: Number(action.fields.remaining || 0),
+      });
   }
 
   async function confirmPropertyAction(isPopup) {
@@ -4555,18 +6452,30 @@
       const response = await tornPropertyPost(fields);
       if (propertyAction !== action) return;
       if (!response.json || (response.json.success !== true && response.json.success !== 1)) {
-        throw new Error("Torn did not return an explicit success confirmation, so Tornfolio will not assume the change happened.");
+        throw new Error(
+          "Torn did not return an explicit success confirmation, so Tornfolio will not assume the change happened."
+        );
       }
       if (action.kind === "upkeep") {
-        const remainingMatch = String(response.message || "").match(/Required fees:\s*\$?([\d,]+)/i);
+        const remainingMatch = String(response.message || "").match(
+          /Required fees:\s*\$?([\d,]+)/i
+        );
         action.fields.remaining = remainingMatch
-          ? Number(propertyActionInteger(remainingMatch[1], "Remaining upkeep", 0, Number.MAX_SAFE_INTEGER))
+          ? Number(
+              propertyActionInteger(
+                remainingMatch[1],
+                "Remaining upkeep",
+                0,
+                Number.MAX_SAFE_INTEGER
+              )
+            )
           : Math.max(0, Number(action.fields.due || 0) - Number(action.fields.pay || 0));
       }
       applyPropertyActionOverride(action);
       action.busy = false;
       action.stage = "success";
-      action.message = response.message || `${propertyActionTitle(action.kind)} completed successfully.`;
+      action.message =
+        response.message || `${propertyActionTitle(action.kind)} completed successfully.`;
       render();
       setStatus(action.message);
     } catch (error) {
@@ -4581,7 +6490,9 @@
   function tfRentalIncomeEvidenceDetail(property) {
     const evidence = property && property.rentalIncomeEvidence;
     if (!evidence) return "";
-    const rentLabel = evidence.currentListing ? "Current listing rent / day" : "Last listed rent / day";
+    const rentLabel = evidence.currentListing
+      ? "Current listing rent / day"
+      : "Last listed rent / day";
     const observed = evidence.observedAt ? tfRelative(evidence.observedAt) : "Unavailable";
     const estimateNote = evidence.estimatedContract
       ? `<p class="tf-action-note">Torn did not expose the spouse's private contract amount. This is the last observed asking rent, not a confirmed contract rate.</p>`
@@ -4593,36 +6504,64 @@
     const detail = state.detailView || {};
     if (detail.kind === "property") {
       const property = model.properties.find((row) => row.key === detail.id);
-      if (!property) return tfMissingDetailModal("Property unavailable", "That property is not present in the latest portfolio data.");
-      const history = model.archive.filter((row) => row.propertyId && row.propertyId === property.id);
+      if (!property)
+        return tfMissingDetailModal(
+          "Property unavailable",
+          "That property is not present in the latest portfolio data."
+        );
+      const history = model.archive.filter(
+        (row) => row.propertyId && row.propertyId === property.id
+      );
       const contracts = model.activeRentals.filter((row) => row.propertyKey === property.key);
-      return `<div class="tlt-modal-backdrop tf-modal-backdrop" data-action="close-detail"><div class="tlt-modal tf-modal tf-detail-modal" role="dialog" aria-modal="true" aria-label="Property details" data-modal-stop><div class="tlt-modal-head"><div><strong>${escapeHtml(property.name)}</strong><span>${property.id ? `Property #${escapeHtml(property.id)} · ` : ""}${escapeHtml(property.type)}</span></div><button class="tf-icon-button" type="button" data-action="close-detail" aria-label="Close property details">${tfIcon("close")}</button></div><div class="tf-detail-body">${property.image ? `<img class="tf-detail-image" src="${escapeAttr(property.image)}" alt="${escapeAttr(property.type)}">` : ""}<div class="tf-badges">${tfOwnershipBadge(property.ownership)}${tfStatusBadge(property.status)}</div><div class="tf-detail-grid"><div><span>Owner</span><strong>${escapeHtml(property.owner)}</strong></div><div><span>Happiness</span><strong>${property.happy ? tfNumber(property.happy) : "Unavailable"}</strong></div><div><span>Known Upgrades</span><strong>${property.upgrades.length ? property.upgrades.length : "Unavailable"}</strong></div><div><span>Residents</span><strong>${escapeHtml(property.residents.join(", ") || "Unavailable")}</strong></div><div><span>Daily Upkeep</span><strong>${escapeHtml(tfMoney(property.upkeep))}</strong></div><div><span>Market Value</span><strong>${escapeHtml(tfMoney(property.marketValue))}</strong></div><div><span>Investment Basis</span><strong>${escapeHtml(tfMoney(property.investment))}</strong></div><div><span>Market listing</span><strong>${escapeHtml(tfPropertyListingLabel(property))}</strong></div></div>${tfRentalIncomeEvidenceDetail(property)}${tfPropertyActionsHtml(property, model, isPopup)}<section><h2>Lifecycle Snapshot</h2>${tfLifecycleSnapshot(property.lifecycle)}</section>${property.upgrades.length ? `<section><h2>Upgrades / Modifications</h2><div class="tf-chip-list">${property.upgrades.map((value) => `<span>${escapeHtml(value)}</span>`).join("")}</div></section>` : ""}<section><h2>Current Rental</h2>${contracts.length ? contracts.map(tfRentalCard).join("") : tfEmpty("No active rental", "This property has no active rental contract in the latest data.")}</section><section><h2>Property Journey</h2>${tfPropertyJourney(property.id)}</section><section><h2>Rental History</h2>${history.length ? history.map(tfArchiveCard).join("") : tfEmpty("No rental history", "Archived contracts for this property will appear after history has been synced.")}</section></div></div></div>`;
+      return `<div class="tlt-modal-backdrop tf-modal-backdrop" data-action="close-detail"><div class="tlt-modal tf-modal tf-detail-modal" role="dialog" aria-modal="true" aria-label="Property details" data-modal-stop><div class="tlt-modal-head"><div><strong>${escapeHtml(property.name)}</strong><span>${property.id ? `Property #${escapeHtml(property.id)} · ` : ""}${escapeHtml(property.type)}</span></div><button class="tf-icon-button" type="button" data-action="close-detail" aria-label="Close property details">${tfIcon("close")}</button></div><div class="tf-detail-body">${property.image ? `<img class="tf-detail-image" src="${escapeAttr(property.image)}" alt="${escapeAttr(property.type)}">` : ""}<div class="tf-badges">${tfOwnershipBadge(property.ownership)}${tfStatusBadge(property.status)}${tfUpkeepBadge(property)}</div><div class="tf-detail-grid"><div><span>Owner</span><strong>${escapeHtml(property.owner)}</strong></div><div><span>Happiness</span><strong>${property.happy ? tfNumber(property.happy) : "Unavailable"}</strong></div><div><span>Known Upgrades</span><strong>${property.upgrades.length ? property.upgrades.length : "Unavailable"}</strong></div><div><span>Residents</span><strong>${escapeHtml(property.residents.join(", ") || "Unavailable")}</strong></div><div><span>Daily Upkeep</span><strong>${escapeHtml(tfMoney(property.upkeep))}</strong></div><div><span>Market Value</span><strong>${escapeHtml(tfMoney(property.marketValue))}</strong></div><div><span>Investment Basis</span><strong>${escapeHtml(tfMoney(property.investment))}</strong></div><div><span>Market listing</span><strong>${escapeHtml(tfPropertyListingLabel(property))}</strong></div></div>${tfRentalIncomeEvidenceDetail(property)}${tfPropertyActionsHtml(property, model, isPopup)}<section><h2>Lifecycle Snapshot</h2>${tfLifecycleSnapshot(property.lifecycle)}</section>${property.upgrades.length ? `<section><h2>Upgrades / Modifications</h2><div class="tf-chip-list">${property.upgrades.map((value) => `<span>${escapeHtml(value)}</span>`).join("")}</div></section>` : ""}<section><h2>Current Rental</h2>${contracts.length ? contracts.map(tfRentalCard).join("") : tfEmpty("No active rental", "This property has no active rental contract in the latest data.")}</section><section><h2>Property Journey</h2>${tfPropertyJourney(property.id)}</section><section><h2>Rental History</h2>${history.length ? history.map(tfArchiveCard).join("") : tfEmpty("No rental history", "Archived contracts for this property will appear after history has been synced.")}</section></div></div></div>`;
     }
     if (detail.kind === "rental") {
       const contract = model.activeRentals.find((row) => row.contractId === detail.id);
-      if (!contract) return tfMissingDetailModal("Rental unavailable", "That active contract is no longer present.");
+      if (!contract)
+        return tfMissingDetailModal(
+          "Rental unavailable",
+          "That active contract is no longer present."
+        );
       return tfContractDetailModal(contract, "Active Rental", model, isPopup);
     }
     if (detail.kind === "archive") {
       const contract = model.archive.find((row) => row.contractId === detail.id);
-      if (!contract) return tfMissingDetailModal("Archive record unavailable", "That archived record is no longer present.");
-      return tfContractDetailModal({ ...contract, propertyKey: contract.propertyId ? `property:${contract.propertyId}` : "", remaining: "", daily: contract.daily, total: contract.total, direction: contract.ownership === "third-party" ? "from" : "out" }, "Archived Rental", model, isPopup);
+      if (!contract)
+        return tfMissingDetailModal(
+          "Archive record unavailable",
+          "That archived record is no longer present."
+        );
+      return tfContractDetailModal(
+        {
+          ...contract,
+          propertyKey: contract.propertyId ? `property:${contract.propertyId}` : "",
+          remaining: "",
+          daily: contract.daily,
+          total: contract.total,
+          direction: contract.ownership === "third-party" ? "from" : "out",
+        },
+        "Archived Rental",
+        model,
+        isPopup
+      );
     }
     return "";
   }
 
   function tfContractDetailModal(contract, title, model, isPopup = false) {
     const property = model && model.properties.find((row) => row.key === contract.propertyKey);
-    const extensionReason = title === "Active Rental" && contract.direction === "out" && property
-      ? propertyActionUnavailableReason("extend", property)
-      : "";
-    const extensionAction = title === "Active Rental" && contract.direction === "out" && property
-      ? isPopup
-        ? `<p class="tf-action-note">Open Tornfolio on the active Torn properties page to offer an extension.</p>`
-        : extensionReason
-          ? `<p class="tf-action-note">${escapeHtml(extensionReason)}</p>`
-          : `<button class="tf-primary" type="button" data-action="open-property-action" data-property-action="extend" data-property-key="${escapeAttr(property.key)}">Offer extension</button>`
-      : "";
+    const extensionReason =
+      title === "Active Rental" && contract.direction === "out" && property
+        ? propertyActionUnavailableReason("extend", property)
+        : "";
+    const extensionAction =
+      title === "Active Rental" && contract.direction === "out" && property
+        ? isPopup
+          ? `<p class="tf-action-note">Open Tornfolio on the active Torn properties page to offer an extension.</p>`
+          : extensionReason
+            ? `<p class="tf-action-note">${escapeHtml(extensionReason)}</p>`
+            : `<button class="tf-primary" type="button" data-action="open-property-action" data-property-action="extend" data-property-key="${escapeAttr(property.key)}">Offer extension</button>`
+        : "";
     const estimatedNote = contract.dailyEstimated
       ? `<section><h2>Spouse income estimate</h2><p class="tf-action-note">Torn did not expose the spouse's private contract amount. This uses the last observed asking rent, not a confirmed contract rate.</p></section>`
       : "";
@@ -4661,6 +6600,8 @@
         height: min(900px, calc(100vh - 88px));
         min-width: 700px;
         min-height: 560px;
+        container-type: inline-size;
+        container-name: tornfolio;
         color: var(--tf-text);
         font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
         font-size: 13px;
@@ -4680,6 +6621,8 @@
       }
       #${APP_ID}.is-popup .tf-shell { height: 100%; border-radius: 0; }
       #${APP_ID} .tf-launcher { background: #073546; border-color: var(--tf-teal); color: var(--tf-text); }
+      #${APP_ID} .tf-launcher.has-alert { display: inline-flex; align-items: center; gap: 6px; border-color: var(--tf-red); }
+      #${APP_ID} .tf-launcher-alert { display: inline-grid; place-items: center; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 99px; background: var(--tf-red); color: #fff; font-size: 10px; font-weight: 800; line-height: 18px; }
       #${APP_ID} .tf-header {
         display: flex; align-items: center; gap: 20px; flex: 0 0 auto;
         min-height: 76px; padding: 12px 18px; border: 0; background: transparent;
@@ -4878,6 +6821,9 @@
       #${APP_ID} .tf-price-grid { display: grid; grid-template-columns: 1fr 1fr; align-content: start; gap: 7px; }
       #${APP_ID} .tf-price-grid > span { display: grid; align-content: center; gap: 3px; min-height: 48px; padding: 7px 9px; border: 1px solid rgba(74,122,143,.2); border-radius: 7px; background: rgba(4,24,34,.46); color: var(--tf-muted); font-size: 10px; }
       #${APP_ID} .tf-price-grid strong { color: var(--tf-text); font-size: 13px; overflow-wrap: anywhere; }
+      #${APP_ID} .tf-price-grid .tf-market-rank { border-color: rgba(73,169,255,.42); background: rgba(73,169,255,.09); }
+      #${APP_ID} .tf-price-grid .tf-market-rank small { color: #b9d9f6; }
+      #${APP_ID} .tf-price-grid .tf-market-rank em { color: var(--tf-muted); font-size: 9px; font-style: normal; }
       #${APP_ID} .tf-price-grid .tf-suggested { grid-column: 1 / -1; grid-template-columns: 1fr auto; align-items: center; margin-top: 1px; padding: 9px 11px; border: 1px solid rgba(20,228,186,.46); border-radius: 9px; background: linear-gradient(135deg, rgba(20,228,186,.14), rgba(20,228,186,.035)); color: var(--tf-teal); box-shadow: inset 0 0 24px rgba(20,228,186,.045); }
       #${APP_ID} .tf-price-grid .tf-suggested small { grid-column: 1; color: #b9ddd5; font-size: 10px; }
       #${APP_ID} .tf-price-grid .tf-suggested strong { grid-column: 1; color: var(--tf-teal); font-size: clamp(18px, 1.8vw, 24px); line-height: 1.05; }
@@ -5036,7 +6982,43 @@
       #${APP_ID} .tf-action-error { border: 1px solid rgba(255,117,123,.5); background: rgba(95,37,45,.45); color: #ffd2d4; }
       #${APP_ID} .tf-action-success { display: grid; gap: 10px; padding: 13px; border: 1px solid rgba(69,239,173,.45); border-radius: 9px; background: rgba(19,86,69,.25); }
       #${APP_ID} .tf-action-success > strong { color: var(--tf-green); font-size: 16px; }
+      #${APP_ID} .tf-themed-tooltip {
+        position: fixed; z-index: 1000; visibility: hidden; max-width: min(260px, calc(100vw - 24px));
+        padding: 7px 10px; border: 1px solid rgba(20,228,186,.62); border-radius: 8px;
+        background: linear-gradient(145deg, rgba(7,43,54,.98), rgba(3,22,31,.99)); color: var(--tf-text);
+        box-shadow: 0 10px 26px rgba(0,0,0,.5), 0 0 0 1px rgba(20,228,186,.08);
+        font-size: 11px; font-weight: 750; line-height: 1.3; text-align: center; pointer-events: none;
+        opacity: 0; transform: translate(-50%, -4px); transition: opacity .12s ease, transform .12s ease;
+      }
+      #${APP_ID} .tf-themed-tooltip.is-visible { visibility: visible; opacity: 1; transform: translate(-50%, 0); }
       #${APP_ID} button:disabled { opacity: .58; cursor: wait; transform: none; }
+      @container tornfolio (max-width: 760px) {
+        #${APP_ID} .tf-header { min-height: 64px; padding: 8px 10px; gap: 10px; }
+        #${APP_ID} .tf-logo { width: 38px; height: 38px; font-size: 19px; }
+        #${APP_ID} .tf-brand strong { font-size: 20px; }
+        #${APP_ID} .tf-brand small, #${APP_ID} .tf-sync-meta { display: none; }
+        #${APP_ID} .tf-header-actions { gap: 6px; }
+        #${APP_ID} .tf-update-status { width: 42px; min-width: 42px; padding: 0; }
+        #${APP_ID} .tf-update-status > span,
+        #${APP_ID} .tf-responsive-icon > .tf-button-label {
+          position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap;
+        }
+        #${APP_ID} .tf-responsive-icon { flex: 0 0 42px; width: 42px; min-width: 42px; height: 42px; min-height: 42px; padding: 0; gap: 0; }
+        #${APP_ID} .tf-nav { grid-template-columns: repeat(6, minmax(42px, 1fr)); margin: 0 8px; overflow: visible; }
+        #${APP_ID} .tf-nav button { width: auto; min-width: 0; min-height: 45px; height: 45px; padding: 0; }
+        #${APP_ID} .tf-segmented { flex: 0 0 auto; max-width: none; gap: 6px; overflow: visible; border: 0; border-radius: 0; background: transparent; }
+        #${APP_ID} .tf-segmented button { flex: 0 0 42px; border: 1px solid var(--tf-border); border-radius: 8px; }
+        #${APP_ID} .tf-segmented button:last-child { border-right: 1px solid var(--tf-border); }
+        #${APP_ID} .tf-card-actions { flex-direction: row; }
+        #${APP_ID} .tf-card-actions button.tf-responsive-icon { flex: 0 0 42px; width: 42px; min-width: 42px; }
+        #${APP_ID} .tf-card-head button.tf-card-head-action { width: 36px; min-width: 36px; height: 36px; min-height: 36px; padding: 0; }
+        #${APP_ID} .tf-sidebar .tf-card > .tf-wide.tf-responsive-icon { display: inline-flex; width: 42px; min-width: 42px; margin: 7px 6px 0 0; }
+      }
+      @container tornfolio (max-width: 520px) {
+        #${APP_ID} .tf-header { gap: 7px; }
+        #${APP_ID} .tf-header-actions { gap: 5px; }
+        #${APP_ID} .tf-brand > div { display: none; }
+      }
       @media (max-width: 1120px) {
         #${APP_ID} { min-width: 520px; }
         #${APP_ID} .tf-update-status { width: 42px; min-width: 42px; padding: 0; }
@@ -5057,10 +7039,6 @@
         #${APP_ID} .tf-logo { width: 38px; height: 38px; font-size: 19px; }
         #${APP_ID} .tf-brand strong { font-size: 20px; }
         #${APP_ID} .tf-brand small, #${APP_ID} .tf-sync-meta { display: none; }
-        #${APP_ID} .tf-sync-button { min-width: 44px; width: 44px; overflow: hidden; white-space: nowrap; }
-        #${APP_ID} .tf-nav { grid-template-columns: repeat(6, minmax(74px,1fr)); margin: 0 8px; overflow-x: auto; }
-        #${APP_ID} .tf-nav button { min-width: 78px; min-height: 45px; padding: 5px; font-size: 10px; }
-        #${APP_ID} .tf-nav button span { display: block; margin: 0; font-size: 15px; }
         #${APP_ID} .tf-content { padding: 10px 8px; }
         #${APP_ID} .tf-two-column, #${APP_ID} .tf-insights-grid, #${APP_ID} .tf-settings-body { grid-template-columns: 1fr; }
         #${APP_ID} .tf-wide-card { grid-column: auto; }
@@ -6095,7 +8073,12 @@
     }
 
     const model = tfModel();
-    root.className = ["mh-root", isPopup ? "is-popup" : (state.panelOpen ? "is-open" : "is-collapsed")].filter(Boolean).join(" ");
+    root.className = [
+      "mh-root",
+      isPopup ? "is-popup" : state.panelOpen ? "is-open" : "is-collapsed",
+    ]
+      .filter(Boolean)
+      .join(" ");
     root.dataset.mhComponent = "root";
     root.innerHTML = tfShellHtml(model, isPopup);
 
@@ -6109,12 +8092,14 @@
 
   function tabsHtml() {
     const activeTab = ensureRenderableActiveTab();
-    return allTabs().map((tab) => {
-      const isActive = activeTab === tab.id;
-      return `
-      <button type="button" role="tab" class="${isActive ? "is-active" : ""}" aria-selected="${isActive ? "true" : "false"}" tabindex="${isActive ? "0" : "-1"}" data-tab="${escapeAttr(tab.id)}">${tfIcon(tab.icon)}<span class="tf-nav-label">${escapeHtml(tab.label)}</span></button>
+    return allTabs()
+      .map((tab) => {
+        const isActive = activeTab === tab.id;
+        return `
+      <button type="button" role="tab" class="tf-responsive-icon${isActive ? " is-active" : ""}" aria-label="${escapeAttr(tab.label)}" data-tf-tooltip="${escapeAttr(tab.label)}" aria-selected="${isActive ? "true" : "false"}" tabindex="${isActive ? "0" : "-1"}" data-tab="${escapeAttr(tab.id)}">${tfIcon(tab.icon)}<span class="tf-nav-label tf-button-label">${escapeHtml(tab.label)}</span></button>
     `;
-    }).join("");
+      })
+      .join("");
   }
 
   function activeTabHtml(model, isPopup = false) {
@@ -6245,7 +8230,8 @@
     const suggestions = serverRentSuggestionRows();
     const roiSummary = serverRoiSummaryRows();
     const metadata = serverInsightsMetadata();
-    const updated = metadata.scanned_at || metadata.updatedAt || metadata.updated_at || metadata.fetchedAt || "";
+    const updated =
+      metadata.scanned_at || metadata.updatedAt || metadata.updated_at || metadata.fetchedAt || "";
     return `
       <div class="tlt-panel-grid">
         <div class="tlt-endpoint">
@@ -6277,7 +8263,12 @@
   function serverRoiSummaryRows() {
     const bodies = [endpointBody("server-insights"), endpointBody("server-sync")].filter(Boolean);
     for (const body of bodies) {
-      const rows = firstArray(body, ["roiSummary", "roi_summary", "marketSummary", "market_summary"]);
+      const rows = firstArray(body, [
+        "roiSummary",
+        "roi_summary",
+        "marketSummary",
+        "market_summary",
+      ]);
       const cleaned = cleanRoiSummaryRows(rows);
       if (cleaned.length) return cleaned;
     }
@@ -6294,7 +8285,9 @@
       const existing = byKey.get(key);
       byKey.set(key, existing ? mergeRoiSummaryRows(existing, normalized) : normalized);
     }
-    return Array.from(byKey.values()).filter((row) => roiSummaryHasUsefulData(row) || clean(row.error, ""));
+    return Array.from(byKey.values()).filter(
+      (row) => roiSummaryHasUsefulData(row) || clean(row.error, "")
+    );
   }
 
   function normalizeRoiSummaryRow(row) {
@@ -6312,12 +8305,24 @@
       normalized.sale_listings = firstValue(row.sale_listings, row.listings);
       if (!normalized.rental_listings) normalized.listings = "";
     }
-    if (!normalized.listings) normalized.listings = firstValue(normalized.rental_listings, normalized.sale_listings, row.listings);
+    if (!normalized.listings)
+      normalized.listings = firstValue(
+        normalized.rental_listings,
+        normalized.sale_listings,
+        row.listings
+      );
     return normalized;
   }
 
   function roiSummaryKey(row) {
-    const typeId = propertyTypeId(row && (row._property_type_id || row.property_type_id || row.type_id || row.property_type || row.property));
+    const typeId = propertyTypeId(
+      row &&
+        (row._property_type_id ||
+          row.property_type_id ||
+          row.type_id ||
+          row.property_type ||
+          row.property)
+    );
     const typeName = normalizeLookup(row && (row.property_type || row.property || row.name || ""));
     const happy = clean(row && (row.happy || row.avg_happy), "");
     return `${typeId || typeName || "unknown"}:${happy}`;
@@ -6337,7 +8342,10 @@
         merged[key] = next;
       }
     }
-    const error = [cleanRoiSummaryError(previous && previous.error), cleanRoiSummaryError(incoming && incoming.error)]
+    const error = [
+      cleanRoiSummaryError(previous && previous.error),
+      cleanRoiSummaryError(incoming && incoming.error),
+    ]
       .filter(Boolean)
       .filter((value, index, values) => values.indexOf(value) === index)
       .join("; ");
@@ -6390,7 +8398,13 @@
   function serverArchiveRows() {
     const bodies = [endpointBody("lease-archive"), endpointBody("server-sync")].filter(Boolean);
     for (const body of bodies) {
-      const rows = firstArray(body, ["archive", "tenancyArchive", "tenancy_archive", "leaseArchive", "lease_archive"]);
+      const rows = firstArray(body, [
+        "archive",
+        "tenancyArchive",
+        "tenancy_archive",
+        "leaseArchive",
+        "lease_archive",
+      ]);
       if (rows.length) return rows;
     }
     return [];
@@ -6408,7 +8422,13 @@
   function serverPropertyHistoryEventRows() {
     const bodies = [endpointBody("property-history"), endpointBody("server-sync")].filter(Boolean);
     for (const body of bodies) {
-      const rows = firstArray(body, ["events", "propertyHistoryEvents", "property_history_events", "propertyLogs", "property_logs"]);
+      const rows = firstArray(body, [
+        "events",
+        "propertyHistoryEvents",
+        "property_history_events",
+        "propertyLogs",
+        "property_logs",
+      ]);
       if (rows.length) return rows;
     }
     return [];
@@ -6420,12 +8440,18 @@
   }
 
   function serverHistoryMetadata() {
-    const body = endpointBody("property-history") || endpointBody("lease-archive") || endpointBody("server-sync") || {};
+    const body =
+      endpointBody("property-history") ||
+      endpointBody("lease-archive") ||
+      endpointBody("server-sync") ||
+      {};
     return body.metadata || body._metadata || {};
   }
 
   function historyEmptyMessage(metadata = {}) {
-    return clean(metadata.historyError || metadata.history_error, "") || "No property history found yet.";
+    return (
+      clean(metadata.historyError || metadata.history_error, "") || "No property history found yet."
+    );
   }
 
   function historyStatusHtml(metadata = {}) {
@@ -6433,7 +8459,8 @@
     if (error) return `<div class="tlt-result">${escapeHtml(error)}</div>`;
     const count = Number(metadata.historyEventCount || metadata.history_event_count || 0);
     const fetched = Number(metadata.historyFetchedCount || metadata.history_fetched_count || 0);
-    if (count) return `<div class="tlt-result">Property history has ${count.toLocaleString()} saved events${fetched ? `, ${fetched.toLocaleString()} refreshed now` : ""}.</div>`;
+    if (count)
+      return `<div class="tlt-result">Property history has ${count.toLocaleString()} saved events${fetched ? `, ${fetched.toLocaleString()} refreshed now` : ""}.</div>`;
     return "";
   }
 
@@ -6446,7 +8473,12 @@
       </div>
       <div class="tlt-advanced-picker">
         <select data-advanced-endpoint>
-          ${advancedEndpoints().map((item) => `<option value="${escapeAttr(item.id)}"${item.id === endpoint.id ? " selected" : ""}>${escapeHtml(item.label)}</option>`).join("")}
+          ${advancedEndpoints()
+            .map(
+              (item) =>
+                `<option value="${escapeAttr(item.id)}"${item.id === endpoint.id ? " selected" : ""}>${escapeHtml(item.label)}</option>`
+            )
+            .join("")}
         </select>
         <span class="tlt-muted">Choose one tool at a time so the page stays readable.</span>
       </div>
@@ -6463,7 +8495,12 @@
   function selectedAdvancedEndpoint() {
     const endpoints = advancedEndpoints();
     const selected = endpoints.find((endpoint) => endpoint.id === state.advancedEndpointId);
-    return selected || endpoints.find((endpoint) => endpoint.id === ADVANCED_DEFAULT_ENDPOINT) || endpoints[0] || ENDPOINTS[0];
+    return (
+      selected ||
+      endpoints.find((endpoint) => endpoint.id === ADVANCED_DEFAULT_ENDPOINT) ||
+      endpoints[0] ||
+      ENDPOINTS[0]
+    );
   }
 
   function inventoryRows() {
@@ -6484,13 +8521,20 @@
       }
     }
 
-    for (const [sourceLabel, body] of [["Current property", endpointBody("user-property")], ["Lookup current property", endpointBody("user-id-property")]]) {
+    for (const [sourceLabel, body] of [
+      ["Current property", endpointBody("user-property")],
+      ["Lookup current property", endpointBody("user-id-property")],
+    ]) {
       const property = currentPropertyFromBody(body);
       if (!property) continue;
       const key = `${property.id || property.property_id || ""}:${formatObject(property.owner || {})}:${propertyName(property.property) || propertyName(property)}`;
       if (seen.has(key)) continue;
       seen.add(key);
-      rows.push({ _source: sourceLabel, ...property, lease_status: currentPropertyLeaseStatus(property).label });
+      rows.push({
+        _source: sourceLabel,
+        ...property,
+        lease_status: currentPropertyLeaseStatus(property).label,
+      });
     }
 
     return rows;
@@ -6509,9 +8553,11 @@
   }
 
   function bestRoiRow(rows) {
-    return rows
-      .filter((row) => Number.isFinite(Number(row.landlord_roi_market)))
-      .sort((a, b) => Number(b.landlord_roi_market) - Number(a.landlord_roi_market))[0] || null;
+    return (
+      rows
+        .filter((row) => Number.isFinite(Number(row.landlord_roi_market)))
+        .sort((a, b) => Number(b.landlord_roi_market) - Number(a.landlord_roi_market))[0] || null
+    );
   }
 
   function rentSuggestionsHtml() {
@@ -6532,11 +8578,13 @@
   function rentSuggestionRows() {
     const owned = myOwnedPropertyRows();
     const summaries = rentalSummaryByTypeId();
-    return owned.map((row) => rentSuggestionRow(row, summaries)).sort((a, b) => {
-      const statusA = clean(a.status, "");
-      const statusB = clean(b.status, "");
-      return statusA.localeCompare(statusB) || clean(a.property).localeCompare(clean(b.property));
-    });
+    return owned
+      .map((row) => rentSuggestionRow(row, summaries))
+      .sort((a, b) => {
+        const statusA = clean(a.status, "");
+        const statusB = clean(b.status, "");
+        return statusA.localeCompare(statusB) || clean(a.property).localeCompare(clean(b.property));
+      });
   }
 
   function myOwnedPropertyRows() {
@@ -6544,7 +8592,7 @@
     const direct = propertiesFromBody(ownedBody);
     if (direct.length) return direct;
 
-    const myId = keyInfoUserId(state.keyInfo) || ((state.endpointInputs || {}).userId);
+    const myId = keyInfoUserId(state.keyInfo) || (state.endpointInputs || {}).userId;
     const myName = profileInfo() && profileInfo().name;
     return inventoryRows().filter((row) => {
       if (!row || !row.owner) return false;
@@ -6559,7 +8607,12 @@
   function rentalSummaryByTypeId() {
     const body = endpointBody("roi-scanner") || {};
     const summary = Array.isArray(body.summary) ? body.summary : [];
-    return new Map(summary.map((row) => [String(row._property_type_id || propertyTypeId(row.property_type)), row]));
+    return new Map(
+      summary.map((row) => [
+        String(row._property_type_id || propertyTypeId(row.property_type)),
+        row,
+      ])
+    );
   }
 
   function rentSuggestionRow(row, summaries) {
@@ -6575,7 +8628,9 @@
     const manualInvestment = manualInvestmentForRow(row);
     const investmentBasis = manualInvestment || estimatedInvestment || marketPrice;
     const targetRoi = targetAnnualRoi();
-    const targetDaily = investmentBasis ? roundRent((investmentBasis * (targetRoi / 100)) / 365) : "";
+    const targetDaily = investmentBasis
+      ? roundRent((investmentBasis * (targetRoi / 100)) / 365)
+      : "";
     const summary = summaries.get(String(type.id || propertyTypeIdFromRow(row))) || {};
     const marketMedian = moneyNumber(summary.median_daily);
     const marketAverage = moneyNumber(summary.avg_daily);
@@ -6589,7 +8644,10 @@
     return {
       ...row,
       id: row.id || row.property_id || row.propertyId || "",
-      property: propertyName(row.property) || propertyName(row) || clean(row.id || row.property_id, "Property"),
+      property:
+        propertyName(row.property) ||
+        propertyName(row) ||
+        clean(row.id || row.property_id, "Property"),
       property_type: type.name || propertyName(row.property) || propertyName(row),
       market_price: marketPrice,
       base_cost: baseCost,
@@ -6641,8 +8699,10 @@
     if (target && max && target > max) notes.push("target ROI is above the current market range");
     if (target && min && target < min) notes.push("market supports more than target ROI");
     if (status === "rented" && current && suggested) {
-      if (current < suggested) notes.push(`current rent is ${money(suggested - current)}/day under suggestion`);
-      else if (current > suggested) notes.push(`current rent is ${money(current - suggested)}/day over suggestion`);
+      if (current < suggested)
+        notes.push(`current rent is ${money(suggested - current)}/day under suggestion`);
+      else if (current > suggested)
+        notes.push(`current rent is ${money(current - suggested)}/day over suggestion`);
       else notes.push("current rent matches suggestion");
     } else if (status === "none") {
       notes.push("not rented in the latest fetched data");
@@ -6651,7 +8711,28 @@
   }
 
   function rentSuggestionColumns() {
-    return ["property_image", "id", "property", "status", "happy", "market_price", "base_cost", "estimated_upgrade_cost", "estimated_investment", "my_investment", "investment_basis", "target_roi", "current_cost_per_day", "market_median_daily", "market_avg_daily", "target_rent_per_day", "suggested_rent_per_day", "suggested_total", "suggested_roi", "suggestion_note"];
+    return [
+      "property_image",
+      "id",
+      "property",
+      "status",
+      "happy",
+      "market_price",
+      "base_cost",
+      "estimated_upgrade_cost",
+      "estimated_investment",
+      "my_investment",
+      "investment_basis",
+      "target_roi",
+      "current_cost_per_day",
+      "market_median_daily",
+      "market_avg_daily",
+      "target_rent_per_day",
+      "suggested_rent_per_day",
+      "suggested_total",
+      "suggested_roi",
+      "suggestion_note",
+    ];
   }
 
   function rentSuggestionTableHtml(rows) {
@@ -6679,7 +8760,10 @@
   function manualPropertyOptionsHtml() {
     const sourceRole = state.role === "spouse" ? "spouse" : "landlord";
     const owned = state.role === "spouse" ? spousePropertyRows() : myOwnedPropertyRows();
-    if ((state.role === "landlord" || state.role === "spouse" || state.role === "all") && owned.length) {
+    if (
+      (state.role === "landlord" || state.role === "spouse" || state.role === "all") &&
+      owned.length
+    ) {
       return [
         `<option value="">${state.role === "spouse" ? "Choose one spouse property" : "Choose one of my properties"}</option>`,
         ...owned.map((property) => {
@@ -6708,7 +8792,9 @@
     }
     return [
       `<option value="">Select property type</option>`,
-      ...propertyTypes().map((type) => `<option value="${escapeAttr(type.name)}">${escapeHtml(type.name)}</option>`),
+      ...propertyTypes().map(
+        (type) => `<option value="${escapeAttr(type.name)}">${escapeHtml(type.name)}</option>`
+      ),
     ].join("");
   }
 
@@ -6735,19 +8821,24 @@
     const daysLeft = form.querySelector("[data-manual-days-left]");
     if (daysLeft) daysLeft.textContent = option.dataset.remainingDays || "Auto";
     if (form.elements.status) form.elements.status.value = option.dataset.status || "none";
-    if (form.elements.roleHint) form.elements.roleHint.value = option.dataset.roleHint || "landlord";
+    if (form.elements.roleHint)
+      form.elements.roleHint.value = option.dataset.roleHint || "landlord";
   }
 
   async function lookupManualTenant(form, sourceName) {
     if (!form || !apiKeyValue()) return;
     const nameField = form.elements.tenantName;
     const idField = form.elements.tenantId;
-    const lookup = clean(sourceName === "tenantId" ? idField && idField.value : nameField && nameField.value, "");
+    const lookup = clean(
+      sourceName === "tenantId" ? idField && idField.value : nameField && nameField.value,
+      ""
+    );
     if (!lookup) return;
     setStatus(`Looking up renter ${lookup}...`);
     const body = await fetchUserProfileByLookup(lookup);
     const profile = body.profile || body.user || body;
-    if (profile && profile.name && nameField && !nameField.value.trim()) nameField.value = profile.name;
+    if (profile && profile.name && nameField && !nameField.value.trim())
+      nameField.value = profile.name;
     if (profile && profile.id && idField && !idField.value.trim()) idField.value = profile.id;
     if (profile && (profile.name || profile.id)) {
       setStatus(`Renter found: ${userLabelFromParts(profile.name, profile.id)}.`);
@@ -6760,9 +8851,16 @@
     const value = clean(lookup, "");
     if (!value) throw new Error("Enter a renter username or user ID first.");
     try {
-      return await apiGet(`/user/${encodeURIComponent(value)}`, { selections: "profile", key: apiKeyValue() });
+      return await apiGet(`/user/${encodeURIComponent(value)}`, {
+        selections: "profile",
+        key: apiKeyValue(),
+      });
     } catch (_error) {
-      return apiGet("/user", { selections: "profile", id: value, key: apiKeyValue() });
+      return apiGet("/user", {
+        selections: "profile",
+        id: value,
+        key: apiKeyValue(),
+      });
     }
   }
 
@@ -6773,7 +8871,9 @@
     if (profile && profile.name) options.push(profile.name);
     else options.push("Me");
     if (spouse && spouse.name && !options.includes(spouse.name)) options.push(spouse.name);
-    return options.map((name) => `<option value="${escapeAttr(name)}">${escapeHtml(name)}</option>`).join("");
+    return options
+      .map((name) => `<option value="${escapeAttr(name)}">${escapeHtml(name)}</option>`)
+      .join("");
   }
 
   function gettingStartedHtml(summary) {
@@ -6806,7 +8906,12 @@
 
   function statusOptionsHtml(current) {
     const selected = normalizeLeaseStatus(current);
-    return leaseStatusOptions().map(([value, label]) => `<option value="${value}"${selected === value ? " selected" : ""}>${label}</option>`).join("");
+    return leaseStatusOptions()
+      .map(
+        ([value, label]) =>
+          `<option value="${value}"${selected === value ? " selected" : ""}>${label}</option>`
+      )
+      .join("");
   }
 
   function statusFilterOptionsHtml() {
@@ -6816,14 +8921,23 @@
     for (const lease of state.leases || []) {
       const value = clean(lease && lease.status, "");
       if (value && !seen.has(value)) {
-        const normalized = normalizeLeaseStatus(value, lease.roleHint || lease.source, lease.tenant);
+        const normalized = normalizeLeaseStatus(
+          value,
+          lease.roleHint || lease.source,
+          lease.tenant
+        );
         if (!seen.has(normalized)) {
           seen.add(normalized);
           options.push([normalized, leaseStatusLabel(normalized)]);
         }
       }
     }
-    return options.map(([value, label]) => `<option value="${escapeAttr(value)}"${selected === value ? " selected" : ""}>${escapeHtml(label)}</option>`).join("");
+    return options
+      .map(
+        ([value, label]) =>
+          `<option value="${escapeAttr(value)}"${selected === value ? " selected" : ""}>${escapeHtml(label)}</option>`
+      )
+      .join("");
   }
 
   function leaseStatusOptions() {
@@ -7004,10 +9118,14 @@
     return `
       <div class="tlt-result">${escapeHtml(message)}${stored.fetchedAt ? ` Fetched ${escapeHtml(new Date(stored.fetchedAt).toLocaleString())}.` : ""}</div>
       ${dataTableHtml(body, id)}
-      ${appSettings().showRawJson ? `<details class="tlt-data-json">
+      ${
+        appSettings().showRawJson
+          ? `<details class="tlt-data-json">
         <summary>Extra details</summary>
         <pre>${escapeHtml(JSON.stringify(body, null, 2))}</pre>
-      </details>` : ""}
+      </details>`
+          : ""
+      }
     `;
   }
 
@@ -7028,8 +9146,10 @@
     const access = keyInfoAccess(keyInfo) || (profile && profile.access) || {};
     const propertyStats = userPropertyStats();
     const spouse = profile && profile.spouse;
-    const factionId = user.faction_id || user.factionId || (profile && (profile.faction_id || profile.factionId));
-    const companyId = user.company_id || user.companyId || (profile && (profile.company_id || profile.companyId));
+    const factionId =
+      user.faction_id || user.factionId || (profile && (profile.faction_id || profile.factionId));
+    const companyId =
+      user.company_id || user.companyId || (profile && (profile.company_id || profile.companyId));
     const accessLabel = access.type || access.level || (apiKeyValue() ? "Public" : "N/A");
     return `
       <div class="tlt-profile-card">
@@ -7058,13 +9178,16 @@
   }
 
   function profileName(profile, keyInfo) {
-    if (profile && (profile.name || profile.id)) return `${profile.name || "User"} [${profile.id || "N/A"}]`;
+    if (profile && (profile.name || profile.id))
+      return `${profile.name || "User"} [${profile.id || "N/A"}]`;
     const userId = keyInfoUserId(keyInfo);
     return userId ? `User [${userId}]` : "No profile fetched";
   }
 
   function profileValue(profile, key) {
-    return profile && profile[key] !== undefined && profile[key] !== null && profile[key] !== "" ? profile[key] : "N/A";
+    return profile && profile[key] !== undefined && profile[key] !== null && profile[key] !== ""
+      ? profile[key]
+      : "N/A";
   }
 
   function daysToDuration(value) {
@@ -7116,7 +9239,14 @@
     for (const key of new Set([...Object.keys(previous), ...Object.keys(incoming)])) {
       const current = previous[key];
       const next = incoming[key];
-      if (current && next && typeof current === "object" && typeof next === "object" && !Array.isArray(current) && !Array.isArray(next)) {
+      if (
+        current &&
+        next &&
+        typeof current === "object" &&
+        typeof next === "object" &&
+        !Array.isArray(current) &&
+        !Array.isArray(next)
+      ) {
         merged[key] = mergeProfileInfo(current, next);
       } else {
         merged[key] = isBlankValue(next) ? current : next;
@@ -7133,11 +9263,10 @@
   function userPropertyStats() {
     const ownedSource = ownedPropertyStatsSource();
     const ownedProperties = ownedSource ? ownedSource.properties : [];
-    const currentProperty = (
+    const currentProperty =
       currentPropertyFromBody(endpointBody("server-sync")) ||
       currentPropertyFromBody(endpointBody("user-property")) ||
-      currentPropertyFromBody(endpointBody("user-id-property"))
-    );
+      currentPropertyFromBody(endpointBody("user-id-property"));
     return {
       owned: ownedSource ? ownedProperties.length : "N/A",
       leasedToOthers: ownedSource ? ownedProperties.filter(isLeasedToOther).length : "N/A",
@@ -7148,10 +9277,22 @@
 
   function ownedPropertyStatsSource() {
     const serverBody = endpointBody("server-sync");
-    if (hasAnyOwnKey(serverBody, ["ownedProperties", "owned_properties", "userProperties", "propertiesOwned"])) {
+    if (
+      hasAnyOwnKey(serverBody, [
+        "ownedProperties",
+        "owned_properties",
+        "userProperties",
+        "propertiesOwned",
+      ])
+    ) {
       return {
         body: serverBody,
-        properties: firstArray(serverBody, ["ownedProperties", "owned_properties", "userProperties", "propertiesOwned"]),
+        properties: firstArray(serverBody, [
+          "ownedProperties",
+          "owned_properties",
+          "userProperties",
+          "propertiesOwned",
+        ]),
       };
     }
     const ownedBody = endpointBody("user-properties");
@@ -7164,20 +9305,29 @@
   }
 
   function hasAnyOwnKey(body, keys) {
-    return Boolean(body && typeof body === "object" && keys.some((key) => Object.prototype.hasOwnProperty.call(body, key)));
+    return Boolean(
+      body &&
+      typeof body === "object" &&
+      keys.some((key) => Object.prototype.hasOwnProperty.call(body, key))
+    );
   }
 
   function userPropertiesBodyMatchesCurrentUser(body) {
-    const myId = keyInfoUserId(state.keyInfo) || ((state.endpointInputs || {}).userId);
+    const myId = keyInfoUserId(state.keyInfo) || (state.endpointInputs || {}).userId;
     const myName = profileInfo() && profileInfo().name;
     const savedLookup = clean((body || {})._owner_filter_id || (body || {})._owner_filter_name, "");
-    return Boolean(savedLookup && ((myId && normalizeLookup(myId) === normalizeLookup(savedLookup)) || (myName && normalizeLookup(myName) === normalizeLookup(savedLookup))));
+    return Boolean(
+      savedLookup &&
+      ((myId && normalizeLookup(myId) === normalizeLookup(savedLookup)) ||
+        (myName && normalizeLookup(myName) === normalizeLookup(savedLookup)))
+    );
   }
 
   function propertiesFromBody(body) {
     if (!body || typeof body !== "object") return [];
     if (Array.isArray(body.properties)) return body.properties;
-    if (body.properties && typeof body.properties === "object") return Object.values(body.properties);
+    if (body.properties && typeof body.properties === "object")
+      return Object.values(body.properties);
     return [];
   }
 
@@ -7194,7 +9344,9 @@
 
   function spouseOwnedPropertiesBody(body, spouseOverride = null) {
     const properties = propertiesFromBody(body);
-    const rawTotal = Number.isFinite(Number((body || {})._raw_total)) ? Number((body || {})._raw_total) : properties.length;
+    const rawTotal = Number.isFinite(Number((body || {})._raw_total))
+      ? Number((body || {})._raw_total)
+      : properties.length;
     const spouse = spouseOverride && spouseOverride.id ? spouseOverride : profileSpouse();
     if (!spouse || !spouse.id) {
       return {
@@ -7219,7 +9371,14 @@
     const total = Number((body || {})._raw_total);
     const savedName = clean((body || {})._owner_filter_name, "");
     const savedId = clean((body || {})._owner_filter_id, "");
-    const label = spouse && spouse.name && spouse.id ? `${spouse.name} [${spouse.id}]` : spouse && spouse.id ? spouse.id : savedName && savedId ? `${savedName} [${savedId}]` : savedId || "your spouse";
+    const label =
+      spouse && spouse.name && spouse.id
+        ? `${spouse.name} [${spouse.id}]`
+        : spouse && spouse.id
+          ? spouse.id
+          : savedName && savedId
+            ? `${savedName} [${savedId}]`
+            : savedId || "your spouse";
     if (Number.isFinite(total) && total > shown) {
       return `Showing ${shown.toLocaleString()} homes owned by ${label}. ${Number(total - shown).toLocaleString()} shared or other-owner homes are hidden here.`;
     }
@@ -7232,7 +9391,11 @@
   }
 
   function renterMatchesLookup(property, lookup) {
-    return userMatchesLookup(property && (property.rented_by || property.renter || property.renter_asked || property.tenant), lookup);
+    return userMatchesLookup(
+      property &&
+        (property.rented_by || property.renter || property.renter_asked || property.tenant),
+      lookup
+    );
   }
 
   function propertyUsedByLookup(property, lookup) {
@@ -7243,40 +9406,60 @@
   function userMatchesLookup(user, lookup) {
     if (!user || !lookup) return false;
     const normalized = normalizeLookup(lookup);
-    return normalizeLookup(user.id) === normalized || normalizeLookup(user.name) === normalized || normalizeLookup(user) === normalized;
+    return (
+      normalizeLookup(user.id) === normalized ||
+      normalizeLookup(user.name) === normalized ||
+      normalizeLookup(user) === normalized
+    );
   }
 
   function normalizeLookup(value) {
-    return String(value || "").trim().toLowerCase();
+    return String(value || "")
+      .trim()
+      .toLowerCase();
   }
 
   function currentPropertyFromBody(body) {
     if (!body || typeof body !== "object") return null;
-    return body.currentProperty || body.current_property || body.property || (body.id || body.property_id ? body : null);
+    return (
+      body.currentProperty ||
+      body.current_property ||
+      body.property ||
+      (body.id || body.property_id ? body : null)
+    );
   }
 
   function currentPropertyLeaseStatus(property) {
     const ownerId = property && property.owner && property.owner.id;
     const ownerName = property && property.owner && property.owner.name;
-    const myId = keyInfoUserId(state.keyInfo) || ((state.endpointInputs || {}).userId);
+    const myId = keyInfoUserId(state.keyInfo) || (state.endpointInputs || {}).userId;
     const spouse = profileSpouse();
     const spouseId = spouse && spouse.id;
     if (!ownerId) return { value: "unknown", label: "Unknown owner" };
     if (!myId) return { value: "unknown", label: "Unknown key owner" };
-    if (normalizeLookup(ownerId) === normalizeLookup(myId)) return { value: "owned", label: "Owned by you" };
-    if (spouseId && normalizeLookup(ownerId) === normalizeLookup(spouseId)) return { value: "spouse-owned", label: "Spouse property" };
+    if (normalizeLookup(ownerId) === normalizeLookup(myId))
+      return { value: "owned", label: "Owned by you" };
+    if (spouseId && normalizeLookup(ownerId) === normalizeLookup(spouseId))
+      return { value: "spouse-owned", label: "Spouse property" };
     const ownerLabel = ownerName ? `${ownerName} [${ownerId}]` : `user ${ownerId}`;
     return { value: "leased", label: `Leased from ${ownerLabel}` };
   }
 
   function propertyHasContractDetails(property) {
     if (!property || typeof property !== "object") return false;
-    return Boolean(explicitPropertyRenter(property) || propertyHasRentalStatus(property) || propertyHasRentalTerms(property));
+    return Boolean(
+      explicitPropertyRenter(property) ||
+      propertyHasRentalStatus(property) ||
+      propertyHasRentalTerms(property)
+    );
   }
 
   function isLeasedToOther(property) {
     const status = clean(property && property.status, "").toLowerCase();
-    return status === "rented" || Boolean(property && (property.rented_by || property.renter || property.tenant));
+    return (
+      status === "rented" ||
+      Boolean(property && (property.rented_by || property.renter || property.tenant))
+    );
   }
 
   function isForRent(property) {
@@ -7286,17 +9469,24 @@
 
   function isForSale(property) {
     const status = clean(property && property.status, "").toLowerCase();
-    return status === "for_sale" || status === "for sale" || status === "selling" || status === "sale";
+    return (
+      status === "for_sale" || status === "for sale" || status === "selling" || status === "sale"
+    );
   }
 
   function propertyDisplayName(property) {
-    return propertyName(property.property) || propertyName(property) || clean(property.id || property.property_id, "Property");
+    return (
+      propertyName(property.property) ||
+      propertyName(property) ||
+      clean(property.id || property.property_id, "Property")
+    );
   }
 
   function marriedStatus(profile) {
     if (!profile) return "Unknown";
     const married = profile.married || profile.marriage || profile.spouse;
-    if (!married || married === "No" || married === "None" || married === false) return "Not married";
+    if (!married || married === "No" || married === "None" || married === false)
+      return "Not married";
     if (typeof married === "string") return married;
     const spouse = married.spouse || married.partner || married;
     const name = spouse.name || married.name || married.spouse_name;
@@ -7308,7 +9498,8 @@
 
   function dataTableHtml(body, id = "") {
     const rows = sortRows(responseRows(body, id), id);
-    if (!rows.length) return `<div class="tlt-muted">The response did not include table-like records.</div>`;
+    if (!rows.length)
+      return `<div class="tlt-muted">The response did not include table-like records.</div>`;
     const keys = tableKeys(rows, id);
     const limit = tableLimit();
     return `
@@ -7318,7 +9509,13 @@
             <tr>${keys.map((key) => `<th>${sortHeaderHtml(id, key)}</th>`).join("")}</tr>
           </thead>
           <tbody>
-            ${rows.slice(0, limit).map((row) => `<tr>${keys.map((key) => `<td class="${cellClass(cellValue(row, key), key)}">${cellHtml(cellValue(row, key), key, row)}</td>`).join("")}</tr>`).join("")}
+            ${rows
+              .slice(0, limit)
+              .map(
+                (row) =>
+                  `<tr>${keys.map((key) => `<td class="${cellClass(cellValue(row, key), key)}">${cellHtml(cellValue(row, key), key, row)}</td>`).join("")}</tr>`
+              )
+              .join("")}
           </tbody>
         </table>
       </div>
@@ -7332,7 +9529,10 @@
       const property = body.property || body.current_property || body;
       return property && typeof property === "object" ? [property] : [];
     }
-    const preferred = id === "market-rentals" ? ["rentals", "properties", "property"] : ["properties", "rentals", "property"];
+    const preferred =
+      id === "market-rentals"
+        ? ["rentals", "properties", "property"]
+        : ["properties", "rentals", "property"];
     for (const key of preferred) {
       if (Array.isArray(body[key])) return decorateRowsForEndpoint(normalizeRows(body[key]), id);
       if (body[key] && typeof body[key] === "object") {
@@ -7364,7 +9564,8 @@
 
   function decorateRowsForEndpoint(rows, id) {
     if (!["market-rentals", "market-properties"].includes(id)) return rows;
-    const propertyTypeId = (state.endpointInputs || {}).propertyTypeId || appSettings().defaultPropertyTypeId;
+    const propertyTypeId =
+      (state.endpointInputs || {}).propertyTypeId || appSettings().defaultPropertyTypeId;
     if (!propertyTypeId) return rows;
     return rows.map((row) => ({ ...row, _property_type_id: propertyTypeId }));
   }
@@ -7421,20 +9622,239 @@
 
   function preferredTableKeys(id) {
     const columns = {
-      "torn-properties": ["property_image", "id", "name", "cost", "happy", "upkeep", "modifications", "staff"],
-      "lease-archive": ["property_image", "property_type", "property_id", "role", "renter", "owner", "start_date", "end_date", "days", "total", "per_day", "happy", "status", "source"],
-      "property-history": ["property_image", "property_type", "property_id", "current_status", "first_seen", "last_seen", "buy_cost", "upgrade_cost", "staff_cost", "known_investment", "rent_seen", "sale_seen", "upkeep_seen", "net_cashflow_seen", "listed_count", "tenancies_seen", "offers_seen", "offers_declined", "extensions_accepted", "rental_listing_status", "rental_offer_status", "rental_contract_status", "last_happy", "events", "upgrades"],
-      "property-history-events": ["event_at", "property_image", "property_type", "property_id", "event", "category", "perspective", "event_state", "happy", "rent", "days", "cost", "renter", "owner", "other_user", "upgrades", "staff"],
-      "roi-summary": ["property_image", "property_type", "rental_listings", "sale_listings", "avg_daily", "median_daily", "min_daily", "max_daily", "avg_market_price", "avg_happy", "avg_landlord_roi_market", "best_landlord_roi_market", "avg_landlord_roi_investment", "avg_rent_per_happy", "avg_tenant_cost_per_happy", "error"],
-      "roi-rentals": ["property_image", "property_type", "owner", "happy", "cost", "cost_per_day", "rental_period", "market_price", "base_cost", "estimated_upgrade_cost", "estimated_investment", "tenant_upkeep_total", "annual_rent", "landlord_roi_market", "landlord_roi_base", "landlord_roi_investment", "rent_per_happy", "tenant_daily_cost", "tenant_cost_per_happy", "property", "staff", "modifications"],
-      "user-properties": ["property_image", "id", "owner", "property", "happy", "upkeep.property", "upkeep.staff", "market_price", "used_by", "rented_by", "staff", "modifications"],
-      "spouse-properties": ["property_image", "id", "owner", "property", "happy", "upkeep.property", "upkeep.staff", "market_price", "used_by", "rented_by", "staff", "modifications"],
-      "user-id-properties": ["property_image", "id", "owner", "property", "happy", "upkeep.property", "upkeep.staff", "market_price", "used_by", "rented_by", "staff", "modifications"],
-      "user-property": ["property_image", "lease_status", "id", "owner", "property", "happy", "upkeep.property", "upkeep.staff", "market_price", "used_by", "rented_by", "staff", "modifications"],
-      "user-id-property": ["property_image", "lease_status", "id", "owner", "property", "happy", "upkeep.property", "upkeep.staff", "market_price", "used_by", "rented_by", "staff", "modifications"],
-      "market-properties": ["property_image", "id", "owner", "property", "happy", "market_price", "cost", "upkeep.property", "upkeep.staff", "staff", "modifications"],
-      "market-rentals": ["property_image", "owner", "happy", "cost", "cost_per_day", "rental_period", "property", "market_price", "upkeep.property", "upkeep.staff", "staff", "modifications"],
-      "rent-suggestions": ["property_image", "id", "property", "status", "happy", "suggested_action", "current_cost_per_day", "suggested_rent_per_day", "suggested_duration_days", "suggested_total", "suggested_roi", "suggested_sale_price", "market_median_daily", "market_avg_daily", "rent_listings", "sale_listings", "market_basis", "suggestion_note"],
+      "torn-properties": [
+        "property_image",
+        "id",
+        "name",
+        "cost",
+        "happy",
+        "upkeep",
+        "modifications",
+        "staff",
+      ],
+      "lease-archive": [
+        "property_image",
+        "property_type",
+        "property_id",
+        "role",
+        "renter",
+        "owner",
+        "start_date",
+        "end_date",
+        "days",
+        "total",
+        "per_day",
+        "happy",
+        "status",
+        "source",
+      ],
+      "property-history": [
+        "property_image",
+        "property_type",
+        "property_id",
+        "current_status",
+        "first_seen",
+        "last_seen",
+        "buy_cost",
+        "upgrade_cost",
+        "staff_cost",
+        "known_investment",
+        "rent_seen",
+        "sale_seen",
+        "upkeep_seen",
+        "net_cashflow_seen",
+        "listed_count",
+        "tenancies_seen",
+        "offers_seen",
+        "offers_declined",
+        "extensions_accepted",
+        "rental_listing_status",
+        "rental_offer_status",
+        "rental_contract_status",
+        "last_happy",
+        "events",
+        "upgrades",
+      ],
+      "property-history-events": [
+        "event_at",
+        "property_image",
+        "property_type",
+        "property_id",
+        "event",
+        "category",
+        "perspective",
+        "event_state",
+        "happy",
+        "rent",
+        "days",
+        "cost",
+        "renter",
+        "owner",
+        "other_user",
+        "upgrades",
+        "staff",
+      ],
+      "roi-summary": [
+        "property_image",
+        "property_type",
+        "rental_listings",
+        "sale_listings",
+        "avg_daily",
+        "median_daily",
+        "min_daily",
+        "max_daily",
+        "avg_market_price",
+        "avg_happy",
+        "avg_landlord_roi_market",
+        "best_landlord_roi_market",
+        "avg_landlord_roi_investment",
+        "avg_rent_per_happy",
+        "avg_tenant_cost_per_happy",
+        "error",
+      ],
+      "roi-rentals": [
+        "property_image",
+        "property_type",
+        "owner",
+        "happy",
+        "cost",
+        "cost_per_day",
+        "rental_period",
+        "market_price",
+        "base_cost",
+        "estimated_upgrade_cost",
+        "estimated_investment",
+        "tenant_upkeep_total",
+        "annual_rent",
+        "landlord_roi_market",
+        "landlord_roi_base",
+        "landlord_roi_investment",
+        "rent_per_happy",
+        "tenant_daily_cost",
+        "tenant_cost_per_happy",
+        "property",
+        "staff",
+        "modifications",
+      ],
+      "user-properties": [
+        "property_image",
+        "id",
+        "owner",
+        "property",
+        "happy",
+        "upkeep.property",
+        "upkeep.staff",
+        "market_price",
+        "used_by",
+        "rented_by",
+        "staff",
+        "modifications",
+      ],
+      "spouse-properties": [
+        "property_image",
+        "id",
+        "owner",
+        "property",
+        "happy",
+        "upkeep.property",
+        "upkeep.staff",
+        "market_price",
+        "used_by",
+        "rented_by",
+        "staff",
+        "modifications",
+      ],
+      "user-id-properties": [
+        "property_image",
+        "id",
+        "owner",
+        "property",
+        "happy",
+        "upkeep.property",
+        "upkeep.staff",
+        "market_price",
+        "used_by",
+        "rented_by",
+        "staff",
+        "modifications",
+      ],
+      "user-property": [
+        "property_image",
+        "lease_status",
+        "id",
+        "owner",
+        "property",
+        "happy",
+        "upkeep.property",
+        "upkeep.staff",
+        "market_price",
+        "used_by",
+        "rented_by",
+        "staff",
+        "modifications",
+      ],
+      "user-id-property": [
+        "property_image",
+        "lease_status",
+        "id",
+        "owner",
+        "property",
+        "happy",
+        "upkeep.property",
+        "upkeep.staff",
+        "market_price",
+        "used_by",
+        "rented_by",
+        "staff",
+        "modifications",
+      ],
+      "market-properties": [
+        "property_image",
+        "id",
+        "owner",
+        "property",
+        "happy",
+        "market_price",
+        "cost",
+        "upkeep.property",
+        "upkeep.staff",
+        "staff",
+        "modifications",
+      ],
+      "market-rentals": [
+        "property_image",
+        "owner",
+        "happy",
+        "cost",
+        "cost_per_day",
+        "rental_period",
+        "property",
+        "market_price",
+        "upkeep.property",
+        "upkeep.staff",
+        "staff",
+        "modifications",
+      ],
+      "rent-suggestions": [
+        "property_image",
+        "id",
+        "property",
+        "status",
+        "happy",
+        "suggested_action",
+        "current_cost_per_day",
+        "suggested_rent_per_day",
+        "suggested_duration_days",
+        "suggested_total",
+        "suggested_roi",
+        "suggested_sale_price",
+        "market_median_daily",
+        "market_avg_daily",
+        "rent_listings",
+        "sale_listings",
+        "market_basis",
+        "suggestion_note",
+      ],
     };
     return columns[id] || [];
   }
@@ -7547,7 +9967,11 @@
     const sort = state.tableSort && state.tableSort[tableId];
     if (!sort || !sort.key) return rows;
     const direction = sort.direction === "desc" ? -1 : 1;
-    return [...rows].sort((a, b) => compareSortValues(sortValue(cellValue(a, sort.key)), sortValue(cellValue(b, sort.key))) * direction);
+    return [...rows].sort(
+      (a, b) =>
+        compareSortValues(sortValue(cellValue(a, sort.key)), sortValue(cellValue(b, sort.key))) *
+        direction
+    );
   }
 
   function sortValue(value) {
@@ -7562,7 +9986,10 @@
     const numberB = Number(b);
     const numeric = a !== "" && b !== "" && Number.isFinite(numberA) && Number.isFinite(numberB);
     if (numeric) return numberA - numberB;
-    return clean(a, "").localeCompare(clean(b, ""), undefined, { numeric: true, sensitivity: "base" });
+    return clean(a, "").localeCompare(clean(b, ""), undefined, {
+      numeric: true,
+      sensitivity: "base",
+    });
   }
 
   function formatCell(value) {
@@ -7586,7 +10013,8 @@
     if (isStaffColumn(key)) return staffCellHtml(row, key);
     const array = arrayValue(value);
     if (array) return choiceListHtml(array, key);
-    if (value === null || value === undefined || value === "") return `<span class="tlt-empty-value">N/A</span>`;
+    if (value === null || value === undefined || value === "")
+      return `<span class="tlt-empty-value">N/A</span>`;
     if (isPercentColumn(key)) return escapeHtml(percentage(value));
     if (isMoneyColumn(key)) return escapeHtml(money(value));
     if (isIdColumn(key)) return escapeHtml(String(value));
@@ -7606,7 +10034,12 @@
   function nestedValue(row, key) {
     if (!row || !key) return undefined;
     if (Object.prototype.hasOwnProperty.call(row, key)) return row[key];
-    return String(key).split(".").reduce((current, part) => (current && typeof current === "object" ? current[part] : undefined), row);
+    return String(key)
+      .split(".")
+      .reduce(
+        (current, part) => (current && typeof current === "object" ? current[part] : undefined),
+        row
+      );
   }
 
   function isModificationColumn(key) {
@@ -7618,49 +10051,82 @@
   }
 
   function modificationCellHtml(row, key) {
-    return hasModification(row, key.slice(5)) ? `<span class="tlt-check-cell">✓</span>` : `<span class="tlt-miss-cell">-</span>`;
+    return hasModification(row, key.slice(5))
+      ? `<span class="tlt-check-cell">✓</span>`
+      : `<span class="tlt-miss-cell">-</span>`;
   }
 
   function hasModification(row, name) {
-    return modificationNames(row && row.modifications).some((modification) => sameModification(modification, name));
+    return modificationNames(row && row.modifications).some((modification) =>
+      sameModification(modification, name)
+    );
   }
 
   function staffCellHtml(row, key) {
     const amount = staffAmount(row, key.slice(7));
-    return amount ? `<span class="tlt-volume-cell">${escapeHtml(amount)}</span>` : `<span class="tlt-miss-cell">-</span>`;
+    return amount
+      ? `<span class="tlt-volume-cell">${escapeHtml(amount)}</span>`
+      : `<span class="tlt-miss-cell">-</span>`;
   }
 
   function staffAmount(row, type) {
-    const entry = staffEntries(row && row.staff).find((staff) => sameModification(staff.type, type));
+    const entry = staffEntries(row && row.staff).find((staff) =>
+      sameModification(staff.type, type)
+    );
     return entry ? Number(entry.amount) || 1 : 0;
   }
 
   function staffEntries(value) {
     const array = arrayValue(value);
     if (!array && value && typeof value === "object") {
-      return Object.entries(value).map(([type, entryValue]) => {
-        if (entryValue && typeof entryValue === "object") return { type: entryValue.type || entryValue.name || type, amount: entryValue.amount || entryValue.count || 1 };
-        return { type, amount: entryValue === true ? 1 : entryValue };
-      }).filter((item) => item.type && Number(item.amount) !== 0 && item.amount !== false && item.amount !== null);
+      return Object.entries(value)
+        .map(([type, entryValue]) => {
+          if (entryValue && typeof entryValue === "object")
+            return {
+              type: entryValue.type || entryValue.name || type,
+              amount: entryValue.amount || entryValue.count || 1,
+            };
+          return { type, amount: entryValue === true ? 1 : entryValue };
+        })
+        .filter(
+          (item) =>
+            item.type && Number(item.amount) !== 0 && item.amount !== false && item.amount !== null
+        );
     }
     if (!array) return [];
-    return array.map((item) => {
-      if (item && typeof item === "object") return { type: item.type || item.name || "Staff", amount: item.amount || 1 };
-      return { type: String(item), amount: 1 };
-    }).filter((item) => item.type);
+    return array
+      .map((item) => {
+        if (item && typeof item === "object")
+          return {
+            type: item.type || item.name || "Staff",
+            amount: item.amount || 1,
+          };
+        return { type: String(item), amount: 1 };
+      })
+      .filter((item) => item.type);
   }
 
   function modificationNames(value) {
     const array = arrayValue(value);
     if (array) return array.map(formatCell).filter((name) => name && name !== "-");
     if (value && typeof value === "object") {
-      return Object.entries(value).flatMap(([name, entryValue]) => {
-        if (entryValue === false || entryValue === null || entryValue === undefined || entryValue === 0 || entryValue === "") return [];
-        if (entryValue === true || typeof entryValue === "number") return [name];
-        if (typeof entryValue === "string") return [entryValue || name];
-        if (entryValue && typeof entryValue === "object") return [entryValue.name || entryValue.type || name];
-        return [name];
-      }).filter((name) => name && name !== "-");
+      return Object.entries(value)
+        .flatMap(([name, entryValue]) => {
+          if (
+            entryValue === false ||
+            entryValue === null ||
+            entryValue === undefined ||
+            entryValue === 0 ||
+            entryValue === ""
+          )
+            return [];
+          if (entryValue === true || typeof entryValue === "number") return [name];
+          if (typeof entryValue === "string") return [entryValue || name];
+          if (entryValue && typeof entryValue === "object")
+            return [entryValue.name || entryValue.type || name];
+          return [name];
+        })
+        .filter((name) => name && name !== "-");
     }
     return [];
   }
@@ -7670,7 +10136,9 @@
   }
 
   function normalizeModificationName(value) {
-    return String(value).toLowerCase().replace(/[^a-z0-9]+/g, "");
+    return String(value)
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "");
   }
 
   function arrayValue(value) {
@@ -7694,18 +10162,64 @@
   }
 
   function isNumericValue(value) {
-    return typeof value === "number" || (typeof value === "string" && value.trim() !== "" && Number.isFinite(Number(value)));
+    return (
+      typeof value === "number" ||
+      (typeof value === "string" && value.trim() !== "" && Number.isFinite(Number(value)))
+    );
   }
 
   function isPercentColumn(key) {
     const normalized = String(key).toLowerCase();
-    return normalized.includes("roi") || normalized.includes("yield") || normalized.includes("percent");
+    return (
+      normalized.includes("roi") || normalized.includes("yield") || normalized.includes("percent")
+    );
   }
 
   function isMoneyColumn(key) {
     const normalized = String(key).toLowerCase();
-    const moneyKeys = ["avg_daily", "median_daily", "min_daily", "max_daily", "avg_market_price", "base_cost", "estimated_upgrade_cost", "estimated_investment", "my_investment", "investment_basis", "tenant_upkeep_total", "annual_rent", "tenant_daily_cost", "rent_per_happy", "avg_rent_per_happy", "tenant_cost_per_happy", "avg_tenant_cost_per_happy", "current_cost_per_day", "market_median_daily", "market_avg_daily", "market_min_daily", "market_max_daily", "target_rent_per_day", "suggested_rent_per_day", "suggested_total", "buy_cost", "upgrade_cost", "known_investment", "rent_seen", "sale_seen", "rent", "total", "per_day"];
-    return !isIdColumn(key) && (moneyKeys.includes(normalized) || ["cost", "upkeep", "rent", "amount"].includes(normalized) || normalized.includes("price") || normalized.includes("cost") || normalized.includes("upkeep"));
+    const moneyKeys = [
+      "avg_daily",
+      "median_daily",
+      "min_daily",
+      "max_daily",
+      "avg_market_price",
+      "base_cost",
+      "estimated_upgrade_cost",
+      "estimated_investment",
+      "my_investment",
+      "investment_basis",
+      "tenant_upkeep_total",
+      "annual_rent",
+      "tenant_daily_cost",
+      "rent_per_happy",
+      "avg_rent_per_happy",
+      "tenant_cost_per_happy",
+      "avg_tenant_cost_per_happy",
+      "current_cost_per_day",
+      "market_median_daily",
+      "market_avg_daily",
+      "market_min_daily",
+      "market_max_daily",
+      "target_rent_per_day",
+      "suggested_rent_per_day",
+      "suggested_total",
+      "buy_cost",
+      "upgrade_cost",
+      "known_investment",
+      "rent_seen",
+      "sale_seen",
+      "rent",
+      "total",
+      "per_day",
+    ];
+    return (
+      !isIdColumn(key) &&
+      (moneyKeys.includes(normalized) ||
+        ["cost", "upkeep", "rent", "amount"].includes(normalized) ||
+        normalized.includes("price") ||
+        normalized.includes("cost") ||
+        normalized.includes("upkeep"))
+    );
   }
 
   function isIdColumn(key) {
@@ -7717,34 +10231,51 @@
     if (!value || typeof value !== "object") return clean(value);
     if (value.name && value.id) return `${value.name} [${value.id}]`;
     if (value.type && value.amount !== undefined) return `${value.type} x${value.amount}`;
-    if (value.property !== undefined && value.staff !== undefined) return `Property ${money(value.property)}, staff ${money(value.staff)}`;
+    if (value.property !== undefined && value.staff !== undefined)
+      return `Property ${money(value.property)}, staff ${money(value.staff)}`;
     if (value.name) return String(value.name);
     if (value.type) return String(value.type);
     if (value.id) return String(value.id);
 
-    const entries = Object.entries(value).filter(([, entryValue]) => entryValue !== null && entryValue !== undefined && entryValue !== "");
+    const entries = Object.entries(value).filter(
+      ([, entryValue]) => entryValue !== null && entryValue !== undefined && entryValue !== ""
+    );
     if (!entries.length) return "N/A";
     return entries
       .slice(0, 4)
-      .map(([entryKey, entryValue]) => `${entryKey}: ${Array.isArray(entryValue) ? `${entryValue.length} items` : formatCell(entryValue)}`)
+      .map(
+        ([entryKey, entryValue]) =>
+          `${entryKey}: ${Array.isArray(entryValue) ? `${entryValue.length} items` : formatCell(entryValue)}`
+      )
       .join(", ");
   }
 
   function propertyTypes() {
-    return Array.isArray(state.propertyTypes) && state.propertyTypes.length ? state.propertyTypes : PROPERTY_TYPES;
+    return Array.isArray(state.propertyTypes) && state.propertyTypes.length
+      ? state.propertyTypes
+      : PROPERTY_TYPES;
   }
 
   function selectedPropertyType() {
-    const selectedId = Number((state.endpointInputs || {}).propertyTypeId || appSettings().defaultPropertyTypeId);
+    const selectedId = Number(
+      (state.endpointInputs || {}).propertyTypeId || appSettings().defaultPropertyTypeId
+    );
     return propertyTypes().find((type) => Number(type.id) === selectedId) || null;
   }
 
   function propertyTypeSelectHtml() {
-    const selectedId = String((state.endpointInputs || {}).propertyTypeId || appSettings().defaultPropertyTypeId || "");
+    const selectedId = String(
+      (state.endpointInputs || {}).propertyTypeId || appSettings().defaultPropertyTypeId || ""
+    );
     return `
       <select data-endpoint-field="propertyTypeId">
         <option value="">Select property type</option>
-        ${propertyTypes().map((type) => `<option value="${escapeAttr(type.id)}"${String(type.id) === selectedId ? " selected" : ""}>${escapeHtml(type.id)} - ${escapeHtml(type.name)}</option>`).join("")}
+        ${propertyTypes()
+          .map(
+            (type) =>
+              `<option value="${escapeAttr(type.id)}"${String(type.id) === selectedId ? " selected" : ""}>${escapeHtml(type.id)} - ${escapeHtml(type.name)}</option>`
+          )
+          .join("")}
       </select>
       ${propertyTypeMetaHtml()}
     `;
@@ -7759,7 +10290,8 @@
 
   function propertyTypeMetaHtml() {
     const type = selectedPropertyType();
-    if (!type) return `<div class="tlt-property-meta">Pick a home type to fetch price listings.</div>`;
+    if (!type)
+      return `<div class="tlt-property-meta">Pick a home type to fetch price listings.</div>`;
     const image = propertyImageUrl(type.id);
     return `
       <div class="tlt-property-meta">
@@ -7775,17 +10307,20 @@
   function propertyImageUrl(idOrName) {
     const id = propertyTypeId(idOrName);
     const normalized = normalizeModificationName(idOrName);
-    const type = propertyTypes().find((item) => (
-      (id && Number(item.id) === Number(id)) ||
-      normalizeModificationName(item.name) === normalized ||
-      listValue(item.aliases).some((alias) => normalizeModificationName(alias) === normalized)
-    ));
+    const type = propertyTypes().find(
+      (item) =>
+        (id && Number(item.id) === Number(id)) ||
+        normalizeModificationName(item.name) === normalized ||
+        listValue(item.aliases).some((alias) => normalizeModificationName(alias) === normalized)
+    );
     return type ? clean(type.imageUrl || type.image_url || type.image || "", "") : "";
   }
 
   function propertyTypeId(value) {
     if (value && typeof value === "object") {
-      return propertyTypeId(value.id || value.property_id || value.type_id || value.name || value.type);
+      return propertyTypeId(
+        value.id || value.property_id || value.type_id || value.name || value.type
+      );
     }
     const number = Number(value);
     if (Number.isFinite(number) && number > 0) return number;
@@ -7805,7 +10340,9 @@
       propertyTypeId(row.type_id) ||
       propertyTypeId(row.name) ||
       propertyTypeId(row.id) ||
-      propertyTypeId((state.endpointInputs || {}).propertyTypeId || appSettings().defaultPropertyTypeId)
+      propertyTypeId(
+        (state.endpointInputs || {}).propertyTypeId || appSettings().defaultPropertyTypeId
+      )
     );
   }
 
@@ -7837,12 +10374,17 @@
   function propertyImageLegendHtml() {
     return `
       <div class="tlt-property-meta tlt-property-picture-grid">
-        ${propertyTypes().filter((type) => propertyImageUrl(type.id)).map((type) => `
+        ${propertyTypes()
+          .filter((type) => propertyImageUrl(type.id))
+          .map(
+            (type) => `
           <div class="tlt-property-picture-card" title="${escapeAttr(`${type.name} [${type.id}]`)}">
             <img class="tlt-property-image" src="${escapeAttr(propertyImageUrl(type.id))}" alt="${escapeAttr(type.name)}">
             <div>${escapeHtml(type.name)} [${escapeHtml(type.id)}]</div>
           </div>
-        `).join("")}
+        `
+          )
+          .join("")}
       </div>
     `;
   }
@@ -7862,7 +10404,10 @@
   }
 
   function leaseReadonlyValue(lease, prop) {
-    if (prop === "status") return leaseStatusLabel(normalizeLeaseStatus(lease.status, lease.roleHint || lease.source, lease.tenant));
+    if (prop === "status")
+      return leaseStatusLabel(
+        normalizeLeaseStatus(lease.status, lease.roleHint || lease.source, lease.tenant)
+      );
     if (prop === "amount" || prop === "dailyAmount") return money(lease[prop]);
     if (prop === "startDate" || prop === "endDate") return formatDateValue(lease[prop]);
     if (prop === "remainingDays") return readonlyValue(lease.remainingDays, "Auto");
@@ -7946,7 +10491,9 @@
       info.userId ? `Torn user ID ${info.userId}` : "",
       info.plan ? `Plan: ${info.plan}` : "",
       info.expiresAt ? `Expires: ${new Date(info.expiresAt).toLocaleString()}` : "",
-    ].filter(Boolean).join(" | ");
+    ]
+      .filter(Boolean)
+      .join(" | ");
     return `
       <div class="tlt-subscription ${escapeAttr(info.className)}">
         <span>Subscription check</span>
@@ -7959,7 +10506,8 @@
   }
 
   function subscriptionStatusInfo() {
-    const userId = (state.endpointInputs && state.endpointInputs.userId) || keyInfoUserId(state.keyInfo);
+    const userId =
+      (state.endpointInputs && state.endpointInputs.userId) || keyInfoUserId(state.keyInfo);
     if (!apiKeyValue()) {
       return {
         state: "missing-key",
@@ -7973,7 +10521,8 @@
       return {
         state: "missing-user",
         label: "Key not checked yet",
-        message: "Test the key or press Check subscription so the script knows which Torn user owns the key.",
+        message:
+          "Test the key or press Check subscription so the script knows which Torn user owns the key.",
         className: "is-warning",
         isSubscribed: false,
       };
@@ -7994,7 +10543,8 @@
     const active = isEntitlementActive(entitlement);
     const inactive = isEntitlementInactive(entitlement);
     const status = entitlementStatusText(entitlement);
-    const plan = entitlement.plan || entitlement.product || entitlement.name || entitlement.tier || "";
+    const plan =
+      entitlement.plan || entitlement.product || entitlement.name || entitlement.tier || "";
     const expiresAt = entitlement.expires_at || entitlement.expiresAt || entitlement.expiry || "";
     const checkedAt = state.lastSubscriptionCheckAt;
 
@@ -8016,7 +10566,8 @@
       return {
         state: "inactive",
         label: "Not subscribed",
-        message: "The bot needs to grant Tornfolio access for this Torn user before financial suggestions will work.",
+        message:
+          "The bot needs to grant Tornfolio access for this Torn user before financial suggestions will work.",
         className: "is-blocked",
         isSubscribed: false,
         userId,
@@ -8029,7 +10580,9 @@
     return {
       state: "unknown",
       label: "Subscription unclear",
-      message: status ? `Access reply: ${status}.` : "The access check did not say active or inactive clearly.",
+      message: status
+        ? `Access reply: ${status}.`
+        : "The access check did not say active or inactive clearly.",
       className: "is-warning",
       isSubscribed: false,
       userId,
@@ -8040,28 +10593,68 @@
   }
 
   function hasEntitlementSignal(entitlement) {
-    return ["status", "state", "active", "valid", "allowed", "hasAccess", "has_access", "subscribed", "licensed", "plan", "product", "tier", "expires_at", "expiresAt"].some((key) => (
-      entitlement[key] !== undefined && entitlement[key] !== null && entitlement[key] !== ""
-    ));
+    return [
+      "status",
+      "state",
+      "active",
+      "valid",
+      "allowed",
+      "hasAccess",
+      "has_access",
+      "subscribed",
+      "licensed",
+      "plan",
+      "product",
+      "tier",
+      "expires_at",
+      "expiresAt",
+    ].some(
+      (key) =>
+        entitlement[key] !== undefined && entitlement[key] !== null && entitlement[key] !== ""
+    );
   }
 
   function entitlementStatusText(entitlement) {
-    return clean(entitlement && (entitlement.status || entitlement.state || entitlement.result || entitlement.access), "");
+    return clean(
+      entitlement &&
+        (entitlement.status || entitlement.state || entitlement.result || entitlement.access),
+      ""
+    );
   }
 
   function isEntitlementActive(entitlement) {
     if (!entitlement || typeof entitlement !== "object") return false;
-    const boolKeys = ["active", "valid", "allowed", "hasAccess", "has_access", "subscribed", "licensed"];
+    const boolKeys = [
+      "active",
+      "valid",
+      "allowed",
+      "hasAccess",
+      "has_access",
+      "subscribed",
+      "licensed",
+    ];
     if (boolKeys.some((key) => entitlement[key] === true)) return true;
     if (boolKeys.some((key) => entitlement[key] === false)) return false;
-    return /^(active|valid|subscribed|subscriber|paid|licensed|allowed|ok|trialing)$/i.test(entitlementStatusText(entitlement));
+    return /^(active|valid|subscribed|subscriber|paid|licensed|allowed|ok|trialing)$/i.test(
+      entitlementStatusText(entitlement)
+    );
   }
 
   function isEntitlementInactive(entitlement) {
     if (!entitlement || typeof entitlement !== "object") return false;
-    const boolKeys = ["active", "valid", "allowed", "hasAccess", "has_access", "subscribed", "licensed"];
+    const boolKeys = [
+      "active",
+      "valid",
+      "allowed",
+      "hasAccess",
+      "has_access",
+      "subscribed",
+      "licensed",
+    ];
     if (boolKeys.some((key) => entitlement[key] === false)) return true;
-    return /^(inactive|expired|denied|missing|none|not_found|not-found|unlicensed|unsubscribed|blocked|invalid|forbidden)$/i.test(entitlementStatusText(entitlement));
+    return /^(inactive|expired|denied|missing|none|not_found|not-found|unlicensed|unsubscribed|blocked|invalid|forbidden)$/i.test(
+      entitlementStatusText(entitlement)
+    );
   }
 
   function keyInfoUserId(body) {
@@ -8084,7 +10677,14 @@
 
   function keyInfoAccess(body) {
     if (!body || typeof body !== "object") return null;
-    return body.access || (body.key && body.key.access) || (body.info && body.info.access) || (body.data && body.data.access) || (body.api_key && body.api_key.access) || null;
+    return (
+      body.access ||
+      (body.key && body.key.access) ||
+      (body.info && body.info.access) ||
+      (body.data && body.data.access) ||
+      (body.api_key && body.api_key.access) ||
+      null
+    );
   }
 
   function autoSizeInput(field) {
@@ -8094,7 +10694,61 @@
     field.style.width = `${clamp(String(field.value || field.placeholder || "").length + 2, min, 42)}ch`;
   }
 
+  function bindThemedTooltips(root) {
+    const tooltip = root.querySelector(".tf-themed-tooltip");
+    if (!tooltip) return;
+    const view = root.ownerDocument.defaultView || window;
+
+    const hide = () => {
+      tooltip.classList.remove("is-visible");
+      tooltip.setAttribute("aria-hidden", "true");
+    };
+
+    const show = (target) => {
+      const label = String(target.dataset.tfTooltip || "").trim();
+      if (!label) return;
+      tooltip.textContent = label;
+      tooltip.style.left = "0px";
+      tooltip.style.top = "0px";
+      tooltip.classList.add("is-visible");
+      tooltip.setAttribute("aria-hidden", "false");
+
+      const targetRect = target.getBoundingClientRect();
+      const rootRect = root.getBoundingClientRect();
+      const tooltipRect = tooltip.getBoundingClientRect();
+      const visibleLeft = Math.max(0, rootRect.left) + 10;
+      const visibleRight = Math.min(view.innerWidth, rootRect.right) - 10;
+      const minLeft = visibleLeft + tooltipRect.width / 2;
+      const maxLeft = visibleRight - tooltipRect.width / 2;
+      const center = targetRect.left + targetRect.width / 2;
+      const left =
+        minLeft <= maxLeft ? clamp(center, minLeft, maxLeft) : (visibleLeft + visibleRight) / 2;
+      const visibleTop = Math.max(0, rootRect.top) + 8;
+      const visibleBottom = Math.min(view.innerHeight, rootRect.bottom) - 8;
+      let top = targetRect.bottom + 8;
+      if (top + tooltipRect.height > visibleBottom) top = targetRect.top - tooltipRect.height - 8;
+      top = clamp(top, visibleTop, Math.max(visibleTop, visibleBottom - tooltipRect.height));
+      tooltip.style.left = `${Math.round(left)}px`;
+      tooltip.style.top = `${Math.round(top)}px`;
+    };
+
+    root.querySelectorAll("button[aria-label]").forEach((target) => {
+      if (!target.dataset.tfTooltip)
+        target.dataset.tfTooltip = target.getAttribute("aria-label") || "";
+    });
+    root.querySelectorAll("[data-tf-tooltip]").forEach((target) => {
+      target.setAttribute("aria-describedby", tooltip.id);
+      target.addEventListener("mouseenter", () => show(target));
+      target.addEventListener("mouseleave", hide);
+      target.addEventListener("focus", () => show(target));
+      target.addEventListener("blur", hide);
+    });
+    root.querySelector(".tf-content")?.addEventListener("scroll", hide, { passive: true });
+    root.addEventListener("pointerdown", hide);
+  }
+
   function bind(root, isPopup = false) {
+    bindThemedTooltips(root);
     if (!isPopup) {
       bindDrag(root, root.querySelector(".tlt-header"));
       bindDrag(root, root.querySelector(".tlt-tab"));
@@ -8159,8 +10813,12 @@
         const tableId = button.dataset.tableSort;
         const key = button.dataset.sortKey;
         const current = state.tableSort && state.tableSort[tableId];
-        const direction = current && current.key === key && current.direction === "asc" ? "desc" : "asc";
-        state.tableSort = { ...(state.tableSort || {}), [tableId]: { key, direction } };
+        const direction =
+          current && current.key === key && current.direction === "asc" ? "desc" : "asc";
+        state.tableSort = {
+          ...(state.tableSort || {}),
+          [tableId]: { key, direction },
+        };
         saveState();
         render();
       });
@@ -8171,7 +10829,12 @@
         state[field.dataset.field] = field.value;
         if (field.dataset.field === "apiKey") {
           state.keyInfo = null;
-          state.endpointInputs = { ...emptyState.endpointInputs, ...(state.endpointInputs || {}), userId: "", lookupUser: "" };
+          state.endpointInputs = {
+            ...emptyState.endpointInputs,
+            ...(state.endpointInputs || {}),
+            userId: "",
+            lookupUser: "",
+          };
         }
         saveState();
         if (field.dataset.field !== "apiKey") render();
@@ -8203,11 +10866,19 @@
         if (key === "tableLimit") value = tableLimitFromInput(value);
         if (key === "tornRateLimitPerMinute") value = tornRateLimitFromInput(value);
         if (key === "propertyHistoryPages") value = propertyHistoryPagesFromInput(value);
-        if (key === "targetAnnualRoi") value = clamp(Number(value) || DEFAULT_SETTINGS.targetAnnualRoi, 0.1, 500);
-        if (key === "defaultSuggestionLeaseDays") value = Math.round(clamp(Number(value) || DEFAULT_SETTINGS.defaultSuggestionLeaseDays, 1, 100));
+        if (key === "targetAnnualRoi")
+          value = clamp(Number(value) || DEFAULT_SETTINGS.targetAnnualRoi, 0.1, 500);
+        if (key === "defaultSuggestionLeaseDays")
+          value = Math.round(
+            clamp(Number(value) || DEFAULT_SETTINGS.defaultSuggestionLeaseDays, 1, 100)
+          );
         state.settings = { ...settings, [key]: value };
         if (key === "defaultPropertyTypeId" && value) {
-          state.endpointInputs = { ...emptyState.endpointInputs, ...(state.endpointInputs || {}), propertyTypeId: String(value) };
+          state.endpointInputs = {
+            ...emptyState.endpointInputs,
+            ...(state.endpointInputs || {}),
+            propertyTypeId: String(value),
+          };
         }
         saveState();
         if (field.type !== "text" && field.type !== "number") render();
@@ -8238,11 +10909,17 @@
 
     const manualForm = root.querySelector("[data-form='manual']");
     if (manualForm) {
-      manualForm.querySelectorAll("input[name='amount'], input[name='dailyAmount'], input[name='durationDays'], input[name='startDate'], input[name='endDate']").forEach((field) => {
-        field.addEventListener("change", () => syncManualLeaseForm(manualForm, field.name));
-      });
+      manualForm
+        .querySelectorAll(
+          "input[name='amount'], input[name='dailyAmount'], input[name='durationDays'], input[name='startDate'], input[name='endDate']"
+        )
+        .forEach((field) => {
+          field.addEventListener("change", () => syncManualLeaseForm(manualForm, field.name));
+        });
       if (manualForm.elements.property) {
-        manualForm.elements.property.addEventListener("change", () => fillManualFormFromOwnedProperty(manualForm));
+        manualForm.elements.property.addEventListener("change", () =>
+          fillManualFormFromOwnedProperty(manualForm)
+        );
       }
       ["tenantName", "tenantId"].forEach((name) => {
         if (!manualForm.elements[name]) return;
@@ -8276,10 +10953,18 @@
       if (propertyAction && ["rent", "extend"].includes(propertyAction.kind)) {
         const daysField = propertyActionForm.elements.days;
         const totalField = propertyActionForm.elements.total;
-        if (daysField) daysField.addEventListener("input", () => updateRentalListingForm(propertyActionForm, true));
-        if (totalField) totalField.addEventListener("input", () => updateRentalListingForm(propertyActionForm, false));
+        if (daysField)
+          daysField.addEventListener("input", () =>
+            updateRentalListingForm(propertyActionForm, true)
+          );
+        if (totalField)
+          totalField.addEventListener("input", () =>
+            updateRentalListingForm(propertyActionForm, false)
+          );
         propertyActionForm.querySelectorAll("[data-pricing-source]").forEach((button) => {
-          button.addEventListener("click", () => updateRentalPricingSource(propertyActionForm, button.dataset.pricingSource || ""));
+          button.addEventListener("click", () =>
+            updateRentalPricingSource(propertyActionForm, button.dataset.pricingSource || "")
+          );
         });
       }
       propertyActionForm.addEventListener("submit", async (event) => {
@@ -8309,8 +10994,7 @@
         else if (action === "close-property-action") {
           if (propertyAction && propertyAction.busy) return;
           propertyAction = null;
-        }
-        else state.manualModalOpen = false;
+        } else state.manualModalOpen = false;
         saveState();
         render();
       });
@@ -8324,7 +11008,11 @@
         const prop = field.dataset.prop;
         const moneyField = ["amount", "dailyAmount"].includes(prop);
         const numeric = ["durationDays"].includes(prop);
-        const value = moneyField ? moneyNumber(field.value) : (numeric ? positiveNumber(field.value) : field.value);
+        const value = moneyField
+          ? moneyNumber(field.value)
+          : numeric
+            ? positiveNumber(field.value)
+            : field.value;
         updateLease(row.dataset.id, { [prop]: value }, prop);
       });
     });
@@ -8338,14 +11026,16 @@
           if (action === "fetch-torn-properties") await fetchTornProperties();
           if (action === "import-owned") await importOwnedProperties();
           if (action === "import-owned-direct") await importOwnedPropertiesDirect();
-          if (action === "scan-owned-property-market" || action === "scan-rental-market") await scanOwnedPropertyMarket("rentals");
+          if (action === "scan-owned-property-market" || action === "scan-rental-market")
+            await scanOwnedPropertyMarket("rentals");
           if (action === "scan-sale-market") await scanOwnedPropertyMarket("properties");
           if (action === "fetch-spouse-properties") await fetchSpouseProperties();
           if (action === "fetch-user-properties") await fetchUserProperties();
           if (action === "import-current") await importCurrentProperty();
           if (action === "fetch-user-property") await fetchUserProperty();
           if (action === "export-rent-suggestions-csv") exportRentSuggestionsCsv();
-          if (action === "delete" && confirmAction(root, "Remove this lease from the list?")) deleteLease(button.dataset.id);
+          if (action === "delete" && confirmAction(root, "Remove this lease from the list?"))
+            deleteLease(button.dataset.id);
           if (action === "export-json") exportJson();
           if (action === "export-csv") exportCsv();
           if (action === "install-update") {
@@ -8385,17 +11075,26 @@
             render();
           }
           if (action === "open-property") {
-            state.detailView = { kind: "property", id: button.dataset.propertyKey || "" };
+            state.detailView = {
+              kind: "property",
+              id: button.dataset.propertyKey || "",
+            };
             saveState();
             render();
           }
           if (action === "open-rental") {
-            state.detailView = { kind: "rental", id: button.dataset.contractId || "" };
+            state.detailView = {
+              kind: "rental",
+              id: button.dataset.contractId || "",
+            };
             saveState();
             render();
           }
           if (action === "open-archive") {
-            state.detailView = { kind: "archive", id: button.dataset.contractId || "" };
+            state.detailView = {
+              kind: "archive",
+              id: button.dataset.contractId || "",
+            };
             saveState();
             render();
           }
@@ -8405,7 +11104,11 @@
             render();
           }
           if (action === "open-property-action") {
-            await openPropertyAction(button.dataset.propertyAction || "", button.dataset.propertyKey || "", isPopup);
+            await openPropertyAction(
+              button.dataset.propertyAction || "",
+              button.dataset.propertyKey || "",
+              isPopup
+            );
           }
           if (action === "close-property-action") {
             if (!propertyAction || !propertyAction.busy) {
@@ -8418,7 +11121,12 @@
             propertyAction.error = "";
             render();
           }
-          if (action === "retry-upkeep-check" && propertyAction && propertyAction.kind === "upkeep" && !propertyAction.busy) {
+          if (
+            action === "retry-upkeep-check" &&
+            propertyAction &&
+            propertyAction.kind === "upkeep" &&
+            !propertyAction.busy
+          ) {
             await loadUpkeepAction(propertyAction);
           }
           if (action === "confirm-property-action") await confirmPropertyAction(isPopup);
@@ -8435,7 +11143,8 @@
             saveState("Sync details dismissed");
             render();
           }
-          if (action === "save-api-key") saveApiKeyFromInput((root.querySelector("[data-api-key-input]") || {}).value);
+          if (action === "save-api-key")
+            saveApiKeyFromInput((root.querySelector("[data-api-key-input]") || {}).value);
           if (action === "verify-hosted-access") {
             await verifyHostedAccess();
             render();
@@ -8455,7 +11164,11 @@
               state.leases = [];
               state.lastSyncAt = null;
               safeDelete(STORE_KEY);
-              state = { ...emptyState, apiKey: "", settings: { ...DEFAULT_SETTINGS } };
+              state = {
+                ...emptyState,
+                apiKey: "",
+                settings: { ...DEFAULT_SETTINGS },
+              };
               saveState();
               render();
               setStatus("All saved data deleted.");
@@ -8487,16 +11200,34 @@
       return;
     }
 
-    const width = Math.round(clamp((state.panelSize && state.panelSize.width) || 920, 520, Math.max(520, window.screen.availWidth - 80)));
-    const height = Math.round(clamp((state.panelSize && state.panelSize.height) || 680, 420, Math.max(420, window.screen.availHeight - 80)));
-    popupWindow = window.open("", `${APP_ID}-popup`, `popup=yes,width=${width},height=${height},resizable=yes,scrollbars=yes`);
+    const width = Math.round(
+      clamp(
+        (state.panelSize && state.panelSize.width) || 920,
+        520,
+        Math.max(520, window.screen.availWidth - 80)
+      )
+    );
+    const height = Math.round(
+      clamp(
+        (state.panelSize && state.panelSize.height) || 680,
+        420,
+        Math.max(420, window.screen.availHeight - 80)
+      )
+    );
+    popupWindow = window.open(
+      "",
+      `${APP_ID}-popup`,
+      `popup=yes,width=${width},height=${height},resizable=yes,scrollbars=yes`
+    );
     if (!popupWindow) {
       setStatus("Popup blocked by the browser. Allow popups for Torn, then try again.", true);
       return;
     }
 
     popupWindow.document.open();
-    popupWindow.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>Tornfolio</title></head><body></body></html>`);
+    popupWindow.document.write(
+      `<!doctype html><html><head><meta charset="utf-8"><title>Tornfolio</title></head><body></body></html>`
+    );
     popupWindow.document.close();
     syncPopupTheme();
     popupWindow.addEventListener("beforeunload", () => {
@@ -8518,7 +11249,10 @@
 
   function confirmAction(root, message) {
     const view = root && root.ownerDocument && root.ownerDocument.defaultView;
-    const confirmFn = view && typeof view.confirm === "function" ? view.confirm.bind(view) : window.confirm.bind(window);
+    const confirmFn =
+      view && typeof view.confirm === "function"
+        ? view.confirm.bind(view)
+        : window.confirm.bind(window);
     return confirmFn(message);
   }
 
@@ -8527,8 +11261,16 @@
       root.style.width = "";
       root.style.height = "";
     } else if (state.panelSize) {
-      const width = clamp(Number(state.panelSize.width) || 760, 360, Math.max(360, window.innerWidth - 16));
-      const height = clamp(Number(state.panelSize.height) || 560, 320, Math.max(320, window.innerHeight - 16));
+      const width = clamp(
+        Number(state.panelSize.width) || 760,
+        360,
+        Math.max(360, window.innerWidth - 16)
+      );
+      const height = clamp(
+        Number(state.panelSize.height) || 560,
+        320,
+        Math.max(320, window.innerHeight - 16)
+      );
       root.style.width = `${width}px`;
       root.style.height = `${height}px`;
     } else {
@@ -8544,8 +11286,16 @@
       return;
     }
 
-    const left = clamp(Number(state.panelPosition.left) || 8, 8, Math.max(8, window.innerWidth - root.offsetWidth - 8));
-    const top = clamp(Number(state.panelPosition.top) || 8, 8, Math.max(8, window.innerHeight - root.offsetHeight - 8));
+    const left = clamp(
+      Number(state.panelPosition.left) || 8,
+      8,
+      Math.max(8, window.innerWidth - root.offsetWidth - 8)
+    );
+    const top = clamp(
+      Number(state.panelPosition.top) || 8,
+      8,
+      Math.max(8, window.innerHeight - root.offsetHeight - 8)
+    );
     root.style.left = `${left}px`;
     root.style.top = `${top}px`;
     root.style.right = "auto";
@@ -8563,7 +11313,11 @@
       const height = Math.round(rect.height);
       if (width < 320 || height < 260) return;
       const previous = state.panelSize || {};
-      if (Math.abs((previous.width || 0) - width) < 2 && Math.abs((previous.height || 0) - height) < 2) return;
+      if (
+        Math.abs((previous.width || 0) - width) < 2 &&
+        Math.abs((previous.height || 0) - height) < 2
+      )
+        return;
       state.panelSize = { width, height };
       saveState();
     });
@@ -8586,14 +11340,25 @@
       handle.setPointerCapture(event.pointerId);
 
       const move = (moveEvent) => {
-        const left = clamp(moveEvent.clientX - offsetX, 8, Math.max(8, window.innerWidth - root.offsetWidth - 8));
-        const top = clamp(moveEvent.clientY - offsetY, 8, Math.max(8, window.innerHeight - root.offsetHeight - 8));
+        const left = clamp(
+          moveEvent.clientX - offsetX,
+          8,
+          Math.max(8, window.innerWidth - root.offsetWidth - 8)
+        );
+        const top = clamp(
+          moveEvent.clientY - offsetY,
+          8,
+          Math.max(8, window.innerHeight - root.offsetHeight - 8)
+        );
         root.style.left = `${left}px`;
         root.style.top = `${top}px`;
         root.style.right = "auto";
         root.style.bottom = "auto";
         state.panelPosition = { left, top };
-        moved = moved || Math.abs(moveEvent.clientX - startX) > 3 || Math.abs(moveEvent.clientY - startY) > 3;
+        moved =
+          moved ||
+          Math.abs(moveEvent.clientX - startX) > 3 ||
+          Math.abs(moveEvent.clientY - startY) > 3;
       };
 
       const up = () => {
@@ -8619,13 +11384,17 @@
   }
 
   function escapeHtml(value) {
-    return clean(value, "").replace(/[&<>"']/g, (char) => ({
-      "&": "&amp;",
-      "<": "&lt;",
-      ">": "&gt;",
-      '"': "&quot;",
-      "'": "&#39;",
-    }[char]));
+    return clean(value, "").replace(
+      /[&<>"']/g,
+      (char) =>
+        ({
+          "&": "&amp;",
+          "<": "&lt;",
+          ">": "&gt;",
+          '"': "&quot;",
+          "'": "&#39;",
+        })[char]
+    );
   }
 
   function escapeAttr(value) {
@@ -8638,6 +11407,9 @@
       tornCsrfToken,
       tornPropertyActionEnvironmentReason,
       tornPropertyCashAvailable,
+      tornUpkeepMarkerSnapshot,
+      latestUpkeepPaymentTimes,
+      upkeepReminderStatus,
       propertyActionUnavailableReason,
       propertyActionDefaults,
       propertyPricingDaily,
@@ -8646,8 +11418,11 @@
       spouseListingSnapshotsAfterFetch,
       spouseRentalEvidenceForProperty,
       tfPropertyDailyIncome,
+      tfAttention,
+      tfAttentionRow,
       tfPropertyActionFormHtml,
       tfPropertyActionSummary,
+      tfPropertyActionsHtml,
       tfPropertyCard,
       tfContractDetailModal,
     });
@@ -8657,7 +11432,9 @@
   window.addEventListener("modulhub:theme-updated", syncPopupTheme);
 
   function startTornfolio() {
+    refreshTornUpkeepMarkers(document, false);
     render();
+    observeTornUpkeepMarkers();
     void primeIconCache();
     void checkForUpdates();
   }
