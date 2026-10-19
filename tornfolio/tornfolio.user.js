@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Tornfolio — Property, Lease & ROI Manager
 // @namespace    MoDuL.torn.tornfolio
-// @version      0.8.4
+// @version      0.8.5
 // @description  Manage your Torn property portfolio, rentals, market pricing, archive, and ROI.
 // @author       MoDuL
 // @copyright    2026 MoDuL. All rights reserved.
@@ -21,7 +21,7 @@
   "use strict";
 
   const APP_ID = "tf-ledger";
-  const APP_VERSION = "0.8.4";
+  const APP_VERSION = "0.8.5";
   const UPKEEP_REMINDER_INTERVAL_MS = 24 * 60 * 60 * 1000;
   const STORE_KEY = "tornfolio:v1";
   const LEGACY_STORE_KEYS = ["tornLandlordTenantLedger:v1"];
@@ -5408,7 +5408,6 @@
         Number(contract.remaining) <= 7
     );
     const vacant = controlledProperties.filter((property) => property.status === "available");
-    const listed = controlledProperties.filter((property) => property.status === "listed");
     const missing = controlledRentals.filter(
       (contract) =>
         !contract.endDate ||
@@ -5450,15 +5449,6 @@
             title: "Vacant properties",
             detail: `${vacant.length} propert${vacant.length === 1 ? "y you own is" : "ies you own are"} available`,
             count: vacant.length,
-            tab: "properties",
-          }
-        : null,
-      listed.length
-        ? {
-            tone: "info",
-            title: "Listed properties",
-            detail: `${listed.length} propert${listed.length === 1 ? "y you own is" : "ies you own are"} listed for rent`,
-            count: listed.length,
             tab: "properties",
           }
         : null,
@@ -7200,7 +7190,7 @@
       changelog: {
         title: `Tornfolio ${APP_VERSION}`,
         subtitle: "Release notes",
-        body: `<section><h2>Version ${escapeHtml(APP_VERSION)}</h2><ul class="tf-info-list"><li>Aligns Archive and rental-history actions, shows elapsed days for older entries, and removes the redundant rental-expiry description.</li><li>Replaces the launcher with a circular Tornfolio SVG button. Drag it to move it; its saved position is separate from the main window.</li><li>Adds the permanent Discord invite to Help &amp; Support.</li><li>Adds direct rental offers, gifting, estate-agent sales, and estate-agent purchases with review and final confirmation.</li><li>Corrects the sale-market request to match Torn's current flow.</li></ul></section><section><h2>Previous updates</h2><p>Version 0.8.3 completed the <code>tf-</code> interface rename while preserving saved data. Version 0.8.2 added owner facility and staff upgrades, responsive controls, and useful footer dialogs.</p></section><section><h2>Updates</h2><p>Tornfolio checks GreasyFork for a newer release when it opens. The header status tells you whether this version is current.</p><a class="tf-link-button" href="${escapeAttr(GREASYFORK_PAGE_URL)}" target="_blank" rel="noopener noreferrer">View Tornfolio on GreasyFork</a></section>`,
+        body: `<section><h2>Version ${escapeHtml(APP_VERSION)}</h2><ul class="tf-info-list"><li>Removes listed properties from Needs Attention because the listing decision and price are already complete.</li></ul></section><section><h2>Previous updates</h2><p>Version 0.8.4 aligned Archive and rental-history actions, added the draggable launcher and Discord support link, and expanded property-management actions. Version 0.8.3 completed the <code>tf-</code> interface rename while preserving saved data.</p></section><section><h2>Updates</h2><p>Tornfolio checks GreasyFork for a newer release when it opens. The header status tells you whether this version is current.</p><a class="tf-link-button" href="${escapeAttr(GREASYFORK_PAGE_URL)}" target="_blank" rel="noopener noreferrer">View Tornfolio on GreasyFork</a></section>`,
       },
     };
     const selected = views[view] || views.help;

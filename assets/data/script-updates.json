@@ -77,13 +77,13 @@
     {
       "id": "tornfolio",
       "title": "Tornfolio",
-      "version": "0.8.4",
-      "displayVersion": "v0.8.4",
+      "version": "0.8.5",
+      "displayVersion": "v0.8.5",
       "date": "2026-10-19",
       "updated": "19 October 2026",
       "source": "userscript",
       "updateVersion": true,
-      "actionLabel": "Install beta v0.8.4"
+      "actionLabel": "Install beta v0.8.5"
     },
     {
       "id": "customRaceFilter",
@@ -576,6 +576,16 @@
     }
   ],
   "timeline": [
+    {
+      "scriptId": "tornfolio",
+      "title": "Tornfolio",
+      "version": "v0.8.5",
+      "date": "2026-10-19",
+      "type": "FIX",
+      "summary": "Removes listed properties from Needs Attention because their listing decision and price are already complete.",
+      "href": "https://greasyfork.org/en/scripts/591996-tornfolio-property-lease-roi-manager",
+      "eventId": "tornfolio:v0.8.5"
+    },
     {
       "scriptId": "tornfolio",
       "title": "Tornfolio",
