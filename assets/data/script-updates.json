@@ -77,13 +77,13 @@
     {
       "id": "tornfolio",
       "title": "Tornfolio",
-      "version": "0.8.3",
-      "displayVersion": "v0.8.3",
-      "date": "2026-10-18",
-      "updated": "18 October 2026",
+      "version": "0.8.4",
+      "displayVersion": "v0.8.4",
+      "date": "2026-10-19",
+      "updated": "19 October 2026",
       "source": "userscript",
       "updateVersion": true,
-      "actionLabel": "Install beta v0.8.3"
+      "actionLabel": "Install beta v0.8.4"
     },
     {
       "id": "customRaceFilter",
@@ -576,6 +576,16 @@
     }
   ],
   "timeline": [
+    {
+      "scriptId": "tornfolio",
+      "title": "Tornfolio",
+      "version": "v0.8.4",
+      "date": "2026-10-19",
+      "type": "RELEASE",
+      "summary": "Aligns archive and rental-history controls, shows elapsed days on older entries, adds the Discord support invite and a circular draggable SVG launcher, and adds direct rental offers, gifting, estate-agent sales and purchases with review and final confirmation.",
+      "href": "https://greasyfork.org/en/scripts/591996-tornfolio-property-lease-roi-manager",
+      "eventId": "tornfolio:v0.8.4"
+    },
     {
       "scriptId": "tornfolio",
       "title": "Tornfolio",

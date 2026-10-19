@@ -143,13 +143,13 @@ export const scripts = [
     "tier": "supporter",
     "title": "Tornfolio",
     "desc": "A Torn property, rental, market pricing and ROI manager for owners and renters.",
-    "version": "v0.8.3",
+    "version": "v0.8.4",
     "versionPrefix": "VER",
     "category": "Property management",
     "group": "Property & Finance",
     "projectType": "Supporter property tool",
     "releaseState": "Beta tester build",
-    "updated": "18 October 2026",
+    "updated": "19 October 2026",
     "badge": "supporter",
     "badgeText": "SUPPORTER",
     "logo": "assets/images/tornfolio/tornfolio-logo.svg",
@@ -164,7 +164,7 @@ export const scripts = [
     ],
     "actions": [
       {
-        "label": "Install beta v0.8.3",
+        "label": "Install beta v0.8.4",
         "href": "https://greasyfork.org/en/scripts/591996-tornfolio-property-lease-roi-manager",
         "icon": "download",
         "primary": true,
@@ -763,6 +763,16 @@ export const scripts = [
 ];
 
 export const scriptReleases = [
+  {
+    scriptId: "tornfolio",
+    title: "Tornfolio",
+    version: "v0.8.4",
+    date: "2026-10-19",
+    type: "RELEASE",
+    summary:
+      "Aligns archive and rental-history controls, shows elapsed days on older entries, adds the Discord support invite and a circular draggable SVG launcher, and adds direct rental offers, gifting, estate-agent sales and purchases with review and final confirmation.",
+    href: "https://greasyfork.org/en/scripts/591996-tornfolio-property-lease-roi-manager/versions",
+  },
   {
     scriptId: "tornfolio",
     title: "Tornfolio",
