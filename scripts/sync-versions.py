@@ -849,6 +849,39 @@ def check_userscript(
     )
 
 
+def check_timeline_userscript(
+    entry: dict[str, Any],
+    site_root: Path,
+) -> tuple[str, str, str] | None:
+    raw_path = entry.get("timelineVersionPath")
+    if raw_path is None:
+        return None
+    if not isinstance(raw_path, str) or not raw_path.strip():
+        raise UpdateCheckError(f"{entry['id']} has an invalid timeline version path")
+
+    path = expand_source_path(raw_path, site_root)
+    allowed_roots = [site_root.resolve(), Path("/opt").resolve(), Path("/var/www").resolve()]
+    if not any(_is_within(path, root) for root in allowed_roots):
+        raise UpdateCheckError(f"{entry['id']} timeline version path is outside the permitted deployment roots")
+    if not path.exists():
+        return None
+
+    metadata = parse_userscript_metadata(path)
+    version = format_display_version(
+        validate_version(metadata.get("version"), entry["id"]),
+        str(entry.get("displayPrefix", "")),
+    )
+    try:
+        changed_at = datetime.fromtimestamp(path.stat().st_mtime, timezone.utc).replace(microsecond=0)
+    except OSError as error:
+        raise UpdateCheckError(f"{entry['id']} timeline version path is inaccessible") from error
+    return (
+        version,
+        changed_at.date().isoformat(),
+        changed_at.isoformat().replace("+00:00", "Z"),
+    )
+
+
 def build_record(
     entry: dict[str, Any],
     site_root: Path,
@@ -909,26 +942,45 @@ def build_record(
             for item in result.release_history
         ]
     if result.source == "service" or entry.get("timelineEnabled") is True:
+        timeline_userscript = check_timeline_userscript(entry, site_root)
         timeline_type = str(entry.get("timelineType") or ("SERVICE" if result.source == "service" else "BUILD"))
-        timeline_version = str(entry.get("timelineVersion") or ("LIVE" if result.source == "service" else display_version))
+        timeline_version = str(
+            timeline_userscript[0]
+            if timeline_userscript
+            else entry.get("timelineVersion") or ("LIVE" if result.source == "service" else display_version)
+        )
+        timeline_date = str(
+            timeline_userscript[1]
+            if timeline_userscript
+            else entry.get("timelineDate") or result.date
+        )
         timeline_summary = str(entry.get("timelineSummary") or "The deployed project files changed.").strip()
         if timeline_type not in {"RELEASE", "HOTFIX", "SERVICE", "BUILD"}:
             raise UpdateCheckError(f"{entry_id} has an invalid timeline type")
         if not VERSION_PATTERN.fullmatch(timeline_version):
             raise UpdateCheckError(f"{entry_id} has an invalid timeline version label")
+        try:
+            datetime.strptime(timeline_date, "%Y-%m-%d")
+        except ValueError as error:
+            raise UpdateCheckError(f"{entry_id} has an invalid timeline date") from error
         if not 1 <= len(timeline_summary) <= 360:
             raise UpdateCheckError(f"{entry_id} has an invalid timeline summary")
         record["_timelineEnabled"] = True
         record["_timelineType"] = timeline_type
         record["_timelineVersion"] = timeline_version
+        record["_timelineDate"] = timeline_date
         record["_timelineSummary"] = timeline_summary
         event_identity = (
-            result.version
+            timeline_version
+            if timeline_userscript or entry.get("timelineVersion") is not None
+            else result.version
             if result.source == "service" or entry.get("updateVersion") is False
             else display_version
         )
         record["_timelineEventId"] = f"{entry_id}:{event_identity}"
-        if result.timestamp:
+        if timeline_userscript:
+            record["_timelineTimestamp"] = timeline_userscript[2]
+        elif result.timestamp:
             record["_timelineTimestamp"] = result.timestamp
     return record
 
@@ -1021,7 +1073,7 @@ def build_timeline(
             "scriptId": script_id,
             "title": record["title"],
             "version": event_version,
-            "date": record["date"],
+            "date": str(record.get("_timelineDate") or record["date"]),
             "type": str(record.get("_timelineType") or "RELEASE"),
             "summary": summary,
             "href": href,

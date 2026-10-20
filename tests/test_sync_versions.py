@@ -277,6 +277,80 @@ class SyncVersionsTests(unittest.TestCase):
             [],
         )
 
+    def test_private_build_can_publish_timeline_metadata_without_public_source_change(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            script = root / "stock-x" / "stock-x.js"
+            script.parent.mkdir()
+            script.write_text(
+                "// ==UserScript==\n// @name Stock-X\n// @version 1.0.0\n// ==/UserScript==\n",
+                encoding="utf-8",
+            )
+            entry = {
+                "id": "stockx",
+                "title": "Stock-X",
+                "displayPrefix": "v",
+                "initialDate": "2026-09-06",
+                "timelineEnabled": True,
+                "timelineType": "BUILD",
+                "timelineVersion": "v1.1.1",
+                "timelineDate": "2026-10-20",
+                "timelineVersionPath": "private/current.user.js",
+                "timelineSummary": "A private build was updated without publishing its source.",
+                "timelineHref": "https://modulah.github.io/",
+                "source": {"type": "userscript", "path": "stock-x/stock-x.js"},
+            }
+
+            record = sync_versions.build_record(entry, root, None, "2026-10-20", 20)
+            timeline = sync_versions.build_timeline([record], {}, [], [entry])
+
+            self.assertEqual(record["version"], "1.0.0")
+            self.assertEqual(record["_timelineEventId"], "stockx:v1.1.1")
+            self.assertEqual(timeline[0]["version"], "v1.1.1")
+            self.assertEqual(timeline[0]["date"], "2026-10-20")
+            self.assertNotIn("sourceUrl", record)
+
+    def test_private_build_uses_vm_userscript_version_and_mtime_when_available(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            public_script = root / "stock-x" / "stock-x.js"
+            public_script.parent.mkdir()
+            public_script.write_text(
+                "// ==UserScript==\n// @name Stock-X\n// @version 1.0.0\n// ==/UserScript==\n",
+                encoding="utf-8",
+            )
+            private_script = root / "private" / "current.user.js"
+            private_script.parent.mkdir()
+            private_script.write_text(
+                "// ==UserScript==\n// @name Stock-X\n// @version 1.1.2\n// ==/UserScript==\n",
+                encoding="utf-8",
+            )
+            deployed_at = datetime(2026, 10, 21, 8, 30, tzinfo=timezone.utc).timestamp()
+            os.utime(private_script, (deployed_at, deployed_at))
+            entry = {
+                "id": "stockx",
+                "title": "Stock-X",
+                "displayPrefix": "v",
+                "timelineEnabled": True,
+                "timelineType": "BUILD",
+                "timelineVersion": "v1.1.1",
+                "timelineDate": "2026-10-20",
+                "timelineVersionPath": "private/current.user.js",
+                "timelineSummary": "A private build was updated without publishing its source.",
+                "timelineHref": "https://modulah.github.io/",
+                "source": {"type": "userscript", "path": "stock-x/stock-x.js"},
+            }
+
+            record = sync_versions.build_record(entry, root, None, "2026-10-21", 20)
+            timeline = sync_versions.build_timeline([record], {}, [], [entry])
+
+            self.assertEqual(record["version"], "1.0.0")
+            self.assertEqual(record["_timelineEventId"], "stockx:v1.1.2")
+            self.assertEqual(timeline[0]["version"], "v1.1.2")
+            self.assertEqual(timeline[0]["date"], "2026-10-21")
+            self.assertEqual(timeline[0]["timestamp"], "2026-10-21T08:30:00Z")
+            self.assertNotIn("sourceUrl", record)
+
     def test_fingerprints_service_files_and_keeps_latest_deployment_event(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

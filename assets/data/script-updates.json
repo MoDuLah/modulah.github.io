@@ -577,6 +577,16 @@
   ],
   "timeline": [
     {
+      "scriptId": "stockx",
+      "title": "Stock-X",
+      "version": "v1.1.1",
+      "date": "2026-10-20",
+      "type": "BUILD",
+      "summary": "Private Stock-X build 1.1.1 adds amount-limited share buying and a one-click Greasy Fork update check. Distribution remains invite-only, with no public download route.",
+      "href": "https://modulah.github.io/",
+      "eventId": "stockx:v1.1.1"
+    },
+    {
       "scriptId": "tornfolio",
       "title": "Tornfolio",
       "version": "v0.8.5",
