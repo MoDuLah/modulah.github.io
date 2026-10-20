@@ -107,7 +107,7 @@
       "timelineVersion": "v1.1.1",
       "timelineDate": "2026-10-20",
       "timelineVersionPath": "/opt/modul-private-userscripts/stock-x/current.user.js",
-      "timelineSummary": "Private Stock-X build 1.1.1 adds amount-limited share buying and a one-click Greasy Fork update check. Distribution remains invite-only, with no public download route.",
+      "timelineSummary": "Private Stock-X build 1.1.1 adds amount-limited share buying and a one-click Greasy Fork update check. Distribution remains link-only through the unlisted listing, with no public Hub download route.",
       "timelineHref": "https://modulah.github.io/",
       "source": {
         "type": "userscript",
