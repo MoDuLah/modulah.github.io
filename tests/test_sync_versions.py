@@ -310,6 +310,28 @@ class SyncVersionsTests(unittest.TestCase):
             self.assertEqual(timeline[0]["date"], "2026-10-20")
             self.assertNotIn("sourceUrl", record)
 
+            stale_event = {
+                "scriptId": "stockx",
+                "title": "Stock-X",
+                "version": "v1.1.1",
+                "date": "2026-10-20",
+                "type": "BUILD",
+                "summary": "Old private-build wording.",
+                "href": "https://modulah.github.io/",
+                "eventId": "stockx:v1.1.1",
+            }
+            refreshed = sync_versions.build_timeline(
+                [record],
+                {},
+                [stale_event],
+                [entry],
+            )
+            self.assertEqual(refreshed[0]["summary"], entry["timelineSummary"])
+            self.assertEqual(
+                sum(event["eventId"] == "stockx:v1.1.1" for event in refreshed),
+                1,
+            )
+
     def test_private_build_uses_vm_userscript_version_and_mtime_when_available(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

@@ -1085,6 +1085,21 @@ def build_timeline(
                 "href": f"{record['sourceUrl']}/versions",
             })
 
+    # Timeline-enabled builds may keep the same event identity while their
+    # curated wording or link is corrected. Rebuild those events from the
+    # current config instead of permanently preserving stale snapshot text.
+    refresh_keys = {
+        str(record.get("_timelineEventId") or f"{record['id']}:{record.get('_timelineVersion') or record['displayVersion']}").casefold()
+        for record in records
+        if record.get("_timelineEnabled") is True
+    }
+    if refresh_keys:
+        enriched_previous = [
+            event
+            for event in enriched_previous
+            if timeline_event_key(event) not in refresh_keys
+        ]
+
     existing_keys = {timeline_event_key(event) for event in enriched_previous}
     new_events: list[dict[str, str]] = []
     for record in records:
