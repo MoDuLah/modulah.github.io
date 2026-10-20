@@ -754,17 +754,27 @@ def fingerprint_service(source: dict[str, Any], site_root: Path) -> SourceResult
     )
 
 
-def load_service_snapshot(path: Path | None) -> dict[str, dict[str, str]]:
+def load_service_snapshot(path: Path | None) -> dict[str, Any]:
     if path is None:
         return {}
     payload = load_json(path)
     services = payload.get("services")
     if payload.get("schemaVersion") != 1 or not isinstance(services, dict):
         raise UpdateCheckError("Service snapshot is invalid")
+    timeline_userscripts = payload.get("timelineUserscripts", {})
+    if not isinstance(timeline_userscripts, dict):
+        raise UpdateCheckError("Service snapshot timeline userscripts are invalid")
     return {
-        key: value
-        for key, value in services.items()
-        if isinstance(key, str) and isinstance(value, dict)
+        "services": {
+            key: value
+            for key, value in services.items()
+            if isinstance(key, str) and isinstance(value, dict)
+        },
+        "timelineUserscripts": {
+            key: value
+            for key, value in timeline_userscripts.items()
+            if isinstance(key, str) and isinstance(value, dict)
+        },
     }
 
 
@@ -772,11 +782,11 @@ def check_service(
     entry_id: str,
     source: dict[str, Any],
     site_root: Path,
-    service_snapshot: dict[str, dict[str, str]] | None,
+    service_snapshot: dict[str, Any] | None,
 ) -> SourceResult:
     if not service_snapshot:
         return fingerprint_service(source, site_root)
-    snapshot = service_snapshot.get(entry_id)
+    snapshot = service_snapshot.get("services", {}).get(entry_id)
     if not snapshot:
         raise UpdateCheckError(f"Service snapshot is missing {entry_id}")
     version = validate_version(snapshot.get("version"), f"Service snapshot {entry_id}")
@@ -799,25 +809,35 @@ def check_service(
 
 def build_service_snapshot(entries: list[dict[str, Any]], site_root: Path) -> dict[str, Any]:
     services: dict[str, dict[str, str]] = {}
+    timeline_userscripts: dict[str, dict[str, str]] = {}
     for entry in entries:
         source = entry.get("source") if isinstance(entry, dict) else None
-        if not isinstance(source, dict) or source.get("type") != "service":
+        if not isinstance(entry, dict):
             continue
         entry_id = entry.get("id")
         if not isinstance(entry_id, str) or not entry_id:
             raise UpdateCheckError("Every service source requires an id")
-        result = fingerprint_service(source, site_root)
-        services[entry_id] = {
-            "version": result.version,
-            "date": result.date,
-            "timestamp": str(result.timestamp),
-        }
-    if not services:
-        raise UpdateCheckError("No service sources were configured")
+        if isinstance(source, dict) and source.get("type") == "service":
+            result = fingerprint_service(source, site_root)
+            services[entry_id] = {
+                "version": result.version,
+                "date": result.date,
+                "timestamp": str(result.timestamp),
+            }
+        timeline_userscript = check_timeline_userscript(entry, site_root)
+        if timeline_userscript:
+            timeline_userscripts[entry_id] = {
+                "version": timeline_userscript[0],
+                "date": timeline_userscript[1],
+                "timestamp": timeline_userscript[2],
+            }
+    if not services and not timeline_userscripts:
+        raise UpdateCheckError("No service or private timeline sources were configured")
     return {
         "schemaVersion": 1,
         "generatedAt": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
         "services": services,
+        "timelineUserscripts": timeline_userscripts,
     }
 
 
@@ -852,12 +872,28 @@ def check_userscript(
 def check_timeline_userscript(
     entry: dict[str, Any],
     site_root: Path,
+    service_snapshot: dict[str, Any] | None = None,
 ) -> tuple[str, str, str] | None:
     raw_path = entry.get("timelineVersionPath")
     if raw_path is None:
         return None
     if not isinstance(raw_path, str) or not raw_path.strip():
         raise UpdateCheckError(f"{entry['id']} has an invalid timeline version path")
+
+    snapshot = (service_snapshot or {}).get("timelineUserscripts", {}).get(entry["id"])
+    if snapshot:
+        version = str(snapshot.get("version") or "")
+        date = str(snapshot.get("date") or "")
+        timestamp = str(snapshot.get("timestamp") or "")
+        if not VERSION_PATTERN.fullmatch(version):
+            raise UpdateCheckError(f"{entry['id']} has an invalid timeline snapshot version")
+        if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", date):
+            raise UpdateCheckError(f"{entry['id']} has an invalid timeline snapshot date")
+        if not re.fullmatch(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z", timestamp):
+            raise UpdateCheckError(f"{entry['id']} has an invalid timeline snapshot timestamp")
+        if not timestamp.startswith(date):
+            raise UpdateCheckError(f"{entry['id']} has a mismatched timeline snapshot timestamp")
+        return version, date, timestamp
 
     path = expand_source_path(raw_path, site_root)
     allowed_roots = [site_root.resolve(), Path("/opt").resolve(), Path("/var/www").resolve()]
@@ -888,7 +924,7 @@ def build_record(
     previous: dict[str, Any] | None,
     today: str,
     timeout: int,
-    service_snapshot: dict[str, dict[str, str]] | None = None,
+    service_snapshot: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     entry_id = entry.get("id")
     title = entry.get("title")
@@ -942,7 +978,7 @@ def build_record(
             for item in result.release_history
         ]
     if result.source == "service" or entry.get("timelineEnabled") is True:
-        timeline_userscript = check_timeline_userscript(entry, site_root)
+        timeline_userscript = check_timeline_userscript(entry, site_root, service_snapshot)
         timeline_type = str(entry.get("timelineType") or ("SERVICE" if result.source == "service" else "BUILD"))
         timeline_version = str(
             timeline_userscript[0]

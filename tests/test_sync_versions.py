@@ -351,6 +351,30 @@ class SyncVersionsTests(unittest.TestCase):
             self.assertEqual(timeline[0]["timestamp"], "2026-10-21T08:30:00Z")
             self.assertNotIn("sourceUrl", record)
 
+            snapshot_path = root / "state" / "service-fingerprints.json"
+            sync_versions.write_atomic(
+                snapshot_path,
+                sync_versions.build_service_snapshot([entry], root),
+            )
+            private_script.unlink()
+            snapshot_record = sync_versions.build_record(
+                entry,
+                root,
+                None,
+                "2026-10-22",
+                20,
+                sync_versions.load_service_snapshot(snapshot_path),
+            )
+            snapshot_timeline = sync_versions.build_timeline(
+                [snapshot_record],
+                {},
+                [],
+                [entry],
+            )
+            self.assertEqual(snapshot_record["_timelineEventId"], "stockx:v1.1.2")
+            self.assertEqual(snapshot_timeline[0]["date"], "2026-10-21")
+            self.assertEqual(snapshot_timeline[0]["timestamp"], "2026-10-21T08:30:00Z")
+
     def test_fingerprints_service_files_and_keeps_latest_deployment_event(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
