@@ -32,6 +32,17 @@
 
 - **Miscellaneous**: Add minified Stock-X userscript styles
 
+## v1.0.0 (2026-10-21)
+
+### Miscellaneous
+
+- **Miscellaneous**: Publish Stock-X 1.1.2 timeline update
+- **Miscellaneous**: Keep Stock-X timeline invite-only wording
+- **Miscellaneous**: Clarify Stock-X unlisted distribution
+- **Miscellaneous**: Snapshot private Stock-X VM version
+- **Miscellaneous**: Add private Stock-X build timeline sync
+
+
 
 
 
