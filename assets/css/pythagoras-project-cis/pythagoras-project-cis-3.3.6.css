@@ -1,3 +1,4 @@
+/* stylelint-disable -- extracted from the established userscript stylesheet without semantic rewrites */
 .pp-wrap[data-row-batch-scroll]{max-height:min(64vh,620px);overflow:auto}
 #pythagoras-cis{--bg:#111313;--panel:#171a1a;--panel2:#1f2422;--line:#343936;--text:#eff2ef;--muted:#a8b0aa;--accent:#46c58f;--warn:#d8a545;--bad:#d95d5d;--pp-text-outline:#000;--pp-muted-outline:#000;position:fixed;z-index:999999;top:18px;right:18px;width:min(1120px,calc(100vw - 28px));max-height:calc(100vh - 28px);min-width:340px;min-height:220px;resize:both;color:var(--text);background:var(--bg);border:1px solid var(--line);border-radius:8px;box-shadow:0 18px 54px rgba(0,0,0,.42);font:13px/1.45 Arial,Helvetica,sans-serif;overflow:hidden;letter-spacing:0;scrollbar-color:var(--accent) var(--panel);scrollbar-width:thin}
 #pythagoras-cis.pp-theme-carbon{--bg:#0b0d0d;--panel:#151717;--panel2:#202323;--line:#3b4040;--text:#f4f6f4;--muted:#b7beb8;--accent:#d8d1bd;--warn:#e0b85e;--bad:#e26b6b}
