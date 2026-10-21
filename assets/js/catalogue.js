@@ -143,13 +143,13 @@ export const scripts = [
     "tier": "supporter",
     "title": "Tornfolio",
     "desc": "A Torn property, rental, market pricing and ROI manager for owners and renters.",
-    "version": "v0.8.5",
+    "version": "v0.8.6",
     "versionPrefix": "VER",
     "category": "Property management",
     "group": "Property & Finance",
     "projectType": "Supporter property tool",
     "releaseState": "Beta tester build",
-    "updated": "19 October 2026",
+    "updated": "21 October 2026",
     "badge": "supporter",
     "badgeText": "SUPPORTER",
     "logo": "assets/images/tornfolio/tornfolio-logo.svg",
@@ -164,7 +164,7 @@ export const scripts = [
     ],
     "actions": [
       {
-        "label": "Install beta v0.8.5",
+        "label": "Install beta v0.8.6",
         "href": "https://greasyfork.org/en/scripts/591996-tornfolio-property-lease-roi-manager",
         "icon": "download",
         "primary": true,
@@ -763,6 +763,16 @@ export const scripts = [
 ];
 
 export const scriptReleases = [
+  {
+    scriptId: "tornfolio",
+    title: "Tornfolio",
+    version: "v0.8.6",
+    date: "2026-10-21",
+    type: "FIX",
+    summary:
+      "Caps extension offers at 100 total remaining days by fixing the extension period to 100 minus the current remaining days.",
+    href: "https://greasyfork.org/en/scripts/591996-tornfolio-property-lease-roi-manager/versions",
+  },
   {
     scriptId: "tornfolio",
     title: "Tornfolio",

@@ -29,7 +29,7 @@
       "actionLabelTemplate": "Install beta {version}",
       "timelineEnabled": true,
       "timelineType": "RELEASE",
-      "timelineSummary": "The Tornfolio property lifecycle, rental, market and update-checker userscript changed.",
+      "timelineSummary": "Rental extensions now offer exactly 100 minus the contract's remaining days, preventing the total remaining term from exceeding 100 days.",
       "timelineHref": "https://greasyfork.org/en/scripts/591996-tornfolio-property-lease-roi-manager",
       "source": {
         "type": "userscript",

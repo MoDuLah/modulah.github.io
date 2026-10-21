@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Tornfolio — Property, Lease & ROI Manager
 // @namespace    MoDuL.torn.tornfolio
-// @version      0.8.5
+// @version      0.8.6
 // @description  Manage your Torn property portfolio, rentals, market pricing, archive, and ROI.
 // @author       MoDuL
 // @copyright    2026 MoDuL. All rights reserved.
@@ -21,7 +21,7 @@
   "use strict";
 
   const APP_ID = "tf-ledger";
-  const APP_VERSION = "0.8.5";
+  const APP_VERSION = "0.8.6";
   const UPKEEP_REMINDER_INTERVAL_MS = 24 * 60 * 60 * 1000;
   const STORE_KEY = "tornfolio:v1";
   const LEGACY_STORE_KEYS = ["tornLandlordTenantLedger:v1"];
@@ -6197,12 +6197,21 @@
     return marketDaily || roiDaily || moneyNumber(fields && fields.combinedDaily);
   }
 
+  function rentalExtensionOfferDays(contract) {
+    const remainingValue = contract && contract.remaining;
+    if (remainingValue === null || remainingValue === undefined || remainingValue === "") return "";
+    const remaining = Number(remainingValue);
+    if (!Number.isFinite(remaining) || remaining < 0) return "";
+    return Math.max(0, 100 - Math.ceil(remaining));
+  }
+
   function rentalListingCalculation(fields, recalculateFromSuggestion = false) {
     const days = Number(fields && fields.days);
     const minimumDays = Number(fields && fields.minimumDays) || 3;
+    const maximumDays = Number(fields && fields.maximumDays) || 100;
     const suggestedDaily = moneyNumber(fields && fields.suggestedDaily);
     const investmentBasis = moneyNumber(fields && fields.investmentBasis);
-    if (!Number.isInteger(days) || days < minimumDays || days > 100)
+    if (!Number.isInteger(days) || days < minimumDays || days > maximumDays)
       return { days: "", total: "", daily: "", projectedRoi: "" };
     const total =
       recalculateFromSuggestion && suggestedDaily
@@ -6253,6 +6262,11 @@
       if (!rentedOut)
         return "An active outgoing rental is required before an extension can be offered.";
       if (property.extensionPending) return "An extension is already pending for this contract.";
+      const availableDays = rentalExtensionOfferDays(property.activeContract);
+      if (availableDays === "")
+        return "Sync Tornfolio to refresh the rental's remaining days before offering an extension.";
+      if (availableDays < 1)
+        return "This rental already has 100 days remaining, so it cannot be extended yet.";
       return "";
     }
     if (kind === "remove") return property.listed ? "" : "This property is not shown as listed.";
@@ -6312,15 +6326,7 @@
     if (kind === "extend") {
       const pricing = tfRentalListingSuggestion(property, model);
       const contract = property.activeContract || {};
-      const days = Math.max(
-        1,
-        Math.min(
-          100,
-          Math.round(
-            positiveNumber(contract.duration) || pricing.days || defaultSuggestionLeaseDays()
-          )
-        )
-      );
+      const days = rentalExtensionOfferDays(contract);
       const marketDaily = moneyNumber(pricing.averageDaily || pricing.medianDaily);
       const roiDaily = moneyNumber(pricing.targetDaily);
       const pricingFields = {
@@ -6350,7 +6356,9 @@
         marketConfidence: pricing.confidence,
         lastContractDays: String(contract.duration || ""),
         currentContractDaily: String(contract.daily || ""),
+        remainingDays: String(Math.ceil(Number(contract.remaining))),
         minimumDays: "1",
+        maximumDays: String(days),
         hasMarketData: pricing.hasMarketData,
         ...pricingFields,
       };
@@ -6699,7 +6707,14 @@
       const destinationFields = isExtension
         ? ""
         : `<div class="tf-action-fields"><label>Offer to<select name="destination" data-action-destination><option value="market"${destination === "market" ? " selected" : ""}>Rental market</option><option value="person"${destination === "person" ? " selected" : ""}>Specific Torn user</option></select></label>${destination === "person" ? `<label>Recipient Torn user ID<input type="text" inputmode="numeric" name="userId" value="${escapeAttr(action.fields.userId || "")}" placeholder="e.g. 3877028" required></label>` : ""}</div>`;
-      return `<form class="tf-action-form" data-form="property-action"><div class="tf-action-summary"><div><span>${isExtension ? "Selected rate / day" : "Suggested rent / day"}</span><strong data-rent-form-suggested>${escapeHtml(tfMoney(suggestedDaily))}</strong></div><div><span>${isExtension ? "Extension total" : "Contract total"}</span><strong data-rent-form-total>${escapeHtml(tfMoney(calculation.total))}</strong></div><div><span>Projected annual ROI</span><strong data-rent-form-roi>${projectedRoi ? `${escapeHtml(String(projectedRoi))}%` : "Unavailable"}</strong></div><div><span>Pricing evidence</span><strong data-rent-pricing-mode>${escapeHtml(pricingMode)} · ${escapeHtml(marketStatus)}</strong></div></div>${destinationFields}<div class="tf-action-fields"><label>${isExtension ? "Extension period (days)" : "Lease length (days)"}<input type="number" min="${isExtension ? "1" : "3"}" max="100" step="1" name="days" value="${escapeAttr(action.fields.days || "")}" required></label><div class="tf-price-field"><span>${isExtension ? "Extension cost" : "Total contract rent"}</span>${pricingControls}<input type="text" inputmode="numeric" name="total" value="${escapeAttr(action.fields.total || "")}" placeholder="Calculated from selected pricing" required></div></div>${error}<p class="${sourceClass}" data-rent-pricing-source-text>${escapeHtml(sourceText)}</p><p class="tf-action-note">Choose Market, ROI, or both above the amount. Changing the ${isExtension ? "extension" : "lease"} period automatically recalculates the total from ${escapeHtml(automaticPrice)}. You can still edit the total manually; changing the period or pricing source recalculates it.</p><div class="tf-button-row"><button class="tf-primary" type="submit"${action.busy ? " disabled" : ""}>${action.busy ? "Checking with Torn…" : "Review with Torn"}</button><button type="button" data-action="close-property-action"${action.busy ? " disabled" : ""}>Cancel</button></div></form>`;
+      const maximumDays = isExtension ? action.fields.maximumDays : "100";
+      const extensionCapNote = isExtension
+        ? `<p class="tf-action-note">Torn allows at most 100 total remaining rental days. This contract has ${tfNumber(action.fields.remainingDays)} days remaining, so the extension is fixed at ${tfNumber(action.fields.maximumDays)} days.</p>`
+        : "";
+      const calculationNote = isExtension
+        ? `The extension period is calculated automatically. You can still edit the total manually; changing the pricing source recalculates it from ${escapeHtml(automaticPrice)}.`
+        : `Changing the lease period automatically recalculates the total from ${escapeHtml(automaticPrice)}. You can still edit the total manually; changing the period or pricing source recalculates it.`;
+      return `<form class="tf-action-form" data-form="property-action"><div class="tf-action-summary"><div><span>${isExtension ? "Selected rate / day" : "Suggested rent / day"}</span><strong data-rent-form-suggested>${escapeHtml(tfMoney(suggestedDaily))}</strong></div><div><span>${isExtension ? "Extension total" : "Contract total"}</span><strong data-rent-form-total>${escapeHtml(tfMoney(calculation.total))}</strong></div><div><span>Projected annual ROI</span><strong data-rent-form-roi>${projectedRoi ? `${escapeHtml(String(projectedRoi))}%` : "Unavailable"}</strong></div><div><span>Pricing evidence</span><strong data-rent-pricing-mode>${escapeHtml(pricingMode)} · ${escapeHtml(marketStatus)}</strong></div></div>${destinationFields}<div class="tf-action-fields"><label>${isExtension ? "Extension period (days)" : "Lease length (days)"}<input type="number" min="${isExtension ? "1" : "3"}" max="${escapeAttr(maximumDays)}" step="1" name="days" value="${escapeAttr(action.fields.days || "")}" required${isExtension ? " readonly" : ""}></label><div class="tf-price-field"><span>${isExtension ? "Extension cost" : "Total contract rent"}</span>${pricingControls}<input type="text" inputmode="numeric" name="total" value="${escapeAttr(action.fields.total || "")}" placeholder="Calculated from selected pricing" required></div></div>${error}${extensionCapNote}<p class="${sourceClass}" data-rent-pricing-source-text>${escapeHtml(sourceText)}</p><p class="tf-action-note">Choose Market, ROI, or both above the amount. ${calculationNote}</p><div class="tf-button-row"><button class="tf-primary" type="submit"${action.busy ? " disabled" : ""}>${action.busy ? "Checking with Torn…" : "Review with Torn"}</button><button type="button" data-action="close-property-action"${action.busy ? " disabled" : ""}>Cancel</button></div></form>`;
     }
     const totalLabel = action.kind === "extend" ? "Extension total" : "Total contract rent";
     const dayLabel = action.kind === "extend" ? "Extra days" : "Lease length (days)";
@@ -6891,6 +6906,13 @@
     const property = model.properties.find((row) => row.key === action.propertyKey);
     const unavailable = propertyActionUnavailableReason(action.kind, property);
     if (unavailable) throw new Error(unavailable);
+    if (action.kind === "extend") {
+      const requiredDays = rentalExtensionOfferDays(property.activeContract);
+      if (Number(rawValues.days) !== requiredDays)
+        throw new Error(
+          `The extension must be ${requiredDays} days so it reaches, but does not exceed, 100 total remaining days.`
+        );
+    }
     if (action.kind === "upgrade") {
       const selections = normalizePropertyUpgradeSelections(action, rawValues);
       const group = action.upgradeGroups[action.upgradeType];
@@ -7050,6 +7072,13 @@
     if (action.kind !== "buy") {
       const unavailable = propertyActionUnavailableReason(action.kind, property);
       if (unavailable) throw new Error(unavailable);
+      if (
+        action.kind === "extend" &&
+        Number(action.fields.days) !== rentalExtensionOfferDays(property.activeContract)
+      )
+        throw new Error(
+          "The rental's remaining days changed. Go back and review the recalculated extension before sending it."
+        );
     }
     const actionValues =
       action.kind === "upgrade"
@@ -7190,7 +7219,7 @@
       changelog: {
         title: `Tornfolio ${APP_VERSION}`,
         subtitle: "Release notes",
-        body: `<section><h2>Version ${escapeHtml(APP_VERSION)}</h2><ul class="tf-info-list"><li>Removes listed properties from Needs Attention because the listing decision and price are already complete.</li></ul></section><section><h2>Previous updates</h2><p>Version 0.8.4 aligned Archive and rental-history actions, added the draggable launcher and Discord support link, and expanded property-management actions. Version 0.8.3 completed the <code>tf-</code> interface rename while preserving saved data.</p></section><section><h2>Updates</h2><p>Tornfolio checks GreasyFork for a newer release when it opens. The header status tells you whether this version is current.</p><a class="tf-link-button" href="${escapeAttr(GREASYFORK_PAGE_URL)}" target="_blank" rel="noopener noreferrer">View Tornfolio on GreasyFork</a></section>`,
+        body: `<section><h2>Version ${escapeHtml(APP_VERSION)}</h2><ul class="tf-info-list"><li>Caps rental extensions at 100 total remaining days by offering exactly 100 minus the current remaining days.</li></ul></section><section><h2>Previous updates</h2><p>Version 0.8.5 removed listed properties from Needs Attention because the listing decision and price were already complete. Version 0.8.4 aligned Archive and rental-history actions, added the draggable launcher and Discord support link, and expanded property-management actions.</p></section><section><h2>Updates</h2><p>Tornfolio checks GreasyFork for a newer release when it opens. The header status tells you whether this version is current.</p><a class="tf-link-button" href="${escapeAttr(GREASYFORK_PAGE_URL)}" target="_blank" rel="noopener noreferrer">View Tornfolio on GreasyFork</a></section>`,
       },
     };
     const selected = views[view] || views.help;
@@ -12233,6 +12262,7 @@
       upkeepReminderStatus,
       propertyActionUnavailableReason,
       propertyActionDefaults,
+      rentalExtensionOfferDays,
       propertyPricingDaily,
       rentalListingCalculation,
       tfResolvePropertyListingState,
