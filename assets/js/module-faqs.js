@@ -167,7 +167,7 @@ export const moduleFaqs = {
     {
       "question": "How is supporter access handled?",
       "answer":
-        "Licensing is handled through the Pit Guru Discord. Verify your Torn account there, then use /buylicense to start the supporter access flow.",
+        "Licensing is handled through the Pit Guru Discord. Verify your Torn account there, then use /buylicense to purchase 31 days of supporter access for $20m in Torn cash.",
     },
   ],
   "customRaceFilter": [
@@ -216,7 +216,7 @@ export const moduleFaqs = {
     {
       "question": "Can I install Tornfolio now?",
       "answer":
-        "Yes. Use the Install button on the Tornfolio card. The userscript is publicly downloadable, while account verification and hosted market scans require Tornfolio supporter access.",
+        "Yes. Use the Install button on the Tornfolio card. The userscript is publicly downloadable. Account verification and hosted market scans require supporter access, available through Discord for $20m Torn cash for 31 days.",
     },
     {
       "question": "What will Tornfolio manage?",

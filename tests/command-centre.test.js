@@ -492,5 +492,8 @@ describe("command centre catalogue", () => {
     ].forEach((label) => expect(app).toContain(label));
     expect(app).toContain("sanitiseMarketplace");
     expect(app).toContain("https://spdx.org/licenses/");
+    expect(catalogue).toContain("31 days for $20m in Torn cash through Discord");
+    expect(catalogue).not.toContain("7 days for $7m");
+    expect(moduleFaqs).toContain("purchase 31 days of supporter access for $20m in Torn cash");
   });
 });

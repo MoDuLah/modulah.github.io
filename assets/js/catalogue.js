@@ -104,7 +104,7 @@ export const scripts = [
       },
     ],
     "note":
-      "This hosted web tool requires Pit Guru supporter access. The Pit Guru userscript itself remains free.",
+      "This hosted web tool requires Pit Guru supporter access: 31 days for $20m in Torn cash through Discord. The Pit Guru userscript itself remains free.",
   },
   {
     "id": "customRaceFilter",
@@ -171,7 +171,7 @@ export const scripts = [
       },
     ],
     "note":
-      "The userscript is publicly installable; account verification and hosted market scans require Tornfolio supporter access.",
+      "The userscript is publicly installable. Account verification and hosted market scans require Tornfolio supporter access: 31 days for $20m in Torn cash through Discord.",
   },
   {
     "id": "modulHubControl",
