@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Tornfolio — Property, Lease & ROI Manager
 // @namespace    MoDuL.torn.tornfolio
-// @version      0.8.6
+// @version      0.8.8
 // @description  Manage your Torn property portfolio, rentals, market pricing, archive, and ROI.
 // @author       MoDuL
 // @copyright    2026 MoDuL. All rights reserved.
@@ -21,7 +21,7 @@
   "use strict";
 
   const APP_ID = "tf-ledger";
-  const APP_VERSION = "0.8.6";
+  const APP_VERSION = "0.8.8";
   const UPKEEP_REMINDER_INTERVAL_MS = 24 * 60 * 60 * 1000;
   const STORE_KEY = "tornfolio:v1";
   const LEGACY_STORE_KEYS = ["tornLandlordTenantLedger:v1"];
@@ -237,6 +237,7 @@
     propertyCosts: {},
     spouseListingSnapshots: {},
     upkeepReminderChecks: {},
+    upkeepPaymentSnapshots: {},
     settings: DEFAULT_SETTINGS,
     archivedRentals: [],
     activity: [],
@@ -323,6 +324,7 @@
           !Array.isArray(parsed.upkeepReminderChecks)
             ? { ...parsed.upkeepReminderChecks }
             : {},
+        upkeepPaymentSnapshots: normalizeUpkeepPaymentSnapshots(parsed.upkeepPaymentSnapshots),
         syncProgress: normalizeSyncProgress(parsed.syncProgress),
         ui: { ...emptyState.ui, ...(parsed.ui || {}) },
       };
@@ -1955,10 +1957,51 @@
     const requiredText = clean(required && required.textContent, "")
       .replace(/\s+/g, " ")
       .trim();
+    const payments = Array.from(section.querySelectorAll(".upkeep-payments-wrap ul.payments"))
+      .map(parseTornUpkeepPaymentRow)
+      .filter(Boolean);
     return {
       due,
       requiredText: requiredText || `Required fees: ${tfMoneyKnown(due)}`,
+      payments,
     };
+  }
+
+  function parseTornUpkeepPaymentRow(row) {
+    if (!row || typeof row.querySelector !== "function") return null;
+    const amountNode = row.querySelector("li.amount");
+    const amount = upkeepMoneyValue(amountNode && amountNode.textContent);
+    if (!Number.isFinite(amount) || amount <= 0) return null;
+
+    const payerNode = row.querySelector("li.user a.user, li.user a");
+    const rawPayer = clean(
+      payerNode && (payerNode.getAttribute("title") || payerNode.textContent),
+      ""
+    )
+      .replace(/\s+/g, " ")
+      .trim();
+    const payerParts = splitUserLabel(rawPayer);
+    const href = clean(payerNode && payerNode.getAttribute("href"), "");
+    const hrefId = (href.match(/[?&]XID=(\d+)/i) || [])[1] || "";
+    const payerId = payerParts.id || hrefId;
+    const payerName = payerParts.name || clean(payerNode && payerNode.textContent, "Unknown payer");
+    const dateNode = row.querySelector(".transaction-time");
+    const timeNode = row.querySelector(".transaction-date");
+    const paidAt = parseTornUpkeepTimestamp(
+      dateNode && dateNode.textContent,
+      timeNode && timeNode.textContent
+    );
+    const balanceNode = row.querySelector("li.balance");
+    const balance = upkeepMoneyValue(balanceNode && balanceNode.textContent, 0);
+    return normalizeUpkeepPayment({
+      paidAt,
+      payerId,
+      payerName,
+      payerLabel: userLabelFromParts(payerName, payerId),
+      amount,
+      balance,
+      source: "torn-recent-upkeep",
+    });
   }
 
   function propertyUpgradeFieldLabel(name) {
@@ -3624,15 +3667,15 @@
   }
 
   function upkeepDaily(row, type) {
-    const propertyUpkeep = moneyNumber(
-      nestedValue(row, "upkeep.property") ||
-        nestedValue(row, "property_upkeep") ||
-        (type && type.upkeep)
+    const directPropertyUpkeep = moneyNumber(
+      nestedValue(row, "upkeep.property") || nestedValue(row, "property_upkeep")
     );
-    const staffUpkeep = moneyNumber(
+    const directStaffUpkeep = moneyNumber(
       nestedValue(row, "upkeep.staff") || nestedValue(row, "staff_upkeep")
     );
-    return (propertyUpkeep || 0) + (staffUpkeep || 0);
+    if (directPropertyUpkeep || directStaffUpkeep)
+      return (directPropertyUpkeep || 0) + (directStaffUpkeep || 0);
+    return moneyNumber(nestedValue(row, "upkeep") || (type && type.upkeep)) || 0;
   }
 
   function propertyTypeForRow(row) {
@@ -4222,6 +4265,8 @@
           activity: state.activity || [],
           propertyCosts: state.propertyCosts || {},
           spouseListingSnapshots: state.spouseListingSnapshots || {},
+          upkeepReminderChecks: state.upkeepReminderChecks || {},
+          upkeepPaymentSnapshots: state.upkeepPaymentSnapshots || {},
           settings: appSettings(),
           endpointData: state.endpointData || {},
           keyInfo: state.keyInfo || null,
@@ -4325,6 +4370,14 @@
             ...(parsed.archivedRentals || []),
           ]).filter(isCompletedArchiveRow);
           state.activity = Array.isArray(parsed.activity) ? parsed.activity : state.activity || [];
+          state.upkeepReminderChecks = {
+            ...(state.upkeepReminderChecks || {}),
+            ...(parsed.upkeepReminderChecks || {}),
+          };
+          state.upkeepPaymentSnapshots = normalizeUpkeepPaymentSnapshots({
+            ...(state.upkeepPaymentSnapshots || {}),
+            ...(parsed.upkeepPaymentSnapshots || {}),
+          });
           state.endpointData = {
             ...(state.endpointData || {}),
             ...(parsed.endpointData || {}),
@@ -4508,6 +4561,304 @@
     return Number.isFinite(parsed) ? parsed : 0;
   }
 
+  function upkeepMoneyValue(value, fallback = null) {
+    if (value === null || value === undefined || value === "") return fallback;
+    const text = String(value).replace(/[^0-9.-]+/g, "");
+    if (!text) return fallback;
+    const number = Number(text);
+    return Number.isFinite(number) && number >= 0 ? number : fallback;
+  }
+
+  function parseTornUpkeepTimestamp(dateValue, timeValue = "00:00:00") {
+    const dateMatch = String(dateValue || "")
+      .trim()
+      .match(/^(\d{1,2})\/(\d{1,2})\/(\d{2}|\d{4})$/);
+    const timeMatch = String(timeValue || "")
+      .trim()
+      .match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?$/);
+    if (!dateMatch) return "";
+    const year = Number(dateMatch[3]) + (dateMatch[3].length === 2 ? 2000 : 0);
+    const month = Number(dateMatch[2]);
+    const day = Number(dateMatch[1]);
+    const hour = timeMatch ? Number(timeMatch[1]) : 0;
+    const minute = timeMatch ? Number(timeMatch[2]) : 0;
+    const second = timeMatch ? Number(timeMatch[3] || 0) : 0;
+    const timestamp = Date.UTC(year, month - 1, day, hour, minute, second);
+    const date = new Date(timestamp);
+    if (
+      !Number.isFinite(timestamp) ||
+      date.getUTCFullYear() !== year ||
+      date.getUTCMonth() !== month - 1 ||
+      date.getUTCDate() !== day ||
+      date.getUTCHours() !== hour ||
+      date.getUTCMinutes() !== minute ||
+      date.getUTCSeconds() !== second
+    )
+      return "";
+    return date.toISOString();
+  }
+
+  function normalizeUpkeepOccupant(value) {
+    if (!value) return null;
+    const source = typeof value === "object" ? value : {};
+    const rawLabel =
+      typeof value === "string"
+        ? value
+        : clean(source.label || source.payerLabel || userName(source), "");
+    const parts = splitUserLabel(rawLabel);
+    const id = clean(source.id || source.userId || source.payerId || parts.id, "");
+    const name = clean(source.name || source.payerName || parts.name, "");
+    const label = userLabelFromParts(name, id) || rawLabel;
+    return label ? { id, name: name || label, label } : null;
+  }
+
+  function normalizeUpkeepPayment(value) {
+    if (!value || typeof value !== "object") return null;
+    const amount = upkeepMoneyValue(value.amount);
+    if (!Number.isFinite(amount) || amount <= 0) return null;
+    const payer = normalizeUpkeepOccupant({
+      id: value.payerId || value.payer_id,
+      name: value.payerName || value.payer_name,
+      label: value.payerLabel || value.payer_label,
+    });
+    const paidAt = clean(value.paidAt || value.paid_at || value.timestamp, "");
+    const balance = upkeepMoneyValue(value.balance, 0);
+    const row = {
+      paidAt,
+      payerId: payer ? payer.id : "",
+      payerName: payer ? payer.name : "Unknown payer",
+      payerLabel: payer ? payer.label : "Unknown payer",
+      amount,
+      balance,
+      source: clean(value.source, "torn-recent-upkeep"),
+    };
+    row.key = upkeepPaymentKey(row);
+    return row;
+  }
+
+  function upkeepPaymentKey(value) {
+    const paidAt = clean(value && (value.paidAt || value.paid_at), "");
+    const minute = paidAt ? paidAt.slice(0, 16) : "unknown-time";
+    const payer = clean(
+      value && (value.payerId || value.payer_id || value.payerName || value.payer_name),
+      "unknown-payer"
+    );
+    return [
+      minute,
+      normalizeLookup(payer),
+      Number((value && value.amount) || 0),
+      Number((value && value.balance) || 0),
+    ].join(":");
+  }
+
+  function mergeUpkeepPaymentRows(...groups) {
+    const rows = new Map();
+    for (const group of groups) {
+      for (const source of Array.isArray(group) ? group : []) {
+        const row = normalizeUpkeepPayment(source);
+        if (!row) continue;
+        const previous = rows.get(row.key);
+        if (!previous || row.source === "torn-recent-upkeep") rows.set(row.key, row);
+      }
+    }
+    return Array.from(rows.values())
+      .sort((a, b) => String(b.paidAt || "").localeCompare(String(a.paidAt || "")))
+      .slice(0, 250);
+  }
+
+  function normalizeUpkeepPaymentSnapshot(value, fallbackPropertyId = "") {
+    if (!value || typeof value !== "object") return null;
+    const propertyId = clean(value.propertyId || value.property_id || fallbackPropertyId, "");
+    if (!propertyId) return null;
+    return {
+      propertyId,
+      propertyName: clean(value.propertyName || value.property_name, ""),
+      observedAt: clean(value.observedAt || value.observed_at, ""),
+      due: upkeepMoneyValue(value.due, 0),
+      dailyUpkeep: upkeepMoneyValue(value.dailyUpkeep || value.daily_upkeep, 0),
+      occupants: (Array.isArray(value.occupants) ? value.occupants : [])
+        .map(normalizeUpkeepOccupant)
+        .filter(Boolean),
+      payments: mergeUpkeepPaymentRows(value.payments),
+    };
+  }
+
+  function normalizeUpkeepPaymentSnapshots(value) {
+    if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+    const result = {};
+    for (const [propertyId, snapshot] of Object.entries(value)) {
+      const normalized = normalizeUpkeepPaymentSnapshot(snapshot, propertyId);
+      if (normalized) result[normalized.propertyId] = normalized;
+    }
+    return result;
+  }
+
+  function upkeepOccupantsFromProperty(property) {
+    const result = [];
+    const seen = new Set();
+    for (const value of (property && property.residents) || []) {
+      const occupant = normalizeUpkeepOccupant(value);
+      if (!occupant) continue;
+      const key = occupant.id || normalizeLookup(occupant.name);
+      if (!key || seen.has(key)) continue;
+      seen.add(key);
+      result.push(occupant);
+    }
+    return result;
+  }
+
+  function upkeepPaymentSnapshotForProperty(property) {
+    if (!property || !property.id) return null;
+    const saved = normalizeUpkeepPaymentSnapshot(
+      (state.upkeepPaymentSnapshots || {})[property.id],
+      property.id
+    );
+    if (!saved) return null;
+    const occupants = upkeepOccupantsFromProperty(property);
+    return {
+      ...saved,
+      propertyName: property.name || saved.propertyName,
+      dailyUpkeep: Number(property.upkeep || 0) || saved.dailyUpkeep,
+      occupants: occupants.length ? occupants : saved.occupants,
+    };
+  }
+
+  function mergeUpkeepPaymentSnapshot(property, upkeep) {
+    if (!property || !property.id) return null;
+    const previous = normalizeUpkeepPaymentSnapshot(
+      (state.upkeepPaymentSnapshots || {})[property.id],
+      property.id
+    );
+    const occupants = upkeepOccupantsFromProperty(property);
+    const due = upkeepMoneyValue(upkeep && upkeep.due, previous ? previous.due : 0);
+    const dailyUpkeep = Number(property.upkeep || 0) || (previous && previous.dailyUpkeep) || 0;
+    const snapshot = normalizeUpkeepPaymentSnapshot(
+      {
+        propertyId: property.id,
+        propertyName: property.name,
+        observedAt: clean((upkeep && upkeep.observedAt) || nowIso(), nowIso()),
+        due,
+        dailyUpkeep,
+        occupants: occupants.length ? occupants : (previous && previous.occupants) || [],
+        payments: mergeUpkeepPaymentRows(
+          (previous && previous.payments) || [],
+          (upkeep && upkeep.payments) || []
+        ),
+      },
+      property.id
+    );
+    state.upkeepPaymentSnapshots = {
+      ...(state.upkeepPaymentSnapshots || {}),
+      [property.id]: snapshot,
+    };
+    return snapshot;
+  }
+
+  function upkeepPaymentMatchesParty(payment, party) {
+    if (!payment || !party) return false;
+    if (payment.payerId && party.id)
+      return normalizeLookup(payment.payerId) === normalizeLookup(party.id);
+    return (
+      normalizeLookup(payment.payerName || payment.payerLabel) ===
+      normalizeLookup(party.name || party.label)
+    );
+  }
+
+  function upkeepPaymentStats(value) {
+    const snapshot = normalizeUpkeepPaymentSnapshot(value);
+    if (!snapshot) return null;
+    const payments = snapshot.payments;
+    const totalPaid = payments.reduce((sum, row) => sum + Number(row.amount || 0), 0);
+    const paymentDates = Array.from(
+      new Set(payments.map((row) => String(row.paidAt || "").slice(0, 10)).filter(Boolean))
+    ).sort();
+    const payerParties = [];
+    for (const payment of payments) {
+      const party = normalizeUpkeepOccupant({
+        id: payment.payerId,
+        name: payment.payerName,
+        label: payment.payerLabel,
+      });
+      if (!party || payerParties.some((row) => upkeepPaymentMatchesParty(payment, row))) continue;
+      payerParties.push(party);
+    }
+    const parties = [...snapshot.occupants];
+    payerParties.forEach((party) => {
+      if (
+        !parties.some((row) =>
+          upkeepPaymentMatchesParty(
+            {
+              payerId: party.id,
+              payerName: party.name,
+            },
+            row
+          )
+        )
+      )
+        parties.push(party);
+    });
+    const contributors = parties.map((party) => {
+      const rows = payments.filter((payment) => upkeepPaymentMatchesParty(payment, party));
+      const paid = rows.reduce((sum, row) => sum + Number(row.amount || 0), 0);
+      return {
+        ...party,
+        isOccupant: snapshot.occupants.some((occupant) =>
+          upkeepPaymentMatchesParty({ payerId: party.id, payerName: party.name }, occupant)
+        ),
+        paid,
+        paymentCount: rows.length,
+        paymentDays: new Set(
+          rows.map((row) => String(row.paidAt || "").slice(0, 10)).filter(Boolean)
+        ).size,
+        percentage: totalPaid ? (paid / totalPaid) * 100 : 0,
+        difference: null,
+      };
+    });
+    const hasOnlyCurrentOccupants = contributors.every((row) => row.isOccupant);
+    const verifiedPair = snapshot.occupants.length === 2 && hasOnlyCurrentOccupants;
+    const fairShare = verifiedPair ? totalPaid / 2 : null;
+    if (fairShare !== null)
+      contributors.forEach((row) => {
+        row.difference = row.isOccupant ? row.paid - fairShare : null;
+      });
+    const pair = verifiedPair ? contributors.filter((row) => row.isOccupant) : [];
+    const ahead = pair.find((row) => Number(row.difference) > 0);
+    const behind = pair.find((row) => Number(row.difference) < 0);
+    const settlement =
+      ahead && behind
+        ? {
+            from: behind.label,
+            to: ahead.label,
+            amount: Math.min(Math.abs(behind.difference), Math.abs(ahead.difference)),
+          }
+        : null;
+    let periodDays = 0;
+    if (paymentDates.length) {
+      const first = Date.parse(`${paymentDates[0]}T00:00:00Z`);
+      const last = Date.parse(`${paymentDates[paymentDates.length - 1]}T00:00:00Z`);
+      periodDays =
+        Number.isFinite(first) && Number.isFinite(last)
+          ? Math.floor((last - first) / 86400000) + 1
+          : 0;
+    }
+    return {
+      ...snapshot,
+      totalPaid,
+      paymentCount: payments.length,
+      paymentDays: paymentDates.length,
+      periodStart: paymentDates[0] || "",
+      periodEnd: paymentDates[paymentDates.length - 1] || "",
+      periodDays,
+      daysCovered: snapshot.dailyUpkeep ? totalPaid / snapshot.dailyUpkeep : null,
+      fairShare,
+      perOccupantDaily:
+        snapshot.dailyUpkeep && snapshot.occupants.length === 2 ? snapshot.dailyUpkeep / 2 : null,
+      contributors,
+      verifiedPair,
+      settlement,
+    };
+  }
+
   function latestUpkeepPaymentTimes(rows) {
     const result = {};
     for (const row of rows || []) {
@@ -4687,6 +5038,7 @@
         tornUpkeepPropertyIds.has(property.id) || property.ownership === "mine";
       property.hasUnpaidUpkeep =
         Number.isFinite(property.upkeepBalance) && property.upkeepBalance > 0;
+      property.upkeepPaymentSnapshot = upkeepPaymentSnapshotForProperty(property);
       const upkeepReminder = upkeepReminderStatus(
         property.id,
         upkeepPaymentTimes,
@@ -4806,7 +5158,7 @@
       upgrades,
       staff,
       residents,
-      upkeep: moneyNumber(nestedValue(raw, "upkeep.property")) || moneyNumber(raw.upkeep),
+      upkeep: upkeepDaily(raw, propertyTypeForRow(raw) || {}),
       marketValue,
       investment:
         manualInvestmentForRow(raw) || estimatedInvestmentCost(raw, propertyTypeForRow(raw) || {}),
@@ -5219,6 +5571,83 @@
         "Lifecycle intelligence appears after a property-history sync."
       );
     return `<div class="tf-lifecycle-intelligence"><div class="tf-mini-stats"><span><b>${tfNumber(totals.offers)}</b><small>Offers recorded</small></span><span><b>${tfNumber(totals.declinedOffers)}</b><small>Offers declined</small></span><span><b>${tfNumber(totals.extensions)}</b><small>Extensions accepted</small></span><span><b>${tfNumber(totals.expiredRentals)}</b><small>Rentals completed</small></span></div><div class="tf-kv-list"><span><b>Upfront rent recorded</b><strong>${escapeHtml(tfMoney(totals.rent))}</strong></span><span><b>Upkeep recorded</b><strong>${escapeHtml(tfMoney(totals.upkeep))}</strong></span><span><b>Known lifecycle cashflow</b><strong>${escapeHtml(tfMoney(totals.net))}</strong></span><span><b>Events understood</b><strong>${tfNumber(totals.events)}</strong></span></div><small>Cashflow uses only events returned within your configured history depth; rent is recorded when Torn reports the upfront contract payment.</small></div>`;
+  }
+
+  function tfUpkeepPaymentDate(value) {
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return clean(value, "Unknown");
+    return `${date.toLocaleString(undefined, {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+      timeZone: "UTC",
+    })} TCT`;
+  }
+
+  function tfUpkeepDecimal(value, digits = 1) {
+    const number = Number(value);
+    if (!Number.isFinite(number)) return "Unavailable";
+    return number.toLocaleString(undefined, {
+      minimumFractionDigits: Number.isInteger(number) ? 0 : Math.min(1, digits),
+      maximumFractionDigits: digits,
+    });
+  }
+
+  function tfUpkeepContributionHtml(value, options = {}) {
+    const stats = upkeepPaymentStats(value);
+    if (!stats)
+      return tfEmpty(
+        "No checked upkeep history yet",
+        "Open the current home's Check upkeep action to read Torn's recent payer history."
+      );
+    const recentLimit = Math.max(
+      0,
+      Number(options.recentLimit === undefined ? 10 : options.recentLimit)
+    );
+    const contributors = stats.contributors.length
+      ? `<div class="tf-upkeep-contributors">${stats.contributors
+          .map((row) => {
+            const difference = Number(row.difference);
+            const balance =
+              row.difference === null
+                ? row.isOccupant
+                  ? "Waiting for a verified two-resident split"
+                  : "Not a current resident"
+                : Math.abs(difference) < 0.5
+                  ? "Even share"
+                  : difference > 0
+                    ? `${tfMoneyKnown(difference)} ahead`
+                    : `${tfMoneyKnown(Math.abs(difference))} behind`;
+            return `<article><header><strong>${escapeHtml(row.label)}</strong><span>${tfUpkeepDecimal(row.percentage, 1)}%</span></header><b>${escapeHtml(tfMoneyKnown(row.paid))}</b><small>${tfNumber(row.paymentCount)} payment${row.paymentCount === 1 ? "" : "s"} across ${tfNumber(row.paymentDays)} payment day${row.paymentDays === 1 ? "" : "s"}</small><em>${escapeHtml(balance)}</em></article>`;
+          })
+          .join("")}</div>`
+      : "";
+    const settlement = stats.settlement
+      ? `<p class="tf-upkeep-settlement">To equalise the observed payments, <strong>${escapeHtml(stats.settlement.from)}</strong> would pay <strong>${escapeHtml(stats.settlement.to)}</strong> ${escapeHtml(tfMoneyKnown(stats.settlement.amount))}.</p>`
+      : stats.verifiedPair && stats.totalPaid
+        ? `<p class="tf-upkeep-settlement is-even">The two current residents are even across the observed payments.</p>`
+        : `<p class="tf-action-note">A 50/50 balance appears only when the current home has exactly two identified residents and every observed payment belongs to one of them.</p>`;
+    const recent = recentLimit ? stats.payments.slice(0, recentLimit) : [];
+    const rows = recent.length
+      ? `<div class="tf-upkeep-table-wrap"><table class="tf-upkeep-table"><thead><tr><th>Date</th><th>Payer</th><th>Paid</th><th>Balance after payment</th></tr></thead><tbody>${recent
+          .map(
+            (row) =>
+              `<tr><td>${escapeHtml(tfUpkeepPaymentDate(row.paidAt))}</td><td>${escapeHtml(row.payerLabel)}</td><td>${escapeHtml(tfMoneyKnown(row.amount))}</td><td>${escapeHtml(tfMoneyKnown(row.balance))}</td></tr>`
+          )
+          .join("")}</tbody></table></div>`
+      : tfEmpty(
+          "No recent payer rows returned",
+          "The live balance was checked, but Torn did not include a recent payment row."
+        );
+    const observedWindow = stats.periodStart
+      ? stats.periodStart === stats.periodEnd
+        ? tfDate(stats.periodStart)
+        : `${tfDate(stats.periodStart)} – ${tfDate(stats.periodEnd)}`
+      : "No dated payments";
+    return `<div class="tf-upkeep-ledger"><div class="tf-action-summary tf-upkeep-summary"><div><span>Outstanding now</span><strong>${escapeHtml(tfMoneyKnown(stats.due))}</strong></div><div><span>Current daily upkeep</span><strong>${escapeHtml(tfMoneyKnown(stats.dailyUpkeep))}</strong></div><div><span>Fair share / resident / day</span><strong>${stats.perOccupantDaily === null ? "Unavailable" : escapeHtml(tfMoneyKnown(stats.perOccupantDaily))}</strong></div><div><span>Observed paid</span><strong>${escapeHtml(tfMoneyKnown(stats.totalPaid))}</strong></div><div><span>Payment days observed</span><strong>${tfNumber(stats.paymentDays)}</strong></div><div><span>Days covered at current rate</span><strong>${stats.daysCovered === null ? "Unavailable" : tfUpkeepDecimal(stats.daysCovered, 2)}</strong></div></div><div class="tf-upkeep-window"><span>Observed window</span><strong>${escapeHtml(observedWindow)}</strong><small>${stats.paymentCount ? `${tfNumber(stats.paymentCount)} transactions across a ${tfNumber(stats.periodDays)}-day calendar window` : "No payment transactions observed yet"}</small></div>${contributors}${settlement}${rows}<small class="tf-upkeep-caveat">Torn labels this list “Recent upkeep payments”. Tornfolio keeps rows seen during your manual checks on this device, so the observed history can grow. The 50/50 balance compares only those observed payments. Days covered uses the current daily upkeep; older payments may represent a different number of days if facilities or staff changed.</small></div>`;
   }
 
   function tfOwnershipOrder(value) {
@@ -5985,7 +6414,7 @@
     const occupancy = owned.length ? Math.round((rentedCount / owned.length) * 100) : 0;
     return `<section class="tf-page">${tfPageTitle("insights", "Insights", "Analyse current portfolio performance, rental income and supported history.", `<div class="tf-title-filters"><select data-ui-field="insightOwner"><option value="all">All Owners</option><option value="mine"${ui.insightOwner === "mine" ? " selected" : ""}>My Properties</option><option value="spouse"${ui.insightOwner === "spouse" ? " selected" : ""}>Spouse Properties</option></select><select data-ui-field="insightType"><option value="all">All Types</option>${types.map((type) => `<option value="${escapeAttr(type)}"${ui.insightType === type ? " selected" : ""}>${escapeHtml(type)}</option>`).join("")}</select></div>`)}
       <div class="tf-kpi-row">${tfMetric("money", tfMoney(value), "Known Portfolio Value", "success")}${tfMetric("money", tfMoney(daily), "Daily Rental Income", "success")}${tfMetric("property", tfNumber(properties.length), "Total Properties")}${tfMetric("key", tfNumber(rentedCount), "Rented Properties", "info")}${tfMetric("home", tfNumber(owned.filter((row) => row.status === "available").length), "Available Properties")}${tfMetric("tag", tfNumber(owned.filter((row) => row.status === "listed").length), "Listed Properties", "warning")}</div>
-      <div class="tf-insights-grid"><section class="tf-card tf-wide-card"><div class="tf-card-head"><h2>${tfIcon("exchange")} Lifecycle Intelligence</h2></div>${tfLifecycleIntelligence(model)}</section><section class="tf-card tf-chart-empty"><div class="tf-card-head"><h2>${tfIcon("money")} Rental Income Trend</h2></div>${tfEmpty("More history is needed", "Tornfolio will not invent a monthly income trend. This chart appears when dated income snapshots are available.")}</section><section class="tf-card"><div class="tf-card-head"><h2>${tfIcon("property")} Property Type Breakdown</h2></div>${tfBreakdownBars(breakdown, properties.length)}</section><section class="tf-card tf-occupancy"><div class="tf-card-head"><h2>${tfIcon("key")} Occupancy Rate</h2></div><div class="tf-donut" style="--tf-percent:${occupancy}"><strong>${occupancy}%</strong><span>Rented</span></div><div class="tf-kv-list"><span><b>Rented</b><strong>${rentedCount}</strong></span><span><b>Available</b><strong>${owned.filter((row) => row.status === "available").length}</strong></span><span><b>Listed</b><strong>${owned.filter((row) => row.status === "listed").length}</strong></span></div></section><section class="tf-card tf-wide-card"><div class="tf-card-head"><h2>${tfIcon("trophy")} Top Performing Properties</h2></div>${tfTopProperties(active)}</section><section class="tf-card"><div class="tf-card-head"><h2>${tfIcon("insights")} Income Comparison</h2></div>${tfOwnerIncome(active)}</section><section class="tf-card"><div class="tf-card-head"><h2>${tfIcon("money")} Portfolio Value by Type</h2></div>${tfValueByType(properties)}</section><section class="tf-card"><div class="tf-card-head"><h2>${tfIcon("activity")} Contract Durations</h2></div>${tfDurationBars(active)}</section><section class="tf-card tf-wide-card"><div class="tf-card-head"><h2>${tfIcon("idea")} Key Insights</h2></div>${tfKeyInsights(model, occupancy, daily)}</section></div>
+      <div class="tf-insights-grid"><section class="tf-card tf-wide-card"><div class="tf-card-head"><h2>${tfIcon("exchange")} Lifecycle Intelligence</h2></div>${tfLifecycleIntelligence(model)}</section><section class="tf-card tf-wide-card"><div class="tf-card-head"><h2>${tfIcon("money")} Household Upkeep Balance</h2></div>${tfUpkeepContributionHtml(model.currentHome && model.currentHome.upkeepPaymentSnapshot, { recentLimit: 8 })}</section><section class="tf-card tf-chart-empty"><div class="tf-card-head"><h2>${tfIcon("money")} Rental Income Trend</h2></div>${tfEmpty("More history is needed", "Tornfolio will not invent a monthly income trend. This chart appears when dated income snapshots are available.")}</section><section class="tf-card"><div class="tf-card-head"><h2>${tfIcon("property")} Property Type Breakdown</h2></div>${tfBreakdownBars(breakdown, properties.length)}</section><section class="tf-card tf-occupancy"><div class="tf-card-head"><h2>${tfIcon("key")} Occupancy Rate</h2></div><div class="tf-donut" style="--tf-percent:${occupancy}"><strong>${occupancy}%</strong><span>Rented</span></div><div class="tf-kv-list"><span><b>Rented</b><strong>${rentedCount}</strong></span><span><b>Available</b><strong>${owned.filter((row) => row.status === "available").length}</strong></span><span><b>Listed</b><strong>${owned.filter((row) => row.status === "listed").length}</strong></span></div></section><section class="tf-card tf-wide-card"><div class="tf-card-head"><h2>${tfIcon("trophy")} Top Performing Properties</h2></div>${tfTopProperties(active)}</section><section class="tf-card"><div class="tf-card-head"><h2>${tfIcon("insights")} Income Comparison</h2></div>${tfOwnerIncome(active)}</section><section class="tf-card"><div class="tf-card-head"><h2>${tfIcon("money")} Portfolio Value by Type</h2></div>${tfValueByType(properties)}</section><section class="tf-card"><div class="tf-card-head"><h2>${tfIcon("activity")} Contract Durations</h2></div>${tfDurationBars(active)}</section><section class="tf-card tf-wide-card"><div class="tf-card-head"><h2>${tfIcon("idea")} Key Insights</h2></div>${tfKeyInsights(model, occupancy, daily)}</section></div>
     </section>`;
   }
 
@@ -6378,6 +6807,8 @@
       );
       if (propertyAction !== action) return;
       const upkeep = parseTornUpkeepOptions(options.text, action.propertyId);
+      const property = tfModel().properties.find((row) => row.key === action.propertyKey);
+      const upkeepSnapshot = property ? mergeUpkeepPaymentSnapshot(property, upkeep) : null;
       const due = Number(upkeep.due);
       const availableCash =
         due > 0 ? Number(await tornPropertyCashAvailable(action.propertyId)) : 0;
@@ -6387,6 +6818,7 @@
         availableCash: String(availableCash),
         pay: due > 0 && availableCash > 0 ? String(Math.min(due, availableCash)) : "",
         requiredText: upkeep.requiredText,
+        upkeepSnapshot,
       };
       const previous = propertyActionOverrides.get(action.propertyId) || {};
       propertyActionOverrides.set(action.propertyId, {
@@ -6652,7 +7084,7 @@
           ? `<p class="tf-action-note">You are ${escapeHtml(tfMoneyKnown(shortfall))} short of the full upkeep balance. Tornfolio will not sell stocks, withdraw investments, or move money automatically. You may make a partial payment now, or get cash manually and check again.</p>`
           : `<p class="tf-action-ok">Your current cash can cover the full upkeep balance.</p>`;
       const disabled = action.busy || maximumPayment < 1;
-      return `<form class="tf-action-form" data-form="property-action"><div class="tf-action-summary"><div><span>Outstanding upkeep</span><strong>${escapeHtml(tfMoneyKnown(due))}</strong></div><div><span>Cash on hand</span><strong>${escapeHtml(tfMoneyKnown(availableCash))}</strong></div><div><span>Maximum payment now</span><strong>${escapeHtml(tfMoneyKnown(maximumPayment))}</strong></div></div><label>Payment amount<input type="text" inputmode="numeric" name="pay" min="1" max="${escapeAttr(maximumPayment)}" value="${escapeAttr(action.fields.pay || "")}" placeholder="Amount to pay" required${disabled ? " disabled" : ""}></label>${warning}${error}<p class="tf-action-note">Reviewing this amount is local only. The separate final confirmation is the only step that pays Torn.</p><div class="tf-button-row"><button class="tf-primary" type="submit"${disabled ? " disabled" : ""}>Review payment</button><button type="button" data-action="retry-upkeep-check"${action.busy ? " disabled" : ""}>Check again</button><button type="button" data-action="close-property-action"${action.busy ? " disabled" : ""}>Cancel</button></div></form>`;
+      return `<form class="tf-action-form" data-form="property-action"><div class="tf-action-summary"><div><span>Outstanding upkeep</span><strong>${escapeHtml(tfMoneyKnown(due))}</strong></div><div><span>Cash on hand</span><strong>${escapeHtml(tfMoneyKnown(availableCash))}</strong></div><div><span>Maximum payment now</span><strong>${escapeHtml(tfMoneyKnown(maximumPayment))}</strong></div></div><label>Payment amount<input type="text" inputmode="numeric" name="pay" min="1" max="${escapeAttr(maximumPayment)}" value="${escapeAttr(action.fields.pay || "")}" placeholder="Amount to pay" required${disabled ? " disabled" : ""}></label>${warning}${tfUpkeepContributionHtml(action.fields.upkeepSnapshot, { recentLimit: 6 })}${error}<p class="tf-action-note">Reviewing this amount is local only. The separate final confirmation is the only step that pays Torn.</p><div class="tf-button-row"><button class="tf-primary" type="submit"${disabled ? " disabled" : ""}>Review payment</button><button type="button" data-action="retry-upkeep-check"${action.busy ? " disabled" : ""}>Check again</button><button type="button" data-action="close-property-action"${action.busy ? " disabled" : ""}>Cancel</button></div></form>`;
     }
     if (action.kind === "buy") {
       const options = propertyTypes()
@@ -6816,11 +7248,11 @@
                 : action.kind === "rent" && action.fields.destination === "person"
                   ? "The rental offer has been sent to the recipient. Use Sync Now to refresh offers and any accepted tenancy."
                   : "The local card has been updated for this session. Use Sync Now to refresh the property and history data.";
-      body = `<div class="tf-action-success"><strong>Confirmed by Torn</strong><p>${escapeHtml(action.message)}</p><p>${escapeHtml(detail)}</p><button class="tf-primary" type="button" data-action="close-property-action">Done</button></div>`;
+      body = `<div class="tf-action-success"><strong>Confirmed by Torn</strong><p>${escapeHtml(action.message)}</p><p>${escapeHtml(detail)}</p>${action.kind === "upkeep" ? tfUpkeepContributionHtml(action.fields.upkeepSnapshot, { recentLimit: 6 }) : ""}<button class="tf-primary" type="button" data-action="close-property-action">Done</button></div>`;
     } else if (action.stage === "loading") {
       body = `<div class="tf-action-success"><strong>Checking Torn…</strong><p>${action.kind === "upgrade" ? "Loading this property's current facilities, staff, choices, and prices. Nothing is being purchased." : "Reading this property's current upkeep balance and your available cash. No payment is being made."}</p></div>`;
     } else if (action.stage === "clear") {
-      body = `<div class="tf-action-success"><strong>Nothing due</strong><p>${escapeHtml(action.message)}</p><button class="tf-primary" type="button" data-action="close-property-action">Done</button></div>`;
+      body = `<div class="tf-action-success"><strong>Nothing due</strong><p>${escapeHtml(action.message)}</p>${tfUpkeepContributionHtml(action.fields.upkeepSnapshot, { recentLimit: 6 })}<button class="tf-primary" type="button" data-action="close-property-action">Done</button></div>`;
     } else if (action.stage === "error") {
       const retryAction =
         action.kind === "upgrade" ? "reload-upgrade-options" : "retry-upkeep-check";
@@ -7119,6 +7551,27 @@
               )
             )
           : Math.max(0, Number(action.fields.due || 0) - Number(action.fields.pay || 0));
+        const profile = tfModel();
+        const payerName = clean(
+          profile.profile && (profile.profile.name || profile.profile.displayName),
+          "You"
+        );
+        action.fields.upkeepSnapshot = mergeUpkeepPaymentSnapshot(property, {
+          due: action.fields.remaining,
+          observedAt: nowIso(),
+          payments: [
+            {
+              paidAt: nowIso(),
+              payerId: profile.myId,
+              payerName,
+              payerLabel: userLabelFromParts(payerName, profile.myId),
+              amount: Number(action.fields.pay || 0),
+              balance: Number(action.fields.remaining || 0),
+              source: "torn-confirmed-payment",
+            },
+          ],
+        });
+        saveState("Upkeep payment recorded");
       }
       if (action.kind !== "buy") applyPropertyActionOverride(action);
       action.busy = false;
@@ -7164,7 +7617,7 @@
       );
       const contracts = model.activeRentals.filter((row) => row.propertyKey === property.key);
       const installedFeatures = tfInstalledPropertyFeatures(property);
-      return `<div class="tf-modal-backdrop" data-action="close-detail"><div class="tf-modal tf-detail-modal" role="dialog" aria-modal="true" aria-label="Property details" data-modal-stop><div class="tf-modal-head"><div><strong>${escapeHtml(property.name)}</strong><span>${property.id ? `Property #${escapeHtml(property.id)} · ` : ""}${escapeHtml(property.type)}</span></div><button class="tf-icon-button" type="button" data-action="close-detail" aria-label="Close property details">${tfIcon("close")}</button></div><div class="tf-detail-body">${property.image ? `<img class="tf-detail-image" src="${escapeAttr(property.image)}" alt="${escapeAttr(property.type)}">` : ""}<div class="tf-badges">${tfOwnershipBadge(property.ownership)}${tfStatusBadge(property.status)}${tfUpkeepBadge(property)}</div><div class="tf-detail-grid"><div><span>Owner</span><strong>${escapeHtml(property.owner)}</strong></div><div><span>Happiness</span><strong>${property.happy ? tfNumber(property.happy) : "Unavailable"}</strong></div><div><span>Facilities / Staff</span><strong>${installedFeatures.length ? installedFeatures.length : "Unavailable"}</strong></div><div><span>Residents</span><strong>${escapeHtml(property.residents.join(", ") || "Unavailable")}</strong></div><div><span>Daily Upkeep</span><strong>${escapeHtml(tfMoney(property.upkeep))}</strong></div><div><span>Market Value</span><strong>${escapeHtml(tfMoney(property.marketValue))}</strong></div><div><span>Investment Basis</span><strong>${escapeHtml(tfMoney(property.investment))}</strong></div><div><span>Market listing</span><strong>${escapeHtml(tfPropertyListingLabel(property))}</strong></div></div>${tfRentalIncomeEvidenceDetail(property)}${tfPropertyActionsHtml(property, model, isPopup)}${tfPropertyUpgradePanel(property, isPopup)}<section><h2>Lifecycle Snapshot</h2>${tfLifecycleSnapshot(property.lifecycle)}</section>${installedFeatures.length ? `<section><h2>Installed Upgrades & Staff</h2><div class="tf-chip-list">${installedFeatures.map((value) => `<span>${escapeHtml(value)}</span>`).join("")}</div></section>` : ""}<section><h2>Current Rental</h2>${contracts.length ? contracts.map(tfRentalCard).join("") : tfEmpty("No active rental", "This property has no active rental contract in the latest data.")}</section><section><h2>Property Journey</h2>${tfPropertyJourney(property.id)}</section><section><h2>Rental History</h2>${history.length ? history.map(tfArchiveCard).join("") : tfEmpty("No rental history", "Archived contracts for this property will appear after history has been synced.")}</section></div></div></div>`;
+      return `<div class="tf-modal-backdrop" data-action="close-detail"><div class="tf-modal tf-detail-modal" role="dialog" aria-modal="true" aria-label="Property details" data-modal-stop><div class="tf-modal-head"><div><strong>${escapeHtml(property.name)}</strong><span>${property.id ? `Property #${escapeHtml(property.id)} · ` : ""}${escapeHtml(property.type)}</span></div><button class="tf-icon-button" type="button" data-action="close-detail" aria-label="Close property details">${tfIcon("close")}</button></div><div class="tf-detail-body">${property.image ? `<img class="tf-detail-image" src="${escapeAttr(property.image)}" alt="${escapeAttr(property.type)}">` : ""}<div class="tf-badges">${tfOwnershipBadge(property.ownership)}${tfStatusBadge(property.status)}${tfUpkeepBadge(property)}</div><div class="tf-detail-grid"><div><span>Owner</span><strong>${escapeHtml(property.owner)}</strong></div><div><span>Happiness</span><strong>${property.happy ? tfNumber(property.happy) : "Unavailable"}</strong></div><div><span>Facilities / Staff</span><strong>${installedFeatures.length ? installedFeatures.length : "Unavailable"}</strong></div><div><span>Residents</span><strong>${escapeHtml(property.residents.join(", ") || "Unavailable")}</strong></div><div><span>Daily Upkeep</span><strong>${escapeHtml(tfMoney(property.upkeep))}</strong></div><div><span>Market Value</span><strong>${escapeHtml(tfMoney(property.marketValue))}</strong></div><div><span>Investment Basis</span><strong>${escapeHtml(tfMoney(property.investment))}</strong></div><div><span>Market listing</span><strong>${escapeHtml(tfPropertyListingLabel(property))}</strong></div></div>${tfRentalIncomeEvidenceDetail(property)}${tfPropertyActionsHtml(property, model, isPopup)}${property.isCurrentHome ? `<section><h2>Upkeep Payments &amp; 50/50 Balance</h2>${tfUpkeepContributionHtml(property.upkeepPaymentSnapshot, { recentLimit: 10 })}</section>` : ""}${tfPropertyUpgradePanel(property, isPopup)}<section><h2>Lifecycle Snapshot</h2>${tfLifecycleSnapshot(property.lifecycle)}</section>${installedFeatures.length ? `<section><h2>Installed Upgrades & Staff</h2><div class="tf-chip-list">${installedFeatures.map((value) => `<span>${escapeHtml(value)}</span>`).join("")}</div></section>` : ""}<section><h2>Current Rental</h2>${contracts.length ? contracts.map(tfRentalCard).join("") : tfEmpty("No active rental", "This property has no active rental contract in the latest data.")}</section><section><h2>Property Journey</h2>${tfPropertyJourney(property.id)}</section><section><h2>Rental History</h2>${history.length ? history.map(tfArchiveCard).join("") : tfEmpty("No rental history", "Archived contracts for this property will appear after history has been synced.")}</section></div></div></div>`;
     }
     if (detail.kind === "rental") {
       const contract = model.activeRentals.find((row) => row.contractId === detail.id);
@@ -7219,7 +7672,7 @@
       changelog: {
         title: `Tornfolio ${APP_VERSION}`,
         subtitle: "Release notes",
-        body: `<section><h2>Version ${escapeHtml(APP_VERSION)}</h2><ul class="tf-info-list"><li>Caps rental extensions at 100 total remaining days by offering exactly 100 minus the current remaining days.</li></ul></section><section><h2>Previous updates</h2><p>Version 0.8.5 removed listed properties from Needs Attention because the listing decision and price were already complete. Version 0.8.4 aligned Archive and rental-history actions, added the draggable launcher and Discord support link, and expanded property-management actions.</p></section><section><h2>Updates</h2><p>Tornfolio checks GreasyFork for a newer release when it opens. The header status tells you whether this version is current.</p><a class="tf-link-button" href="${escapeAttr(GREASYFORK_PAGE_URL)}" target="_blank" rel="noopener noreferrer">View Tornfolio on GreasyFork</a></section>`,
+        body: `<section><h2>Version ${escapeHtml(APP_VERSION)}</h2><ul class="tf-info-list"><li>Keeps Recent upkeep payments inside a short, internally scrollable table in the payment modal, so the history can no longer stretch beyond the dialog.</li><li>Adds a locally retained recent-upkeep ledger with payer totals, payment-day metrics, the live balance, and a verified two-resident 50/50 comparison.</li><li>Calculates daily upkeep from both property and staff charges when Torn returns the split values.</li></ul></section><section><h2>Previous updates</h2><p>Version 0.8.6 capped rental extensions at 100 total remaining days. Version 0.8.5 removed listed properties from Needs Attention because the listing decision and price were already complete.</p></section><section><h2>Updates</h2><p>Tornfolio checks GreasyFork for a newer release when it opens. The header status tells you whether this version is current.</p><a class="tf-link-button" href="${escapeAttr(GREASYFORK_PAGE_URL)}" target="_blank" rel="noopener noreferrer">View Tornfolio on GreasyFork</a></section>`,
       },
     };
     const selected = views[view] || views.help;
@@ -7690,6 +8143,31 @@
       #${APP_ID} .tf-action-summary > div { display: grid; gap: 5px; padding: 12px; border: 1px solid var(--tf-border); border-radius: 8px; background: rgba(8,35,47,.75); }
       #${APP_ID} .tf-action-summary span { color: var(--tf-muted); font-size: 11px; }
       #${APP_ID} .tf-action-summary strong { color: var(--tf-text); }
+      #${APP_ID} .tf-upkeep-ledger { display: grid; gap: 11px; min-width: 0; }
+      #${APP_ID} .tf-upkeep-summary { grid-template-columns: repeat(auto-fit, minmax(125px, 1fr)); }
+      #${APP_ID} .tf-upkeep-window { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 3px 12px; padding: 10px 12px; border: 1px solid rgba(74,122,143,.28); border-radius: 8px; background: rgba(5,25,35,.58); }
+      #${APP_ID} .tf-upkeep-window > span, #${APP_ID} .tf-upkeep-window > small { color: var(--tf-muted); font-size: 10px; }
+      #${APP_ID} .tf-upkeep-window > strong { color: var(--tf-text); text-align: right; }
+      #${APP_ID} .tf-upkeep-window > small { grid-column: 1 / -1; }
+      #${APP_ID} .tf-upkeep-contributors { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 9px; }
+      #${APP_ID} .tf-upkeep-contributors article { display: grid; gap: 5px; min-width: 0; padding: 12px; border: 1px solid rgba(20,228,186,.28); border-radius: 9px; background: linear-gradient(145deg, rgba(9,52,62,.76), rgba(5,28,39,.74)); }
+      #${APP_ID} .tf-upkeep-contributors header { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; min-width: 0; }
+      #${APP_ID} .tf-upkeep-contributors header strong { overflow: hidden; color: var(--tf-text); text-overflow: ellipsis; white-space: nowrap; }
+      #${APP_ID} .tf-upkeep-contributors header span { color: var(--tf-teal); font-size: 11px; font-weight: 800; }
+      #${APP_ID} .tf-upkeep-contributors article > b { color: var(--tf-green); font-size: 18px; }
+      #${APP_ID} .tf-upkeep-contributors article > small { color: var(--tf-muted); line-height: 1.35; }
+      #${APP_ID} .tf-upkeep-contributors article > em { color: #cce1eb; font-size: 11px; font-style: normal; font-weight: 700; }
+      #${APP_ID} .tf-upkeep-settlement { margin: 0; padding: 10px 12px; border: 1px solid rgba(255,208,90,.42); border-radius: 8px; background: rgba(91,69,15,.25); color: #ffe7a3; line-height: 1.45; }
+      #${APP_ID} .tf-upkeep-settlement.is-even { border-color: rgba(69,239,173,.38); background: rgba(19,86,69,.3); color: #bff8df; }
+      #${APP_ID} .tf-upkeep-table-wrap { max-height: 310px; overflow: auto; border: 1px solid var(--tf-border); border-radius: 8px; }
+      #${APP_ID} .tf-action-modal .tf-upkeep-table-wrap { max-height: 132px; overscroll-behavior: contain; }
+      #${APP_ID} .tf-action-modal .tf-upkeep-table th, #${APP_ID} .tf-action-modal .tf-upkeep-table td { padding: 5px 7px; }
+      #${APP_ID} .tf-upkeep-table { width: 100%; border-collapse: collapse; color: var(--tf-text); font-size: 10px; }
+      #${APP_ID} .tf-upkeep-table th, #${APP_ID} .tf-upkeep-table td { padding: 8px 9px; border-bottom: 1px solid rgba(74,122,143,.18); text-align: left; white-space: nowrap; }
+      #${APP_ID} .tf-upkeep-table th { position: sticky; top: 0; z-index: 1; background: #092b39; color: #c5dae5; font-size: 9px; text-transform: uppercase; }
+      #${APP_ID} .tf-upkeep-table td:nth-child(3), #${APP_ID} .tf-upkeep-table td:nth-child(4), #${APP_ID} .tf-upkeep-table th:nth-child(3), #${APP_ID} .tf-upkeep-table th:nth-child(4) { text-align: right; }
+      #${APP_ID} .tf-upkeep-table tr:last-child td { border-bottom: 0; }
+      #${APP_ID} .tf-upkeep-caveat { color: var(--tf-muted); line-height: 1.45; }
       #${APP_ID} .tf-action-note, #${APP_ID} .tf-action-ok, #${APP_ID} .tf-action-error { margin: 0; padding: 10px 11px; border-radius: 8px; line-height: 1.45; }
       #${APP_ID} .tf-action-note { border: 1px solid rgba(255,208,90,.38); background: rgba(91,69,15,.25); color: #ffe7a3; }
       #${APP_ID} .tf-action-ok { border: 1px solid rgba(69,239,173,.38); background: rgba(19,86,69,.3); color: #bff8df; }
@@ -12254,6 +12732,11 @@
       parseTornUpgradeOptions,
       parseTornUpgradeReview,
       parseTornAgentSaleOffer,
+      parseTornUpkeepOptions,
+      parseTornUpkeepTimestamp,
+      mergeUpkeepPaymentRows,
+      upkeepPaymentStats,
+      tfUpkeepContributionHtml,
       tornCsrfToken,
       tornPropertyActionEnvironmentReason,
       tornPropertyCashAvailable,
