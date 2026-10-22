@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Tornfolio — Property, Lease & ROI Manager
 // @namespace    MoDuL.torn.tornfolio
-// @version      0.8.8
+// @version      0.8.9
 // @description  Manage your Torn property portfolio, rentals, market pricing, archive, and ROI.
 // @author       MoDuL
 // @copyright    2026 MoDuL. All rights reserved.
@@ -21,7 +21,7 @@
   "use strict";
 
   const APP_ID = "tf-ledger";
-  const APP_VERSION = "0.8.8";
+  const APP_VERSION = "0.8.9";
   const UPKEEP_REMINDER_INTERVAL_MS = 24 * 60 * 60 * 1000;
   const STORE_KEY = "tornfolio:v1";
   const LEGACY_STORE_KEYS = ["tornLandlordTenantLedger:v1"];
@@ -269,7 +269,13 @@
     },
   };
 
-  let state = loadState();
+  let state = { ...emptyState };
+  let pdaStorageActive = false;
+  let pdaStorageCache = {};
+  let pdaStorageFlushTimer = null;
+  let pdaStorageFlushQueue = Promise.resolve();
+  const pdaStoragePendingSets = new Map();
+  const pdaStoragePendingDeletes = new Set();
   let popupWindow = null;
   let tornRateQueue = Promise.resolve();
   let lastTornRequestAt = 0;
@@ -797,6 +803,10 @@
   }
 
   function safeGet(key) {
+    if (pdaStorageActive)
+      return Object.prototype.hasOwnProperty.call(pdaStorageCache, key)
+        ? pdaStorageCache[key]
+        : null;
     try {
       if (typeof GM_getValue === "function") return GM_getValue(key);
     } catch (_error) {
@@ -806,6 +816,13 @@
   }
 
   function safeSet(key, value) {
+    if (pdaStorageActive) {
+      pdaStorageCache[key] = value;
+      pdaStoragePendingDeletes.delete(key);
+      pdaStoragePendingSets.set(key, value);
+      schedulePdaStorageFlush();
+      return;
+    }
     try {
       if (typeof GM_setValue === "function") {
         GM_setValue(key, value);
@@ -818,6 +835,13 @@
   }
 
   function safeDelete(key) {
+    if (pdaStorageActive) {
+      delete pdaStorageCache[key];
+      pdaStoragePendingSets.delete(key);
+      pdaStoragePendingDeletes.add(key);
+      schedulePdaStorageFlush();
+      return;
+    }
     try {
       if (typeof GM_deleteValue === "function") {
         GM_deleteValue(key);
@@ -827,6 +851,102 @@
       // Fall back to localStorage below.
     }
     localStorage.removeItem(key);
+  }
+
+  function legacyStorageValue(key) {
+    try {
+      if (typeof GM_getValue === "function") {
+        const value = GM_getValue(key, null);
+        if (value !== undefined && value !== null && value !== "") return value;
+      }
+    } catch (_error) {
+      // Try the page store directly below. Torn PDA's legacy GM shim uses it.
+    }
+    try {
+      return localStorage.getItem(key);
+    } catch (_error) {
+      return null;
+    }
+  }
+
+  function deleteLegacyStorageValue(key) {
+    try {
+      if (typeof GM_deleteValue === "function") GM_deleteValue(key);
+    } catch (_error) {
+      // The direct page-store removal below is the Torn PDA compatibility path.
+    }
+    try {
+      localStorage.removeItem(key);
+    } catch (_error) {
+      // Storage can be unavailable in restrictive frames; the native copy is still safe.
+    }
+  }
+
+  function schedulePdaStorageFlush() {
+    if (!pdaStorageActive || pdaStorageFlushTimer !== null) return;
+    pdaStorageFlushTimer = setTimeout(() => {
+      pdaStorageFlushTimer = null;
+      const sets = Object.fromEntries(pdaStoragePendingSets.entries());
+      const deletes = Array.from(pdaStoragePendingDeletes);
+      pdaStoragePendingSets.clear();
+      pdaStoragePendingDeletes.clear();
+      pdaStorageFlushQueue = pdaStorageFlushQueue
+        .then(async () => {
+          if (Object.keys(sets).length) await PDA_storage.setMany(sets);
+          for (const key of deletes) await PDA_storage.delete(key);
+        })
+        .catch((error) => {
+          console.warn("[Tornfolio] Torn PDA native storage write failed.", error);
+        });
+    }, 50);
+  }
+
+  async function prepareTornPdaStorage() {
+    if (
+      typeof PDA_storage === "undefined" ||
+      !PDA_storage ||
+      typeof PDA_storage.loadAll !== "function" ||
+      typeof PDA_storage.setMany !== "function"
+    )
+      return false;
+    try {
+      const loaded = await PDA_storage.loadAll();
+      pdaStorageCache = loaded && typeof loaded === "object" ? { ...loaded } : {};
+      const migrationKeys = [
+        STORE_KEY,
+        ...LEGACY_STORE_KEYS,
+        HOSTED_SESSION_KEY,
+        ...LEGACY_HOSTED_SESSION_KEYS,
+        ICON_SPRITE_CACHE_KEY,
+      ];
+      const migrated = {};
+      for (const key of migrationKeys) {
+        if (Object.prototype.hasOwnProperty.call(pdaStorageCache, key)) continue;
+        const legacyValue = legacyStorageValue(key);
+        if (legacyValue === undefined || legacyValue === null || legacyValue === "") continue;
+        migrated[key] = legacyValue;
+      }
+      if (Object.keys(migrated).length) {
+        await PDA_storage.setMany(migrated);
+        const verifiedValues = {};
+        for (const [key, value] of Object.entries(migrated)) {
+          const verified = await PDA_storage.get(key, null);
+          if (verified !== value) throw new Error(`Native storage verification failed for ${key}.`);
+          verifiedValues[key] = verified;
+        }
+        for (const [key, value] of Object.entries(verifiedValues)) {
+          pdaStorageCache[key] = value;
+          deleteLegacyStorageValue(key);
+        }
+      }
+      pdaStorageActive = true;
+      return true;
+    } catch (error) {
+      pdaStorageActive = false;
+      pdaStorageCache = {};
+      console.warn("[Tornfolio] Torn PDA native storage is unavailable; existing storage was left unchanged.", error);
+      return false;
+    }
   }
 
   function validatedIconSprite(value) {
@@ -1993,7 +2113,16 @@
     );
     const balanceNode = row.querySelector("li.balance");
     const balance = upkeepMoneyValue(balanceNode && balanceNode.textContent, 0);
+    const eventId = clean(
+      row.getAttribute("data-event-id") ||
+        row.getAttribute("data-log-id") ||
+        row.getAttribute("data-transaction-id") ||
+        row.getAttribute("data-id") ||
+        row.id,
+      ""
+    );
     return normalizeUpkeepPayment({
+      eventId,
       paidAt,
       payerId,
       payerName,
@@ -2480,6 +2609,9 @@
         propertyHistoryPages: propertyHistoryPages(),
         propertyCosts: { ...(state.propertyCosts || {}) },
       },
+      upkeepPaymentSnapshots: normalizeUpkeepPaymentSnapshots(
+        state.upkeepPaymentSnapshots || {}
+      ),
     };
     const userId =
       (state.endpointInputs && state.endpointInputs.userId) || keyInfoUserId(state.keyInfo);
@@ -2546,6 +2678,32 @@
 
     applyHostedLedgerSync(body, scope);
     return body;
+  }
+
+  async function persistUpkeepPaymentSnapshot(snapshot) {
+    const normalized = normalizeUpkeepPaymentSnapshot(snapshot);
+    const session = hostedSessionValue();
+    if (!normalized || !session) return null;
+    try {
+      const body = await hostedRequest("/api/tornfolio/upkeep", {
+        method: "POST",
+        session,
+        body: { upkeepPaymentSnapshots: { [normalized.propertyId]: normalized } },
+        timeout: 20000,
+      });
+      state.upkeepPaymentSnapshots = mergeUpkeepPaymentSnapshotCollections(
+        state.upkeepPaymentSnapshots,
+        body && body.upkeepPaymentSnapshots
+      );
+      saveState("Upkeep history synced");
+      return body;
+    } catch (error) {
+      console.warn(
+        "[Tornfolio] Upkeep history remains saved locally and will retry during the next sync.",
+        error
+      );
+      return null;
+    }
   }
 
   async function runHostedFirst(scope, fallback) {
@@ -2667,6 +2825,10 @@
       "propertyLogs",
       "property_logs",
     ]);
+    state.upkeepPaymentSnapshots = mergeUpkeepPaymentSnapshotCollections(
+      state.upkeepPaymentSnapshots,
+      body.upkeepPaymentSnapshots || body.upkeep_payment_snapshots
+    );
     const message =
       body.message ||
       `Refreshed ${leases.length.toLocaleString()} rental records${suggestions.length ? ` and ${suggestions.length.toLocaleString()} suggestions` : ""}.`;
@@ -4624,6 +4786,10 @@
     const paidAt = clean(value.paidAt || value.paid_at || value.timestamp, "");
     const balance = upkeepMoneyValue(value.balance, 0);
     const row = {
+      eventId: clean(
+        value.eventId || value.event_id || value.logId || value.log_id || value.transactionId,
+        ""
+      ),
       paidAt,
       payerId: payer ? payer.id : "",
       payerName: payer ? payer.name : "Unknown payer",
@@ -4632,8 +4798,22 @@
       balance,
       source: clean(value.source, "torn-recent-upkeep"),
     };
-    row.key = upkeepPaymentKey(row);
+    row.eventId = row.eventId || upkeepPaymentSyntheticEventId(row);
+    row.key = row.eventId;
     return row;
+  }
+
+  function upkeepStableHash(value) {
+    let hash = 2166136261;
+    for (const character of String(value || "")) {
+      hash ^= character.charCodeAt(0);
+      hash = Math.imul(hash, 16777619);
+    }
+    return (hash >>> 0).toString(16).padStart(8, "0");
+  }
+
+  function upkeepPaymentSyntheticEventId(value) {
+    return `observed-${upkeepStableHash(upkeepPaymentKey(value))}`;
   }
 
   function upkeepPaymentKey(value) {
@@ -4653,12 +4833,30 @@
 
   function mergeUpkeepPaymentRows(...groups) {
     const rows = new Map();
+    const eventBySignature = new Map();
     for (const group of groups) {
       for (const source of Array.isArray(group) ? group : []) {
         const row = normalizeUpkeepPayment(source);
         if (!row) continue;
+        const signature = upkeepPaymentKey(row);
+        const matchingEventId = eventBySignature.get(signature);
+        if (matchingEventId && matchingEventId !== row.key) {
+          const matching = rows.get(matchingEventId);
+          const rowHasRealEventId = !row.eventId.startsWith("observed-");
+          const matchingHasRealEventId =
+            matching && !matching.eventId.startsWith("observed-");
+          if (rowHasRealEventId || (!matchingHasRealEventId && row.source === "torn-recent-upkeep")) {
+            rows.delete(matchingEventId);
+            rows.set(row.key, row);
+            eventBySignature.set(signature, row.key);
+          }
+          continue;
+        }
         const previous = rows.get(row.key);
-        if (!previous || row.source === "torn-recent-upkeep") rows.set(row.key, row);
+        if (!previous || row.source === "torn-recent-upkeep") {
+          rows.set(row.key, row);
+          eventBySignature.set(signature, row.key);
+        }
       }
     }
     return Array.from(rows.values())
@@ -4689,6 +4887,34 @@
     for (const [propertyId, snapshot] of Object.entries(value)) {
       const normalized = normalizeUpkeepPaymentSnapshot(snapshot, propertyId);
       if (normalized) result[normalized.propertyId] = normalized;
+    }
+    return result;
+  }
+
+  function mergeUpkeepPaymentSnapshotCollections(...groups) {
+    const result = {};
+    for (const group of groups) {
+      const snapshots = normalizeUpkeepPaymentSnapshots(group);
+      for (const [propertyId, incoming] of Object.entries(snapshots)) {
+        const previous = result[propertyId];
+        if (!previous) {
+          result[propertyId] = incoming;
+          continue;
+        }
+        const incomingIsNewer =
+          String(incoming.observedAt || "") >= String(previous.observedAt || "");
+        const newest = incomingIsNewer ? incoming : previous;
+        const older = incomingIsNewer ? previous : incoming;
+        result[propertyId] = normalizeUpkeepPaymentSnapshot(
+          {
+            ...older,
+            ...newest,
+            occupants: newest.occupants.length ? newest.occupants : older.occupants,
+            payments: mergeUpkeepPaymentRows(previous.payments, incoming.payments),
+          },
+          propertyId
+        );
+      }
     }
     return result;
   }
@@ -5596,17 +5822,13 @@
     });
   }
 
-  function tfUpkeepContributionHtml(value, options = {}) {
+  function tfUpkeepContributionHtml(value) {
     const stats = upkeepPaymentStats(value);
     if (!stats)
       return tfEmpty(
         "No checked upkeep history yet",
         "Open the current home's Check upkeep action to read Torn's recent payer history."
       );
-    const recentLimit = Math.max(
-      0,
-      Number(options.recentLimit === undefined ? 10 : options.recentLimit)
-    );
     const contributors = stats.contributors.length
       ? `<div class="tf-upkeep-contributors">${stats.contributors
           .map((row) => {
@@ -5630,9 +5852,9 @@
       : stats.verifiedPair && stats.totalPaid
         ? `<p class="tf-upkeep-settlement is-even">The two current residents are even across the observed payments.</p>`
         : `<p class="tf-action-note">A 50/50 balance appears only when the current home has exactly two identified residents and every observed payment belongs to one of them.</p>`;
-    const recent = recentLimit ? stats.payments.slice(0, recentLimit) : [];
+    const recent = stats.payments;
     const rows = recent.length
-      ? `<div class="tf-upkeep-table-wrap"><table class="tf-upkeep-table"><thead><tr><th>Date</th><th>Payer</th><th>Paid</th><th>Balance after payment</th></tr></thead><tbody>${recent
+      ? `<div class="tf-upkeep-table-wrap" role="region" aria-label="${tfNumber(recent.length)} recent upkeep payments"><table class="tf-upkeep-table"><colgroup><col class="tf-upkeep-date"><col class="tf-upkeep-payer"><col class="tf-upkeep-money"><col class="tf-upkeep-balance"></colgroup><thead><tr><th>Date</th><th>Payer</th><th>Paid</th><th>Balance after payment</th></tr></thead><tbody>${recent
           .map(
             (row) =>
               `<tr><td>${escapeHtml(tfUpkeepPaymentDate(row.paidAt))}</td><td>${escapeHtml(row.payerLabel)}</td><td>${escapeHtml(tfMoneyKnown(row.amount))}</td><td>${escapeHtml(tfMoneyKnown(row.balance))}</td></tr>`
@@ -5647,7 +5869,7 @@
         ? tfDate(stats.periodStart)
         : `${tfDate(stats.periodStart)} – ${tfDate(stats.periodEnd)}`
       : "No dated payments";
-    return `<div class="tf-upkeep-ledger"><div class="tf-action-summary tf-upkeep-summary"><div><span>Outstanding now</span><strong>${escapeHtml(tfMoneyKnown(stats.due))}</strong></div><div><span>Current daily upkeep</span><strong>${escapeHtml(tfMoneyKnown(stats.dailyUpkeep))}</strong></div><div><span>Fair share / resident / day</span><strong>${stats.perOccupantDaily === null ? "Unavailable" : escapeHtml(tfMoneyKnown(stats.perOccupantDaily))}</strong></div><div><span>Observed paid</span><strong>${escapeHtml(tfMoneyKnown(stats.totalPaid))}</strong></div><div><span>Payment days observed</span><strong>${tfNumber(stats.paymentDays)}</strong></div><div><span>Days covered at current rate</span><strong>${stats.daysCovered === null ? "Unavailable" : tfUpkeepDecimal(stats.daysCovered, 2)}</strong></div></div><div class="tf-upkeep-window"><span>Observed window</span><strong>${escapeHtml(observedWindow)}</strong><small>${stats.paymentCount ? `${tfNumber(stats.paymentCount)} transactions across a ${tfNumber(stats.periodDays)}-day calendar window` : "No payment transactions observed yet"}</small></div>${contributors}${settlement}${rows}<small class="tf-upkeep-caveat">Torn labels this list “Recent upkeep payments”. Tornfolio keeps rows seen during your manual checks on this device, so the observed history can grow. The 50/50 balance compares only those observed payments. Days covered uses the current daily upkeep; older payments may represent a different number of days if facilities or staff changed.</small></div>`;
+    return `<div class="tf-upkeep-ledger"><div class="tf-action-summary tf-upkeep-summary"><div><span>Outstanding now</span><strong>${escapeHtml(tfMoneyKnown(stats.due))}</strong></div><div><span>Current daily upkeep</span><strong>${escapeHtml(tfMoneyKnown(stats.dailyUpkeep))}</strong></div><div><span>Fair share / resident / day</span><strong>${stats.perOccupantDaily === null ? "Unavailable" : escapeHtml(tfMoneyKnown(stats.perOccupantDaily))}</strong></div><div><span>Observed paid</span><strong>${escapeHtml(tfMoneyKnown(stats.totalPaid))}</strong></div><div><span>Payment days observed</span><strong>${tfNumber(stats.paymentDays)}</strong></div><div><span>Days covered at current rate</span><strong>${stats.daysCovered === null ? "Unavailable" : tfUpkeepDecimal(stats.daysCovered, 2)}</strong></div></div><div class="tf-upkeep-window"><span>Observed window</span><strong>${escapeHtml(observedWindow)}</strong><small>${stats.paymentCount ? `${tfNumber(stats.paymentCount)} transactions across a ${tfNumber(stats.periodDays)}-day calendar window` : "No payment transactions observed yet"}</small></div>${contributors}${settlement}${rows}<small class="tf-upkeep-caveat">Torn labels this list “Recent upkeep payments”. Tornfolio retains up to 250 observed rows for each property and syncs them to the secure Tornfolio database when your account session is available. The 50/50 balance compares only those observed payments. Days covered uses the current daily upkeep; older payments may represent a different number of days if facilities or staff changed.</small></div>`;
   }
 
   function tfOwnershipOrder(value) {
@@ -6414,7 +6636,7 @@
     const occupancy = owned.length ? Math.round((rentedCount / owned.length) * 100) : 0;
     return `<section class="tf-page">${tfPageTitle("insights", "Insights", "Analyse current portfolio performance, rental income and supported history.", `<div class="tf-title-filters"><select data-ui-field="insightOwner"><option value="all">All Owners</option><option value="mine"${ui.insightOwner === "mine" ? " selected" : ""}>My Properties</option><option value="spouse"${ui.insightOwner === "spouse" ? " selected" : ""}>Spouse Properties</option></select><select data-ui-field="insightType"><option value="all">All Types</option>${types.map((type) => `<option value="${escapeAttr(type)}"${ui.insightType === type ? " selected" : ""}>${escapeHtml(type)}</option>`).join("")}</select></div>`)}
       <div class="tf-kpi-row">${tfMetric("money", tfMoney(value), "Known Portfolio Value", "success")}${tfMetric("money", tfMoney(daily), "Daily Rental Income", "success")}${tfMetric("property", tfNumber(properties.length), "Total Properties")}${tfMetric("key", tfNumber(rentedCount), "Rented Properties", "info")}${tfMetric("home", tfNumber(owned.filter((row) => row.status === "available").length), "Available Properties")}${tfMetric("tag", tfNumber(owned.filter((row) => row.status === "listed").length), "Listed Properties", "warning")}</div>
-      <div class="tf-insights-grid"><section class="tf-card tf-wide-card"><div class="tf-card-head"><h2>${tfIcon("exchange")} Lifecycle Intelligence</h2></div>${tfLifecycleIntelligence(model)}</section><section class="tf-card tf-wide-card"><div class="tf-card-head"><h2>${tfIcon("money")} Household Upkeep Balance</h2></div>${tfUpkeepContributionHtml(model.currentHome && model.currentHome.upkeepPaymentSnapshot, { recentLimit: 8 })}</section><section class="tf-card tf-chart-empty"><div class="tf-card-head"><h2>${tfIcon("money")} Rental Income Trend</h2></div>${tfEmpty("More history is needed", "Tornfolio will not invent a monthly income trend. This chart appears when dated income snapshots are available.")}</section><section class="tf-card"><div class="tf-card-head"><h2>${tfIcon("property")} Property Type Breakdown</h2></div>${tfBreakdownBars(breakdown, properties.length)}</section><section class="tf-card tf-occupancy"><div class="tf-card-head"><h2>${tfIcon("key")} Occupancy Rate</h2></div><div class="tf-donut" style="--tf-percent:${occupancy}"><strong>${occupancy}%</strong><span>Rented</span></div><div class="tf-kv-list"><span><b>Rented</b><strong>${rentedCount}</strong></span><span><b>Available</b><strong>${owned.filter((row) => row.status === "available").length}</strong></span><span><b>Listed</b><strong>${owned.filter((row) => row.status === "listed").length}</strong></span></div></section><section class="tf-card tf-wide-card"><div class="tf-card-head"><h2>${tfIcon("trophy")} Top Performing Properties</h2></div>${tfTopProperties(active)}</section><section class="tf-card"><div class="tf-card-head"><h2>${tfIcon("insights")} Income Comparison</h2></div>${tfOwnerIncome(active)}</section><section class="tf-card"><div class="tf-card-head"><h2>${tfIcon("money")} Portfolio Value by Type</h2></div>${tfValueByType(properties)}</section><section class="tf-card"><div class="tf-card-head"><h2>${tfIcon("activity")} Contract Durations</h2></div>${tfDurationBars(active)}</section><section class="tf-card tf-wide-card"><div class="tf-card-head"><h2>${tfIcon("idea")} Key Insights</h2></div>${tfKeyInsights(model, occupancy, daily)}</section></div>
+      <div class="tf-insights-grid"><section class="tf-card tf-wide-card"><div class="tf-card-head"><h2>${tfIcon("exchange")} Lifecycle Intelligence</h2></div>${tfLifecycleIntelligence(model)}</section><section class="tf-card tf-wide-card"><div class="tf-card-head"><h2>${tfIcon("money")} Household Upkeep Balance</h2></div>${tfUpkeepContributionHtml(model.currentHome && model.currentHome.upkeepPaymentSnapshot)}</section><section class="tf-card tf-chart-empty"><div class="tf-card-head"><h2>${tfIcon("money")} Rental Income Trend</h2></div>${tfEmpty("More history is needed", "Tornfolio will not invent a monthly income trend. This chart appears when dated income snapshots are available.")}</section><section class="tf-card"><div class="tf-card-head"><h2>${tfIcon("property")} Property Type Breakdown</h2></div>${tfBreakdownBars(breakdown, properties.length)}</section><section class="tf-card tf-occupancy"><div class="tf-card-head"><h2>${tfIcon("key")} Occupancy Rate</h2></div><div class="tf-donut" style="--tf-percent:${occupancy}"><strong>${occupancy}%</strong><span>Rented</span></div><div class="tf-kv-list"><span><b>Rented</b><strong>${rentedCount}</strong></span><span><b>Available</b><strong>${owned.filter((row) => row.status === "available").length}</strong></span><span><b>Listed</b><strong>${owned.filter((row) => row.status === "listed").length}</strong></span></div></section><section class="tf-card tf-wide-card"><div class="tf-card-head"><h2>${tfIcon("trophy")} Top Performing Properties</h2></div>${tfTopProperties(active)}</section><section class="tf-card"><div class="tf-card-head"><h2>${tfIcon("insights")} Income Comparison</h2></div>${tfOwnerIncome(active)}</section><section class="tf-card"><div class="tf-card-head"><h2>${tfIcon("money")} Portfolio Value by Type</h2></div>${tfValueByType(properties)}</section><section class="tf-card"><div class="tf-card-head"><h2>${tfIcon("activity")} Contract Durations</h2></div>${tfDurationBars(active)}</section><section class="tf-card tf-wide-card"><div class="tf-card-head"><h2>${tfIcon("idea")} Key Insights</h2></div>${tfKeyInsights(model, occupancy, daily)}</section></div>
     </section>`;
   }
 
@@ -6809,6 +7031,7 @@
       const upkeep = parseTornUpkeepOptions(options.text, action.propertyId);
       const property = tfModel().properties.find((row) => row.key === action.propertyKey);
       const upkeepSnapshot = property ? mergeUpkeepPaymentSnapshot(property, upkeep) : null;
+      if (upkeepSnapshot) void persistUpkeepPaymentSnapshot(upkeepSnapshot);
       const due = Number(upkeep.due);
       const availableCash =
         due > 0 ? Number(await tornPropertyCashAvailable(action.propertyId)) : 0;
@@ -7084,7 +7307,7 @@
           ? `<p class="tf-action-note">You are ${escapeHtml(tfMoneyKnown(shortfall))} short of the full upkeep balance. Tornfolio will not sell stocks, withdraw investments, or move money automatically. You may make a partial payment now, or get cash manually and check again.</p>`
           : `<p class="tf-action-ok">Your current cash can cover the full upkeep balance.</p>`;
       const disabled = action.busy || maximumPayment < 1;
-      return `<form class="tf-action-form" data-form="property-action"><div class="tf-action-summary"><div><span>Outstanding upkeep</span><strong>${escapeHtml(tfMoneyKnown(due))}</strong></div><div><span>Cash on hand</span><strong>${escapeHtml(tfMoneyKnown(availableCash))}</strong></div><div><span>Maximum payment now</span><strong>${escapeHtml(tfMoneyKnown(maximumPayment))}</strong></div></div><label>Payment amount<input type="text" inputmode="numeric" name="pay" min="1" max="${escapeAttr(maximumPayment)}" value="${escapeAttr(action.fields.pay || "")}" placeholder="Amount to pay" required${disabled ? " disabled" : ""}></label>${warning}${tfUpkeepContributionHtml(action.fields.upkeepSnapshot, { recentLimit: 6 })}${error}<p class="tf-action-note">Reviewing this amount is local only. The separate final confirmation is the only step that pays Torn.</p><div class="tf-button-row"><button class="tf-primary" type="submit"${disabled ? " disabled" : ""}>Review payment</button><button type="button" data-action="retry-upkeep-check"${action.busy ? " disabled" : ""}>Check again</button><button type="button" data-action="close-property-action"${action.busy ? " disabled" : ""}>Cancel</button></div></form>`;
+      return `<form class="tf-action-form" data-form="property-action"><div class="tf-action-summary"><div><span>Outstanding upkeep</span><strong>${escapeHtml(tfMoneyKnown(due))}</strong></div><div><span>Cash on hand</span><strong>${escapeHtml(tfMoneyKnown(availableCash))}</strong></div><div><span>Maximum payment now</span><strong>${escapeHtml(tfMoneyKnown(maximumPayment))}</strong></div></div><label>Payment amount<input type="text" inputmode="numeric" name="pay" min="1" max="${escapeAttr(maximumPayment)}" value="${escapeAttr(action.fields.pay || "")}" placeholder="Amount to pay" required${disabled ? " disabled" : ""}></label>${warning}${tfUpkeepContributionHtml(action.fields.upkeepSnapshot)}${error}<p class="tf-action-note">Reviewing this amount is local only. The separate final confirmation is the only step that pays Torn.</p><div class="tf-button-row"><button class="tf-primary" type="submit"${disabled ? " disabled" : ""}>Review payment</button><button type="button" data-action="retry-upkeep-check"${action.busy ? " disabled" : ""}>Check again</button><button type="button" data-action="close-property-action"${action.busy ? " disabled" : ""}>Cancel</button></div></form>`;
     }
     if (action.kind === "buy") {
       const options = propertyTypes()
@@ -7248,11 +7471,11 @@
                 : action.kind === "rent" && action.fields.destination === "person"
                   ? "The rental offer has been sent to the recipient. Use Sync Now to refresh offers and any accepted tenancy."
                   : "The local card has been updated for this session. Use Sync Now to refresh the property and history data.";
-      body = `<div class="tf-action-success"><strong>Confirmed by Torn</strong><p>${escapeHtml(action.message)}</p><p>${escapeHtml(detail)}</p>${action.kind === "upkeep" ? tfUpkeepContributionHtml(action.fields.upkeepSnapshot, { recentLimit: 6 }) : ""}<button class="tf-primary" type="button" data-action="close-property-action">Done</button></div>`;
+      body = `<div class="tf-action-success"><strong>Confirmed by Torn</strong><p>${escapeHtml(action.message)}</p><p>${escapeHtml(detail)}</p>${action.kind === "upkeep" ? tfUpkeepContributionHtml(action.fields.upkeepSnapshot) : ""}<button class="tf-primary" type="button" data-action="close-property-action">Done</button></div>`;
     } else if (action.stage === "loading") {
       body = `<div class="tf-action-success"><strong>Checking Torn…</strong><p>${action.kind === "upgrade" ? "Loading this property's current facilities, staff, choices, and prices. Nothing is being purchased." : "Reading this property's current upkeep balance and your available cash. No payment is being made."}</p></div>`;
     } else if (action.stage === "clear") {
-      body = `<div class="tf-action-success"><strong>Nothing due</strong><p>${escapeHtml(action.message)}</p>${tfUpkeepContributionHtml(action.fields.upkeepSnapshot, { recentLimit: 6 })}<button class="tf-primary" type="button" data-action="close-property-action">Done</button></div>`;
+      body = `<div class="tf-action-success"><strong>Nothing due</strong><p>${escapeHtml(action.message)}</p>${tfUpkeepContributionHtml(action.fields.upkeepSnapshot)}<button class="tf-primary" type="button" data-action="close-property-action">Done</button></div>`;
     } else if (action.stage === "error") {
       const retryAction =
         action.kind === "upgrade" ? "reload-upgrade-options" : "retry-upkeep-check";
@@ -7572,6 +7795,7 @@
           ],
         });
         saveState("Upkeep payment recorded");
+        void persistUpkeepPaymentSnapshot(action.fields.upkeepSnapshot);
       }
       if (action.kind !== "buy") applyPropertyActionOverride(action);
       action.busy = false;
@@ -7617,7 +7841,7 @@
       );
       const contracts = model.activeRentals.filter((row) => row.propertyKey === property.key);
       const installedFeatures = tfInstalledPropertyFeatures(property);
-      return `<div class="tf-modal-backdrop" data-action="close-detail"><div class="tf-modal tf-detail-modal" role="dialog" aria-modal="true" aria-label="Property details" data-modal-stop><div class="tf-modal-head"><div><strong>${escapeHtml(property.name)}</strong><span>${property.id ? `Property #${escapeHtml(property.id)} · ` : ""}${escapeHtml(property.type)}</span></div><button class="tf-icon-button" type="button" data-action="close-detail" aria-label="Close property details">${tfIcon("close")}</button></div><div class="tf-detail-body">${property.image ? `<img class="tf-detail-image" src="${escapeAttr(property.image)}" alt="${escapeAttr(property.type)}">` : ""}<div class="tf-badges">${tfOwnershipBadge(property.ownership)}${tfStatusBadge(property.status)}${tfUpkeepBadge(property)}</div><div class="tf-detail-grid"><div><span>Owner</span><strong>${escapeHtml(property.owner)}</strong></div><div><span>Happiness</span><strong>${property.happy ? tfNumber(property.happy) : "Unavailable"}</strong></div><div><span>Facilities / Staff</span><strong>${installedFeatures.length ? installedFeatures.length : "Unavailable"}</strong></div><div><span>Residents</span><strong>${escapeHtml(property.residents.join(", ") || "Unavailable")}</strong></div><div><span>Daily Upkeep</span><strong>${escapeHtml(tfMoney(property.upkeep))}</strong></div><div><span>Market Value</span><strong>${escapeHtml(tfMoney(property.marketValue))}</strong></div><div><span>Investment Basis</span><strong>${escapeHtml(tfMoney(property.investment))}</strong></div><div><span>Market listing</span><strong>${escapeHtml(tfPropertyListingLabel(property))}</strong></div></div>${tfRentalIncomeEvidenceDetail(property)}${tfPropertyActionsHtml(property, model, isPopup)}${property.isCurrentHome ? `<section><h2>Upkeep Payments &amp; 50/50 Balance</h2>${tfUpkeepContributionHtml(property.upkeepPaymentSnapshot, { recentLimit: 10 })}</section>` : ""}${tfPropertyUpgradePanel(property, isPopup)}<section><h2>Lifecycle Snapshot</h2>${tfLifecycleSnapshot(property.lifecycle)}</section>${installedFeatures.length ? `<section><h2>Installed Upgrades & Staff</h2><div class="tf-chip-list">${installedFeatures.map((value) => `<span>${escapeHtml(value)}</span>`).join("")}</div></section>` : ""}<section><h2>Current Rental</h2>${contracts.length ? contracts.map(tfRentalCard).join("") : tfEmpty("No active rental", "This property has no active rental contract in the latest data.")}</section><section><h2>Property Journey</h2>${tfPropertyJourney(property.id)}</section><section><h2>Rental History</h2>${history.length ? history.map(tfArchiveCard).join("") : tfEmpty("No rental history", "Archived contracts for this property will appear after history has been synced.")}</section></div></div></div>`;
+      return `<div class="tf-modal-backdrop" data-action="close-detail"><div class="tf-modal tf-detail-modal" role="dialog" aria-modal="true" aria-label="Property details" data-modal-stop><div class="tf-modal-head"><div><strong>${escapeHtml(property.name)}</strong><span>${property.id ? `Property #${escapeHtml(property.id)} · ` : ""}${escapeHtml(property.type)}</span></div><button class="tf-icon-button" type="button" data-action="close-detail" aria-label="Close property details">${tfIcon("close")}</button></div><div class="tf-detail-body">${property.image ? `<img class="tf-detail-image" src="${escapeAttr(property.image)}" alt="${escapeAttr(property.type)}">` : ""}<div class="tf-badges">${tfOwnershipBadge(property.ownership)}${tfStatusBadge(property.status)}${tfUpkeepBadge(property)}</div><div class="tf-detail-grid"><div><span>Owner</span><strong>${escapeHtml(property.owner)}</strong></div><div><span>Happiness</span><strong>${property.happy ? tfNumber(property.happy) : "Unavailable"}</strong></div><div><span>Facilities / Staff</span><strong>${installedFeatures.length ? installedFeatures.length : "Unavailable"}</strong></div><div><span>Residents</span><strong>${escapeHtml(property.residents.join(", ") || "Unavailable")}</strong></div><div><span>Daily Upkeep</span><strong>${escapeHtml(tfMoney(property.upkeep))}</strong></div><div><span>Market Value</span><strong>${escapeHtml(tfMoney(property.marketValue))}</strong></div><div><span>Investment Basis</span><strong>${escapeHtml(tfMoney(property.investment))}</strong></div><div><span>Market listing</span><strong>${escapeHtml(tfPropertyListingLabel(property))}</strong></div></div>${tfRentalIncomeEvidenceDetail(property)}${tfPropertyActionsHtml(property, model, isPopup)}${property.isCurrentHome ? `<section><h2>Upkeep Payments &amp; 50/50 Balance</h2>${tfUpkeepContributionHtml(property.upkeepPaymentSnapshot)}</section>` : ""}${tfPropertyUpgradePanel(property, isPopup)}<section><h2>Lifecycle Snapshot</h2>${tfLifecycleSnapshot(property.lifecycle)}</section>${installedFeatures.length ? `<section><h2>Installed Upgrades & Staff</h2><div class="tf-chip-list">${installedFeatures.map((value) => `<span>${escapeHtml(value)}</span>`).join("")}</div></section>` : ""}<section><h2>Current Rental</h2>${contracts.length ? contracts.map(tfRentalCard).join("") : tfEmpty("No active rental", "This property has no active rental contract in the latest data.")}</section><section><h2>Property Journey</h2>${tfPropertyJourney(property.id)}</section><section><h2>Rental History</h2>${history.length ? history.map(tfArchiveCard).join("") : tfEmpty("No rental history", "Archived contracts for this property will appear after history has been synced.")}</section></div></div></div>`;
     }
     if (detail.kind === "rental") {
       const contract = model.activeRentals.find((row) => row.contractId === detail.id);
@@ -7672,7 +7896,7 @@
       changelog: {
         title: `Tornfolio ${APP_VERSION}`,
         subtitle: "Release notes",
-        body: `<section><h2>Version ${escapeHtml(APP_VERSION)}</h2><ul class="tf-info-list"><li>Keeps Recent upkeep payments inside a short, internally scrollable table in the payment modal, so the history can no longer stretch beyond the dialog.</li><li>Adds a locally retained recent-upkeep ledger with payer totals, payment-day metrics, the live balance, and a verified two-resident 50/50 comparison.</li><li>Calculates daily upkeep from both property and staff charges when Torn returns the split values.</li></ul></section><section><h2>Previous updates</h2><p>Version 0.8.6 capped rental extensions at 100 total remaining days. Version 0.8.5 removed listed properties from Needs Attention because the listing decision and price were already complete.</p></section><section><h2>Updates</h2><p>Tornfolio checks GreasyFork for a newer release when it opens. The header status tells you whether this version is current.</p><a class="tf-link-button" href="${escapeAttr(GREASYFORK_PAGE_URL)}" target="_blank" rel="noopener noreferrer">View Tornfolio on GreasyFork</a></section>`,
+        body: `<section><h2>Version ${escapeHtml(APP_VERSION)}</h2><ul class="tf-info-list"><li>Removes the upkeep table's unnecessary horizontal scrollbar with compact, fixed-width columns while keeping the table short inside the modal.</li><li>Lets the vertical table scroll through every retained payment, up to 250 rows per property, instead of cutting the display off after a small fixed number.</li><li>Saves observed upkeep payments to the Tornfolio database by account, property ID and event ID, then merges that history across signed-in devices without duplicate rows.</li><li>Moves Torn PDA persistence to its native per-script storage and verifies the old localStorage data before clearing the migrated copy, preventing the repeated quota errors and interrupted sync loop.</li></ul></section><section><h2>Previous update</h2><p>Version 0.8.8 added payer totals, payment-day metrics, daily upkeep, days covered and a verified two-resident 50/50 contribution balance.</p></section><section><h2>Updates</h2><p>Tornfolio checks GreasyFork for a newer release when it opens. The header status tells you whether this version is current.</p><a class="tf-link-button" href="${escapeAttr(GREASYFORK_PAGE_URL)}" target="_blank" rel="noopener noreferrer">View Tornfolio on GreasyFork</a></section>`,
       },
     };
     const selected = views[view] || views.help;
@@ -8159,13 +8383,18 @@
       #${APP_ID} .tf-upkeep-contributors article > em { color: #cce1eb; font-size: 11px; font-style: normal; font-weight: 700; }
       #${APP_ID} .tf-upkeep-settlement { margin: 0; padding: 10px 12px; border: 1px solid rgba(255,208,90,.42); border-radius: 8px; background: rgba(91,69,15,.25); color: #ffe7a3; line-height: 1.45; }
       #${APP_ID} .tf-upkeep-settlement.is-even { border-color: rgba(69,239,173,.38); background: rgba(19,86,69,.3); color: #bff8df; }
-      #${APP_ID} .tf-upkeep-table-wrap { max-height: 310px; overflow: auto; border: 1px solid var(--tf-border); border-radius: 8px; }
+      #${APP_ID} .tf-upkeep-table-wrap { width: 100%; max-height: 310px; overflow-x: hidden; overflow-y: auto; border: 1px solid var(--tf-border); border-radius: 8px; box-sizing: border-box; }
       #${APP_ID} .tf-action-modal .tf-upkeep-table-wrap { max-height: 132px; overscroll-behavior: contain; }
       #${APP_ID} .tf-action-modal .tf-upkeep-table th, #${APP_ID} .tf-action-modal .tf-upkeep-table td { padding: 5px 7px; }
-      #${APP_ID} .tf-upkeep-table { width: 100%; border-collapse: collapse; color: var(--tf-text); font-size: 10px; }
-      #${APP_ID} .tf-upkeep-table th, #${APP_ID} .tf-upkeep-table td { padding: 8px 9px; border-bottom: 1px solid rgba(74,122,143,.18); text-align: left; white-space: nowrap; }
+      #${APP_ID} .tf-upkeep-table { width: 100%; min-width: 0; table-layout: fixed; border-collapse: collapse; color: var(--tf-text); font-size: 10px; }
+      #${APP_ID} .tf-upkeep-table .tf-upkeep-date { width: 30%; }
+      #${APP_ID} .tf-upkeep-table .tf-upkeep-payer { width: 27%; }
+      #${APP_ID} .tf-upkeep-table .tf-upkeep-money { width: 18%; }
+      #${APP_ID} .tf-upkeep-table .tf-upkeep-balance { width: 25%; }
+      #${APP_ID} .tf-upkeep-table th, #${APP_ID} .tf-upkeep-table td { min-width: 0; padding: 8px 9px; border-bottom: 1px solid rgba(74,122,143,.18); text-align: left; white-space: normal; overflow-wrap: anywhere; }
       #${APP_ID} .tf-upkeep-table th { position: sticky; top: 0; z-index: 1; background: #092b39; color: #c5dae5; font-size: 9px; text-transform: uppercase; }
       #${APP_ID} .tf-upkeep-table td:nth-child(3), #${APP_ID} .tf-upkeep-table td:nth-child(4), #${APP_ID} .tf-upkeep-table th:nth-child(3), #${APP_ID} .tf-upkeep-table th:nth-child(4) { text-align: right; }
+      #${APP_ID} .tf-upkeep-table td:nth-child(3), #${APP_ID} .tf-upkeep-table td:nth-child(4) { white-space: nowrap; overflow-wrap: normal; }
       #${APP_ID} .tf-upkeep-table tr:last-child td { border-bottom: 0; }
       #${APP_ID} .tf-upkeep-caveat { color: var(--tf-muted); line-height: 1.45; }
       #${APP_ID} .tf-action-note, #${APP_ID} .tf-action-ok, #${APP_ID} .tf-action-error { margin: 0; padding: 10px 11px; border-radius: 8px; line-height: 1.45; }
@@ -12771,7 +13000,9 @@
   window.addEventListener("modulhub:theme-ready", syncPopupTheme);
   window.addEventListener("modulhub:theme-updated", syncPopupTheme);
 
-  function startTornfolio() {
+  async function startTornfolio() {
+    await prepareTornPdaStorage();
+    state = loadState();
     refreshTornUpkeepMarkers(document, false);
     render();
     observeTornUpkeepMarkers();
@@ -12780,8 +13011,8 @@
   }
 
   if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", startTornfolio);
+    document.addEventListener("DOMContentLoaded", () => void startTornfolio());
   } else {
-    startTornfolio();
+    void startTornfolio();
   }
 })();

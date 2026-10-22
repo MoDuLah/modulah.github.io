@@ -29,7 +29,7 @@
       "actionLabelTemplate": "Install beta {version}",
       "timelineEnabled": true,
       "timelineType": "RELEASE",
-      "timelineSummary": "Tornfolio now keeps Torn's Recent upkeep payments locally and reports payer totals, payment days, daily cost, days covered, and a 50/50 balance for two residents. Version 0.8.8 also keeps the modal history in a compact, internally scrollable table so longer payment histories stay inside the dialog.",
+      "timelineSummary": "Upkeep history now stays compact without a horizontal scrollbar, while the short table can vertically scroll through every retained payment. Tornfolio 0.8.9 also saves payments by account, property and event ID for cross-device sync, and migrates Torn PDA data to the app's native per-script storage to prevent localStorage quota loops.",
       "timelineHref": "https://greasyfork.org/en/scripts/591996-tornfolio-property-lease-roi-manager",
       "source": {
         "type": "userscript",
