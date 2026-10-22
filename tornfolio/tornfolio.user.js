@@ -17,6 +17,8 @@
 // @grant        GM_deleteValue
 // ==/UserScript==
 
+/* global PDA_storage */
+
 (function () {
   "use strict";
 
