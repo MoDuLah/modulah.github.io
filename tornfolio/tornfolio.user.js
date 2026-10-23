@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Tornfolio — Property, Lease & ROI Manager
 // @namespace    MoDuL.torn.tornfolio
-// @version      0.8.9
+// @version      0.9.0
 // @description  Manage your Torn property portfolio, rentals, market pricing, archive, and ROI.
 // @author       MoDuL
 // @copyright    2026 MoDuL. All rights reserved.
@@ -23,7 +23,7 @@
   "use strict";
 
   const APP_ID = "tf-ledger";
-  const APP_VERSION = "0.8.9";
+  const APP_VERSION = "0.9.0";
   const UPKEEP_REMINDER_INTERVAL_MS = 24 * 60 * 60 * 1000;
   const STORE_KEY = "tornfolio:v1";
   const LEGACY_STORE_KEYS = ["tornLandlordTenantLedger:v1"];
@@ -205,6 +205,7 @@
     propertyHistoryPages: 25,
     showAdvancedTools: false,
     allowDirectTornFallback: true,
+    upkeepOwnerSharePercent: 50,
   };
 
   const emptyState = {
@@ -3254,6 +3255,23 @@
     return state.settings;
   }
 
+  function upkeepOwnerSharePercent(value = null) {
+    const selected = value === null ? appSettings().upkeepOwnerSharePercent : value;
+    const percent = Number(selected);
+    if (!Number.isFinite(percent)) return DEFAULT_SETTINGS.upkeepOwnerSharePercent;
+    return clamp(Math.round(percent / 10) * 10, 0, 100);
+  }
+
+  function upkeepSplitOptionsHtml(value = null) {
+    const selected = upkeepOwnerSharePercent(value);
+    return Array.from({ length: 11 }, (_, index) => index * 10)
+      .map(
+        (ownerPercent) =>
+          `<option value="${ownerPercent}"${ownerPercent === selected ? " selected" : ""}>Owner ${ownerPercent}% — Spouse ${100 - ownerPercent}%</option>`
+      )
+      .join("");
+  }
+
   function showAdvancedTools(settings = null) {
     return Boolean((settings || appSettings()).showAdvancedTools);
   }
@@ -4873,6 +4891,8 @@
     return {
       propertyId,
       propertyName: clean(value.propertyName || value.property_name, ""),
+      ownerId: clean(value.ownerId || value.owner_id, ""),
+      ownerName: clean(value.ownerName || value.owner_name, ""),
       observedAt: clean(value.observedAt || value.observed_at, ""),
       due: upkeepMoneyValue(value.due, 0),
       dailyUpkeep: upkeepMoneyValue(value.dailyUpkeep || value.daily_upkeep, 0),
@@ -4946,6 +4966,8 @@
     return {
       ...saved,
       propertyName: property.name || saved.propertyName,
+      ownerId: property.ownerId || saved.ownerId,
+      ownerName: property.owner || saved.ownerName,
       dailyUpkeep: Number(property.upkeep || 0) || saved.dailyUpkeep,
       occupants: occupants.length ? occupants : saved.occupants,
     };
@@ -4964,6 +4986,8 @@
       {
         propertyId: property.id,
         propertyName: property.name,
+        ownerId: property.ownerId,
+        ownerName: property.owner,
         observedAt: clean((upkeep && upkeep.observedAt) || nowIso(), nowIso()),
         due,
         dailyUpkeep,
@@ -4992,7 +5016,7 @@
     );
   }
 
-  function upkeepPaymentStats(value) {
+  function upkeepPaymentStats(value, ownerShareValue = null) {
     const snapshot = normalizeUpkeepPaymentSnapshot(value);
     if (!snapshot) return null;
     const payments = snapshot.payments;
@@ -5044,12 +5068,32 @@
     });
     const hasOnlyCurrentOccupants = contributors.every((row) => row.isOccupant);
     const verifiedPair = snapshot.occupants.length === 2 && hasOnlyCurrentOccupants;
-    const fairShare = verifiedPair ? totalPaid / 2 : null;
-    if (fairShare !== null)
+    const ownerSharePercent = upkeepOwnerSharePercent(ownerShareValue);
+    const spouseSharePercent = 100 - ownerSharePercent;
+    const currentContributors = verifiedPair
+      ? contributors.filter((row) => row.isOccupant)
+      : [];
+    const ownerContributor = verifiedPair
+      ? currentContributors.find((row) =>
+          upkeepPaymentMatchesParty(
+            { payerId: snapshot.ownerId, payerName: snapshot.ownerName },
+            row
+          )
+        ) || currentContributors[0]
+      : null;
+    const spouseContributor = verifiedPair
+      ? currentContributors.find((row) => row !== ownerContributor) || null
+      : null;
+    const fairShare = verifiedPair && ownerSharePercent === 50 ? totalPaid / 2 : null;
+    if (verifiedPair)
       contributors.forEach((row) => {
-        row.difference = row.isOccupant ? row.paid - fairShare : null;
+        if (!row.isOccupant) return;
+        row.householdRole = row === ownerContributor ? "owner" : "spouse";
+        row.sharePercent = row === ownerContributor ? ownerSharePercent : spouseSharePercent;
+        row.targetPaid = totalPaid * (row.sharePercent / 100);
+        row.difference = row.paid - row.targetPaid;
       });
-    const pair = verifiedPair ? contributors.filter((row) => row.isOccupant) : [];
+    const pair = currentContributors;
     const ahead = pair.find((row) => Number(row.difference) > 0);
     const behind = pair.find((row) => Number(row.difference) < 0);
     const settlement =
@@ -5080,7 +5124,17 @@
       daysCovered: snapshot.dailyUpkeep ? totalPaid / snapshot.dailyUpkeep : null,
       fairShare,
       perOccupantDaily:
-        snapshot.dailyUpkeep && snapshot.occupants.length === 2 ? snapshot.dailyUpkeep / 2 : null,
+        snapshot.dailyUpkeep && verifiedPair && ownerSharePercent === 50
+          ? snapshot.dailyUpkeep / 2
+          : null,
+      ownerSharePercent,
+      spouseSharePercent,
+      ownerDaily: snapshot.dailyUpkeep ? snapshot.dailyUpkeep * (ownerSharePercent / 100) : null,
+      spouseDaily: snapshot.dailyUpkeep
+        ? snapshot.dailyUpkeep * (spouseSharePercent / 100)
+        : null,
+      ownerLabel: ownerContributor ? ownerContributor.label : "Owner",
+      spouseLabel: spouseContributor ? spouseContributor.label : "Spouse",
       contributors,
       verifiedPair,
       settlement,
@@ -5824,8 +5878,8 @@
     });
   }
 
-  function tfUpkeepContributionHtml(value) {
-    const stats = upkeepPaymentStats(value);
+  function tfUpkeepContributionHtml(value, ownerShareValue = null) {
+    const stats = upkeepPaymentStats(value, ownerShareValue);
     if (!stats)
       return tfEmpty(
         "No checked upkeep history yet",
@@ -5845,15 +5899,18 @@
                   : difference > 0
                     ? `${tfMoneyKnown(difference)} ahead`
                     : `${tfMoneyKnown(Math.abs(difference))} behind`;
-            return `<article><header><strong>${escapeHtml(row.label)}</strong><span>${tfUpkeepDecimal(row.percentage, 1)}%</span></header><b>${escapeHtml(tfMoneyKnown(row.paid))}</b><small>${tfNumber(row.paymentCount)} payment${row.paymentCount === 1 ? "" : "s"} across ${tfNumber(row.paymentDays)} payment day${row.paymentDays === 1 ? "" : "s"}</small><em>${escapeHtml(balance)}</em></article>`;
+            const target = Number.isFinite(row.sharePercent)
+              ? `Paid ${tfUpkeepDecimal(row.percentage, 1)}% · Target ${tfNumber(row.sharePercent)}%`
+              : `Paid ${tfUpkeepDecimal(row.percentage, 1)}%`;
+            return `<article><header><strong>${escapeHtml(row.label)}</strong><span>${escapeHtml(target)}</span></header><b>${escapeHtml(tfMoneyKnown(row.paid))}</b><small>${tfNumber(row.paymentCount)} payment${row.paymentCount === 1 ? "" : "s"} across ${tfNumber(row.paymentDays)} payment day${row.paymentDays === 1 ? "" : "s"}</small><em>${escapeHtml(balance)}</em></article>`;
           })
           .join("")}</div>`
       : "";
     const settlement = stats.settlement
-      ? `<p class="tf-upkeep-settlement">To equalise the observed payments, <strong>${escapeHtml(stats.settlement.from)}</strong> would pay <strong>${escapeHtml(stats.settlement.to)}</strong> ${escapeHtml(tfMoneyKnown(stats.settlement.amount))}.</p>`
+      ? `<p class="tf-upkeep-settlement">To match the Owner ${tfNumber(stats.ownerSharePercent)}% / Spouse ${tfNumber(stats.spouseSharePercent)}% target across the observed payments, <strong>${escapeHtml(stats.settlement.from)}</strong> would pay <strong>${escapeHtml(stats.settlement.to)}</strong> ${escapeHtml(tfMoneyKnown(stats.settlement.amount))}.</p>`
       : stats.verifiedPair && stats.totalPaid
-        ? `<p class="tf-upkeep-settlement is-even">The two current residents are even across the observed payments.</p>`
-        : `<p class="tf-action-note">A 50/50 balance appears only when the current home has exactly two identified residents and every observed payment belongs to one of them.</p>`;
+        ? `<p class="tf-upkeep-settlement is-even">The observed payments match the Owner ${tfNumber(stats.ownerSharePercent)}% / Spouse ${tfNumber(stats.spouseSharePercent)}% target.</p>`
+        : `<p class="tf-action-note">A household split balance appears only when the current home has exactly two identified residents and every observed payment belongs to one of them.</p>`;
     const recent = stats.payments;
     const rows = recent.length
       ? `<div class="tf-upkeep-table-wrap" role="region" aria-label="${tfNumber(recent.length)} recent upkeep payments"><table class="tf-upkeep-table"><colgroup><col class="tf-upkeep-date"><col class="tf-upkeep-payer"><col class="tf-upkeep-money"><col class="tf-upkeep-balance"></colgroup><thead><tr><th>Date</th><th>Payer</th><th>Paid</th><th>Balance after payment</th></tr></thead><tbody>${recent
@@ -5871,7 +5928,7 @@
         ? tfDate(stats.periodStart)
         : `${tfDate(stats.periodStart)} – ${tfDate(stats.periodEnd)}`
       : "No dated payments";
-    return `<div class="tf-upkeep-ledger"><div class="tf-action-summary tf-upkeep-summary"><div><span>Outstanding now</span><strong>${escapeHtml(tfMoneyKnown(stats.due))}</strong></div><div><span>Current daily upkeep</span><strong>${escapeHtml(tfMoneyKnown(stats.dailyUpkeep))}</strong></div><div><span>Fair share / resident / day</span><strong>${stats.perOccupantDaily === null ? "Unavailable" : escapeHtml(tfMoneyKnown(stats.perOccupantDaily))}</strong></div><div><span>Observed paid</span><strong>${escapeHtml(tfMoneyKnown(stats.totalPaid))}</strong></div><div><span>Payment days observed</span><strong>${tfNumber(stats.paymentDays)}</strong></div><div><span>Days covered at current rate</span><strong>${stats.daysCovered === null ? "Unavailable" : tfUpkeepDecimal(stats.daysCovered, 2)}</strong></div></div><div class="tf-upkeep-window"><span>Observed window</span><strong>${escapeHtml(observedWindow)}</strong><small>${stats.paymentCount ? `${tfNumber(stats.paymentCount)} transactions across a ${tfNumber(stats.periodDays)}-day calendar window` : "No payment transactions observed yet"}</small></div>${contributors}${settlement}${rows}<small class="tf-upkeep-caveat">Torn labels this list “Recent upkeep payments”. Tornfolio retains up to 250 observed rows for each property and syncs them to the secure Tornfolio database when your account session is available. The 50/50 balance compares only those observed payments. Days covered uses the current daily upkeep; older payments may represent a different number of days if facilities or staff changed.</small></div>`;
+    return `<div class="tf-upkeep-ledger"><div class="tf-action-summary tf-upkeep-summary"><div><span>Outstanding now</span><strong>${escapeHtml(tfMoneyKnown(stats.due))}</strong></div><div><span>Current daily upkeep</span><strong>${escapeHtml(tfMoneyKnown(stats.dailyUpkeep))}</strong></div><div><span>Configured Owner / Spouse split</span><strong>${tfNumber(stats.ownerSharePercent)}% / ${tfNumber(stats.spouseSharePercent)}%</strong></div><div><span>Owner target / day</span><strong>${stats.ownerDaily === null ? "Unavailable" : escapeHtml(tfMoneyKnown(stats.ownerDaily))}</strong></div><div><span>Spouse target / day</span><strong>${stats.spouseDaily === null ? "Unavailable" : escapeHtml(tfMoneyKnown(stats.spouseDaily))}</strong></div><div><span>Observed paid</span><strong>${escapeHtml(tfMoneyKnown(stats.totalPaid))}</strong></div><div><span>Payment days observed</span><strong>${tfNumber(stats.paymentDays)}</strong></div><div><span>Days covered at current rate</span><strong>${stats.daysCovered === null ? "Unavailable" : tfUpkeepDecimal(stats.daysCovered, 2)}</strong></div></div><div class="tf-upkeep-window"><span>Observed window</span><strong>${escapeHtml(observedWindow)}</strong><small>${stats.paymentCount ? `${tfNumber(stats.paymentCount)} transactions across a ${tfNumber(stats.periodDays)}-day calendar window` : "No payment transactions observed yet"}</small></div>${contributors}${settlement}${rows}<small class="tf-upkeep-caveat">Torn labels this list “Recent upkeep payments”. Tornfolio retains up to 250 observed rows for each property and syncs them to the secure Tornfolio database when your account session is available. The configured Owner / Spouse split compares only those observed payments and never pays Torn automatically. Days covered uses the current daily upkeep; older payments may represent a different number of days if facilities or staff changed.</small></div>`;
   }
 
   function tfOwnershipOrder(value) {
@@ -6730,6 +6787,7 @@
     const keyMask = maskedApiKey();
     return `<div class="tf-modal-backdrop" data-action="close-settings"><div class="tf-modal tf-settings-modal" role="dialog" aria-modal="true" aria-label="Tornfolio settings" data-modal-stop><div class="tf-modal-head"><div><strong>Settings</strong><span>Account, market, data and advanced controls.</span></div><button class="tf-icon-button" type="button" data-action="close-settings" aria-label="Close settings">${tfIcon("close")}</button></div><div class="tf-settings-body">
       <section><h2>Account / Torn API</h2><p>Your public Torn key is used to verify your account and fetch portfolio data.</p><label>Torn public key<input type="text" data-api-key-input placeholder="${keyMask ? "Paste a new key to replace the saved key" : "Paste key here"}" autocomplete="off" spellcheck="false"></label>${keyMask ? `<small>Saved key: ${escapeHtml(keyMask)}</small>` : `<small>No key saved.</small>`}${subscriptionStatusHtml()}<div class="tf-button-row"><button class="tf-primary" type="button" data-action="save-api-key">Save Key</button><button type="button" data-action="check-key">Test Key</button><button type="button" data-action="verify-hosted-access">Check Subscription</button><button class="tf-danger" type="button" data-action="clear-key">Clear Key</button></div></section>
+      <section><h2>Household upkeep</h2><p>Choose the target share for the property owner and their spouse. This changes Tornfolio's balance comparison only; it never pays upkeep automatically.</p><label>Upkeep split<select data-setting-field="upkeepOwnerSharePercent">${upkeepSplitOptionsHtml()}</select></label><small>The ratio moves in 10% steps from Owner 0% / Spouse 100% to Owner 100% / Spouse 0%.</small></section>
       <section><h2>Market &amp; ROI</h2><label>Target annual ROI %<input type="number" min="0.1" max="500" step="0.1" data-setting-field="targetAnnualRoi" value="${escapeAttr(targetAnnualRoi())}"></label><label>Suggested lease duration (days)<input type="number" min="1" max="100" step="1" data-setting-field="defaultSuggestionLeaseDays" value="${escapeAttr(defaultSuggestionLeaseDays())}"></label></section>
       <section><h2>Data / Sync</h2><label>Torn call speed<select data-setting-field="tornRateLimitPerMinute">${tornRateLimitOptionsHtml()}</select></label><label>Property history depth<select data-setting-field="propertyHistoryPages">${propertyHistoryPagesOptionsHtml()}</select></label><label class="tf-check"><input type="checkbox" data-setting-field="allowDirectTornFallback"${settings.allowDirectTornFallback ? " checked" : ""}><span>Use direct Torn fallback if the hosted sync is unavailable</span></label></section>
       <section><h2>Display</h2><label>Rows in large data tables<input type="number" min="10" max="250" step="5" data-setting-field="tableLimit" value="${escapeAttr(tableLimit())}"></label><button type="button" data-action="reset-position">Reset window position and size</button><div class="tf-cache-control"><span><strong>Interface SVG icons</strong><small>${escapeHtml(iconCacheStatusText())}</small></span><button type="button" data-action="clear-icon-cache"${ensureIconCacheLoaded() ? "" : " disabled"}>Clear icon cache</button></div></section>
@@ -7843,7 +7901,7 @@
       );
       const contracts = model.activeRentals.filter((row) => row.propertyKey === property.key);
       const installedFeatures = tfInstalledPropertyFeatures(property);
-      return `<div class="tf-modal-backdrop" data-action="close-detail"><div class="tf-modal tf-detail-modal" role="dialog" aria-modal="true" aria-label="Property details" data-modal-stop><div class="tf-modal-head"><div><strong>${escapeHtml(property.name)}</strong><span>${property.id ? `Property #${escapeHtml(property.id)} · ` : ""}${escapeHtml(property.type)}</span></div><button class="tf-icon-button" type="button" data-action="close-detail" aria-label="Close property details">${tfIcon("close")}</button></div><div class="tf-detail-body">${property.image ? `<img class="tf-detail-image" src="${escapeAttr(property.image)}" alt="${escapeAttr(property.type)}">` : ""}<div class="tf-badges">${tfOwnershipBadge(property.ownership)}${tfStatusBadge(property.status)}${tfUpkeepBadge(property)}</div><div class="tf-detail-grid"><div><span>Owner</span><strong>${escapeHtml(property.owner)}</strong></div><div><span>Happiness</span><strong>${property.happy ? tfNumber(property.happy) : "Unavailable"}</strong></div><div><span>Facilities / Staff</span><strong>${installedFeatures.length ? installedFeatures.length : "Unavailable"}</strong></div><div><span>Residents</span><strong>${escapeHtml(property.residents.join(", ") || "Unavailable")}</strong></div><div><span>Daily Upkeep</span><strong>${escapeHtml(tfMoney(property.upkeep))}</strong></div><div><span>Market Value</span><strong>${escapeHtml(tfMoney(property.marketValue))}</strong></div><div><span>Investment Basis</span><strong>${escapeHtml(tfMoney(property.investment))}</strong></div><div><span>Market listing</span><strong>${escapeHtml(tfPropertyListingLabel(property))}</strong></div></div>${tfRentalIncomeEvidenceDetail(property)}${tfPropertyActionsHtml(property, model, isPopup)}${property.isCurrentHome ? `<section><h2>Upkeep Payments &amp; 50/50 Balance</h2>${tfUpkeepContributionHtml(property.upkeepPaymentSnapshot)}</section>` : ""}${tfPropertyUpgradePanel(property, isPopup)}<section><h2>Lifecycle Snapshot</h2>${tfLifecycleSnapshot(property.lifecycle)}</section>${installedFeatures.length ? `<section><h2>Installed Upgrades & Staff</h2><div class="tf-chip-list">${installedFeatures.map((value) => `<span>${escapeHtml(value)}</span>`).join("")}</div></section>` : ""}<section><h2>Current Rental</h2>${contracts.length ? contracts.map(tfRentalCard).join("") : tfEmpty("No active rental", "This property has no active rental contract in the latest data.")}</section><section><h2>Property Journey</h2>${tfPropertyJourney(property.id)}</section><section><h2>Rental History</h2>${history.length ? history.map(tfArchiveCard).join("") : tfEmpty("No rental history", "Archived contracts for this property will appear after history has been synced.")}</section></div></div></div>`;
+      return `<div class="tf-modal-backdrop" data-action="close-detail"><div class="tf-modal tf-detail-modal" role="dialog" aria-modal="true" aria-label="Property details" data-modal-stop><div class="tf-modal-head"><div><strong>${escapeHtml(property.name)}</strong><span>${property.id ? `Property #${escapeHtml(property.id)} · ` : ""}${escapeHtml(property.type)}</span></div><button class="tf-icon-button" type="button" data-action="close-detail" aria-label="Close property details">${tfIcon("close")}</button></div><div class="tf-detail-body">${property.image ? `<img class="tf-detail-image" src="${escapeAttr(property.image)}" alt="${escapeAttr(property.type)}">` : ""}<div class="tf-badges">${tfOwnershipBadge(property.ownership)}${tfStatusBadge(property.status)}${tfUpkeepBadge(property)}</div><div class="tf-detail-grid"><div><span>Owner</span><strong>${escapeHtml(property.owner)}</strong></div><div><span>Happiness</span><strong>${property.happy ? tfNumber(property.happy) : "Unavailable"}</strong></div><div><span>Facilities / Staff</span><strong>${installedFeatures.length ? installedFeatures.length : "Unavailable"}</strong></div><div><span>Residents</span><strong>${escapeHtml(property.residents.join(", ") || "Unavailable")}</strong></div><div><span>Daily Upkeep</span><strong>${escapeHtml(tfMoney(property.upkeep))}</strong></div><div><span>Market Value</span><strong>${escapeHtml(tfMoney(property.marketValue))}</strong></div><div><span>Investment Basis</span><strong>${escapeHtml(tfMoney(property.investment))}</strong></div><div><span>Market listing</span><strong>${escapeHtml(tfPropertyListingLabel(property))}</strong></div></div>${tfRentalIncomeEvidenceDetail(property)}${tfPropertyActionsHtml(property, model, isPopup)}${property.isCurrentHome ? `<section><h2>Upkeep Payments &amp; Split Balance</h2>${tfUpkeepContributionHtml(property.upkeepPaymentSnapshot)}</section>` : ""}${tfPropertyUpgradePanel(property, isPopup)}<section><h2>Lifecycle Snapshot</h2>${tfLifecycleSnapshot(property.lifecycle)}</section>${installedFeatures.length ? `<section><h2>Installed Upgrades & Staff</h2><div class="tf-chip-list">${installedFeatures.map((value) => `<span>${escapeHtml(value)}</span>`).join("")}</div></section>` : ""}<section><h2>Current Rental</h2>${contracts.length ? contracts.map(tfRentalCard).join("") : tfEmpty("No active rental", "This property has no active rental contract in the latest data.")}</section><section><h2>Property Journey</h2>${tfPropertyJourney(property.id)}</section><section><h2>Rental History</h2>${history.length ? history.map(tfArchiveCard).join("") : tfEmpty("No rental history", "Archived contracts for this property will appear after history has been synced.")}</section></div></div></div>`;
     }
     if (detail.kind === "rental") {
       const contract = model.activeRentals.find((row) => row.contractId === detail.id);
@@ -7898,7 +7956,7 @@
       changelog: {
         title: `Tornfolio ${APP_VERSION}`,
         subtitle: "Release notes",
-        body: `<section><h2>Version ${escapeHtml(APP_VERSION)}</h2><ul class="tf-info-list"><li>Removes the upkeep table's unnecessary horizontal scrollbar with compact, fixed-width columns while keeping the table short inside the modal.</li><li>Lets the vertical table scroll through every retained payment, up to 250 rows per property, instead of cutting the display off after a small fixed number.</li><li>Saves observed upkeep payments to the Tornfolio database by account, property ID and event ID, then merges that history across signed-in devices without duplicate rows.</li><li>Moves Torn PDA persistence to its native per-script storage and verifies the old localStorage data before clearing the migrated copy, preventing the repeated quota errors and interrupted sync loop.</li></ul></section><section><h2>Previous update</h2><p>Version 0.8.8 added payer totals, payment-day metrics, daily upkeep, days covered and a verified two-resident 50/50 contribution balance.</p></section><section><h2>Updates</h2><p>Tornfolio checks GreasyFork for a newer release when it opens. The header status tells you whether this version is current.</p><a class="tf-link-button" href="${escapeAttr(GREASYFORK_PAGE_URL)}" target="_blank" rel="noopener noreferrer">View Tornfolio on GreasyFork</a></section>`,
+        body: `<section><h2>Version ${escapeHtml(APP_VERSION)}</h2><ul class="tf-info-list"><li>Adds a household-upkeep dropdown in Settings with Owner / Spouse ratios from 0% / 100% through 100% / 0% in 10% steps.</li><li>Uses the selected ratio for daily targets, contribution differences and the observed-payment settlement while leaving Torn payments fully manual.</li></ul></section><section><h2>Previous update</h2><p>Version 0.8.9 made the recent upkeep ledger compact, retained every observed row, synced stable payment events between devices and moved Torn PDA persistence to its native per-script storage.</p></section><section><h2>Updates</h2><p>Tornfolio checks GreasyFork for a newer release when it opens. The header status tells you whether this version is current.</p><a class="tf-link-button" href="${escapeAttr(GREASYFORK_PAGE_URL)}" target="_blank" rel="noopener noreferrer">View Tornfolio on GreasyFork</a></section>`,
       },
     };
     const selected = views[view] || views.help;
@@ -9668,6 +9726,16 @@
           <label>
             Lease days for suggested total
             <input type="number" min="1" max="100" step="1" data-setting-field="defaultSuggestionLeaseDays" value="${escapeAttr(defaultSuggestionLeaseDays())}">
+          </label>
+        </div>
+        <div class="tf-settings-card">
+          <strong>Household upkeep split</strong>
+          <span class="tf-muted">Choose how the property owner and their spouse intend to share upkeep. This changes the comparison only and never pays Torn automatically.</span>
+          <label>
+            Owner / Spouse ratio
+            <select data-setting-field="upkeepOwnerSharePercent">
+              ${upkeepSplitOptionsHtml()}
+            </select>
           </label>
         </div>
         <div class="tf-settings-card">
@@ -12340,6 +12408,7 @@
         if (key === "tableLimit") value = tableLimitFromInput(value);
         if (key === "tornRateLimitPerMinute") value = tornRateLimitFromInput(value);
         if (key === "propertyHistoryPages") value = propertyHistoryPagesFromInput(value);
+        if (key === "upkeepOwnerSharePercent") value = upkeepOwnerSharePercent(value);
         if (key === "targetAnnualRoi")
           value = clamp(Number(value) || DEFAULT_SETTINGS.targetAnnualRoi, 0.1, 500);
         if (key === "defaultSuggestionLeaseDays")
@@ -12968,6 +13037,9 @@
       mergeUpkeepPaymentRows,
       upkeepPaymentStats,
       tfUpkeepContributionHtml,
+      upkeepOwnerSharePercent,
+      upkeepSplitOptionsHtml,
+      tfSettingsModalHtml,
       tornCsrfToken,
       tornPropertyActionEnvironmentReason,
       tornPropertyCashAvailable,

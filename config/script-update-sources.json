@@ -29,7 +29,7 @@
       "actionLabelTemplate": "Install beta {version}",
       "timelineEnabled": true,
       "timelineType": "RELEASE",
-      "timelineSummary": "Upkeep history now stays compact without a horizontal scrollbar, while the short table can vertically scroll through every retained payment. Tornfolio 0.8.9 also saves payments by account, property and event ID for cross-device sync, and migrates Torn PDA data to the app's native per-script storage to prevent localStorage quota loops.",
+      "timelineSummary": "Household upkeep can now be split between the property owner and spouse in 10% steps from 0/100 to 100/0. The selected ratio drives daily targets, contribution balances and settlement guidance while Torn payments remain manual.",
       "timelineHref": "https://greasyfork.org/en/scripts/591996-tornfolio-property-lease-roi-manager",
       "source": {
         "type": "userscript",
