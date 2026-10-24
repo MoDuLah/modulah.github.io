@@ -182,7 +182,7 @@
       "timelineEnabled": true,
       "timelineType": "HOTFIX",
       "timelineSummary": "Prevents missing T5 weapon reference points from crashing or misaligning Tanoth fight rendering while leaving valid positioning data untouched.",
-      "timelineHref": "tanoth-weapon-hotfix/tanoth-weapon-hotfix.user.js",
+      "timelineHref": "https://pp-api.sokin.xyz/tanoth-weapon-hotfix/tanoth-weapon-hotfix.user.js?v=1.1.0",
       "source": {
         "type": "userscript",
         "path": "tanoth-weapon-hotfix/tanoth-weapon-hotfix.user.js"

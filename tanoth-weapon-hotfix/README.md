@@ -2,7 +2,7 @@
 
 Tanoth – Weapon Rendering Hotfix is a small standalone userscript for a fight-rendering problem seen with some T5 weapons. When Tanoth loads a weapon without valid reference-point metadata, the normal fight renderer can crash or place the weapon too low. This script supplies a conservative fallback before the renderer uses that data.
 
-[Install version 1.1.0](https://modulah.github.io/tanoth-weapon-hotfix/tanoth-weapon-hotfix.user.js)
+[Install version 1.1.0](https://modulah.github.io/tanoth-weapon-hotfix/tanoth-weapon-hotfix.user.js?v=1.1.0)
 
 ## What it changes
 
@@ -16,7 +16,7 @@ This is a compatibility hotfix, not a replacement fight renderer. It can be disa
 ## Install
 
 1. Install a userscript manager such as Tampermonkey or Greasemonkey.
-2. Open the [install link](https://modulah.github.io/tanoth-weapon-hotfix/tanoth-weapon-hotfix.user.js) and approve the userscript installation.
+2. Open the [install link](https://modulah.github.io/tanoth-weapon-hotfix/tanoth-weapon-hotfix.user.js?v=1.1.0) and approve the userscript installation.
 3. Fully reload Tanoth before starting a fight. The script must run at `document-start` so it can patch the game renderer during startup.
 
 The script matches `https://*.tanoth.gameforge.com/*`, runs in the page's JavaScript world, and requires no userscript-manager permissions.

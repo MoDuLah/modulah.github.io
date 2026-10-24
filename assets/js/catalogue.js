@@ -680,7 +680,7 @@ export const scripts = [
     "actions": [
       {
         "label": "Install v1.1.0",
-        "href": "tanoth-weapon-hotfix/tanoth-weapon-hotfix.user.js",
+        "href": "tanoth-weapon-hotfix/tanoth-weapon-hotfix.user.js?v=1.1.0",
         "icon": "download",
         "primary": true,
       },

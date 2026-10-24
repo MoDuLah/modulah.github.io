@@ -7,8 +7,8 @@
 // @homepageURL  https://github.com/MoDuLah/modulah.github.io/tree/main/tanoth-weapon-hotfix
 // @supportURL   https://github.com/MoDuLah/modulah.github.io/issues
 // @match        https://*.tanoth.gameforge.com/*
-// @downloadURL  https://modulah.github.io/tanoth-weapon-hotfix/tanoth-weapon-hotfix.user.js
-// @updateURL    https://modulah.github.io/tanoth-weapon-hotfix/tanoth-weapon-hotfix.user.js
+// @downloadURL  https://modulah.github.io/tanoth-weapon-hotfix/tanoth-weapon-hotfix.user.js?v=1.1.0
+// @updateURL    https://modulah.github.io/tanoth-weapon-hotfix/tanoth-weapon-hotfix.user.js?v=1.1.0
 // @run-at       document-start
 // @grant        none
 // @sandbox      raw
