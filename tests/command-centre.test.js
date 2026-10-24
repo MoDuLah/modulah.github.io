@@ -100,7 +100,7 @@ describe("command centre catalogue", () => {
     ]) {
       expect(code).toContain(`data-category="${category}"`);
     }
-    expect(catalogue.match(/"group":/g)).toHaveLength(23);
+    expect(catalogue.match(/"group":/g)).toHaveLength(24);
     expect(app).toContain("function moduleMatchesCategory(script, category)");
     expect(app).toContain("script.marketplace?.totalInstalls");
   });
@@ -257,7 +257,7 @@ describe("command centre catalogue", () => {
 
   test("uses access tags and existing script logos on cards", () => {
     expect(catalogue).not.toContain('"badgeText": "LIVE"');
-    expect(catalogue.match(/"badgeText": "FREE"/g)).toHaveLength(11);
+    expect(catalogue.match(/"badgeText": "FREE"/g)).toHaveLength(12);
     expect(catalogue.match(/"badgeText": "WEB TOOL"/g)).toHaveLength(4);
     expect(app).toContain("logo.className = 'module-card-logo'");
     expect(app).toContain("/^assets\\/images\\/");
@@ -291,6 +291,7 @@ describe("command centre catalogue", () => {
       "tanothSuffixRecorder",
       "tanothDungeonRecorder",
       "tanothMailboxCleaner",
+      "tanothWeaponHotfix",
       "tanothAtlas",
       "tanothCompanion",
       "lap-recorder",
@@ -423,6 +424,8 @@ describe("command centre catalogue", () => {
       "https://greasyfork.org/en/scripts/577764-tanoth-suffix-range-recorder",
       "https://greasyfork.org/en/scripts/595857-tanoth-dungeon-recorder",
       "https://greasyfork.org/en/scripts/596052-tanoth-mailbox-cleaner",
+      "tanoth-weapon-hotfix/tanoth-weapon-hotfix.user.js",
+      "https://github.com/MoDuLah/modulah.github.io/tree/main/tanoth-weapon-hotfix",
       "https://pp-api.sokin.xyz/tanoth/companion/dungeon/analysis",
       "https://pp-api.sokin.xyz/tanoth/suffix/atlas",
     ].forEach((href) => expect(catalogue).toContain(href));
@@ -449,7 +452,7 @@ describe("command centre catalogue", () => {
         .filter((entry) => entry.source.type === "userscript")
         .map((entry) => entry.id)
         .sort()
-    ).toEqual(["modulHubControl", "stockx", "tornfolio"]);
+    ).toEqual(["modulHubControl", "stockx", "tanothWeaponHotfix", "tornfolio"]);
     expect(
       updaterConfig.scripts
         .filter((entry) => entry.source.type === "service")

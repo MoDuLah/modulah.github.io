@@ -174,6 +174,21 @@
       }
     },
     {
+      "id": "tanothWeaponHotfix",
+      "title": "Tanoth - Weapon Rendering Hotfix",
+      "displayPrefix": "v",
+      "actionLabelTemplate": "Install {version}",
+      "initialDate": "2026-10-24",
+      "timelineEnabled": true,
+      "timelineType": "HOTFIX",
+      "timelineSummary": "Prevents missing T5 weapon reference points from crashing or misaligning Tanoth fight rendering while leaving valid positioning data untouched.",
+      "timelineHref": "tanoth-weapon-hotfix/tanoth-weapon-hotfix.user.js",
+      "source": {
+        "type": "userscript",
+        "path": "tanoth-weapon-hotfix/tanoth-weapon-hotfix.user.js"
+      }
+    },
+    {
       "id": "tanothCompanion",
       "title": "Tanoth Companion",
       "required": false,

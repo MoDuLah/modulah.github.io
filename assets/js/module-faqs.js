@@ -694,6 +694,23 @@ export const moduleFaqs = {
         "No. It is a small standalone public userscript with its own GreasyFork release, intended for people who only want the mailbox cleanup workflow.",
     },
   ],
+  "tanothWeaponHotfix": [
+    {
+      "question": "What problem does the Weapon Rendering Hotfix solve?",
+      "answer":
+        "Some T5 weapon images can reach Tanoth's fight renderer without valid reference-point metadata. The hotfix supplies a conservative fallback for that missing data so fights can render instead of crashing or placing the affected weapon too low. Valid Gameforge positioning data is left unchanged.",
+    },
+    {
+      "question": "Does the hotfix collect or upload anything?",
+      "answer":
+        "No. It makes no server requests, loads no external code and does not collect account, session or fight data. It stores only the optional player and opponent lift values in that browser's local storage.",
+    },
+    {
+      "question": "Can I adjust the fallback weapon height?",
+      "answer":
+        "Yes. In the browser console, use window.TanothWeaponHotfix.setLift(32) for both sides, or pass player or opponent as the second argument. Values from -30 to 120 pixels are accepted and saved locally.",
+    },
+  ],
   "tanothAtlas": [
     {
       "question": "What is Tanoth Atlas?",

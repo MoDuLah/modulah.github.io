@@ -656,6 +656,45 @@ export const scripts = [
     ],
   },
   {
+    "id": "tanothWeaponHotfix",
+    "tier": "free",
+    "title": "Tanoth – Weapon Rendering Hotfix",
+    "desc":
+      "A focused compatibility userscript that prevents missing T5 weapon reference points from crashing or misaligning Tanoth fight rendering.",
+    "version": "v1.1.0",
+    "versionPrefix": "VER",
+    "category": "Tanoth rendering hotfix",
+    "group": "Tanoth",
+    "projectType": "Free userscript",
+    "releaseState": "Live public release",
+    "updated": "24 October 2026",
+    "badge": "free",
+    "badgeText": "FREE",
+    "iconPath":
+      '<path d="M14.5 6.5 17.5 3.5 20.5 6.5 17.5 9.5"></path><path d="m15.5 8.5-8 8"></path><path d="m5 15-2 6 6-2"></path>',
+    "features": [
+      "Protects both player and opponent weapon rendering from missing reference-point metadata",
+      "Applies a raised fallback only when Gameforge's normal positioning data is invalid",
+      "Makes no network requests and stores only optional local lift adjustments",
+    ],
+    "actions": [
+      {
+        "label": "Install v1.1.0",
+        "href": "tanoth-weapon-hotfix/tanoth-weapon-hotfix.user.js",
+        "icon": "download",
+        "primary": true,
+      },
+      {
+        "label": "Source & README",
+        "href": "https://github.com/MoDuLah/modulah.github.io/tree/main/tanoth-weapon-hotfix",
+        "icon": "code",
+        "primary": false,
+      },
+    ],
+    "note":
+      "This is a temporary compatibility hotfix for affected fights. It can be disabled after Gameforge fixes the underlying renderer or weapon metadata.",
+  },
+  {
     "id": "tanothAtlas",
     "tier": "web tools",
     "title": "Tanoth Atlas",
@@ -1031,6 +1070,7 @@ export const moduleScreenshots = {
   tanothSuffixRecorder: [],
   tanothDungeonRecorder: [],
   tanothMailboxCleaner: [],
+  tanothWeaponHotfix: [],
   tanothAtlas: [],
   tanothCompanion: [],
   "lap-recorder": screenshotSeries("lap-recorder", 2),

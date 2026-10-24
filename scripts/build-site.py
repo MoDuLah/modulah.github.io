@@ -15,6 +15,7 @@ PUBLIC_DIRECTORIES = {
     "lap-recorder", "pages", "pit-guru",
     "pythagoras-project-cis", "race-theme-changer", "race-tracker",
     "restore-og-names", "smuggler", "stock-x", "tornfolio", "jobcentre-plus",
+    "tanoth-weapon-hotfix",
 }
 # The Command Centre is the site's only public page. Project folders still carry
 # downloads, changelogs, screenshots and other assets, but never standalone HTML.
