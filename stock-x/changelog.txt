@@ -90,6 +90,14 @@
 - **Miscellaneous**: Keep Stock-X timeline invite-only wording
 - **Miscellaneous**: Clarify Stock-X unlisted distribution
 
+## v1.0.0 (2026-10-24)
+
+### Miscellaneous
+
+- **Miscellaneous**: Publish Stock-X 1.1.2 timeline update
+- **Miscellaneous**: Keep Stock-X timeline invite-only wording
+
+
 
 
 
