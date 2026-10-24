@@ -104,10 +104,10 @@
       "initialDate": "2026-09-06",
       "timelineEnabled": true,
       "timelineType": "BUILD",
-      "timelineVersion": "v1.1.2",
-      "timelineDate": "2026-10-20",
+      "timelineVersion": "v1.1.3",
+      "timelineDate": "2026-10-24",
       "timelineVersionPath": "/opt/modul-private-userscripts/stock-x/current.user.js",
-      "timelineSummary": "Private Stock-X build 1.1.2 refreshes only the affected stock row after confirmed trades and adds automatic VM-to-Greasy Fork source syncing. Distribution remains invite-only, with no public download route.",
+      "timelineSummary": "Private Stock-X build 1.1.3 fixes TornPDA API-key persistence with durable per-script storage and prefers modern userscript APIs while retaining legacy compatibility. Distribution remains invite-only, with no public download route.",
       "timelineHref": "https://modulah.github.io/",
       "source": {
         "type": "userscript",
