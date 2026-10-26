@@ -579,12 +579,12 @@
     {
       "scriptId": "stockx",
       "title": "Stock-X",
-      "version": "v1.1.3",
-      "date": "2026-10-24",
+      "version": "v1.1.4",
+      "date": "2026-10-26",
       "type": "BUILD",
-      "summary": "Private Stock-X build 1.1.3 fixes TornPDA API-key persistence with durable per-script storage and prefers modern userscript APIs while retaining legacy compatibility. Distribution remains invite-only, with no public download route.",
+      "summary": "Private Stock-X build 1.1.4 tracks Torn's eight completed Stock Specials payout types, excludes withdrawal-ready and passive-activation records, and shows payout-equivalent progress toward the displayed benefit-block value. Distribution remains invite-only, with no public download route.",
       "href": "https://modulah.github.io/",
-      "eventId": "stockx:v1.1.3"
+      "eventId": "stockx:v1.1.4"
     },
     {
       "scriptId": "tornfolio",
