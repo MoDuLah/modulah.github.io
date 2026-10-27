@@ -3,22 +3,11 @@
 // @namespace    torn.restore.og.cars
 // @version      1.3.3
 // @description  Restores original car names from Torn fictional ones across Torn (Racing, Item Market, Items, Bazaar, Logs, Mechanic Shop) including all descriptions/text. MoDuL's Race Filter & TornPDA Compatible.
-// @author       MoDuL
-// @copyright    2026 MoDuL. All rights reserved.
-// @license      All Rights Reserved
+// @author       MoDuL [4022159]
+// @license      GPL-3.0-or-later
 //
-// @match        https://www.torn.com/page.php*
-// @match        https://torn.com/page.php*
-// @match        https://www.torn.com/loader.php*
-// @match        https://torn.com/loader.php*
-// @match        https://www.torn.com/item.php*
-// @match        https://torn.com/item.php*
-// @match        https://www.torn.com/bazaar.php*
-// @match        https://torn.com/bazaar.php*
-// @match        https://www.torn.com/companies.php*
-// @match        https://torn.com/companies.php*
-// @match        https://www.torn.com/shops.php?step=docks*
-// @match        https://torn.com/shops.php?step=docks*
+// @match        https://www.torn.com/*
+// @match        https://torn.com/*
 // @run-at       document-idle
 // @grant        GM_info
 // @grant        GM_xmlhttpRequest
@@ -27,11 +16,6 @@
 // @downloadURL https://update.greasyfork.org/scripts/563153/MoDuL%27s%3A%20Restore%20OG%20Car%20Names.user.js
 // @updateURL https://update.greasyfork.org/scripts/563153/MoDuL%27s%3A%20Restore%20OG%20Car%20Names.meta.js
 // ==/UserScript==
-
-/*
-Copyright (c) 2026 MoDuL. All rights reserved.
-Unauthorized copying, modification, redistribution, or commercial use is prohibited without written permission.
-*/
 
 (function () {
   "use strict";
