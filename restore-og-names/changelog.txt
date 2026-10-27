@@ -1,19 +1,16 @@
-## v1.3.1 (2026-07-19)
-
-### Miscellaneous
-
-- **Miscellaneous**: Restore Pit Guru pre-race metadata
-
-## v1.3.1 (2026-07-20)
-
-### Miscellaneous
-
-- **Miscellaneous**: Restore Pit Guru pre-race metadata
-
-
-
 MoDuL's: Restore OG Car Names Changelog
 ======================================
+
+v1.3.3 (2026-10-27)
+-------------------
+- Added an automatic Greasy Fork update check every six hours.
+- Added an in-page toast showing the current and newer versions.
+- Added an Update button plus an X to skip that version for the current session.
+
+v1.3.2 (2026-10-27)
+-------------------
+- Added support for Mechanic Shop job-point car exchanges.
+- Restored OG car names in dynamically rendered exchange confirmations.
 
 v1.3.1 (2026-02-10)
 -------------------

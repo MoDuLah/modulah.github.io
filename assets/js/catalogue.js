@@ -335,14 +335,14 @@ export const scripts = [
     "tier": "free",
     "title": "Restore OG Names",
     "desc":
-      "A lightweight Torn userscript that restores original car naming across racing, markets, bazaars, logs and docks views.",
-    "version": "v1.3.2",
+      "A lightweight Torn userscript that restores original car naming across racing, markets, bazaars, logs, docks and Mechanic Shop exchanges.",
+    "version": "v1.3.3",
     "versionPrefix": "VER",
     "category": "Naming compatibility",
     "group": "Racing",
     "projectType": "Free userscript",
     "releaseState": "Live release",
-    "updated": "6 June 2026",
+    "updated": "27 October 2026",
     "badge": "free",
     "badgeText": "FREE",
     "logo": "assets/images/restore-og-names/restore-og-names-logo.png",
@@ -350,11 +350,12 @@ export const scripts = [
     "features": [
       "Restores original car names across supported Torn pages",
       "Compatible with Custom Race Filter and TornPDA",
-      "Includes item-market, bazaar, log and docks coverage",
+      "Includes Mechanic Shop exchange-confirmation coverage",
+      "Notifies you in-page when a newer release is available",
     ],
     "actions": [
       {
-        "label": "Install v1.3.2",
+        "label": "Install v1.3.3",
         "href": "https://greasyfork.org/en/scripts/563153-modul-s-restore-og-car-names",
         "icon": "download",
         "primary": true,
@@ -1005,11 +1006,11 @@ export const scriptReleases = [
   {
     scriptId: "restoreOgNames",
     title: "Restore OG Names",
-    version: "v1.3.2",
-    date: "2026-06-06",
+    version: "v1.3.3",
+    date: "2026-10-27",
     type: "RELEASE",
     summary:
-      "Published the current cross-page naming build for racing, markets, bazaars, logs and docks.",
+      "Added Mechanic Shop exchange-name restoration and an in-page update notification with current and newer version details.",
     href: "https://greasyfork.org/en/scripts/563153-modul-s-restore-og-car-names/versions",
   },
   {
