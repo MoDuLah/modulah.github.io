@@ -4591,12 +4591,12 @@ self.onmessage=event=>{const id=event.data&&event.data.id;try{const root=JSON.pa
         }
         compact.raceType = configuredType;
         compact.logData.laps = configuredLaps;
-        if (meta.track && compact.logData.trackTitle == null) compact.logData.trackTitle = meta.track;
-        if (compact.logData.type == null) compact.logData.type = configuredType;
-        if (meta.startedIso && compact.logData.timeStarted == null && compact.logData.TimeStarted == null) compact.logData.timeStarted = meta.startedIso;
+        if (meta.track && (compact.logData.trackTitle === null || compact.logData.trackTitle === undefined)) compact.logData.trackTitle = meta.track;
+        if (compact.logData.type === null || compact.logData.type === undefined) compact.logData.type = configuredType;
+        if (meta.startedIso && (compact.logData.timeStarted === null || compact.logData.timeStarted === undefined) && (compact.logData.TimeStarted === null || compact.logData.TimeStarted === undefined)) compact.logData.timeStarted = meta.startedIso;
         if (raceDataStatusFinished_(p)) {
             const ended = logData.timeEnded ?? logData.TimeEnded ?? meta.endedIso;
-            if (ended != null && ended !== "") compact.logData.timeEnded = ended;
+            if (ended !== null && ended !== undefined && ended !== "") compact.logData.timeEnded = ended;
         }
         return compact;
     }
@@ -13823,7 +13823,7 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
         const catalog = garageCatalogByItem_().get(itemId) || {};
         const tornName = String(raw.car_item_name || raw.torn_name || raw.tornName || raw.carTitle || raw.car_title || catalog.torn_name || "").trim();
         const name = toOgCarName_(raw.car || raw.ogName || raw.og_name || raw.display_name || raw.displayName || catalog.name || tornName || (!raw.car_item_name ? raw.name : "") || "");
-        const hasCatalogName = !!(raw.car_item_name || raw.carItemName || raw.car_title || raw.carTitle || raw.torn_name || raw.tornName);
+        const hasCatalogName = Boolean(raw.car_item_name || raw.carItemName || raw.car_title || raw.carTitle || raw.torn_name || raw.tornName);
         const nickname = String(raw.nickname || raw.car_name || raw.carName || (hasCatalogName ? (raw.Name || raw.name) : "") || "").trim();
         const enlistedCarId = String(raw.enlisted_car_id || raw.enlistedCarId || raw.id || raw.ID || raw.carID || raw.carId || "").trim();
         const imageUrl = carImageRenderUrls_(raw.image_url || raw.imageUrl || raw.carImg || raw.carImage || catalog.image_url || raw.hosted_image_url || raw.hostedImageUrl || catalog.hosted_image_url || catalog.hostedImageUrl, itemId).primary;
@@ -16097,7 +16097,7 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
         const nextRows = Array.from(nextBody.rows);
         const nextKeys = nextRows.map(row => String(row.getAttribute("data-mpg-laprec-key") || ""));
         if (nextKeys.some(key => !key) || currentRows.size !== nextRows.length || nextKeys.some(key => !currentRows.has(key))) return false;
-        const manuallySorted = !!currentTable.querySelector("th.sort-asc,th.sort-desc");
+        const manuallySorted = Boolean(currentTable.querySelector("th.sort-asc,th.sort-desc"));
         for (const nextRow of nextRows) {
             const key = String(nextRow.getAttribute("data-mpg-laprec-key") || "");
             const currentRow = currentRows.get(key);
