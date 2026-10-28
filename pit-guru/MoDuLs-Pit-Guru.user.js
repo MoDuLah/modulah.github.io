@@ -992,7 +992,9 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         }
         const opened = window.open(update.installUrl || update.pageUrl || PIT_GURU_GREASYFORK_PAGE_URL, "_blank");
         if (opened) {
-            try { opened.opener = null; } catch {}
+            try { opened.opener = null; } catch {
+                // Some browsers expose a read-only opener; the new tab still opened successfully.
+            }
         } else {
             toast_("The update page was blocked. Allow pop-ups for Torn, then press Update again.");
         }
