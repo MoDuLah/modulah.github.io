@@ -1,3 +1,11 @@
+## v2.4.2 (2026-10-28)
+
+- Add a Pythagoras-style GreasyFork update checker with checking, current, outdated, retry, and one-click install states.
+- Restrict update links and API responses to Pit Guru's trusted GreasyFork script ID and hosts.
+- Move userscript installation and automatic updates to GreasyFork.
+- Standardize VM Hub-feed and GitHub Pages snapshot refreshes after every confirmed GreasyFork publication.
+- Carry the same public changelog on the GitHub release commit and its attached commit comment.
+
 ## v2.4.1 (2026-10-28)
 
 - Promote completed custom-race results into Records even when Pit Guru cached an earlier snapshot of the same Race ID.

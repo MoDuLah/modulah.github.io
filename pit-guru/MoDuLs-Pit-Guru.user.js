@@ -1,13 +1,13 @@
 // ==UserScript==
 // @name         MoDuL's Pit Guru
 // @namespace    modul.torn.racing
-// @version      2.4.1
+// @version      2.4.2
 // @description  Live Torn race timing, gaps, sectors, speed and estimated telemetry analysis
 // @author       MoDuL
 // @copyright    2026 MoDuL. All rights reserved.
 // @license      All Rights Reserved
-// @updateURL    https://modulah.github.io/pit-guru/pit-guru.user.js
-// @downloadURL  https://modulah.github.io/pit-guru/pit-guru.user.js
+// @updateURL    https://update.greasyfork.org/scripts/578342/MoDuL%27s%20Pit%20Guru.meta.js
+// @downloadURL  https://update.greasyfork.org/scripts/578342/MoDuL%27s%20Pit%20Guru.user.js
 // @match        https://www.torn.com/page.php?sid=racing*
 // @match        https://www.torn.com/loader.php?sid=racing*
 // @include      https://www.torn.com/page.php*sid=racing*
@@ -17,6 +17,7 @@
 // @grant        GM_xmlhttpRequest
 // @grant        unsafeWindow
 // @connect      api.torn.com
+// @connect      api.greasyfork.org
 // @connect      pp-api.sokin.xyz
 // @connect      127.0.0.1
 // @connect      localhost
@@ -880,9 +881,122 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         return bigRaceSafeModeStatus_();
     };
 
-    const MPG_VERSION = "2.4.1";
+    const MPG_VERSION = "2.4.2";
+    const PIT_GURU_GREASYFORK_SCRIPT_ID = 578342;
+    const PIT_GURU_GREASYFORK_API_URL = "https://api.greasyfork.org/en/scripts/578342.json";
+    const PIT_GURU_GREASYFORK_PAGE_URL = "https://greasyfork.org/en/scripts/578342-modul-s-pit-guru";
+    let pitGuruUpdateCheckStatus_ = "checking";
+    let pitGuruAvailableUpdate_ = null;
+    let pitGuruUpdateCheckStarted_ = false;
     const PREDICTION_MODEL_VERSION = "pit-guru-local-v2";
     var TAG = "[MoDuL's Pit Guru v" + MPG_VERSION + "]";
+
+    function pitGuruVersionParts_(value) {
+        const match = String(value || "").trim().match(/^(\d+)(?:\.(\d+))?(?:\.(\d+))?/);
+        return match ? match.slice(1, 4).map(part => Number(part) || 0) : [0, 0, 0];
+    }
+
+    function pitGuruCompareVersions_(left, right) {
+        const a = pitGuruVersionParts_(left);
+        const b = pitGuruVersionParts_(right);
+        for (let index = 0; index < Math.max(a.length, b.length); index += 1) {
+            if ((a[index] || 0) !== (b[index] || 0)) return (a[index] || 0) > (b[index] || 0) ? 1 : -1;
+        }
+        return 0;
+    }
+
+    function pitGuruSafeGreasyForkUrl_(value, fallback = PIT_GURU_GREASYFORK_PAGE_URL) {
+        try {
+            const url = new URL(String(value || ""), PIT_GURU_GREASYFORK_PAGE_URL);
+            const allowedHost = url.hostname === "greasyfork.org" || url.hostname === "www.greasyfork.org" || url.hostname === "update.greasyfork.org";
+            const matchesScript = new RegExp(`/scripts/${PIT_GURU_GREASYFORK_SCRIPT_ID}(?:/|-|$)`).test(url.pathname);
+            return url.protocol === "https:" && allowedHost && matchesScript ? url.href : fallback;
+        } catch {
+            return fallback;
+        }
+    }
+
+    function pitGuruUpdateCandidate_(payload, currentVersion = MPG_VERSION) {
+        if (!payload || Number(payload.id) !== PIT_GURU_GREASYFORK_SCRIPT_ID) return null;
+        const version = String(payload.version || "").trim();
+        if (!version || pitGuruCompareVersions_(version, currentVersion) <= 0) return null;
+        const pageUrl = pitGuruSafeGreasyForkUrl_(payload.url, PIT_GURU_GREASYFORK_PAGE_URL);
+        const installUrl = pitGuruSafeGreasyForkUrl_(payload.code_url || payload.codeUrl, pageUrl);
+        return { version, pageUrl, installUrl, updatedAt: String(payload.code_updated_at || payload.codeUpdatedAt || "") };
+    }
+
+    function renderPitGuruUpdateStatus_() {
+        const button = document.getElementById("mpgUpdateStatus");
+        if (!button) return;
+        const update = pitGuruAvailableUpdate_;
+        let status = pitGuruUpdateCheckStatus_;
+        let label = "Checking...";
+        let title = "Checking GreasyFork for a newer Pit Guru release";
+        if (update?.version) {
+            status = "outdated";
+            label = "Out of date";
+            title = `Pit Guru ${update.version} is available. Click here to update now.`;
+        } else if (status === "current") {
+            label = "Up to date";
+            title = `Pit Guru ${MPG_VERSION}. Click to check GreasyFork again.`;
+        } else if (status === "error") {
+            label = "Check failed";
+            title = "GreasyFork could not be reached. Click here to check again.";
+        }
+        button.className = `pill mpg-update-status is-${status}`;
+        button.title = title;
+        button.setAttribute("aria-label", title);
+        button.disabled = status === "checking";
+        button.innerHTML = `<span class="mpg-update-dot" aria-hidden="true"></span><span>${esc_(label)}</span>`;
+        requestHeaderCompact_(document.getElementById("rtLapWin"));
+    }
+
+    async function checkPitGuruUpdate_(force = false) {
+        if (pitGuruUpdateCheckStarted_ && !force) return pitGuruAvailableUpdate_;
+        if (pitGuruUpdateCheckStatus_ === "checking" && pitGuruUpdateCheckStarted_ && force) return pitGuruAvailableUpdate_;
+        pitGuruUpdateCheckStarted_ = true;
+        pitGuruUpdateCheckStatus_ = "checking";
+        pitGuruAvailableUpdate_ = null;
+        renderPitGuruUpdateStatus_();
+        try {
+            const url = new URL(PIT_GURU_GREASYFORK_API_URL);
+            if (force) url.searchParams.set("_check", String(Date.now()));
+            const result = await pgRequestJson_("GET", url.toString(), null, {
+                timeout: 12000,
+                headers: { Accept: "application/json" },
+                errorMessage: "GreasyFork update check failed.",
+                timeoutMessage: "GreasyFork update check timed out."
+            });
+            if (Number(result?.body?.id) !== PIT_GURU_GREASYFORK_SCRIPT_ID || !String(result?.body?.version || "").trim()) {
+                throw new Error("GreasyFork returned an unexpected Pit Guru release response.");
+            }
+            pitGuruAvailableUpdate_ = pitGuruUpdateCandidate_(result.body, MPG_VERSION);
+            pitGuruUpdateCheckStatus_ = pitGuruAvailableUpdate_ ? "outdated" : "current";
+            renderPitGuruUpdateStatus_();
+            return pitGuruAvailableUpdate_;
+        } catch (error) {
+            pitGuruAvailableUpdate_ = null;
+            pitGuruUpdateCheckStatus_ = "error";
+            pitGuruUpdateCheckStarted_ = false;
+            renderPitGuruUpdateStatus_();
+            console.warn(TAG, "GreasyFork update check failed.", error);
+            return null;
+        }
+    }
+
+    function openPitGuruUpdate_() {
+        const update = pitGuruAvailableUpdate_;
+        if (!update) {
+            checkPitGuruUpdate_(true);
+            return;
+        }
+        const opened = window.open(update.installUrl || update.pageUrl || PIT_GURU_GREASYFORK_PAGE_URL, "_blank");
+        if (opened) {
+            try { opened.opener = null; } catch {}
+        } else {
+            toast_("The update page was blocked. Allow pop-ups for Torn, then press Update again.");
+        }
+    }
 
     const PitGuruRaceEngine = (() => {
         function n_(value, fallback = NaN) {
@@ -10649,6 +10763,17 @@ img.carIcon{
 .pill:hover{background:var(--pillHover)}
 .pill.on{box-shadow: inset 0 0 0 2px var(--gapPos);}
 .pill:disabled{opacity:.46;cursor:not-allowed;filter:saturate(.35)}
+.mpg-update-status{border-color:rgba(126,145,157,.55)}
+.mpg-update-status.is-current{border-color:rgba(69,239,173,.56);background:rgba(19,86,69,.54);color:#bff8df !important}
+.mpg-update-status.is-outdated{border-color:rgba(255,117,123,.82);background:#4c2028;color:#ffd2d4 !important;box-shadow:0 0 0 1px rgba(255,117,123,.16),0 0 13px rgba(255,117,123,.22);animation:mpg-update-pulse 2.4s ease-in-out infinite}
+.mpg-update-status.is-error{border-color:rgba(255,208,90,.72);background:#403315;color:#ffe7a3 !important}
+.mpg-update-status.is-checking{cursor:wait}
+.mpg-update-dot{width:8px;min-width:8px;height:8px;border-radius:50%;background:#708794;box-shadow:0 0 7px currentColor}
+.mpg-update-status.is-current .mpg-update-dot{background:#45efad}
+.mpg-update-status.is-outdated .mpg-update-dot{background:#ff757b}
+.mpg-update-status.is-error .mpg-update-dot{background:#ffd05a}
+@keyframes mpg-update-pulse{0%,100%{box-shadow:0 0 0 1px rgba(255,117,123,.16),0 0 7px rgba(255,117,123,.12)}50%{box-shadow:0 0 0 1px rgba(255,117,123,.42),0 0 17px rgba(255,117,123,.34)}}
+@media (prefers-reduced-motion:reduce){.mpg-update-status.is-outdated{animation:none}}
 #rtLocalPlayer.mpg-player-ready-highlight{
   border-color:#f2e605;
   outline:2px solid #f2e605;
@@ -17089,6 +17214,9 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
             <button id="rtAutoClear" class="pill" title="Toggle auto-clear when race/replay ID changes">
               <span>🧼</span><span id="rtAutoClearText">Auto-clear ID</span>
             </button>
+            <button id="mpgUpdateStatus" class="pill mpg-update-status is-checking" type="button" title="Checking GreasyFork for a newer Pit Guru release" aria-label="Checking GreasyFork for a newer Pit Guru release" disabled>
+              <span class="mpg-update-dot" aria-hidden="true"></span><span>Checking...</span>
+            </button>
             <button id="rtLikeScript" class="pill" title="Open the release thread">
               <span aria-hidden="true">👍</span><span>Release thread</span>
             </button>
@@ -17236,6 +17364,7 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
                 scheduleRender_();
                 if (garageOpen) refreshGarage_(false);
             };
+            document.getElementById("mpgUpdateStatus").onclick = openPitGuruUpdate_;
             document.getElementById("rtLikeScript").onclick = handleForumLikeAction_;
 
             document.getElementById("rtExportHtml").onclick = exportHtml_;
@@ -18088,6 +18217,7 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
         if (syncRaceCaptureRoute_()) maybeResetOnRaceIdChange_();
 
         ensureUi_();
+        checkPitGuruUpdate_();
         if (onboardingRequired) {
             openWin_();
             settingsOpen = true;
