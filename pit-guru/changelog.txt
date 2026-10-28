@@ -321,6 +321,15 @@
 - **Miscellaneous**: Fix Pit Guru changed-line lint
 - **Miscellaneous**: Release Pit Guru 2.4.1 records and profile fixes
 
+## v2.4.2 (2026-10-28)
+
+### Miscellaneous
+
+- **Miscellaneous**: v2.4.2 - GreasyFork update checking and synchronized Hub publication. Pit Guru now shows checking, current, outdated, and retry states in its header and opens only its trusted GreasyFork installer. Every release now refreshes the VM Hub feed and GitHub Pages snapshot after GreasyFork confirms the version.
+- **Miscellaneous**: Fix Pit Guru changed-line lint
+- **Miscellaneous**: Release Pit Guru 2.4.1 records and profile fixes
+
+
 
 
 
