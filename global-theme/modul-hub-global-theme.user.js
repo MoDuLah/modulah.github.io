@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         MoDuL Hub Global Theme
 // @namespace    modul.hub.global-theme
-// @version      0.2.10
+// @version      0.3.0
 // @description  One-place live palette, font, radius, unit-aware spacing, padding, margin, and compatibility controller for MoDuL Torn userscripts.
 // @author       MoDuL
 // @match        https://www.torn.com/*
@@ -19,7 +19,7 @@
 
   if (window.MoDuLHubGlobalTheme) return;
 
-  const VERSION = '0.2.10';
+  const VERSION = '0.3.0';
   const THEME_CONTRACT_VERSION = '1.1.0';
   const CSS_VAR_PREFIX = '--mh-';
   const STORAGE_KEY = 'modulHubGlobalTheme.v2';
@@ -609,6 +609,7 @@
   }
 
   const SCRIPT_TARGETS = Object.freeze([
+    { id: 'mate', name: 'M.A.T.E. Award Tracker', short: 'M.A.T.E.', selectors: ['#mate-alpha-host', '.mate-alpha-host', '[data-mate-root]'], defaultAccent: '#d7ff3f' },
     { id: 'eggsterminator', name: 'EggsTerminator', short: 'Eggs', selectors: ['.eeh-float', '.eeh-panel', '[id^="eeh-"]', '[class^="eeh-"]', '[class*=" eeh-"]'], defaultAccent: '#a7a7a7' },
     { id: 'landlordTenant', name: 'Tornfolio', short: 'Tornfolio', selectors: ['.tlt-shell', '.tlt-panel', '[id^="tlt-"]', '[class^="tlt-"]', '[class*=" tlt-"]'], defaultAccent: '#2f8b96' },
     { id: 'bountyLedger', name: "MoDuL's Bounty Ledger", short: 'Bounty', selectors: ['.mbl-shell', '.mbl-panel', '[id^="mbl-"]', '[class^="mbl-"]', '[class*=" mbl-"]', '.bounty-ledger'], defaultAccent: '#e5bd54' },
