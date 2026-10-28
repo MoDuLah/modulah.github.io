@@ -300,6 +300,13 @@
 
 - **Miscellaneous**: Fix hub timeline and Pit Guru access
 
+## v2.4.1 (2026-10-28)
+
+### Miscellaneous
+
+- **Miscellaneous**: Release Pit Guru 2.4.1 records and profile fixes
+
+
 
 
 
