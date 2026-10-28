@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         MoDuL's Pit Guru
 // @namespace    modul.torn.racing
-// @version      2.4.0
+// @version      2.4.1
 // @description  Live Torn race timing, gaps, sectors, speed and estimated telemetry analysis
 // @author       MoDuL
 // @copyright    2026 MoDuL. All rights reserved.
@@ -51,6 +51,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
             crashed: row.crashed === true, dnf: row.dnf === true || row.crashed === true,
             carInstanceId: /^\d+$/.test(String(row.carInstanceId || "")) ? String(row.carInstanceId) : null,
             car: String(row.car || "Unknown").slice(0, 120),
+            carNickname: String(row.carNickname || "").trim().slice(0, 120),
             bestLapMs: number(row.bestLapMs) > 0 ? number(row.bestLapMs) : null,
             raceTimeMs: number(row.raceTimeMs) > 0 ? number(row.raceTimeMs) : null,
             points: number(row.points) >= 0 ? number(row.points) : null,
@@ -67,6 +68,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
                 for (const key of ["carInstanceId", "bestLapMs", "raceTimeMs", "points", "laps", "position"]) {
                     if (r[key] == null) r[key] = old[key];
                 }
+                if (!r.carNickname) r.carNickname = old.carNickname;
                 if (r.raceType === "unknown") r.raceType = old.raceType;
                 r.crashed ||= old.crashed;
                 r.dnf ||= old.dnf;
@@ -107,7 +109,12 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         const rank = key => {
             const groups = new Map();
             results.forEach(r => { const id=r[key]; if (!id) return; if (!groups.has(id)) groups.set(id,[]); groups.get(id).push(r); });
-            return [...groups].map(([id,list])=>({id,name:key==="carInstanceId"?list[0].car:id,...counts(list)}))
+            return [...groups].map(([id,list])=>({
+                id,
+                name:key==="carInstanceId"?list[0].car:id,
+                nickname:key==="carInstanceId"?(list.find(row=>row.carNickname)?.carNickname||""):"",
+                ...counts(list)
+            }))
                 .sort((a,b)=>b.wins-a.wins || b.podiums-a.podiums || b.entries-a.entries || String(a.id).localeCompare(String(b.id))).slice(0,5);
         };
         const bestLap = new Map(), bestRace = new Map();
@@ -873,7 +880,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         return bigRaceSafeModeStatus_();
     };
 
-    const MPG_VERSION = "2.4.0";
+    const MPG_VERSION = "2.4.1";
     const PREDICTION_MODEL_VERSION = "pit-guru-local-v2";
     var TAG = "[MoDuL's Pit Guru v" + MPG_VERSION + "]";
 
@@ -1564,6 +1571,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
     let pgPlayerCacheStatus = "";
     let pgPlayerCacheInFlightKeys = new Set();
     let pgPlayerCachedRaceKeys = new Set();
+    let pgPlayerFinalRefreshPending = new Map();
     let pgPlayerCacheNotificationKeys = new Set();
     let pgPlayerAvailabilityArmed = true;
     let pgPlayerReadyHighlightUntil = 0;
@@ -2337,6 +2345,7 @@ self.onmessage=event=>{const id=event.data&&event.data.id;try{const root=JSON.pa
         bigRaceProcessedSummaryCache.clear();
 
         pgPlayerCachedRaceKeys = new Set();
+        pgPlayerFinalRefreshPending = new Map();
         pgPlayerCacheNotificationKeys = new Set();
         pgLocalTrackRouteSavedKeys = new Set();
         pgLocalRaceIntelCache = null;
@@ -3016,6 +3025,7 @@ self.onmessage=event=>{const id=event.data&&event.data.id;try{const root=JSON.pa
         recordsUpdatedForAnalysisRaceId = "";
         localDbSyncedForAnalysisRaceId = "";
         pgPlayerCachedRaceKeys = new Set();
+        pgPlayerFinalRefreshPending = new Map();
         liveOrderCache = { key: "", value: [] };
         replayStateCache = { key: "", value: null };
         aggregateWorkerInFlightKey = "";
@@ -3799,8 +3809,9 @@ self.onmessage=event=>{const id=event.data&&event.data.id;try{const root=JSON.pa
             }
         }
         if (changed) {
+            patchDriverIntelDom_();
             const body = document.getElementById("mpgAnalysisBody");
-            if (body) body.dataset.renderKey = "";
+            if (body && (analysisMode === "predictions" || analysisMode === "driver")) body.dataset.renderKey = "";
         }
     }
 
@@ -4282,7 +4293,7 @@ self.onmessage=event=>{const id=event.data&&event.data.id;try{const root=JSON.pa
         const p = getRacePayload_(payload) || payload || {};
         const td = p?.timeData || {};
         const status = Number(td.status ?? td.stauts ?? td.state);
-        if (Number.isFinite(status) && status === 1) return true;
+        if (Number.isFinite(status)) return status === 3;
         const info = String(p?.info || p?.raceData?.info || "").trim();
         if (/\brace\s+(?:finished|complete|completed)\b/i.test(info) || /\bfinished\b/i.test(info)) return true;
         const log = extractRaceLogData_(p);
@@ -4339,6 +4350,7 @@ self.onmessage=event=>{const id=event.data&&event.data.id;try{const root=JSON.pa
             stats.duplicatePayloadsSkipped += 1;
             updateRaceDataLightweightFields_(state.payload || latestRaceDataPayload, payload);
             if (state.payload) latestRaceDataPayload = state.payload;
+            state.complete = state.complete || raceDataStatusFinished_(state.payload || payload);
             raceDataReceivedPerfMs = performance.now();
             raceDataCurrentTimeAtReceive = Number((state.payload || payload)?.timeData?.currentTime);
             state.warmRestored = false;
@@ -4351,7 +4363,7 @@ self.onmessage=event=>{const id=event.data&&event.data.id;try{const root=JSON.pa
         }
         state.signature = signature;
         state.accepted = true;
-        state.complete = raceDataUsableForAnalysis_(payload) || raceDataStatusFinished_(payload);
+        state.complete = raceDataStatusFinished_(payload);
         state.payload = payload;
         state.warmRestored = false;
         state.verifiedAt = Date.now();
@@ -4431,7 +4443,7 @@ self.onmessage=event=>{const id=event.data&&event.data.id;try{const root=JSON.pa
             const state = raceDataAcceptedState_(acceptedKey);
             state.signature = identity.signature;
             state.accepted = true;
-            state.complete = raceDataUsableForAnalysis_(payload) || raceDataStatusFinished_(payload);
+            state.complete = raceDataStatusFinished_(payload);
             state.payload = payload;
             state.warmRestored = true;
             state.verifiedAt = 0;
@@ -4525,6 +4537,9 @@ self.onmessage=event=>{const id=event.data&&event.data.id;try{const root=JSON.pa
 
     function pgPlayerCompactTransport_(payload, includeTrackIntervals = false) {
         const p = getRacePayload_(payload) || payload || {};
+        const meta = raceMetaFromPayload_(p, false);
+        const configuredLaps = extractLapsFromPayloadOrUi_(p);
+        const configuredType = raceTypeFromPayloadOrMeta_(p, "official");
         const decodedCars = {};
         let maxMillis = 0;
         for (const [name, encoded] of Object.entries(p?.cars || {})) {
@@ -4548,16 +4563,16 @@ self.onmessage=event=>{const id=event.data&&event.data.id;try{const root=JSON.pa
             carInfo[name] = compact;
         }
         const trackData = {
-            laps: p?.trackData?.laps ?? p?.laps
+            laps: configuredLaps
         };
-        if (p?.trackData?.name != null) trackData.name = p.trackData.name;
+        trackData.name = p?.trackData?.name ?? meta.track;
         if (includeTrackIntervals) trackData.intervals = Array.isArray(p?.trackData?.intervals) ? p.trackData.intervals : [];
         const logData = extractRaceLogData_(p);
         const compact = {
             _pitGuruTransport: "compact-replay-v2",
             raceID: directRaceIdFromPayload_(p),
             trackID: p?.trackID,
-            laps: p?.laps ?? p?.trackData?.laps,
+            laps: configuredLaps,
             carsEncoding: width === 2 ? "u16ms-b64-le-v1" : "u32ms-b64-le-v1",
             trackData,
             cars,
@@ -4566,13 +4581,22 @@ self.onmessage=event=>{const id=event.data&&event.data.id;try{const root=JSON.pa
         };
         for (const key of [
             "ID", "raceID", "raceId", "trackTitle", "title", "type", "laps",
-            "timeStarted", "TimeStarted", "timeEnded", "TimeEnded", "timeCreated", "TimeCreated",
+            "timeStarted", "TimeStarted", "timeCreated", "TimeCreated",
             "carsAllowed", "carsTypeAllowed", "betAmount", "currentDrivers", "userID"
         ]) {
             if (logData?.[key] != null) compact.logData[key] = logData[key];
         }
         for (const key of ["imageID", "imageId", "title", "trackName", "track", "type", "raceType", "race_type"]) {
             if (p?.[key] != null) compact[key] = p[key];
+        }
+        compact.raceType = configuredType;
+        compact.logData.laps = configuredLaps;
+        if (meta.track && compact.logData.trackTitle == null) compact.logData.trackTitle = meta.track;
+        if (compact.logData.type == null) compact.logData.type = configuredType;
+        if (meta.startedIso && compact.logData.timeStarted == null && compact.logData.TimeStarted == null) compact.logData.timeStarted = meta.startedIso;
+        if (raceDataStatusFinished_(p)) {
+            const ended = logData.timeEnded ?? logData.TimeEnded ?? meta.endedIso;
+            if (ended != null && ended !== "") compact.logData.timeEnded = ended;
         }
         return compact;
     }
@@ -4694,9 +4718,12 @@ self.onmessage=event=>{const id=event.data&&event.data.id;try{const root=JSON.pa
         }
         const key = raceDataPayloadKey_(p);
         const now = Date.now();
-        if (!opts.force && pgPlayerCachedRaceKeys.has(key)) return Promise.resolve(null);
-        if (!opts.force && key === pgPlayerCacheLastKey && now - pgPlayerCacheLastAt < 10000) return Promise.resolve(null);
-        if (!opts.force && pgPlayerCacheInFlightKeys.has(key)) return Promise.resolve(null);
+        if (!opts.force && !opts.finalRefresh && pgPlayerCachedRaceKeys.has(key)) return Promise.resolve(null);
+        if (!opts.force && !opts.finalRefresh && key === pgPlayerCacheLastKey && now - pgPlayerCacheLastAt < 10000) return Promise.resolve(null);
+        if (!opts.force && pgPlayerCacheInFlightKeys.has(key)) {
+            if (opts.finalRefresh) pgPlayerFinalRefreshPending.set(key, { payload: p, source });
+            return Promise.resolve({ ok: true, pending: true, reason: "final refresh queued" });
+        }
         pgPlayerCacheLastKey = key;
         pgPlayerCacheLastAt = now;
         pgPlayerCacheActive = true;
@@ -4754,7 +4781,7 @@ self.onmessage=event=>{const id=event.data&&event.data.id;try{const root=JSON.pa
             const raceIdBeforeUpload = directRaceIdFromPayload_(p);
             if (raceIdBeforeUpload) {
                 const existing = await pgPlayerHostedRaceExists_(raceIdBeforeUpload, session);
-                if (existing?.exists) {
+                if (existing?.exists && existing?.race?.complete === true) {
                     pgPlayerCacheStatus = `Race ID ${raceIdBeforeUpload} is already cached on the hosted player.`;
                     pgPlayerCachedRaceKeys.add(key);
                     if (autoNotify) notifyRaceUpload_(`upload-skip-existing:${raceIdBeforeUpload}`, pgPlayerCacheStatus);
@@ -4782,10 +4809,13 @@ self.onmessage=event=>{const id=event.data&&event.data.id;try{const root=JSON.pa
                 return result;
             }
             const raceId = String(result?.race?.raceId || directRaceIdFromPayload_(p) || "").trim();
-            pgPlayerCacheStatus = raceId ? `Cached Race ID ${raceId} in hosted player.` : "Cached race in hosted player.";
-            pgPlayerCachedRaceKeys.add(key);
+            const recordsComplete = result?.recordsIngest?.skipped === false && result?.recordsIngest?.ok !== false;
+            pgPlayerCacheStatus = recordsComplete
+                ? (raceId ? `Cached Race ID ${raceId} in hosted player and Records.` : "Cached race in hosted player and Records.")
+                : (raceId ? `Cached Race ID ${raceId}; waiting for the completed result before Records storage.` : "Cached replay snapshot; waiting for the completed result before Records storage.");
+            if (recordsComplete) pgPlayerCachedRaceKeys.add(key);
             if (result?.transport?.trackIntervalsStored) pgPlayerRememberHostedTrack_(trackTransportKey);
-            if (autoNotify) notifyRaceUpload_(`upload-ok:${key}`, raceId ? `Race upload complete: Race ID ${raceId} is cached on the hosted player.` : "Race upload complete: cached on the hosted player.");
+            if (autoNotify) notifyRaceUpload_(`upload-ok:${key}:${recordsComplete ? "records" : "snapshot"}`, pgPlayerCacheStatus);
             if (debugEnabled) console.log(TAG, "hosted player cached racingData", source, result?.race);
             return result;
         } catch (error) {
@@ -4796,6 +4826,11 @@ self.onmessage=event=>{const id=event.data&&event.data.id;try{const root=JSON.pa
         } finally {
             pgPlayerCacheInFlightKeys.delete(key);
             pgPlayerCacheActive = pgPlayerCacheInFlightKeys.size > 0;
+            const pending = pgPlayerFinalRefreshPending.get(key);
+            if (pending) {
+                pgPlayerFinalRefreshPending.delete(key);
+                setTimeout(() => pgPlayerCacheRaceData_(pending.payload, pending.source, { finalRefresh: true }).catch(() => {}), 0);
+            }
         }
     }
 
@@ -5537,7 +5572,7 @@ self.onmessage=event=>{const id=event.data&&event.data.id;try{const root=JSON.pa
         const direct = String(itemId || "").trim();
         if (/^\d+$/.test(direct)) return direct;
         const raw = String(url || "").trim().replace(/\\\//g, "/");
-        const match = raw.match(/\/(?:images\/items|assets\/cars)\/(\d+)(?:\/large)?\.png(?:[?#]|$)/i);
+        const match = raw.match(/\/(?:images\/items|assets\/cars)\/(\d+)(?:\/(?:small|medium|large))?\.png(?:[?#]|$)/i);
         return match ? match[1] : "";
     }
 
@@ -5954,6 +5989,10 @@ self.onmessage=event=>{const id=event.data&&event.data.id;try{const root=JSON.pa
                 preRaceSummaryStats.driversComplete = true;
             }
             if (maybeSkipDuplicateRaceDataPayload_(payload, payloadRid || pageRid || directCurrentRaceId)) {
+                const accepted = raceDataAcceptedState_(payloadRid || pageRid || directCurrentRaceId, false)?.payload || payload;
+                if (raceDataStatusFinished_(accepted)) {
+                    pgPlayerCacheRaceData_(accepted, `${source || "captured-racingData"}-completion`, { finalRefresh: true }).catch(() => {});
+                }
                 if (analysis) syncRaceMetaFromAnalysis_();
                 markDirty_({ status: true });
                 scheduleRender_();
@@ -11052,15 +11091,19 @@ img.carIcon{
 .mpg-profile-hero{display:grid;grid-template-columns:96px minmax(0,1fr);gap:16px;align-items:center;padding:16px;border:1px solid var(--border);border-radius:14px;background:linear-gradient(135deg,rgba(255,200,61,.10),rgba(255,255,255,.025) 48%,rgba(0,255,0,.035))}
 .mpg-profile-avatar{position:relative;width:96px;height:96px;display:grid;place-items:center;overflow:hidden;border:2px solid var(--accent);border-radius:18px;background:var(--pill);box-shadow:0 10px 28px rgba(0,0,0,.28);font-size:38px}
 .mpg-profile-avatar img{position:absolute;inset:0;display:block;width:100%;height:100%;max-width:none;object-fit:cover;object-position:center}
-.mpg-profile-identity{min-width:0}
-.mpg-profile-eyebrow{display:block;color:var(--accent);font-size:10px;font-weight:900;letter-spacing:.12em;text-transform:uppercase}
-.mpg-profile-identity h2{margin:3px 0 4px;color:var(--text);font-size:22px;line-height:1.15;overflow-wrap:anywhere}
+.mpg-profile-identity{min-width:0;container-type:inline-size}
+.mpg-profile-eyebrow{display:block;color:var(--accent);font-size:10px;font-weight:900;line-height:1.25;letter-spacing:.12em;text-transform:uppercase}
+.mpg-profile-identity>.mpg-profile-eyebrow{margin-bottom:5px}
+.mpg-profile-identity h2{margin:0 0 5px;color:var(--text);font-size:22px;line-height:1.15;overflow-wrap:anywhere}
 .mpg-profile-identity h2 span{color:var(--muted);font-size:.72em;font-weight:800}
 .mpg-profile-identity p{margin:0;color:var(--muted);font-size:12px}
-.mpg-profile-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+.mpg-profile-actions{display:flex;flex-wrap:wrap;gap:8px;max-width:100%;min-width:0;margin-top:12px}
+.mpg-profile-actions .pill{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-width:0;max-width:100%;overflow:hidden}
+.mpg-profile-action-glyph{flex:0 0 auto;font-size:14px;line-height:1}
+.mpg-profile-action-label{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .mpg-profile-section{padding:14px;border:1px solid var(--border);border-radius:12px;background:var(--panel);min-width:0}
-.mpg-profile-section-head{margin-bottom:10px}
-.mpg-profile-section-head h3{margin:2px 0 0;color:var(--text);font-size:15px}
+.mpg-profile-section-head{display:grid;gap:5px;margin-bottom:10px}
+.mpg-profile-section-head h3{margin:0;color:var(--text);font-size:15px;line-height:1.2}
 .mpg-profile-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px}
 .mpg-profile-stat{min-width:0;padding:10px 11px;border:1px solid var(--border);border-radius:10px;background:var(--pill);text-align:left}
 .mpg-profile-stat span{display:block;color:var(--muted);font-size:10px;font-weight:800;letter-spacing:.03em;text-transform:uppercase}
@@ -11070,16 +11113,15 @@ img.carIcon{
 .mpg-profile-scope b{color:var(--text)}
 .mpg-profile-status{margin:0;background:var(--pill);color:var(--text)}
 .mpg-profile-status.error{border-color:var(--red);color:var(--red)}
-.mpg-profile-track{min-width:180px}
-.mpg-profile-track summary{display:inline-flex;align-items:center;justify-content:center;gap:7px;color:var(--text);font-weight:800;cursor:pointer;list-style:none;text-decoration:underline;text-decoration-color:var(--accent);text-underline-offset:3px}
-.mpg-profile-track summary::-webkit-details-marker{display:none}
-.mpg-profile-track summary:hover,.mpg-profile-track summary:focus-visible{color:var(--accent);outline:none}
-.mpg-profile-track-hint{padding:2px 6px;border:1px solid var(--border);border-radius:999px;color:var(--muted);font-size:9px;font-weight:800;text-decoration:none}
-.mpg-profile-track[open] .mpg-profile-track-hint{color:var(--accent)}
-.mpg-profile-track-thumb{width:min(240px,70vw);margin:8px auto 2px;padding:5px;border:1px solid var(--border);border-radius:10px;background:var(--pill)}
-.mpg-profile-track-thumb img{display:block;width:100%;height:120px;object-fit:cover;border-radius:7px}
-.mpg-profile-race-link{color:var(--accent) !important;font-weight:900;text-decoration:underline;text-underline-offset:3px}
-.mpg-profile-race-link:hover,.mpg-profile-race-link:focus-visible{color:var(--green) !important;outline:none}
+.mpg-profile-track-thumb-link{display:inline-flex;width:72px;height:40px;align-items:center;justify-content:center;overflow:hidden;border:1px solid var(--border);border-radius:7px;background:var(--pill)}
+.mpg-profile-track-thumb-link img{display:block;width:100%;height:100%;object-fit:cover}
+.mpg-profile-track-thumb-link:hover,.mpg-profile-track-thumb-link:focus-visible{border-color:var(--accent);outline:none}
+.mpg-profile-race-link,.mpg-profile-car-link{color:var(--accent) !important;font-weight:900;text-decoration:underline;text-underline-offset:3px}
+.mpg-profile-race-link:hover,.mpg-profile-race-link:focus-visible,.mpg-profile-car-link:hover,.mpg-profile-car-link:focus-visible{color:var(--green) !important;outline:none}
+@container (max-width:360px){
+  .mpg-profile-action-label{display:none}
+  .mpg-profile-actions .pill{flex:0 0 38px;width:38px;height:36px;padding:0}
+}
 .mpg-empty-title{font-weight:900;font-size:15px;padding:2px 10px}
 .mpg-note{font-size:12px;line-height:1.35;margin:8px 10px;color:var(--muted)}
 .mpg-selected-row td{background:rgba(255,200,61,.08)}
@@ -11141,6 +11183,10 @@ img.carIcon{
   .mpg-garage-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}
   .mpg-garage-compare{min-width:680px}
   .mpg-gyro{grid-template-columns:1fr}
+}
+@container (max-width:360px){
+  .mpg-profile-action-label{display:none}
+  .mpg-profile-actions .pill{flex:0 0 38px;width:38px;height:36px;padding:0}
 }
 
 /* Body layout */
@@ -13777,7 +13823,8 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
         const catalog = garageCatalogByItem_().get(itemId) || {};
         const tornName = String(raw.car_item_name || raw.torn_name || raw.tornName || raw.carTitle || raw.car_title || catalog.torn_name || "").trim();
         const name = toOgCarName_(raw.car || raw.ogName || raw.og_name || raw.display_name || raw.displayName || catalog.name || tornName || (!raw.car_item_name ? raw.name : "") || "");
-        const nickname = String(raw.nickname || raw.car_name || raw.carName || (raw.car_item_name ? raw.name : "") || "").trim();
+        const hasCatalogName = !!(raw.car_item_name || raw.carItemName || raw.car_title || raw.carTitle || raw.torn_name || raw.tornName);
+        const nickname = String(raw.nickname || raw.car_name || raw.carName || (hasCatalogName ? (raw.Name || raw.name) : "") || "").trim();
         const enlistedCarId = String(raw.enlisted_car_id || raw.enlistedCarId || raw.id || raw.ID || raw.carID || raw.carId || "").trim();
         const imageUrl = carImageRenderUrls_(raw.image_url || raw.imageUrl || raw.carImg || raw.carImage || catalog.image_url || raw.hosted_image_url || raw.hostedImageUrl || catalog.hosted_image_url || catalog.hostedImageUrl, itemId).primary;
         const manufacturerFuelL100 = safeNum_(raw.fuel_l100km ?? raw.fuelL100Km ?? catalog.fuel_l100km ?? FUEL_BASE_L100KM[name] ?? FUEL_BASE_L100KM[toOgCarName_(tornName)], NaN);
@@ -14522,7 +14569,7 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
                 toast_("Upgrade: select an enlisted car first.");
                 return;
             }
-            const url = `https://www.torn.com/page.php?sid=racing&tab=parts&section=addParts&step=selectParts&id=${encodeURIComponent(enlistedId)}`;
+            const url = personalProfileCarUrl_(enlistedId);
             window.open(url, "_blank", "noopener,noreferrer");
             toast_(`Upgrade: opened parts selection for car ${enlistedId}.`);
             return;
@@ -14857,7 +14904,7 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
         if (!ownerId) return;
         if (personalProfileState_.ownerId!==ownerId) personalProfileState_={ownerId,data:null,error:"",loading:false,revision:0,attemptedAt:0};
         const state=personalProfileState_;
-        if (state.loading || (!force && Date.now()-state.attemptedAt<60000)) return;
+        if (state.loading || (!force && state.attemptedAt>0)) return;
         state.loading=true; state.error=""; state.attemptedAt=Date.now(); state.revision++;
         try {
             const data=await pgLocalApiRequest('/api/pit-guru/v1/drivers/profile',{}, {maxRetries:1,timeout:20000});
@@ -14881,12 +14928,27 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
         const wanted=String(track||"").trim().toLowerCase();
         return (pgLocalTracksCache.rows||[]).find(row=>String(row?.name||row?.Name||"").trim().toLowerCase()===wanted)||null;
     }
-    function personalProfileTrackImage_(track) {
+    function personalProfileTrackImage_(track, thumbnail=false) {
         const meta=personalProfileTrackMeta_(track);
         const direct=String(meta?.trackMap||meta?.trackmap||meta?.TrackMap||"").trim();
-        if (/^https?:\/\//i.test(direct)) return direct;
         const pictureId=String(meta?.pictureId||meta?.pictureid||meta?.PictureID||"").trim();
-        return /^\d+$/.test(pictureId)?`https://www.torn.com/casino/race/images/A${encodeURIComponent(pictureId)}.jpg`:"";
+        const full=/^https?:\/\//i.test(direct)
+            ? direct
+            : (/^\d+$/.test(pictureId)?`https://www.torn.com/casino/race/images/A${encodeURIComponent(pictureId)}.jpg`:"");
+        return thumbnail ? full.replace(/(\/A\d+)(?:_s)?\.jpg(?=($|[?#]))/i,"$1_s.jpg") : full;
+    }
+    function personalProfileCarUrl_(carInstanceId) {
+        const id=String(carInstanceId||"").trim();
+        if (!/^\d+$/.test(id)) return "";
+        const url=new URL("https://www.torn.com/page.php");
+        url.searchParams.set("sid","racing");
+        url.searchParams.set("tab","parts");
+        url.searchParams.set("section","addParts");
+        url.searchParams.set("step","selectParts");
+        url.searchParams.set("id",id);
+        const rfcv=currentRfcv_();
+        if (rfcv) url.searchParams.set("rfcv",rfcv);
+        return url.toString();
     }
     function connectPersonalRaceStats_() {
         const ownerId=personalProfileOwner_();
@@ -14939,20 +15001,28 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
         const time=r=>r?formatTimeSeconds_(r.bestLapMs/1000):"—";
         const html=value=>({html:String(value||"")});
         const cells=values=>`<tr>${values.map(v=>`<td>${v&&typeof v==="object"&&Object.hasOwn(v,"html")?v.html:esc_(v)}</td>`).join("")}</tr>`;
-        const carCell=r=>html(carComboCell_({car:r.name,carImg:carImageFromCatalog_(r.name)}));
-        const trackCell=name=>{
-            const image=personalProfileTrackImage_(name);
-            if (!image || !analysisImagesEnabled_()) return name;
-            return html(`<details class="mpg-profile-track"><summary><span>${esc_(name)}</span><span class="mpg-profile-track-hint">View map</span></summary><div class="mpg-profile-track-thumb"><img data-mpg-profile-track-image="1" src="${escAttr_(image)}" alt="${escAttr_(`${name} track map`)}" loading="lazy" decoding="async"></div></details>`);
+        const carCell=r=>{
+            const name=String(r.name||"Unknown");
+            const display=r.nickname?`${name} "${r.nickname}"`:name;
+            return html(carComboCell_({car:display,carImg:carImageFromCatalog_(name)}));
         };
-        const ranking=(list,label,car)=>renderTable_([car?"Car instance":"Track",...(car?["Car"]:[]),"Entries","Wins","Win ratio","1st / 2nd / 3rd","Podium ratio","DNFs"],list.map(r=>cells([car?`#${r.id}`:trackCell(r.name),...(car?[carCell(r)]:[]),n(r.entries),n(r.wins),ratio(r.wins,r.entries),`${r.first} / ${r.second} / ${r.third}`,ratio(r.podiums,r.entries),n(r.dnfs)])),"No recorded results yet.",label,car?{}:{helpText:"Select a track name to expand its map thumbnail."});
+        const trackMapCell=name=>{
+            const full=personalProfileTrackImage_(name), thumbnail=personalProfileTrackImage_(name,true);
+            if (!full || !thumbnail || !analysisImagesEnabled_()) return "—";
+            return html(`<a class="mpg-profile-track-thumb-link" href="${escAttr_(full)}" target="_blank" rel="noopener noreferrer" title="Open ${escAttr_(name)} track map"><img data-mpg-profile-track-image="1" src="${escAttr_(thumbnail)}" alt="${escAttr_(`${name} track thumbnail`)}" loading="lazy" decoding="async"></a>`);
+        };
+        const carInstanceCell=id=>{
+            const url=personalProfileCarUrl_(id);
+            return url?html(`<a class="mpg-profile-car-link" href="${escAttr_(url)}" target="_blank" rel="noopener noreferrer" title="Open car instance #${escAttr_(id)} in Torn">#${esc_(id)}</a>`):`#${id}`;
+        };
+        const ranking=(list,label,car)=>renderTable_(car?["Car instance","Car","Entries","Wins","Win ratio","1st / 2nd / 3rd","Podium ratio","DNFs"]:["Track","Map","Entries","Wins","Win ratio","1st / 2nd / 3rd","Podium ratio","DNFs"],list.map(r=>cells(car?[carInstanceCell(r.id),carCell(r),n(r.entries),n(r.wins),ratio(r.wins,r.entries),`${r.first} / ${r.second} / ${r.third}`,ratio(r.podiums,r.entries),n(r.dnfs)]:[r.name,trackMapCell(r.name),n(r.entries),n(r.wins),ratio(r.wins,r.entries),`${r.first} / ${r.second} / ${r.third}`,ratio(r.podiums,r.entries),n(r.dnfs)])),"No recorded results yet.",label,car?{}:{helpText:"Track thumbnails open the full Torn track map."});
         const raceLink=raceId=>html(`<a class="mpg-profile-race-link" href="${escAttr_(pgPlayerRaceUrl_(raceId))}" target="_blank" rel="noopener noreferrer" aria-label="Open Race ${escAttr_(raceId)} in Pit Guru">${esc_(raceId)}</a>`);
         const streaks=Object.entries(stats.streaks).map(([name,value])=>card(({win:"Win streak",podium:"Podium streak",nonWin:"Non-win streak",nonPodium:"Non-podium streak"})[name],n(value.current),`Best recorded: ${value.best}`)).join("");
         body.innerHTML=`<div class="mpg-card mpg-profile">
             <header class="mpg-profile-hero">
                 <div class="mpg-profile-avatar">${avatar?`<img src="${escAttr_(avatar)}" alt="${escAttr_(profile.display_name||intel.name||playerName||"User")} profile picture" loading="lazy" decoding="async">`:'<span aria-label="Profile picture unavailable">👤</span>'}</div>
                 <div class="mpg-profile-identity"><span class="mpg-profile-eyebrow">Personal racing profile</span><h2>${esc_(profile.display_name||intel.name||playerName||"Your profile")} <span>[${esc_(ownerId||"Unverified")}]</span></h2><p>Your lifetime Torn snapshot and the race history recorded by Pit Guru.</p>
-                    <div class="mpg-profile-actions"><button class="pill" id="mpgProfileRefresh">Refresh profile</button><button class="pill" id="mpgProfileConnect">Connect to Race//Stats</button></div>
+                    <div class="mpg-profile-actions"><button class="pill" id="mpgProfileRefresh" type="button" title="Refresh profile" aria-label="Refresh profile"><span class="mpg-profile-action-glyph" aria-hidden="true">↻</span><span class="mpg-profile-action-label">Refresh profile</span></button><button class="pill" id="mpgProfileConnect" type="button" title="Connect to Race//Stats" aria-label="Connect to Race//Stats"><span class="mpg-profile-action-glyph" aria-hidden="true">🔗</span><span class="mpg-profile-action-label">Connect to Race//Stats</span></button></div>
                 </div>
             </header>
             ${personalProfileState_.loading?'<div class="mpg-profile-status" role="status">Loading your stored history…</div>':""}
@@ -14967,7 +15037,7 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
         </div>`;
         body.querySelector('#mpgProfileRefresh').onclick=()=>{loadPersonalProfile_(true);loadPersonalProfileAssets_(true);uiDirty=true;scheduleRender_();};
         body.querySelector('#mpgProfileConnect').onclick=connectPersonalRaceStats_;
-        body.querySelectorAll('[data-mpg-profile-track-image]').forEach(img=>img.addEventListener('error',()=>img.closest('.mpg-profile-track-thumb')?.remove(),{once:true}));
+        body.querySelectorAll('[data-mpg-profile-track-image]').forEach(img=>img.addEventListener('error',()=>img.closest('.mpg-profile-track-thumb-link')?.remove(),{once:true}));
         setupAnalysisTableSort_(body);
     }
 
@@ -15197,6 +15267,14 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
             driver: renderDriverStatsMode_,
             predictions: renderPredictionsMode_
         }[analysisMode] || renderGapsMode_)(elapsed, canFull);
+        if (analysisMode === "laprec" && patchLapRecordingHtml_(body, html)) {
+            body.dataset.renderKey = renderKey;
+            updateAnalysisStageStatus_(body, elapsed, canFull);
+            patchDriverIntelDom_();
+            recordRenderInstrumentation_(false);
+            statusOnlyRenderPending = false;
+            return true;
+        }
         body.dataset.renderKey = renderKey;
         body.innerHTML = analysisStageHtml_(elapsed, canFull) + html;
         bindAnalysisBodyActions_(body);
@@ -15330,7 +15408,9 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
     }
 
     function driverRsCell_(d) {
-        return esc_(formatDriverRs_(d?.racingSkill).replace(/^RS:\s*/i, ""));
+        const id = String(d?.driverId || "").trim();
+        const name = String(d?.name || d?.driverIntel?.name || "").trim();
+        return `<span class="mpg-driver-rs-value" data-mpg-driver-rs="plain" data-driver-id="${escAttr_(id)}" data-driver-name="${escAttr_(name)}">${esc_(formatDriverRs_(d?.racingSkill).replace(/^RS:\s*/i, ""))}</span>`;
     }
 
     function carCell_(d) {
@@ -15356,7 +15436,28 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
     }
 
     function driverWithRsCell_(d) {
-        return `<span class="mpg-driver-rs">${driverNameCell_(d)} <span class="muted">(${esc_(driverRsText_(d))})</span></span>`;
+        const id = String(d?.driverId || "").trim();
+        const name = String(d?.name || d?.driverIntel?.name || "").trim();
+        return `<span class="mpg-driver-rs">${driverNameCell_(d)} <span class="muted mpg-driver-rs-value" data-mpg-driver-rs="paren" data-driver-id="${escAttr_(id)}" data-driver-name="${escAttr_(name)}">(${esc_(driverRsText_(d))})</span></span>`;
+    }
+
+    function patchDriverIntelDom_() {
+        const body = document.getElementById("mpgAnalysisBody");
+        if (!body || !analysis?.drivers?.length) return 0;
+        let changed = 0;
+        body.querySelectorAll("[data-mpg-driver-rs]").forEach(el => {
+            const id = String(el.getAttribute("data-driver-id") || "").trim();
+            const name = String(el.getAttribute("data-driver-name") || "").trim();
+            const driver = analysis.drivers.find(d => driverIdentityMatches_(d, id, name));
+            if (!driver) return;
+            const value = driverRsText_(driver);
+            const text = el.getAttribute("data-mpg-driver-rs") === "paren" ? `(${value})` : value;
+            if (el.textContent !== text) {
+                el.textContent = text;
+                changed++;
+            }
+        });
+        return changed;
     }
 
     function raceEndPositionIcon_(position, canFull) {
@@ -15960,12 +16061,57 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
                 const v = visibleDriverLapTime_(d, lapNumber, elapsed, canFull);
                 return `<td class="${lapCellClass(d, v)}">${Number.isFinite(v) ? formatTimeSeconds_(v) : missingLapText_()}</td>`;
             }).join("");
-            return `<tr${focusRowDataAttrs_(d)}><td data-sort="${pos}">${pos}</td><td>${carComboCell_(d)}</td><td><span class="mpg-driver-rs">${driverNameCell_(d)}</span></td><td class="mono">${driverRsCell_(d)}</td><td class="${currentCls}">${currentLapText}</td>${lapCells}</tr>`;
+            const driverKey = analysisAggregateDriverKey_(d, pos - 1);
+            return `<tr data-mpg-laprec-key="${escAttr_(driverKey)}"${focusRowDataAttrs_(d)}><td data-sort="${pos}">${pos}</td><td>${carComboCell_(d)}</td><td><span class="mpg-driver-rs">${driverNameCell_(d)}</span></td><td class="mono">${driverRsCell_(d)}</td><td class="${currentCls}">${currentLapText}</td>${lapCells}</tr>`;
         });
         const lapNote = isWindowedLaps
             ? `<div class="mpg-note">Large race protection: showing ${visibleLapNumbers.length}/${lapCount} lap columns (${visibleLapNumbers[0]}-${visibleLapNumbers[visibleLapNumbers.length - 1]}). Full lap data is still kept internally/exportable.</div>`
             : "";
         return `${focusedWindowNote_(rowWin, "Lap Recording")}${lapNote}${renderTable_(headers, rows, "Waiting for decoded lap data...", "Lap Recording", { windowed: rowWin.windowed })}`;
+    }
+
+    function patchLapRecordingHtml_(body, html) {
+        if (!body || typeof document?.createElement !== "function") return false;
+        const syncAttributes = (current, next) => {
+            for (const attr of Array.from(current.attributes || [])) {
+                if (!next.hasAttribute(attr.name)) current.removeAttribute(attr.name);
+            }
+            for (const attr of Array.from(next.attributes || [])) {
+                if (current.getAttribute(attr.name) !== attr.value) current.setAttribute(attr.name, attr.value);
+            }
+        };
+        const currentBlock = Array.from(body.querySelectorAll(".mpg-table-block")).find(block => block.querySelector(".mpg-table-label-text")?.textContent === "Lap Recording");
+        if (!currentBlock) return false;
+        const holder = document.createElement("div");
+        holder.innerHTML = String(html || "");
+        const nextBlock = Array.from(holder.querySelectorAll(".mpg-table-block")).find(block => block.querySelector(".mpg-table-label-text")?.textContent === "Lap Recording");
+        const currentTable = currentBlock.querySelector("table");
+        const nextTable = nextBlock?.querySelector("table");
+        const currentBody = currentTable?.tBodies?.[0];
+        const nextBody = nextTable?.tBodies?.[0];
+        if (!currentTable || !nextTable || !currentBody || !nextBody) return false;
+        const currentHeaders = Array.from(currentTable.tHead?.rows?.[0]?.cells || []).map(cell => cell.textContent).join("\u0001");
+        const nextHeaders = Array.from(nextTable.tHead?.rows?.[0]?.cells || []).map(cell => cell.textContent).join("\u0001");
+        if (currentHeaders !== nextHeaders) return false;
+        const currentRows = new Map(Array.from(currentBody.rows).map(row => [String(row.getAttribute("data-mpg-laprec-key") || ""), row]));
+        const nextRows = Array.from(nextBody.rows);
+        const nextKeys = nextRows.map(row => String(row.getAttribute("data-mpg-laprec-key") || ""));
+        if (nextKeys.some(key => !key) || currentRows.size !== nextRows.length || nextKeys.some(key => !currentRows.has(key))) return false;
+        const manuallySorted = !!currentTable.querySelector("th.sort-asc,th.sort-desc");
+        for (const nextRow of nextRows) {
+            const key = String(nextRow.getAttribute("data-mpg-laprec-key") || "");
+            const currentRow = currentRows.get(key);
+            if (!currentRow || currentRow.cells.length !== nextRow.cells.length) return false;
+            syncAttributes(currentRow, nextRow);
+            for (let index = 0; index < nextRow.cells.length; index++) {
+                const currentCell = currentRow.cells[index];
+                const nextCell = nextRow.cells[index];
+                syncAttributes(currentCell, nextCell);
+                if (currentCell.innerHTML !== nextCell.innerHTML) currentCell.innerHTML = nextCell.innerHTML;
+            }
+            if (!manuallySorted) currentBody.appendChild(currentRow);
+        }
+        return true;
     }
 
     function driverSegmentSpeedMps_(d, index) {
@@ -17570,7 +17716,9 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
             } else {
                 activeRecTbody.innerHTML = top.map((r, i) => {
                     const imgUrl = r.carImg || carImageFromCatalog_(r.car);
-                    const imgCell = imgUrl ? `<img class="carIcon" src="${escAttr_(imgUrl)}" alt="" loading="lazy" decoding="async">` : `<div class="carIcon" aria-hidden="true"></div>`;
+                    const itemId = carImageItemId_(imgUrl);
+                    const recordImgUrl = itemId ? `https://www.torn.com/images/items/${encodeURIComponent(itemId)}/medium.png` : imgUrl;
+                    const imgCell = recordImgUrl ? optionalImageTag_(recordImgUrl, "carIcon", "", itemId) : `<div class="carIcon" aria-hidden="true"></div>`;
                     const drv = (r.driverName || r.driverId || "—");
                     const displayRs = recordDisplayRacingSkill_(r);
                     const rs = displayRs == null ? "--" : formatDriverRs_(displayRs).replace(/^RS:\s*/i, "");

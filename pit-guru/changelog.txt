@@ -1,3 +1,14 @@
+## v2.4.1 (2026-10-28)
+
+- Promote completed custom-race results into Records even when Pit Guru cached an earlier snapshot of the same Race ID.
+- Keep Torn's pre-race status and scheduled end time from being mistaken for a completed race.
+- Update Lap Recording cells in place and preserve horizontal scroll and manual sorting.
+- Fill visible Driver Intel RS cells immediately instead of waiting for a tab change.
+- Stop periodic Profile reloads; repair header spacing and compact action controls.
+- Show lightweight track thumbnails and every car instance's API-provided custom `Name`.
+- Link car instances to Torn's parts selector with the current RFCV value.
+- Normalize legacy Records car images to Torn's medium item thumbnails.
+
 ## v2.4.0 (2026-10-10)
 
 - Expanded the quick tour from six broad pages to 21 focused steps covering every analysis section and the main Pit Guru controls.
