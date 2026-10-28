@@ -306,6 +306,14 @@
 
 - **Miscellaneous**: Release Pit Guru 2.4.1 records and profile fixes
 
+## v2.4.1 (2026-10-28)
+
+### Miscellaneous
+
+- **Miscellaneous**: Fix Pit Guru changed-line lint
+- **Miscellaneous**: Release Pit Guru 2.4.1 records and profile fixes
+
+
 
 
 
