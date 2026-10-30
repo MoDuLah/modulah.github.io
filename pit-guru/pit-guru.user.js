@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         MoDuL's Pit Guru
 // @namespace    modul.torn.racing
-// @version      2.4.2
+// @version      2.4.3
 // @description  Live Torn race timing, gaps, sectors, speed and estimated telemetry analysis
 // @author       MoDuL
 // @copyright    2026 MoDuL. All rights reserved.
@@ -881,7 +881,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
         return bigRaceSafeModeStatus_();
     };
 
-    const MPG_VERSION = "2.4.2";
+    const MPG_VERSION = "2.4.3";
     const PIT_GURU_GREASYFORK_SCRIPT_ID = 578342;
     const PIT_GURU_GREASYFORK_API_URL = "https://api.greasyfork.org/en/scripts/578342.json";
     const PIT_GURU_GREASYFORK_PAGE_URL = "https://greasyfork.org/en/scripts/578342-modul-s-pit-guru";
@@ -1793,6 +1793,7 @@ Unauthorized copying, modification, redistribution, or commercial use is prohibi
     let recordsRaceType = "official"; // "official" or "custom"
     let recordsMineOnly = false;
     let recordsTrack = "";
+    const recordsRenderedMarkup_ = new WeakMap();
 
 
     let spectateName = "";
@@ -3437,6 +3438,15 @@ self.onmessage=event=>{const id=event.data&&event.data.id;try{const root=JSON.pa
         }
         const intel = getCachedDriverIntel_(rowId, 24 * 7) || getCachedDriverIntelByName_(row?.driverName || row?.driver_name || "", 24 * 7);
         return positive(intel?.racingSkill);
+    }
+
+    function setRecordsTableMarkup_(tbody, markup) {
+        if (!tbody) return false;
+        const nextMarkup = String(markup || "");
+        if (recordsRenderedMarkup_.get(tbody) === nextMarkup) return false;
+        tbody.innerHTML = nextMarkup;
+        recordsRenderedMarkup_.set(tbody, nextMarkup);
+        return true;
     }
 
     function currentRecordsFetchOptions_() {
@@ -5714,9 +5724,11 @@ self.onmessage=event=>{const id=event.data&&event.data.id;try{const root=JSON.pa
         let original = "";
         try {
             const parsed = new URL(normalized);
-            if (parsed.protocol === "https:" && (parsed.hostname === "torn.com" || parsed.hostname.endsWith(".torn.com"))) original = normalized;
+            const tornHost = parsed.hostname === "torn.com" || parsed.hostname.endsWith(".torn.com");
+            const retiredCarAsset = /^\/assets\/cars\/\d+\.png$/i.test(parsed.pathname);
+            if (parsed.protocol === "https:" && tornHost && !retiredCarAsset) original = normalized;
         } catch { }
-        // Convert older hosted/cache URLs back to Torn too, regardless of endpoint mode.
+        // Convert older hosted/cache and retired Torn /assets/cars URLs back to item images.
         const torn = id ? `https://www.torn.com/images/items/${encodeURIComponent(id)}/large.png` : "";
         return { primary: original || torn, fallback: original && torn !== original ? torn : "" };
     }
@@ -17792,7 +17804,7 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
         const activeRecMineOnlyInput = recordsDetached ? recPopMineOnlyInput : recMineOnlyInput;
         if (recordsOpen && activeRecTbody && activeRecTrackSel && activeRecModeSel && !recordsLoaded) {
             scheduleDeferredStartupCaches_("records-panel");
-            activeRecTbody.innerHTML = `<tr><td colspan="9" class="muted">Loading saved records...</td></tr>`;
+            setRecordsTableMarkup_(activeRecTbody, `<tr><td colspan="9" class="muted">Loading saved records...</td></tr>`);
         } else if (recordsOpen && activeRecTbody && activeRecTrackSel && activeRecModeSel) {
             pgLocalEnsureTracks_().catch(() => { });
             const mode = recordsMode;
@@ -17843,9 +17855,10 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
                 const msg = pgLocalRecordsCache.loading && pgLocalRecordsMatch_(mode, track)
                     ? "Loading records..."
                     : "No records for this track yet.";
-                activeRecTbody.innerHTML = `<tr><td colspan="9" class="muted">${esc_(msg)}</td></tr>`;
+                setRecordsTableMarkup_(activeRecTbody, `<tr><td colspan="9" class="muted">${esc_(msg)}</td></tr>`);
             } else {
-                activeRecTbody.innerHTML = top.map((r, i) => {
+                const playerAccess = pgPitGuruPlayerAccessState_();
+                const recordsMarkup = top.map((r, i) => {
                     const imgUrl = r.carImg || carImageFromCatalog_(r.car);
                     const itemId = carImageItemId_(imgUrl);
                     const recordImgUrl = itemId ? `https://www.torn.com/images/items/${encodeURIComponent(itemId)}/medium.png` : imgUrl;
@@ -17854,7 +17867,6 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
                     const displayRs = recordDisplayRacingSkill_(r);
                     const rs = displayRs == null ? "--" : formatDriverRs_(displayRs).replace(/^RS:\s*/i, "");
                     const recRid = String(r.raceId || "").trim();
-                    const playerAccess = pgPitGuruPlayerAccessState_();
                     const raceCell = recRid
                         ? (playerAccess.allowed
                             ? `<a class="recRaceLink" href="${escAttr_(pgPlayerRaceUrl_(recRid))}" target="_blank" rel="noopener noreferrer" title="Open in Pit Guru Player">${esc_(recRid)}</a>`
@@ -17873,6 +17885,7 @@ h3{margin:16px 18px 0;font-size:15px}.table-scroll{overflow:auto;max-height:72vh
             <td class="recAct">${actionCell}</td>
           </tr>`;
                 }).join("");
+                setRecordsTableMarkup_(activeRecTbody, recordsMarkup);
             }
         }
 
