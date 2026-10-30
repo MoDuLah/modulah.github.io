@@ -39,6 +39,14 @@
 - **Miscellaneous**: Align Restore OG public metadata
 - **Miscellaneous**: Publish Restore OG Names 1.3.3
 
+## v1.3.3 (2026-10-30)
+
+### Miscellaneous
+
+- **Miscellaneous**: Align Restore OG public metadata
+- **Miscellaneous**: Publish Restore OG Names 1.3.3
+
+
 
 
 
