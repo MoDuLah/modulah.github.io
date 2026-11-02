@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Tornfolio — Property, Lease & ROI Manager
 // @namespace    MoDuL.torn.tornfolio
-// @version      0.9.0
+// @version      0.9.2
 // @description  Manage your Torn property portfolio, rentals, market pricing, archive, and ROI.
 // @author       MoDuL
 // @copyright    2026 MoDuL. All rights reserved.
@@ -23,8 +23,9 @@
   "use strict";
 
   const APP_ID = "tf-ledger";
-  const APP_VERSION = "0.9.0";
+  const APP_VERSION = "0.9.2";
   const UPKEEP_REMINDER_INTERVAL_MS = 24 * 60 * 60 * 1000;
+  const SUBSCRIPTION_COUNTDOWN_REFRESH_MS = 60 * 1000;
   const STORE_KEY = "tornfolio:v1";
   const LEGACY_STORE_KEYS = ["tornLandlordTenantLedger:v1"];
   const API_BASE = "https://api.torn.com/v2";
@@ -206,6 +207,8 @@
     showAdvancedTools: false,
     allowDirectTornFallback: true,
     upkeepOwnerSharePercent: 50,
+    subscriptionReminderEnabled: true,
+    subscriptionReminderDays: 7,
   };
 
   const emptyState = {
@@ -294,6 +297,7 @@
   let tornUpkeepPropertyIds = new Set();
   let tornUpkeepObserver = null;
   let tornUpkeepScanQueued = false;
+  let subscriptionCountdownTimer = null;
 
   function loadState() {
     let sourceKey = STORE_KEY;
@@ -1132,6 +1136,16 @@
     const end = new Date(`${endDate}T00:00:00`);
     if (Number.isNaN(end.getTime())) return "";
     return Math.max(0, Math.ceil((end - today) / 86400000));
+  }
+
+  function tfContractHasEnded(contract, now = Date.now()) {
+    const endDate = clean(contract && (contract.endDate || contract.end_date), "").slice(0, 10);
+    if (!endDate) return false;
+    const end = new Date(`${endDate}T00:00:00`);
+    const today = new Date(now);
+    if (Number.isNaN(end.getTime()) || Number.isNaN(today.getTime())) return false;
+    today.setHours(0, 0, 0, 0);
+    return end.getTime() < today.getTime();
   }
 
   function makeId(seed) {
@@ -5280,6 +5294,11 @@
         tfIsActiveContract(contract) &&
         !tfIsHouseholdOccupancyContract(contract, propertyMap.get(contract.propertyKey), spouse)
     );
+    const expiredOutgoingPropertyKeys = new Set(
+      contracts
+        .filter((contract) => contract.direction === "out" && tfContractHasEnded(contract))
+        .map((contract) => contract.propertyKey)
+    );
     for (const contract of activeRentals) {
       const property = propertyMap.get(contract.propertyKey);
       if (
@@ -5293,6 +5312,9 @@
 
     for (const property of propertyMap.values()) {
       property.lifecycle = lifecycleByProperty.get(property.id) || null;
+      property.rentalContractExpired = Boolean(
+        !property.activeContract && expiredOutgoingPropertyKeys.has(property.key)
+      );
       const override = propertyActionOverrides.get(property.id) || {};
       property.managementPendingSync = Boolean(override.managementPendingSync);
       const listingState = tfResolvePropertyListingState(property, property.lifecycle, override);
@@ -5341,7 +5363,7 @@
             (property.ownership === "spouse" &&
               property.rentalIncomeEvidence &&
               property.rentalIncomeEvidence.estimatedContract &&
-              isLeasedToOther(property.raw))
+              tfHasBlockingRawRental(property))
           ? "rented"
           : property.listed
             ? "listed"
@@ -5523,7 +5545,17 @@
     }
     const property = propertyMap.get(propertyKey);
     const role = leaseRoleGroup(lease);
-    const status = normalizeLeaseStatus(lease.status, lease.roleHint || lease.source, lease.tenant);
+    const endDate = lease.endDate || lease.end_date || "";
+    const normalizedStatus = normalizeLeaseStatus(
+      lease.status,
+      lease.roleHint || lease.source,
+      lease.tenant
+    );
+    const status =
+      tfContractHasEnded({ endDate }) &&
+      !["ended", "expired", "sold", "for_rent"].includes(normalizedStatus)
+        ? "expired"
+        : normalizedStatus;
     const direction =
       role === "tenant" || ["leased", "rent_from"].includes(status) ? "from" : "out";
     const ownership = property
@@ -5544,10 +5576,11 @@
       rentalIncomeEvidence.estimatedContract
         ? rentalIncomeEvidence
         : null;
-    const remaining =
-      lease.remainingDays !== "" && lease.remainingDays !== undefined
+    const remaining = endDate
+      ? remainingDaysFromEnd(endDate)
+      : lease.remainingDays !== "" && lease.remainingDays !== undefined
         ? Number(lease.remainingDays)
-        : remainingDaysFromEnd(lease.endDate);
+        : "";
     return {
       contractId: contractIdentity(lease),
       propertyKey,
@@ -5569,7 +5602,7 @@
       duration: directDuration || positiveNumber(evidenceFallback && evidenceFallback.durationDays),
       incomeEvidence: evidenceFallback,
       startDate: lease.startDate || lease.start_date || "",
-      endDate: lease.endDate || lease.end_date || "",
+      endDate,
       remaining: Number.isFinite(remaining) ? remaining : "",
       notes: clean(lease.notes, ""),
       extensionCount: positiveNumber(lease.extensionCount || lease.extension_count),
@@ -5583,6 +5616,7 @@
   }
 
   function tfIsActiveContract(contract) {
+    if (tfContractHasEnded(contract)) return false;
     if (!contract || ["ended", "expired", "sold", "for_rent"].includes(contract.status))
       return false;
     if (["rented", "leased", "rent_to", "rent_from"].includes(contract.status)) return true;
@@ -5613,6 +5647,8 @@
   function tfNormalizeArchive(row) {
     const propertyId = String(row.property_id || row.propertyId || row.id || "");
     const role = clean(row.role || row.roleHint, "owner").toLowerCase();
+    const tenant = tfArchiveUser(row, "tenant");
+    const owner = tfArchiveUser(row, "owner");
     return {
       ...row,
       propertyId,
@@ -5625,8 +5661,12 @@
         : role.includes("tenant") || role.includes("renter") || role.includes("leased from")
           ? "third-party"
           : "mine",
-      owner: clean(row.owner || row.landlord, ""),
-      tenant: clean(row.renter || row.tenant, ""),
+      owner: owner.label,
+      ownerId: owner.id,
+      ownerName: owner.name,
+      tenant: tenant.label,
+      tenantId: tenant.id,
+      tenantName: tenant.name,
       daily: moneyNumber(row.per_day || row.dailyAmount || row.cost_per_day),
       total: moneyNumber(row.total || row.amount || row.cost),
       startDate: row.start_date || row.startDate || "",
@@ -5639,6 +5679,34 @@
       completionReason: clean(row.completion_reason || row.completionReason, ""),
       image: row.property_image || propertyImageUrl(row.property_type || row.property),
     };
+  }
+
+  function tfArchiveUser(row, kind) {
+    const isTenant = kind === "tenant";
+    const rawValue = isTenant
+      ? row.renter || row.tenant || row.rented_by
+      : row.owner || row.landlord;
+    const rawLabel = userName(rawValue);
+    const parsed = splitUserLabel(rawLabel);
+    const directId = isTenant
+      ? row.renter_id || row.renterId || row.tenant_id || row.tenantId
+      : row.owner_id || row.ownerId || row.landlord_id || row.landlordId;
+    const id = clean(directId || userRecordId(rawValue), parsed.id);
+    const name = clean(
+      isTenant
+        ? row.renter_name || row.renterName || row.tenant_name || row.tenantName
+        : row.owner_name || row.ownerName || row.landlord_name || row.landlordName,
+      parsed.name
+    );
+    return { id, name, label: userLabelFromParts(name, id) || rawLabel };
+  }
+
+  function tfTornProfileLink(label, id = "") {
+    const parsed = splitUserLabel(label);
+    const userId = clean(id, parsed.id);
+    const userLabel = userLabelFromParts(parsed.name, userId) || clean(label, "Unavailable");
+    if (!/^\d+$/.test(userId)) return escapeHtml(userLabel);
+    return `<a class="tf-profile-link" href="https://www.torn.com/profiles.php?XID=${escapeAttr(userId)}" target="_blank" rel="noopener noreferrer" aria-label="Open ${escapeAttr(userLabel)}'s Torn profile">${escapeHtml(userLabel)}</a>`;
   }
 
   function tfNormalizeSuggestion(row, properties) {
@@ -6109,7 +6177,8 @@
         property.upkeepActionAvailable
     );
     const controlledRentals = model.activeRentals.filter(
-      (contract) => contract.ownership === "mine" && scope !== "spouse"
+      (contract) =>
+        contract.ownership === "mine" && scope !== "spouse" && tfIsActiveContract(contract)
     );
     const soon = controlledRentals.filter(
       (contract) =>
@@ -6205,6 +6274,105 @@
     return `<span class="tf-update-status is-checking" role="status" data-tf-tooltip="Checking GreasyFork for a newer Tornfolio release"><i class="tf-update-dot" aria-hidden="true"></i><span>Checking…</span></span>`;
   }
 
+  function subscriptionReminderDays(value = null) {
+    const selected = Number(value === null ? appSettings().subscriptionReminderDays : value);
+    return [1, 3, 7, 14, 30].includes(selected)
+      ? selected
+      : DEFAULT_SETTINGS.subscriptionReminderDays;
+  }
+
+  function subscriptionReminderDaysOptionsHtml(selected = null) {
+    const current = subscriptionReminderDays(selected);
+    return [
+      [1, "1 day"],
+      [3, "3 days"],
+      [7, "7 days"],
+      [14, "14 days"],
+      [30, "30 days"],
+    ]
+      .map(
+        ([days, label]) =>
+          `<option value="${days}"${current === days ? " selected" : ""}>${label}</option>`
+      )
+      .join("");
+  }
+
+  function subscriptionCountdownInfo(
+    info = subscriptionStatusInfo(),
+    now = Date.now(),
+    settings = appSettings()
+  ) {
+    if (!settings || settings.subscriptionReminderEnabled === false) return null;
+    const expiresAt = clean(info && info.expiresAt, "");
+    const expiresMs = Date.parse(expiresAt);
+    const inactiveWithoutExpiry = info && info.state === "inactive" && !Number.isFinite(expiresMs);
+    if (!Number.isFinite(expiresMs) && !inactiveWithoutExpiry) return null;
+
+    const reminderDays = subscriptionReminderDays(settings.subscriptionReminderDays);
+    const remainingMs = Number.isFinite(expiresMs) ? expiresMs - Number(now) : 0;
+    const expired = inactiveWithoutExpiry || remainingMs <= 0;
+    const inactive = Boolean(info && info.state === "inactive");
+    const formattedExpiry = Number.isFinite(expiresMs)
+      ? new Date(expiresMs).toLocaleString()
+      : "the last access check";
+
+    if (expired || inactive) {
+      return {
+        state: "expired",
+        className: "is-expired",
+        label: inactiveWithoutExpiry ? "Pass inactive" : "Pass expired",
+        title: `Tornfolio access ${inactiveWithoutExpiry ? "is inactive" : `expired ${formattedExpiry}`}. Click for renewal options.`,
+        expiresAt,
+        remainingMs,
+        reminderDays,
+      };
+    }
+
+    const hours = Math.max(1, Math.ceil(remainingMs / (60 * 60 * 1000)));
+    const days = Math.max(1, Math.ceil(remainingMs / (24 * 60 * 60 * 1000)));
+    const label = remainingMs < 24 * 60 * 60 * 1000 ? `Pass ${hours}h` : `Pass ${days}d`;
+    const due = remainingMs <= reminderDays * 24 * 60 * 60 * 1000;
+    return {
+      state: due ? "due" : "active",
+      className: due ? "is-due" : "is-active",
+      label,
+      title: `Tornfolio access expires ${formattedExpiry}${due ? ". Click to extend it." : "."}`,
+      expiresAt,
+      remainingMs,
+      reminderDays,
+    };
+  }
+
+  function tfSubscriptionCountdownHtml() {
+    const countdown = subscriptionCountdownInfo();
+    if (!countdown) return "";
+    return `<button class="tf-subscription-countdown ${escapeAttr(countdown.className)}" type="button" data-action="open-subscription-settings" data-subscription-countdown aria-label="${escapeAttr(countdown.title)}" data-tf-tooltip="${escapeAttr(countdown.title)}">${tfIcon("calendar")}<span>${escapeHtml(countdown.label)}</span></button>`;
+  }
+
+  function refreshSubscriptionCountdownNodes() {
+    const countdown = subscriptionCountdownInfo();
+    const documents = [document];
+    if (popupWindow && !popupWindow.closed && popupWindow.document)
+      documents.push(popupWindow.document);
+    documents.forEach((targetDocument) => {
+      const node = targetDocument.querySelector(`#${APP_ID} [data-subscription-countdown]`);
+      if (!node || !countdown) return;
+      node.className = `tf-subscription-countdown ${countdown.className}`;
+      node.setAttribute("aria-label", countdown.title);
+      node.dataset.tfTooltip = countdown.title;
+      const label = node.querySelector("span");
+      if (label) label.textContent = countdown.label;
+    });
+  }
+
+  function startSubscriptionCountdownTimer() {
+    if (subscriptionCountdownTimer || typeof setInterval !== "function") return;
+    subscriptionCountdownTimer = setInterval(
+      refreshSubscriptionCountdownNodes,
+      SUBSCRIPTION_COUNTDOWN_REFRESH_MS
+    );
+  }
+
   function tfShellHtml(model, isPopup) {
     const upkeepAlertCount = model.properties.filter(
       (property) =>
@@ -6222,6 +6390,7 @@
           <div class="tf-header-actions">
             <div class="tf-sync-meta" role="status" aria-label="${escapeAttr(`Last synced ${state.lastSyncAt ? new Date(state.lastSyncAt).toLocaleString() : "not yet"}`)}" data-tf-tooltip="${escapeAttr(`Last synced ${state.lastSyncAt ? new Date(state.lastSyncAt).toLocaleString() : "not yet"}`)}"><i class="tf-sync-dot is-${escapeAttr(state.syncState || "idle")}"></i><span>Last synced<strong>${state.lastSyncAt ? escapeHtml(new Date(state.lastSyncAt).toLocaleString()) : "Not yet"}</strong></span></div>
             <button class="tf-sync-button tf-responsive-icon" type="button" data-action="refresh-user-details" aria-label="${escapeAttr(syncLabel)}" data-tf-tooltip="${escapeAttr(syncLabel)}"${state.syncState === "syncing" ? " disabled" : ""}>${tfIcon("sync")}<span class="tf-button-label">${state.syncState === "syncing" ? "Syncing…" : "Sync Now"}</span></button>
+            ${tfSubscriptionCountdownHtml()}
             ${tfUpdateButtonHtml()}
             <button class="tf-icon-button" type="button" data-action="open-settings" aria-label="Open settings" data-tf-tooltip="Open settings">${tfIcon("settings")}</button>
             ${isPopup ? `<button class="tf-icon-button" type="button" data-action="close-popup" aria-label="Close popup" data-tf-tooltip="Close popup">${tfIcon("close")}</button>` : `<button class="tf-icon-button" type="button" data-action="open-popup" aria-label="Open in popup" data-tf-tooltip="Open in popup">${tfIcon("external")}</button><button class="tf-icon-button" type="button" data-action="hide-panel" aria-label="Hide Tornfolio" data-tf-tooltip="Hide Tornfolio">${tfIcon("minimize")}</button>`}
@@ -6233,7 +6402,7 @@
         ${state.settingsOpen ? tfSettingsModalHtml() : ""}
         ${state.detailView ? tfDetailModalHtml(model, isPopup) : ""}
         ${propertyAction && !isPopup ? tfPropertyActionModalHtml(model) : ""}
-        <footer class="tf-footer"><div class="tf-footer-brand">${tfIcon("logo")}<strong>Tornfolio</strong><small>Portfolio &amp; Rental Management</small></div><nav aria-label="Tornfolio information"><button type="button" data-action="open-info" data-info-view="help">Help &amp; Support</button><button type="button" data-action="open-info" data-info-view="privacy">Privacy Policy</button><button type="button" data-action="open-info" data-info-view="terms">Terms of Service</button><button type="button" data-action="open-info" data-info-view="changelog" aria-label="View Tornfolio ${escapeAttr(APP_VERSION)} changelog">v${escapeHtml(APP_VERSION)}</button></nav></footer>
+        <footer class="tf-footer"><div class="tf-footer-brand">${tfIcon("logo")}<strong>Tornfolio</strong><small>Portfolio &amp; Rental Management</small></div><nav aria-label="Tornfolio information"><button type="button" data-action="open-info" data-info-view="tutorial">Quick tutorial</button><button type="button" data-action="open-info" data-info-view="help">Help &amp; Support</button><button type="button" data-action="open-info" data-info-view="privacy">Privacy Policy</button><button type="button" data-action="open-info" data-info-view="terms">Terms of Service</button><button type="button" data-action="open-info" data-info-view="changelog" aria-label="View Tornfolio ${escapeAttr(APP_VERSION)} changelog">v${escapeHtml(APP_VERSION)}</button></nav></footer>
         ${tfSyncProgressHtml()}
         <div class="tf-status tf-toast ${state.syncProgress ? "is-suppressed" : ""} ${state.syncState && state.syncState !== "idle" ? "is-visible" : ""} ${state.syncState === "error" ? "is-error" : ""}" aria-live="polite">${escapeHtml(state.syncMessage || "")}</div>
       </div>
@@ -6666,7 +6835,10 @@
   function tfArchiveCard(row) {
     const endedAgo = row.endDate ? tfArchiveElapsedLabel(row.endDate) : "";
     const completionReason = tfMeaningfulCompletionReason(row.completionReason);
-    return `<article class="tf-archive-card">${row.image ? `<img src="${escapeAttr(row.image)}" alt="">` : `<div class="tf-image-placeholder">${tfIcon("archive")}</div>`}<div class="tf-archive-property"><h2>${escapeHtml(row.property)}${row.propertyId && !row.property.includes(row.propertyId) ? ` <small>#${escapeHtml(row.propertyId)}</small>` : ""}</h2><div class="tf-badges">${tfStatusBadge(/sold/i.test(row.status) ? "sold" : "expired")}${tfOwnershipBadge(row.ownership)}${row.extensionCount ? `<span class="tf-badge tf-badge-info">${tfNumber(row.extensionCount)} extension${Number(row.extensionCount) === 1 ? "" : "s"}</span>` : ""}</div>${completionReason ? `<small>${escapeHtml(completionReason)}</small>` : ""}</div><div class="tf-archive-facts"><span><b>${row.tenant ? "Tenant" : "Owner"}</b><strong>${escapeHtml(row.tenant || row.owner || "Unavailable")}</strong></span><span><b>Rent / Day</b><strong>${escapeHtml(tfMoney(row.daily))}</strong></span><span><b>Total Contract</b><strong>${escapeHtml(tfMoney(row.total))}</strong></span><span><b>Started</b><strong>${escapeHtml(tfDate(row.startDate))}</strong></span></div><div class="tf-archive-ended"><span>Ended</span><strong>${escapeHtml(tfDate(row.endDate))}</strong>${endedAgo ? `<b>${escapeHtml(endedAgo)}</b>` : ""}<small>${escapeHtml(row.status)}</small></div><div class="tf-card-actions"><button class="tf-responsive-icon" type="button" data-action="open-property" data-property-key="${escapeAttr(row.propertyId ? `property:${row.propertyId}` : "")}" aria-label="View property" data-tf-tooltip="View property">${tfIcon("properties")}<span class="tf-button-label">View Property</span></button><button class="tf-primary tf-responsive-icon" type="button" data-action="open-archive" data-contract-id="${escapeAttr(row.contractId)}" aria-label="View archive details" data-tf-tooltip="View archive details">${tfIcon("archive")}<span class="tf-button-label">View Details</span></button></div></article>`;
+    const hasTenant = Boolean(row.tenant || row.tenantId);
+    const partyLabel = hasTenant ? row.tenant : row.owner;
+    const partyId = hasTenant ? row.tenantId : row.ownerId;
+    return `<article class="tf-archive-card">${row.image ? `<img src="${escapeAttr(row.image)}" alt="">` : `<div class="tf-image-placeholder">${tfIcon("archive")}</div>`}<div class="tf-archive-property"><h2>${escapeHtml(row.property)}${row.propertyId && !row.property.includes(row.propertyId) ? ` <small>#${escapeHtml(row.propertyId)}</small>` : ""}</h2><div class="tf-badges">${tfStatusBadge(/sold/i.test(row.status) ? "sold" : "expired")}${tfOwnershipBadge(row.ownership)}${row.extensionCount ? `<span class="tf-badge tf-badge-info">${tfNumber(row.extensionCount)} extension${Number(row.extensionCount) === 1 ? "" : "s"}</span>` : ""}</div>${completionReason ? `<small>${escapeHtml(completionReason)}</small>` : ""}</div><div class="tf-archive-facts"><span><b>${hasTenant ? "Tenant" : "Owner"}</b><strong>${tfTornProfileLink(partyLabel || "Unavailable", partyId)}</strong></span><span><b>Rent / Day</b><strong>${escapeHtml(tfMoney(row.daily))}</strong></span><span><b>Total Contract</b><strong>${escapeHtml(tfMoney(row.total))}</strong></span><span><b>Started</b><strong>${escapeHtml(tfDate(row.startDate))}</strong></span></div><div class="tf-archive-ended"><span>Ended</span><strong>${escapeHtml(tfDate(row.endDate))}</strong>${endedAgo ? `<b>${escapeHtml(endedAgo)}</b>` : ""}<small>${escapeHtml(row.status)}</small></div><div class="tf-card-actions"><button class="tf-responsive-icon" type="button" data-action="open-property" data-property-key="${escapeAttr(row.propertyId ? `property:${row.propertyId}` : "")}" aria-label="View property" data-tf-tooltip="View property">${tfIcon("properties")}<span class="tf-button-label">View Property</span></button><button class="tf-primary tf-responsive-icon" type="button" data-action="open-archive" data-contract-id="${escapeAttr(row.contractId)}" aria-label="View archive details" data-tf-tooltip="View archive details">${tfIcon("archive")}<span class="tf-button-label">View Details</span></button></div></article>`;
   }
 
   function tfInsightsHtml(model) {
@@ -6787,6 +6959,7 @@
     const keyMask = maskedApiKey();
     return `<div class="tf-modal-backdrop" data-action="close-settings"><div class="tf-modal tf-settings-modal" role="dialog" aria-modal="true" aria-label="Tornfolio settings" data-modal-stop><div class="tf-modal-head"><div><strong>Settings</strong><span>Account, market, data and advanced controls.</span></div><button class="tf-icon-button" type="button" data-action="close-settings" aria-label="Close settings">${tfIcon("close")}</button></div><div class="tf-settings-body">
       <section><h2>Account / Torn API</h2><p>Your public Torn key is used to verify your account and fetch portfolio data.</p><label>Torn public key<input type="text" data-api-key-input placeholder="${keyMask ? "Paste a new key to replace the saved key" : "Paste key here"}" autocomplete="off" spellcheck="false"></label>${keyMask ? `<small>Saved key: ${escapeHtml(keyMask)}</small>` : `<small>No key saved.</small>`}${subscriptionStatusHtml()}<div class="tf-button-row"><button class="tf-primary" type="button" data-action="save-api-key">Save Key</button><button type="button" data-action="check-key">Test Key</button><button type="button" data-action="verify-hosted-access">Check Subscription</button><button class="tf-danger" type="button" data-action="clear-key">Clear Key</button></div></section>
+      ${subscriptionReminderSettingsHtml(settings)}
       <section><h2>Household upkeep</h2><p>Choose the target share for the property owner and their spouse. This changes Tornfolio's balance comparison only; it never pays upkeep automatically.</p><label>Upkeep split<select data-setting-field="upkeepOwnerSharePercent">${upkeepSplitOptionsHtml()}</select></label><small>The ratio moves in 10% steps from Owner 0% / Spouse 100% to Owner 100% / Spouse 0%.</small></section>
       <section><h2>Market &amp; ROI</h2><label>Target annual ROI %<input type="number" min="0.1" max="500" step="0.1" data-setting-field="targetAnnualRoi" value="${escapeAttr(targetAnnualRoi())}"></label><label>Suggested lease duration (days)<input type="number" min="1" max="100" step="1" data-setting-field="defaultSuggestionLeaseDays" value="${escapeAttr(defaultSuggestionLeaseDays())}"></label></section>
       <section><h2>Data / Sync</h2><label>Torn call speed<select data-setting-field="tornRateLimitPerMinute">${tornRateLimitOptionsHtml()}</select></label><label>Property history depth<select data-setting-field="propertyHistoryPages">${propertyHistoryPagesOptionsHtml()}</select></label><label class="tf-check"><input type="checkbox" data-setting-field="allowDirectTornFallback"${settings.allowDirectTornFallback ? " checked" : ""}><span>Use direct Torn fallback if the hosted sync is unavailable</span></label></section>
@@ -6982,7 +7155,7 @@
     }
     if (kind === "remove") return property.listed ? "" : "This property is not shown as listed.";
     if (kind === "rent" || kind === "sale" || kind === "give") {
-      if (rentedOut || isLeasedToOther(property.raw))
+      if (rentedOut || tfHasBlockingRawRental(property))
         return "A rented property cannot be listed, sold, or given away.";
       if (property.listed) return "Remove the current listing before managing this property.";
       return "";
@@ -7219,7 +7392,7 @@
       content = property.extensionPending
         ? `<p>An extension offer is already pending for this rental.</p><div class="tf-button-row"><button type="button" data-action="open-property-action" data-property-action="upkeep" data-property-key="${escapeAttr(property.key)}">Check upkeep</button></div>`
         : `<p>Offer the current tenant extra paid days or check the property's outstanding upkeep.</p><div class="tf-button-row"><button class="tf-primary" type="button" data-action="open-property-action" data-property-action="extend" data-property-key="${escapeAttr(property.key)}">Offer extension</button><button type="button" data-action="open-property-action" data-property-action="upkeep" data-property-key="${escapeAttr(property.key)}">Check upkeep</button></div>`;
-    } else if (isLeasedToOther(property.raw)) {
+    } else if (tfHasBlockingRawRental(property)) {
       content = `<p>Torn reports this property as rented, but the active contract is not available yet. Sync before changing its rental details.</p><div class="tf-button-row"><button type="button" data-action="open-property-action" data-property-action="upkeep" data-property-key="${escapeAttr(property.key)}">Check upkeep</button></div>`;
     } else {
       const suggestion = tfSuggestionForProperty(model, property);
@@ -7938,6 +8111,11 @@
 
   function tfInfoModalHtml(view) {
     const views = {
+      tutorial: {
+        title: "Tornfolio quick tutorial",
+        subtitle: "The complete feature tour in a few minutes",
+        body: `<section><h2>1. Connect and sync</h2><ol class="tf-info-list"><li>Open <strong>Settings</strong>, save a public Torn API key, and press <strong>Check Subscription</strong>.</li><li>Press <strong>Sync Now</strong>. Hosted sync rebuilds your profile, owned/current/spouse properties, rentals, property-log history, archive, and rental/sale comparisons.</li><li>If hosted access is unavailable, the direct fallback can refresh current Torn details, but it cannot rebuild hosted history or market comparisons.</li></ol></section><section><h2>2. Know every screen</h2><ul class="tf-info-list"><li><strong>Dashboard:</strong> current home, separate My/Spouse totals, active rentals, upkeep or contract attention, and recent activity.</li><li><strong>Properties:</strong> owned, spouse-owned, and rented-from homes with status, residents, happiness, upgrades, upkeep, value, and lifecycle details.</li><li><strong>Rentals:</strong> active renting-out and renting-from contracts with dates, total/daily rent, remaining days, estimates, and extension status.</li><li><strong>Market:</strong> hosted rental and sale comparables, closest listings, price position, confidence, suggested rent, and projected ROI.</li><li><strong>Archive:</strong> completed contracts reconstructed from saved records and Torn property logs.</li><li><strong>Insights:</strong> occupancy, income, property values/types, contract durations, lifecycle evidence, top properties, and the observed household upkeep balance.</li></ul></section><section><h2>3. Manage property safely</h2><p>Open an eligible owned property to list it for rent or sale, offer it directly to a Torn user, remove a listing, extend a tenancy, give or sell the property, buy from the Estate Agent, check/pay upkeep, or change facilities and staff. Tornfolio first builds or requests a review; a separate final click is always required. Property-changing controls work only on the active foreground Torn properties page and stay read-only in the detached popup.</p></section><section><h2>4. Pricing, upkeep and history</h2><ul class="tf-info-list"><li>Rental and extension forms can use <strong>Market</strong>, <strong>ROI</strong>, or both; you can still edit the final total before review.</li><li><strong>Check upkeep</strong> reads the current balance, cash and Torn's recent payer rows. Tornfolio retains observed rows, compares the configured Owner/Spouse split, and never pays automatically.</li><li>Property Journey keeps purchases, moves, upgrades, listings, offers, contracts, extensions, payments, sales, and other supported log events distinct. Missing log permission is shown as unknown instead of invented history.</li></ul></section><section><h2>5. Settings, portability and access</h2><ul class="tf-info-list"><li>Choose the ROI target, suggested lease days, household upkeep split, Torn call speed, history depth, direct fallback, table size, and panel position.</li><li><strong>Download Backup</strong> preserves portfolio records, archive/history snapshots, settings, upkeep observations, and investment overrides without exporting API keys or hosted sessions. CSV exports cover property/rental and suggestion tables.</li><li>The header checks for GreasyFork updates and can show a gentle TF pass countdown. Inside the chosen reminder window it turns amber; after expiry it links back to renewal guidance in Settings.</li></ul><div class="tf-button-row"><button class="tf-primary" type="button" data-action="open-subscription-settings">Open subscription settings</button><a class="tf-link-button" href="${escapeAttr(DISCORD_INVITE_URL)}" target="_blank" rel="noopener noreferrer">Open MoDuL's Hub</a></div></section>`,
+      },
       help: {
         title: "Help & Support",
         subtitle: "Get help with Tornfolio",
@@ -7956,7 +8134,7 @@
       changelog: {
         title: `Tornfolio ${APP_VERSION}`,
         subtitle: "Release notes",
-        body: `<section><h2>Version ${escapeHtml(APP_VERSION)}</h2><ul class="tf-info-list"><li>Adds a household-upkeep dropdown in Settings with Owner / Spouse ratios from 0% / 100% through 100% / 0% in 10% steps.</li><li>Uses the selected ratio for daily targets, contribution differences and the observed-payment settlement while leaving Torn payments fully manual.</li></ul></section><section><h2>Previous update</h2><p>Version 0.8.9 made the recent upkeep ledger compact, retained every observed row, synced stable payment events between devices and moved Torn PDA persistence to its native per-script storage.</p></section><section><h2>Updates</h2><p>Tornfolio checks GreasyFork for a newer release when it opens. The header status tells you whether this version is current.</p><a class="tf-link-button" href="${escapeAttr(GREASYFORK_PAGE_URL)}" target="_blank" rel="noopener noreferrer">View Tornfolio on GreasyFork</a></section>`,
+        body: `<section><h2>Version ${escapeHtml(APP_VERSION)}</h2><ul class="tf-info-list"><li>Expired rentals now leave Ending soon and stop blocking the property, making it available for a new listing as soon as the contract has ended.</li><li>The archive now resolves tenant names where Torn history provides only an ID and links each displayed name and ID to that player's Torn profile.</li><li>Adds a gentle TF pass countdown to the header, with a configurable reminder window and clear expired state.</li><li>Adds renewal guidance and a direct MoDuL's Hub link in Settings so access can be extended before or after expiry.</li><li>Adds a built-in quick tutorial covering every main screen, property actions, pricing, upkeep, history, backup, updates, and access.</li></ul></section><section><h2>Previous update</h2><p>Version 0.9.0 added configurable Owner / Spouse upkeep splits and applied them to daily targets, contribution differences, and settlement guidance without automating payments.</p></section><section><h2>Updates</h2><p>Tornfolio checks GreasyFork for a newer release when it opens. The header status tells you whether this version is current.</p><a class="tf-link-button" href="${escapeAttr(GREASYFORK_PAGE_URL)}" target="_blank" rel="noopener noreferrer">View Tornfolio on GreasyFork</a></section>`,
       },
     };
     const selected = views[view] || views.help;
@@ -7981,7 +8159,9 @@
       ? `<section><h2>Spouse income estimate</h2><p class="tf-action-note">Torn did not expose the spouse's private contract amount. This uses the last observed asking rent, not a confirmed contract rate.</p></section>`
       : "";
     const completionReason = tfMeaningfulCompletionReason(contract.completionReason);
-    return `<div class="tf-modal-backdrop" data-action="close-detail"><div class="tf-modal tf-detail-modal" role="dialog" aria-modal="true" aria-label="Rental details" data-modal-stop><div class="tf-modal-head"><div><strong>${escapeHtml(title)}</strong><span>${escapeHtml(contract.property)}</span></div><button class="tf-icon-button" type="button" data-action="close-detail" aria-label="Close rental details">${tfIcon("close")}</button></div><div class="tf-detail-body">${contract.image ? `<img class="tf-detail-image" src="${escapeAttr(contract.image)}" alt="">` : ""}<div class="tf-badges">${tfOwnershipBadge(contract.ownership, contract.direction === "from")}${tfStatusBadge(title.startsWith("Archived") ? "expired" : "active")}${contract.dailyEstimated ? `<span class="tf-badge tf-badge-warning">Last listing estimate</span>` : contract.extensionCount ? `<span class="tf-badge tf-badge-info">Extended ×${tfNumber(contract.extensionCount)}</span>` : ""}</div><div class="tf-detail-grid"><div><span>Property ID</span><strong>${escapeHtml(contract.propertyId || "Unavailable")}</strong></div><div><span>${contract.direction === "out" ? "Tenant" : "Owner"}</span><strong>${escapeHtml(contract.direction === "out" ? contract.tenant : contract.owner)}</strong></div><div><span>${contract.dailyEstimated ? "Estimated rent / day" : "Rent / Day"}</span><strong>${escapeHtml(tfRentAmount(contract.daily, contract.dailyEstimated))}</strong></div><div><span>${contract.totalEstimated ? "Last listed total" : "Total Contract"}</span><strong>${escapeHtml(tfRentAmount(contract.total, contract.totalEstimated))}</strong></div><div><span>Start Date</span><strong>${escapeHtml(tfDate(contract.startDate))}</strong></div><div><span>End Date</span><strong>${escapeHtml(tfDate(contract.endDate))}</strong></div><div><span>Duration</span><strong>${contract.duration !== "" ? `${tfNumber(contract.duration)} days` : "Unavailable"}</strong></div><div><span>Remaining</span><strong>${contract.remaining !== "" ? `${tfNumber(contract.remaining)} days` : "Finished / unavailable"}</strong></div><div><span>Extension status</span><strong>${escapeHtml(contract.extensionStatus || "None recorded")}</strong></div><div><span>Extension days</span><strong>${contract.extensionDays ? `${tfNumber(contract.extensionDays)} days` : "None recorded"}</strong></div></div>${estimatedNote}${completionReason ? `<section><h2>Completion</h2><p>${escapeHtml(completionReason)}</p></section>` : ""}${contract.notes ? `<section><h2>Notes</h2><p>${escapeHtml(contract.notes)}</p></section>` : ""}<div class="tf-button-row">${extensionAction}${contract.propertyKey ? `<button type="button" data-action="open-property" data-property-key="${escapeAttr(contract.propertyKey)}">View Property</button>` : ""}</div></div></div></div>`;
+    const counterpartyLabel = contract.direction === "out" ? contract.tenant : contract.owner;
+    const counterpartyId = contract.direction === "out" ? contract.tenantId : contract.ownerId;
+    return `<div class="tf-modal-backdrop" data-action="close-detail"><div class="tf-modal tf-detail-modal" role="dialog" aria-modal="true" aria-label="Rental details" data-modal-stop><div class="tf-modal-head"><div><strong>${escapeHtml(title)}</strong><span>${escapeHtml(contract.property)}</span></div><button class="tf-icon-button" type="button" data-action="close-detail" aria-label="Close rental details">${tfIcon("close")}</button></div><div class="tf-detail-body">${contract.image ? `<img class="tf-detail-image" src="${escapeAttr(contract.image)}" alt="">` : ""}<div class="tf-badges">${tfOwnershipBadge(contract.ownership, contract.direction === "from")}${tfStatusBadge(title.startsWith("Archived") ? "expired" : "active")}${contract.dailyEstimated ? `<span class="tf-badge tf-badge-warning">Last listing estimate</span>` : contract.extensionCount ? `<span class="tf-badge tf-badge-info">Extended ×${tfNumber(contract.extensionCount)}</span>` : ""}</div><div class="tf-detail-grid"><div><span>Property ID</span><strong>${escapeHtml(contract.propertyId || "Unavailable")}</strong></div><div><span>${contract.direction === "out" ? "Tenant" : "Owner"}</span><strong>${tfTornProfileLink(counterpartyLabel, counterpartyId)}</strong></div><div><span>${contract.dailyEstimated ? "Estimated rent / day" : "Rent / Day"}</span><strong>${escapeHtml(tfRentAmount(contract.daily, contract.dailyEstimated))}</strong></div><div><span>${contract.totalEstimated ? "Last listed total" : "Total Contract"}</span><strong>${escapeHtml(tfRentAmount(contract.total, contract.totalEstimated))}</strong></div><div><span>Start Date</span><strong>${escapeHtml(tfDate(contract.startDate))}</strong></div><div><span>End Date</span><strong>${escapeHtml(tfDate(contract.endDate))}</strong></div><div><span>Duration</span><strong>${contract.duration !== "" ? `${tfNumber(contract.duration)} days` : "Unavailable"}</strong></div><div><span>Remaining</span><strong>${contract.remaining !== "" ? `${tfNumber(contract.remaining)} days` : "Finished / unavailable"}</strong></div><div><span>Extension status</span><strong>${escapeHtml(contract.extensionStatus || "None recorded")}</strong></div><div><span>Extension days</span><strong>${contract.extensionDays ? `${tfNumber(contract.extensionDays)} days` : "None recorded"}</strong></div></div>${estimatedNote}${completionReason ? `<section><h2>Completion</h2><p>${escapeHtml(completionReason)}</p></section>` : ""}${contract.notes ? `<section><h2>Notes</h2><p>${escapeHtml(contract.notes)}</p></section>` : ""}<div class="tf-button-row">${extensionAction}${contract.propertyKey ? `<button type="button" data-action="open-property" data-property-key="${escapeAttr(contract.propertyKey)}">View Property</button>` : ""}</div></div></div></div>`;
   }
 
   function tfMissingDetailModal(title, text) {
@@ -8299,6 +8479,8 @@
       #${APP_ID} .tf-archive-facts { display: grid; grid-template-columns: 1fr 1fr; gap: 5px 12px; border-left: 1px solid rgba(74,122,143,.2); }
       #${APP_ID} .tf-archive-facts span, #${APP_ID} .tf-archive-ended { display: grid; gap: 2px; }
       #${APP_ID} .tf-archive-facts b, #${APP_ID} .tf-archive-ended span { color: var(--tf-muted); font-size: 10px; }
+      #${APP_ID} .tf-profile-link { color: var(--tf-teal); text-decoration: none; overflow-wrap: anywhere; }
+      #${APP_ID} .tf-profile-link:hover, #${APP_ID} .tf-profile-link:focus-visible { color: var(--tf-text); text-decoration: underline; }
       #${APP_ID} .tf-archive-ended { align-content: center; border-left: 1px solid rgba(74,122,143,.2); }
       #${APP_ID} .tf-archive-ended b { margin-top: 5px; color: var(--tf-red); }
       #${APP_ID} .tf-archive-card > .tf-card-actions { grid-area: actions; display: grid; grid-template-columns: minmax(0, 1fr); align-content: center; align-items: stretch; gap: 8px; }
@@ -11002,6 +11184,10 @@
     );
   }
 
+  function tfHasBlockingRawRental(property) {
+    return Boolean(property && !property.rentalContractExpired && isLeasedToOther(property.raw));
+  }
+
   function isForRent(property) {
     const status = clean(property && property.status, "").toLowerCase();
     return status === "for_rent" || status === "for rent" || status === "listed";
@@ -12034,6 +12220,12 @@
     ]
       .filter(Boolean)
       .join(" | ");
+    const renewalCommand =
+      info.state === "active" ? "/renewlicense" : "/renewlicense or /buylicense";
+    const renewalLabel = info.state === "active" ? "Extend access" : "Get or renew access";
+    const renewal = !["missing-key", "missing-user", "unchecked"].includes(info.state)
+      ? `<div class="tf-subscription-renewal"><a class="tf-link-button${info.state === "inactive" ? " tf-primary" : ""}" href="${escapeAttr(DISCORD_INVITE_URL)}" target="_blank" rel="noopener noreferrer">${escapeHtml(renewalLabel)}</a><small>In MoDuL's Hub, run <code>${escapeHtml(renewalCommand)}</code>, choose Tornfolio and follow the private payment steps.</small></div>`
+      : "";
     return `
       <div class="tf-subscription ${escapeAttr(info.className)}">
         <span>Subscription check</span>
@@ -12041,8 +12233,14 @@
         <p>${escapeHtml(info.message)}</p>
         ${details ? `<small>${escapeHtml(details)}</small>` : ""}
         ${info.checkedAt ? `<small>Checked ${escapeHtml(new Date(info.checkedAt).toLocaleString())}</small>` : ""}
+        ${renewal}
       </div>
     `;
+  }
+
+  function subscriptionReminderSettingsHtml(settings = appSettings()) {
+    const enabled = settings.subscriptionReminderEnabled !== false;
+    return `<section><h2>Subscription reminders</h2><p>Keep a small TF pass countdown in the header. It stays muted while access is healthy, turns amber inside your reminder window, and shows when the pass has expired.</p><label class="tf-check"><input type="checkbox" data-setting-field="subscriptionReminderEnabled"${enabled ? " checked" : ""}><span>Show the gentle header countdown</span></label><label>Highlight before expiry<select data-setting-field="subscriptionReminderDays"${enabled ? "" : " disabled"}>${subscriptionReminderDaysOptionsHtml(settings.subscriptionReminderDays)}</select></label><small>The countdown uses the expiry returned by the latest subscription check. After extending access in Discord, press <strong>Check Subscription</strong> to refresh it immediately.</small></section>`;
   }
 
   function subscriptionStatusInfo() {
@@ -12087,8 +12285,10 @@
       entitlement.plan || entitlement.product || entitlement.name || entitlement.tier || "";
     const expiresAt = entitlement.expires_at || entitlement.expiresAt || entitlement.expiry || "";
     const checkedAt = state.lastSubscriptionCheckAt;
+    const expiryMs = Date.parse(expiresAt);
+    const expired = Number.isFinite(expiryMs) && expiryMs <= Date.now();
 
-    if (active) {
+    if (active && !expired) {
       return {
         state: "active",
         label: "Subscriber",
@@ -12102,12 +12302,13 @@
       };
     }
 
-    if (inactive) {
+    if (inactive || expired) {
       return {
         state: "inactive",
-        label: "Not subscribed",
-        message:
-          "The bot needs to grant Tornfolio access for this Torn user before financial suggestions will work.",
+        label: expired ? "Subscription expired" : "Not subscribed",
+        message: expired
+          ? "Direct Torn details remain available, but hosted history and market comparisons need renewed access."
+          : "The bot needs to grant Tornfolio access for this Torn user before financial suggestions will work.",
         className: "is-blocked",
         isSubscribed: false,
         userId,
@@ -13051,6 +13252,12 @@
       rentalExtensionOfferDays,
       propertyPricingDaily,
       rentalListingCalculation,
+      tfContractHasEnded,
+      tfNormalizeContract,
+      tfIsActiveContract,
+      tfNormalizeArchive,
+      tfArchiveCard,
+      tfTornProfileLink,
       tfResolvePropertyListingState,
       spouseListingSnapshotsAfterFetch,
       spouseRentalEvidenceForProperty,
@@ -13079,6 +13286,7 @@
     state = loadState();
     refreshTornUpkeepMarkers(document, false);
     render();
+    startSubscriptionCountdownTimer();
     observeTornUpkeepMarkers();
     void primeIconCache();
     void checkForUpdates();
